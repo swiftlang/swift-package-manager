@@ -14,8 +14,10 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
 
+import class TSCUtility.MultiLinePercentProgressAnimation
+import enum TSCUtility.Diagnostics
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
@@ -78,7 +80,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             xcbuildPath = xcodeDirectory.appending(RelativePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild"))
         }
 
-        guard localFileSystem.exists(xcbuildPath) else {
+        guard fileSystem.exists(xcbuildPath) else {
             throw StringError("xcbuild executable at '\(xcbuildPath)' does not exist or is not executable")
         }
     }
@@ -86,7 +88,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public func build(subset: BuildSubset) throws {
         let pifBuilder = try getPIFBuilder()
         let pif = try pifBuilder.generatePIF()
-        try localFileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
+        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
 
         var arguments = [
             xcbuildPath.pathString,
@@ -133,7 +135,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let result = try process.waitUntilExit()
 
         if let buildParamsFile = buildParamsFile {
-            try? localFileSystem.removeFileTree(buildParamsFile)
+            try? self.fileSystem.removeFileTree(buildParamsFile)
         }
 
         guard result.exitStatus == .terminated(code: 0) else {
@@ -171,9 +173,26 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
         settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
-        settings["OTHER_CFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCCFlags.joined(separator: " "))"
-        settings["OTHER_CPLUSPLUSFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCPPFlags.joined(separator: " "))"
-        settings["OTHER_SWIFT_FLAGS"] = "$(inherited) \(buildParameters.toolchain.extraSwiftCFlags.joined(separator: " "))"
+        settings["OTHER_CFLAGS"] = (
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraCCFlags
+            + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
+        ).joined(separator: " ")
+        settings["OTHER_CPLUSPLUSFLAGS"] = (
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraCPPFlags
+            + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
+        ).joined(separator: " ")
+        settings["OTHER_SWIFT_FLAGS"] = (
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraSwiftCFlags
+            + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
+        ).joined(separator: " ")
+        settings["OTHER_LDFLAGS"] = (
+            ["$(inherited)"]
+            + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }
+        ).joined(separator: " ")
+
         // Optionally also set the list of architectures to build for.
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
@@ -190,7 +209,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
         let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
-        try localFileSystem.writeFileContents(file, bytes: ByteString(data))
+        try self.fileSystem.writeFileContents(file, bytes: ByteString(data))
         return file
     }
 

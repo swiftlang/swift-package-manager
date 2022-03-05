@@ -127,17 +127,6 @@ extension Basics.Diagnostic {
             localized variants will never be chosen
             """)
     }
-
-    static func missingDefaultLocalizationResource(
-        resource: String,
-        targetName: String,
-        defaultLocalization: String
-    ) -> Self {
-        .warning("""
-            resource '\(resource)' in target '\(targetName)' is missing the default localization \
-            '\(defaultLocalization)'; the default localization is used as a fallback when no other localization matches
-            """)
-    }
 }
 
 extension ObservabilityMetadata {
@@ -152,16 +141,5 @@ extension ObservabilityMetadata {
 
     enum ManifestLoadingDiagnosticFileKey: Key {
         typealias Value = AbsolutePath
-    }
-}
-
-// FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-@available(*, deprecated, message: "user metadata API instead")
-public struct ManifestLoadingDiagnostic: CustomStringConvertible {
-     public let output: String
-     public let diagnosticFile: AbsolutePath?
-
-    public var description: String {
-        self.output
     }
 }

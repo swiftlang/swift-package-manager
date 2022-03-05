@@ -319,10 +319,14 @@ fileprivate extension SourceCodeFragment {
             }
             self.init(enum: "target", subnodes: params)
             
-        case .product(name: let name, package: let packageName, condition: let condition):
+        case .product(name: let name, package: let packageName, moduleAliases: let aliases, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
             if let packageName = packageName {
                 params.append(SourceCodeFragment(key: "package", string: packageName))
+            }
+            if let aliases = aliases {
+                let vals = aliases.map { SourceCodeFragment(key: $0.key.quotedForPackageManifest, string: $0.value) }
+                params.append(SourceCodeFragment(key: "moduleAliases", subnodes: vals))
             }
             if let condition = condition {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
@@ -399,11 +403,11 @@ fileprivate extension SourceCodeFragment {
     init(from resource: TargetDescription.Resource) {
         var params: [SourceCodeFragment] = []
         params.append(SourceCodeFragment(string: resource.path))
-        if let localization = resource.localization {
-            params.append(SourceCodeFragment(key: "localization", enum: localization.rawValue))
-        }
         switch resource.rule {
-        case .process:
+        case .process(let localization):
+            if let localization = localization {
+                params.append(SourceCodeFragment(key: "localization", enum: localization.rawValue))
+            }
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
@@ -454,17 +458,15 @@ fileprivate extension SourceCodeFragment {
     init(from setting: TargetBuildSettingDescription.Setting) {
         var params: [SourceCodeFragment] = []
 
-        switch setting.name {
-        case .headerSearchPath, .linkedLibrary, .linkedFramework:
-            assert(setting.value.count == 1)
-            params.append(SourceCodeFragment(string: setting.value[0]))
+        switch setting.kind {
+        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value):
+            params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
-        case .define:
-            assert(setting.value.count == 1)
-            let parts = setting.value[0].split(separator: "=", maxSplits: 1)
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .define(let value):
+            let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
             params.append(SourceCodeFragment(string: String(parts[0])))
             if parts.count == 2 {
@@ -473,13 +475,13 @@ fileprivate extension SourceCodeFragment {
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
-        case .unsafeFlags:
-            params.append(SourceCodeFragment(strings: setting.value))
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .unsafeFlags(let values):
+            params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -558,13 +560,13 @@ public struct SourceCodeFragment {
     /// A literal prefix to emit at the start of the source code fragment.
     var literal: String
     
-    /// The type of delimeters to use around the subfragments (if any).
+    /// The type of delimiters to use around the subfragments (if any).
     var delimiters: Delimiters
     
     /// Whether or not to emit newlines before the subfragments (if any).
     var multiline: Bool
     
-    /// Any subfragments; no delimeters are emitted if none.
+    /// Any subfragments; no delimiters are emitted if none.
     var subnodes: [SourceCodeFragment]?
     
     /// Type of delimiters to emit around any subfragments.
@@ -613,10 +615,25 @@ public struct SourceCodeFragment {
     }
 }
 
+extension TargetBuildSettingDescription.Kind {
+    fileprivate var name: String {
+        switch self {
+        case .headerSearchPath:
+            return "headerSearchPath"
+        case .define:
+            return "define"
+        case .linkedLibrary:
+            return "linkedLibrary"
+        case .linkedFramework:
+            return "linkedFramework"
+        case .unsafeFlags:
+            return "unsafeFlags"
+        }
+    }
+}
 
-fileprivate extension String {
-    
-    var quotedForPackageManifest: String {
+extension String {
+    fileprivate var quotedForPackageManifest: String {
         return "\"" + self
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")

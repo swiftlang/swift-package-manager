@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,10 +18,8 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
-struct GitHubPackageMetadataProvider: PackageMetadataProvider {
+struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
-
-    public var name: String = "GitHub"
 
     let configuration: Configuration
     private let observabilityScope: ObservabilityScope
@@ -52,14 +50,18 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         try self.cache?.close()
     }
 
-    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
+    func get(
+        identity: PackageIdentity,
+        location: String,
+        callback: @escaping (Result<Model.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
+    ) {
         guard let baseURL = Self.apiURL(location) else {
-            return callback(.failure(Errors.invalidGitURL(location)))
+            return self.errorCallback(GitHubPackageMetadataProviderError.invalidGitURL(location), apiHost: nil, callback: callback)
         }
 
         if let cached = try? self.cache?.get(key: identity.description) {
             if cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
-                return callback(.success(cached.package))
+                return callback(.success(cached.package), self.createContext(apiHost: baseURL.host, error: nil))
             }
         }
 
@@ -89,13 +91,13 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 switch (response.statusCode, hasAuthorization, apiRemaining) {
                 case (_, _, 0):
                     self.observabilityScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
-                    results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
+                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.apiLimitsExceeded(metadataURL, apiLimit))
                 case (401, true, _):
-                    results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
+                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.invalidAuthToken(metadataURL))
                 case (401, false, _):
-                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
+                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.permissionDenied(metadataURL))
                 case (403, _, _):
-                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
+                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.permissionDenied(metadataURL))
                 case (404, _, _):
                     results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
                 case (200, _, _):
@@ -114,7 +116,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         }
                     }
                 default:
-                    results[metadataURL] = .failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
+                    results[metadataURL] = .failure(GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
                 }
             }
         }
@@ -125,12 +127,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 // check for main request error state
                 switch results[metadataURL] {
                 case .none:
-                    throw Errors.invalidResponse(metadataURL, "Response missing")
+                    throw GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Response missing")
                 case .some(.failure(let error)):
                     throw error
                 case .some(.success(let metadataResponse)):
                     guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                        throw Errors.invalidResponse(metadataURL, "Empty body")
+                        throw GitHubPackageMetadataProviderError.invalidResponse(metadataURL, "Empty body")
                     }
                     let releases = try results[releasesURL]?.success?.decodeBody([Release].self, using: self.decoder) ?? []
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
@@ -146,14 +148,13 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                             guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
                                 return nil
                             }
-                            return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
+                            return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt)
                         },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
                         authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
-                        languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] },
-                        processedAt: Date()
+                        languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] }
                     )
 
                     do {
@@ -167,26 +168,75 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         self.observabilityScope.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
                     }
 
-                    callback(.success(model))
+                    callback(.success(model), self.createContext(apiHost: baseURL.host, error: nil))
                 }
             } catch {
-                return callback(.failure(error))
+                self.errorCallback(error, apiHost: baseURL.host, callback: callback)
             }
         }
     }
-
-    func getAuthTokenType(for location: String) -> AuthTokenType? {
-        guard let baseURL = Self.apiURL(location) else {
+    
+    private func errorCallback(
+        _ error: Error,
+        apiHost: String?,
+        callback: @escaping (Result<Model.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
+    ) {
+        callback(.failure(error), self.createContext(apiHost: apiHost, error: error))
+    }
+    
+    private func createContext(apiHost: String?, error: Error?) -> PackageMetadataProviderContext? {
+        // We can't do anything if we can't determine API host
+        guard let apiHost = apiHost else {
             return nil
         }
-
-        return baseURL.host.flatMap { host in
-            self.getAuthTokenType(forHost: host)
+        
+        let authTokenType = self.getAuthTokenType(for: apiHost)
+        let isAuthTokenConfigured = self.configuration.authTokens()?[authTokenType] != nil
+        
+        // This provider should only deal with GitHub token type
+        guard case .github(let host) = authTokenType else {
+            return nil
+        }
+        
+        guard let error = error else {
+            // It's possible for the request to complete successfully without auth token configured, in
+            // which case we will hit the API limit much more easily, so we should always communicate
+            // auth token state to the caller (e.g., so it can prompt user to configure auth token).
+            return PackageMetadataProviderContext(
+                name: host,
+                authTokenType: authTokenType,
+                isAuthTokenConfigured: isAuthTokenConfigured
+            )
+        }
+        
+        switch error {
+        case let error as GitHubPackageMetadataProviderError:
+            guard let providerError = PackageMetadataProviderError.from(error) else {
+                // Only auth-related GitHub errors can be translated, so for all others
+                // assume this provider cannot be used for the package.
+                return nil
+            }
+            
+            return PackageMetadataProviderContext(
+                name: host,
+                authTokenType: authTokenType,
+                isAuthTokenConfigured: isAuthTokenConfigured,
+                error: providerError
+            )
+        default:
+            // For all other errors, including NotFoundError, assume this provider is not
+            // intended for the package (e.g., the repository might not be hosted on GitHub).
+            return nil
         }
     }
+    
+    private func getAuthTokenType(for host: String) -> AuthTokenType {
+        let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
+        return .github(host)
+    }
 
-    // FIXME: use Foundation.URL instead of string
-    internal static func apiURL(_ url: String) -> Foundation.URL? {
+    // FIXME: use URL instead of string
+    internal static func apiURL(_ url: String) -> URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
@@ -212,19 +262,13 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                let tokenType = self.getAuthTokenType(forHost: host)
+                let tokenType = self.getAuthTokenType(for: host)
                 return self.configuration.authTokens()?[tokenType].flatMap { token in
                     "token \(token)"
                 }
             }
         }
         return options
-    }
-
-    
-    private func getAuthTokenType(forHost host: String) -> AuthTokenType {
-        let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
-        return .github(host)
     }
 
     private static func makeDefaultHTTPClient() -> HTTPClient {
@@ -243,29 +287,23 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         public var cacheTTLInSeconds: Int
         public var cacheSizeInMegabytes: Int
 
-        public init(authTokens: @escaping () -> [AuthTokenType: String]? = { nil },
-                    apiLimitWarningThreshold: Int? = nil,
-                    cacheDir: AbsolutePath? = nil,
-                    cacheTTLInSeconds: Int? = nil,
-                    cacheSizeInMegabytes: Int? = nil) {
+        public init(
+            authTokens: @escaping () -> [AuthTokenType: String]? = { nil },
+            apiLimitWarningThreshold: Int? = nil,
+            disableCache: Bool = false,
+            cacheDir: AbsolutePath? = nil,
+            cacheTTLInSeconds: Int? = nil,
+            cacheSizeInMegabytes: Int? = nil            
+        ) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
             self.cacheDir = cacheDir.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
-            self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
+            self.cacheTTLInSeconds = disableCache ? -1 : (cacheTTLInSeconds ?? 3600)
             self.cacheSizeInMegabytes = cacheSizeInMegabytes ?? 10
         }
     }
 
-    enum Errors: Error, Equatable {
-        case invalidReferenceType(PackageReference)
-        case invalidGitURL(String)
-        case invalidResponse(URL, String)
-        case permissionDenied(URL)
-        case invalidAuthToken(URL)
-        case apiLimitsExceeded(URL, Int)
-    }
-
-    struct CacheValue: Codable {
+    private struct CacheValue: Codable {
         let package: Model.PackageBasicMetadata
         let timestamp: UInt64
 
@@ -280,8 +318,16 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     }
 }
 
-extension PackageMetadataProviderError {
-    static func from(_ error: GitHubPackageMetadataProvider.Errors) -> PackageMetadataProviderError? {
+enum GitHubPackageMetadataProviderError: Error, Equatable {
+    case invalidGitURL(String)
+    case invalidResponse(URL, String)
+    case permissionDenied(URL)
+    case invalidAuthToken(URL)
+    case apiLimitsExceeded(URL, Int)
+}
+
+private extension PackageMetadataProviderError {
+    static func from(_ error: GitHubPackageMetadataProviderError) -> PackageMetadataProviderError? {
         switch error {
         case .invalidResponse(_, let errorMessage):
             return .invalidResponse(errorMessage: errorMessage)
@@ -308,10 +354,10 @@ extension GitHubPackageMetadataProvider {
         let isFork: Bool
         let defaultBranch: String
         let updatedAt: Date
-        let sshURL: Foundation.URL
-        let cloneURL: Foundation.URL
-        let tagsURL: Foundation.URL
-        let contributorsURL: Foundation.URL
+        let sshURL: URL
+        let cloneURL: URL
+        let tagsURL: URL
+        let contributorsURL: URL
         let language: String?
         let watchersCount: Int
         let forksCount: Int
@@ -356,7 +402,7 @@ extension GitHubPackageMetadataProvider {
 
     fileprivate struct Tag: Codable {
         let name: String
-        let tarballURL: Foundation.URL
+        let tarballURL: URL
         let commit: Commit
 
         private enum CodingKeys: String, CodingKey {
@@ -368,19 +414,19 @@ extension GitHubPackageMetadataProvider {
 
     fileprivate struct Commit: Codable {
         let sha: String
-        let url: Foundation.URL
+        let url: URL
     }
 
     fileprivate struct Contributor: Codable {
         let login: String
-        let url: Foundation.URL
+        let url: URL
         let contributions: Int
     }
 
     fileprivate struct Readme: Codable {
-        let url: Foundation.URL
-        let htmlURL: Foundation.URL
-        let downloadURL: Foundation.URL
+        let url: URL
+        let htmlURL: URL
+        let downloadURL: URL
 
         private enum CodingKeys: String, CodingKey {
             case url
@@ -390,9 +436,9 @@ extension GitHubPackageMetadataProvider {
     }
 
     fileprivate struct License: Codable {
-        let url: Foundation.URL
-        let htmlURL: Foundation.URL
-        let downloadURL: Foundation.URL
+        let url: URL
+        let htmlURL: URL
+        let downloadURL: URL
         let license: License
 
         private enum CodingKeys: String, CodingKey {

@@ -6,13 +6,13 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(SourceControl  
+add_library(SourceControl STATIC
   GitRepository.swift
   Repository.swift
   RepositoryManager.swift)
-
 target_link_libraries(SourceControl PUBLIC
   Basics
+  PackageModel
   TSCBasic
   TSCUtility
   Basics)
@@ -21,10 +21,4 @@ target_link_libraries(SourceControl PUBLIC
 set_target_properties(SourceControl PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
-install(TARGETS SourceControl
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SourceControl)

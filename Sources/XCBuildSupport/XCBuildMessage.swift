@@ -10,7 +10,6 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// Represents a message output by xcbuild.
 public enum XCBuildMessage {

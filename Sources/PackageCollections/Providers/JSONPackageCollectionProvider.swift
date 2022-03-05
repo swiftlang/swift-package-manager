@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -36,6 +36,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
 
     private let configuration: Configuration
+    private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
@@ -43,24 +44,27 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let signatureValidator: PackageCollectionSignatureValidator
     private let sourceCertPolicy: PackageCollectionSourceCertificatePolicy
 
-    init(configuration: Configuration = .init(),
-         observabilityScope: ObservabilityScope,
-         httpClient: HTTPClient? = nil,
-         signatureValidator: PackageCollectionSignatureValidator? = nil,
-         sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
-         fileSystem: FileSystem = localFileSystem) {
+    init(
+        configuration: Configuration = .init(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
+        customHTTPClient: HTTPClient? = nil,
+        customSignatureValidator: PackageCollectionSignatureValidator? = nil
+    ) {
         self.configuration = configuration
-        self.observabilityScope = observabilityScope
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
-        self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
-        self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+        self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
+        self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigurationDirectory.appending(component: "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             observabilityScope: observabilityScope,
             callbackQueue: .sharedConcurrent
         )
         self.sourceCertPolicy = sourceCertPolicy
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -68,17 +72,15 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             return callback(.failure(InternalError("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")))
         }
 
-        if let errors = source.validate()?.errors() {
+        if let errors = source.validate(fileSystem: fileSystem)?.errors() {
             return callback(.failure(JSONPackageCollectionProviderError.invalidSource("\(errors)")))
         }
 
         // Source is a local file
         if let absolutePath = source.absolutePath {
             do {
-                let fileContents = try localFileSystem.readFileContents(absolutePath)
-                return fileContents.withData { data in
-                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
-                }
+                let data: Data = try self.fileSystem.readFileContents(absolutePath)
+                return self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
             } catch {
                 return callback(.failure(error))
             }
@@ -191,97 +193,101 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 
     private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource, signature: Model.SignatureData?) -> Result<Model.Collection, Error> {
-        if let errors = self.validator.validate(collection: collection)?.errors() {
-            return .failure(JSONPackageCollectionProviderError.invalidCollection("\(errors)"))
-        }
+        do {
+            if let errors = self.validator.validate(collection: collection)?.errors() {
+                throw JSONPackageCollectionProviderError.invalidCollection("\(errors.map { $0.message }.joined(separator: " "))")
+            }
 
-        var serializationOkay = true
-        let packages = collection.packages.map { package -> Model.Package in
-            let versions = package.versions.compactMap { version -> Model.Package.Version? in
-                // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
-                guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
-                    return nil
-                }
-
-                let manifests = [ToolsVersion: Model.Package.Version.Manifest](uniqueKeysWithValues: version.manifests.compactMap { key, value in
-                    guard let keyToolsVersion = ToolsVersion(string: key), let manifestToolsVersion = ToolsVersion(string: value.toolsVersion) else {
+            var serializationOkay = true
+            let packages = try collection.packages.map { package -> Model.Package in
+                let versions = try package.versions.compactMap { version -> Model.Package.Version? in
+                    // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
+                    guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
                         return nil
                     }
 
-                    let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                    if targets.count != value.targets.count {
-                        serializationOkay = false
-                    }
-                    let products = value.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
-                    if products.count != value.products.count {
-                        serializationOkay = false
-                    }
-                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
-                    if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                    let manifests: [ToolsVersion: Model.Package.Version.Manifest] = try Dictionary(throwingUniqueKeysWithValues: version.manifests.compactMap { key, value in
+                        guard let keyToolsVersion = ToolsVersion(string: key), let manifestToolsVersion = ToolsVersion(string: value.toolsVersion) else {
+                            return nil
+                        }
+
+                        let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                        if targets.count != value.targets.count {
+                            serializationOkay = false
+                        }
+                        let products = value.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
+                        if products.count != value.products.count {
+                            serializationOkay = false
+                        }
+                        let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
+                        if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                            serializationOkay = false
+                        }
+
+                        let manifest = Model.Package.Version.Manifest(
+                            toolsVersion: manifestToolsVersion,
+                            packageName: value.packageName,
+                            targets: targets,
+                            products: products,
+                            minimumPlatformVersions: minimumPlatformVersions
+                        )
+                        return (keyToolsVersion, manifest)
+                    })
+                    if manifests.count != version.manifests.count {
                         serializationOkay = false
                     }
 
-                    let manifest = Model.Package.Version.Manifest(
-                        toolsVersion: manifestToolsVersion,
-                        packageName: value.packageName,
-                        targets: targets,
-                        products: products,
-                        minimumPlatformVersions: minimumPlatformVersions
-                    )
-                    return (keyToolsVersion, manifest)
-                })
-                if manifests.count != version.manifests.count {
+                    guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
+                        return nil
+                    }
+
+                    let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
+                    if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
+                        serializationOkay = false
+                    }
+                    let license = version.license.flatMap { Model.License(from: $0) }
+
+                    return .init(version: parsedVersion,
+                                 title: nil,
+                                 summary: version.summary,
+                                 manifests: manifests,
+                                 defaultToolsVersion: defaultToolsVersion,
+                                 verifiedCompatibility: verifiedCompatibility,
+                                 license: license,
+                                 createdAt: version.createdAt)
+                }
+                if versions.count != package.versions.count {
                     serializationOkay = false
                 }
 
-                guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
-                    return nil
-                }
-
-                let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
-                if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
-                    serializationOkay = false
-                }
-                let license = version.license.flatMap { Model.License(from: $0) }
-
-                return .init(version: parsedVersion,
-                             title: nil,
-                             summary: version.summary,
-                             manifests: manifests,
-                             defaultToolsVersion: defaultToolsVersion,
-                             verifiedCompatibility: verifiedCompatibility,
-                             license: license,
-                             createdAt: version.createdAt)
-            }
-            if versions.count != package.versions.count {
-                serializationOkay = false
+                return .init(identity: .init(url: package.url),
+                             location: package.url.absoluteString,
+                             summary: package.summary,
+                             keywords: package.keywords,
+                             versions: versions,
+                             watchersCount: nil,
+                             readmeURL: package.readmeURL,
+                             license: package.license.flatMap { Model.License(from: $0) },
+                             authors: nil,
+                             languages: nil)
             }
 
-            return .init(identity: .init(url: package.url),
-                         location: package.url.absoluteString,
-                         summary: package.summary,
-                         keywords: package.keywords,
-                         versions: versions,
-                         watchersCount: nil,
-                         readmeURL: package.readmeURL,
-                         license: package.license.flatMap { Model.License(from: $0) },
-                         authors: nil,
-                         languages: nil)
-        }
+            if !serializationOkay {
+                self.observabilityScope.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            }
 
-        if !serializationOkay {
-            self.observabilityScope.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            return .success(.init(source: source,
+                                  name: collection.name,
+                                  overview: collection.overview,
+                                  keywords: collection.keywords,
+                                  packages: packages,
+                                  createdAt: collection.generatedAt,
+                                  createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
+                                  signature: signature,
+                                  lastProcessedAt: Date()))
+        } catch {
+            return .failure(error)
         }
-
-        return .success(.init(source: source,
-                              name: collection.name,
-                              overview: collection.overview,
-                              keywords: collection.keywords,
-                              packages: packages,
-                              createdAt: collection.generatedAt,
-                              createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
-                              signature: signature,
-                              lastProcessedAt: Date()))
     }
 
     private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {

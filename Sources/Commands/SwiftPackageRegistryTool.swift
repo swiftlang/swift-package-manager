@@ -17,7 +17,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import TSCUtility
 import XCBuildSupport
 import Workspace
 import Foundation
@@ -55,7 +54,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    var swiftOptions: SwiftToolOptions
+    var globalOptions: GlobalOptions
 
     public init() {}
 
@@ -64,7 +63,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             abstract: "Set a custom registry")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")
         var global: Bool = false
@@ -100,8 +99,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try swiftTool.getRegistriesConfig()
-            if global {
+            let configuration = try getRegistriesConfig(swiftTool)
+            if self.global {
                 try configuration.updateShared(with: set)
             } else {
                 try configuration.updateLocal(with: set)
@@ -116,7 +115,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             abstract: "Remove a configured registry")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")
         var global: Bool = false
@@ -141,12 +140,21 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try swiftTool.getRegistriesConfig()
-            if global {
+            let configuration = try getRegistriesConfig(swiftTool)
+            if self.global {
                 try configuration.updateShared(with: unset)
             } else {
                 try configuration.updateLocal(with: unset)
             }
         }
+    }
+
+    static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
+        let workspace = try swiftTool.getActiveWorkspace()
+        return try .init(
+            fileSystem: swiftTool.fileSystem,
+            localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
+            sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
+        )
     }
 }

@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
@@ -341,18 +340,18 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
         let settings = manifest.targets[0].settings
 
-        XCTAssertEqual(settings[0], .init(tool: .c, name: .headerSearchPath, value: ["path/to/foo"]))
-        XCTAssertEqual(settings[1], .init(tool: .c, name: .define, value: ["C"], condition: .init(platformNames: ["linux"])))
-        XCTAssertEqual(settings[2], .init(tool: .c, name: .define, value: ["CC=4"], condition: .init(platformNames: ["linux"], config: "release")))
+        XCTAssertEqual(settings[0], .init(tool: .c, kind: .headerSearchPath("path/to/foo")))
+        XCTAssertEqual(settings[1], .init(tool: .c, kind: .define("C"), condition: .init(platformNames: ["linux"])))
+        XCTAssertEqual(settings[2], .init(tool: .c, kind: .define("CC=4"), condition: .init(platformNames: ["linux"], config: "release")))
 
-        XCTAssertEqual(settings[3], .init(tool: .cxx, name: .headerSearchPath, value: ["path/to/bar"]))
-        XCTAssertEqual(settings[4], .init(tool: .cxx, name: .define, value: ["CXX"]))
+        XCTAssertEqual(settings[3], .init(tool: .cxx, kind: .headerSearchPath("path/to/bar")))
+        XCTAssertEqual(settings[4], .init(tool: .cxx, kind: .define("CXX")))
 
-        XCTAssertEqual(settings[5], .init(tool: .swift, name: .define, value: ["SWIFT"], condition: .init(config: "release")))
-        XCTAssertEqual(settings[6], .init(tool: .swift, name: .define, value: ["SWIFT_DEBUG"], condition: .init(platformNames: ["watchos"], config: "debug")))
+        XCTAssertEqual(settings[5], .init(tool: .swift, kind: .define("SWIFT"), condition: .init(config: "release")))
+        XCTAssertEqual(settings[6], .init(tool: .swift, kind: .define("SWIFT_DEBUG"), condition: .init(platformNames: ["watchos"], config: "debug")))
 
-        XCTAssertEqual(settings[7], .init(tool: .linker, name: .linkedLibrary, value: ["libz"]))
-        XCTAssertEqual(settings[8], .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos", "tvos"])))
+        XCTAssertEqual(settings[7], .init(tool: .linker, kind: .linkedLibrary("libz")))
+        XCTAssertEqual(settings[8], .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["macos", "tvos"])))
     }
 
     func testSerializedDiagnostics() throws {
@@ -524,7 +523,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(foo.dependencies, [])
 
             let settings = foo.settings
-            XCTAssertEqual(settings[0], .init(tool: .c, name: .define, value: ["LLVM_ON_WIN32"], condition: .init(platformNames: ["windows"])))
+            XCTAssertEqual(settings[0], .init(tool: .c, kind: .define("LLVM_ON_WIN32"), condition: .init(platformNames: ["windows"])))
         }
     }
 
@@ -618,7 +617,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.displayName, "Trivial")
 
-            let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)
+            let moduleTraceJSON: String = try localFileSystem.readFileContents(moduleTraceFilePath)
             XCTAssertMatch(moduleTraceJSON, .contains("PackageDescription"))
         }
     }

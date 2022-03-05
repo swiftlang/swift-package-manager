@@ -184,7 +184,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
     func rewriteToolsVersionSpecificationToDefaultManifest(
         stream: BufferedOutputByteStream,
         version: ToolsVersion = ToolsVersion(version: "4.1.2"),
-        resultHandler: (ByteString) -> Void
+        resultHandler: (String) -> Void
     ) {
         do {
             let inMemoryFileSystem = InMemoryFileSystem()

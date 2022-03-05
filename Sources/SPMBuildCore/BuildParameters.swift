@@ -11,9 +11,11 @@
 import class Foundation.ProcessInfo
 
 import TSCBasic
-import TSCUtility
 import PackageModel
 import PackageGraph
+
+import struct TSCUtility.BuildFlags
+import struct TSCUtility.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.
@@ -170,7 +172,12 @@ public struct BuildParameters: Encodable {
     // What strategy to use to discover tests
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
-    public var isTTY: Bool
+    /// Whether to disable dead code stripping by the linker
+    public var linkerDeadStrip: Bool
+
+    public var colorizedOutput: Bool
+
+    public var verboseOutput: Bool
 
     public init(
         dataPath: AbsolutePath,
@@ -198,7 +205,9 @@ public struct BuildParameters: Encodable {
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        isTTY: Bool = false
+        linkerDeadStrip: Bool = true,
+        colorizedOutput: Bool = false,
+        verboseOutput: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
 
@@ -226,10 +235,18 @@ public struct BuildParameters: Encodable {
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.printManifestGraphviz = printManifestGraphviz
         // decide on testability based on debug/release config
+        // the goals of this being based on the build configuration is
+        // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+        // given that the default configuration for `swift build` is debug
+        // and that `swift test` normally requires building with testable enabled.
+        // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+        // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
-        self.isTTY = isTTY
+        self.linkerDeadStrip = linkerDeadStrip
+        self.colorizedOutput = colorizedOutput
+        self.verboseOutput = verboseOutput
     }
 
     /// The path to the build directory (inside the data directory).

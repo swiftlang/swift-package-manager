@@ -48,7 +48,7 @@ extension Xcode.Project: PropertyListSerializable {
         var dict = [String: PropertyList]()
         dict["isa"] = .string("PBXProject")
         // Since the project file is generated, we opt out of upgrade-checking.
-        // FIXME: Shoule we really?  Why would we not want to get upgraded?
+        // FIXME: Should we really?  Why would we not want to get upgraded?
         dict["attributes"] = .dictionary(["LastUpgradeCheck": .string("9999"),
                                           "LastSwiftMigration": .string("9999")])
         dict["compatibilityVersion"] = .string("Xcode 3.2")
@@ -378,7 +378,7 @@ extension PropertyListDictionaryConvertible {
     public static func asPropertyList(_ object: PropertyListDictionaryConvertible) throws -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list
-        // representation code.  Using a handcoded serializer might be more
+        // representation code.  Using a hand coded serializer might be more
         // efficient but not even remotely as robust, and robustness is the
         // key factor for this use case, as there aren't going to be millions
         // of BuildSettings structs.

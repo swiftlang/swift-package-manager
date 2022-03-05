@@ -12,20 +12,21 @@ import Commands
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() throws {
-      #if os(macOS)
-        fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { fixturePath in
             // Build the package.
-            XCTAssertBuilds(prefix)
+            XCTAssertBuilds(fixturePath)
             let triple = UserToolchain.default.triple
-            XCTAssertFileExists(prefix.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelper.swiftmodule"))
+            XCTAssertFileExists(fixturePath.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
-            XCTAssertSwiftTest(prefix)
+            XCTAssertSwiftTest(fixturePath)
             // Expected output dictionary.
             let testCases = ["name": "All Tests", "tests": [["name" : "SwiftPMXCTestHelperPackageTests.xctest",
                 "tests": [
@@ -40,16 +41,12 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
             ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
+            try XCTAssertXCTestHelper(fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
-      #endif
     }
-}
 
-
-#if os(macOS)
-func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) {
-    do {
+    func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) throws {
+        #if os(macOS)
         let env = ["DYLD_FRAMEWORK_PATH": ToolchainConfiguration.default.sdkPlatformFrameworksPath.pathString]
         let outputFile = bundlePath.parentDirectory.appending(component: "tests.txt")
         let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
@@ -58,8 +55,8 @@ func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) 
         }
         let json = try JSONSerialization.jsonObject(with: data as Data, options: []) as AnyObject
         XCTAssertTrue(json.isEqual(testCases), "\(json) is not equal to \(testCases)")
-    } catch {
-        XCTFail("Failed with error: \(error)")
+        #else
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
     }
 }
-#endif

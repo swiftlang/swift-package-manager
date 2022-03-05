@@ -12,7 +12,6 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
@@ -159,7 +158,7 @@ enum ManifestJSONParser {
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
-        let location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
+        let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         let path: AbsolutePath
         do {
             path = try AbsolutePath(validating: location)
@@ -182,7 +181,7 @@ enum ManifestJSONParser {
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
         // cleans up variants of path based location
-        var location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
+        var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         // location mapping (aka mirrors) if any
         location = identityResolver.mappedLocation(for: location)
         // a package in a git location, may be a remote URL or on disk
@@ -211,23 +210,7 @@ enum ManifestJSONParser {
         }
     }
 
-    private static func fixDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
-        let packagePath: AbsolutePath
-        switch packageKind {
-        case .root(let path):
-            packagePath = path
-        case .fileSystem(let path):
-            packagePath = path
-        case .localSourceControl(let path):
-            packagePath = path
-        case .remoteSourceControl:
-            // nothing to fix
-            return dependencyLocation
-        case .registry:
-            // nothing to fix
-            return dependencyLocation
-        }
-
+    private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
             return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
@@ -247,13 +230,19 @@ enum ManifestJSONParser {
               )
             }
             return AbsolutePath(location).pathString
-        } else if URL.scheme(dependencyLocation) == nil {
-            // If the dependency URL is not remote, try to "fix" it.
+        } else if parseScheme(dependencyLocation) == nil {
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-            return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
+            switch packageKind {
+            case .root(let packagePath), .fileSystem(let packagePath), .localSourceControl(let packagePath):
+                return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
+            case .remoteSourceControl, .registry:
+                // nothing to "fix"
+                return dependencyLocation
+            }
+        } else {
+            // nothing to "fix"
+            return dependencyLocation
         }
-
-        return dependencyLocation
     }
 
     private static func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
@@ -362,12 +351,18 @@ enum ManifestJSONParser {
     private static func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
         guard let resourcesJSON = try? json.getArray("resources") else { return [] }
         return try resourcesJSON.map { json in
-            let rawRule = try json.get(String.self, forKey: "rule")
-            let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
+            let rule = try json.get(String.self, forKey: "rule")
             let path = try RelativePath(validating: json.get(String.self, forKey: "path"))
-            let localizationString = try? json.get(String.self, forKey: "localization")
-            let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
-            return .init(rule: rule, path: path.pathString, localization: localization)
+            switch rule {
+            case "process":
+                let localizationString = try? json.get(String.self, forKey: "localization")
+                let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
+                return .init(rule: .process(localization: localization), path: path.pathString)
+            case "copy":
+                return .init(rule: .copy, path: path.pathString)
+            default:
+                throw InternalError("invalid resource rule \(rule)")
+            }
         }
     }
 
@@ -388,28 +383,82 @@ enum ManifestJSONParser {
             try Self.parseBuildSetting($0, tool: tool)
         })
     }
-
+    
     private static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
         let json = try json.getJSON("data")
-        let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
+        let name = try json.get(String.self, forKey: "name")
+        let values = try json.get([String].self, forKey: "value")
         let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
-
-        let value = try json.get([String].self, forKey: "value")
-
+        
         // Diagnose invalid values.
-        for item in value {
+        for item in values {
             let groups = Self.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
             if !groups.isEmpty {
                 let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
                 throw ManifestParseError.runtimeManifestErrors([error])
             }
         }
-
+        
+        let kind: TargetBuildSettingDescription.Kind
+        switch name {
+        case "headerSearchPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .headerSearchPath(value)
+        case "define":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .define(value)
+        case "linkedLibrary":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .linkedLibrary(value)
+        case "linkedFramework":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .linkedFramework(value)
+        case "unsafeFlags":
+            kind = .unsafeFlags(values)
+        default:
+            throw InternalError("invalid build setting \(name)")
+        }
+        
         return .init(
-            tool: tool, name: name,
-            value: value,
+            tool: tool,
+            kind: kind,
             condition: condition
         )
+    }
+
+    /// Parses the URL type of a git repository
+    /// e.g. https://github.com/apple/swift returns "https"
+    /// e.g. git@github.com:apple/swift returns "git"
+    ///
+    /// This is *not* a generic URI scheme parser!
+    private static func parseScheme(_ location: String) -> String? {
+        func prefixOfSplitBy(_ delimiter: String) -> String? {
+            let (head, tail) = location.spm_split(around: delimiter)
+            if tail == nil {
+                //not found
+                return nil
+            } else {
+                //found, return head
+                //lowercase the "scheme", as specified by the URI RFC (just in case)
+                return head.lowercased()
+            }
+        }
+
+        for delim in ["://", "@"] {
+            if let found = prefixOfSplitBy(delim), !found.contains("/") {
+                return found
+            }
+        }
+
+        return nil
     }
 
     /// Looks for Xcode-style build setting macros "$()".
@@ -569,7 +618,8 @@ extension TargetDescription.Dependency {
 
         case "product":
             let name = try json.get(String.self, forKey: "name")
-            self = .product(name: name, package: json.get("package"), condition: condition)
+            let moduleAliases: [String: String]? = try? json.get("moduleAliases")
+            self = .product(name: name, package: json.get("package"), moduleAliases: moduleAliases, condition: condition)
 
         case "byname":
             self = try .byName(name: json.get("name"), condition: condition)

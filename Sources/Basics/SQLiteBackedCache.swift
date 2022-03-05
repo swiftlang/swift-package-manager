@@ -11,7 +11,7 @@
 import Foundation
 
 import TSCBasic
-import TSCUtility
+import struct TSCUtility.SQLite
 
 /// SQLite backed persistent cache.
 public final class SQLiteBackedCache<Value: Codable>: Closable {
@@ -59,9 +59,9 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     }
 
     deinit {
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         try? self.withStateLock {
             if case .connected(let db) = self.state {
+                // TODO: we could wrap the failure here with diagnostics if it was available
                 assertionFailure("db should be closed")
                 try db.close()
             }

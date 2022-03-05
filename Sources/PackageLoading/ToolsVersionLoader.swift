@@ -342,7 +342,9 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
     fileprivate func load(file: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // FIXME: We don't need the entire file, just the first line.
         let manifestContents: ByteString
-        do { manifestContents = try fileSystem.readFileContents(file) } catch {
+        do {
+            manifestContents = try fileSystem.readFileContents(file)
+        } catch {
             throw Error.inaccessibleManifest(path: file, reason: String(describing: error))
         }
         

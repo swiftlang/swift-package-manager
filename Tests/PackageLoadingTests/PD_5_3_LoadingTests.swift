@@ -13,7 +13,6 @@ import PackageModel
 import PackageLoading
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
@@ -52,12 +51,12 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let resources = manifest.targets[0].resources
         XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
-        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
-        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
+        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process(localization: .none), path: "bar.txt"))
+        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process(localization: .default), path: "biz.txt"))
+        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process(localization: .base), path: "baz.txt"))
 
         let testResources = manifest.targets[1].resources
-        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process, path: "testfixture.txt"))
+        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process(localization: .none), path: "testfixture.txt"))
     }
 
     func testBinaryTargetsTrivial() throws {
@@ -235,7 +234,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
             testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: "invalid location for binary target 'Foo'", severity: .error)
+                result.check(diagnostic: "invalid local path ' ' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
             }
         }
 
@@ -349,6 +348,77 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
             }
         }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            url: "ssh://foo/bar",
+                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            url: " ",
+                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid URL ' ' for binary target 'Foo'", severity: .error)
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            path: "/tmp/foo/bar")
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid local path '/tmp/foo/bar' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
+            }
+        }
     }
 
     func testConditionalTargetDependencies() throws {
@@ -381,7 +451,6 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
         XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
         XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
-
     }
 
     func testDefaultLocalization() throws {
@@ -456,7 +525,10 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testManifestLoadingIsSandboxed() throws {
-        #if os(macOS) // Sandboxing is only done on macOS today.
+        #if !os(macOS)
+        // Sandboxing is only done on macOS today.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let content = """
             import Foundation
 
@@ -479,6 +551,5 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 XCTFail("unexpected error: \(error)")
             }
         }
-        #endif
     }
 }

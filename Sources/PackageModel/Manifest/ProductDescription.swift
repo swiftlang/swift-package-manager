@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+
 /// The product description
 public struct ProductDescription: Equatable, Codable {
 
@@ -24,8 +26,10 @@ public struct ProductDescription: Equatable, Codable {
         name: String,
         type: ProductType,
         targets: [String]
-    ) {
-        precondition(type != .test, "Declaring test products isn't supported: \(name):\(targets)")
+    ) throws {
+        guard type != .test else {
+            throw InternalError("Declaring test products isn't supported: \(name):\(targets)")
+        }
         self.name = name
         self.type = type
         self.targets = targets

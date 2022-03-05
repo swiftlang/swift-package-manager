@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
 public struct ToolsVersion: Equatable, Hashable, Codable {
@@ -25,6 +24,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     public static let v5_4 = ToolsVersion(version: "5.4.0")
     public static let v5_5 = ToolsVersion(version: "5.5.0")
     public static let v5_6 = ToolsVersion(version: "5.6.0")
+    public static let v5_7 = ToolsVersion(version: "5.7.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.

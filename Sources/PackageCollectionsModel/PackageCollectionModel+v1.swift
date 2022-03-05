@@ -78,7 +78,7 @@ extension PackageCollectionModel.V1 {
 extension PackageCollectionModel.V1.Collection {
     public struct Package: Equatable, Codable {
         /// The URL of the package. Currently only Git repository URLs are supported.
-        public let url: Foundation.URL
+        public let url: URL
 
         /// A description of the package.
         public let summary: String?
@@ -90,7 +90,7 @@ extension PackageCollectionModel.V1.Collection {
         public let versions: [PackageCollectionModel.V1.Collection.Package.Version]
 
         /// The URL of the package's README.
-        public let readmeURL: Foundation.URL?
+        public let readmeURL: URL?
 
         /// The package's current license info
         public let license: PackageCollectionModel.V1.License?
@@ -383,7 +383,7 @@ extension PackageCollectionModel.V1.ProductType: Codable {
 // MARK: - Signed package collection
 
 extension PackageCollectionModel.V1 {
-    /// A  signed packge collection. The only difference between this and `Collection`
+    /// A  signed package collection. The only difference between this and `Collection`
     /// is the presence of `signature`.
     public struct SignedCollection: Equatable {
         /// The package collection

@@ -6,17 +6,16 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 import TSCBasic
-import TSCUtility
 import TSCTestSupport
 
 final class XCBuildTests: XCTestCase {
     func testExecutableProducts() throws {
         #if !os(macOS)
-            try XCTSkip("Test requires macOS")
+        try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
@@ -119,7 +118,7 @@ final class XCBuildTests: XCTestCase {
         try XCTSkip("FIXME: /.../XCBuild_TestProducts.551ajO/Foo/.build/apple/Intermediates.noindex/GeneratedModuleMaps/macosx/FooLib.modulemap:2:12: error: header 'FooLib-Swift.h' not found")
 
         #if !os(macOS)
-            try XCTSkip("Test requires macOS")
+        try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/TestProducts") { path in
@@ -201,7 +200,7 @@ final class XCBuildTests: XCTestCase {
 
     func testLibraryProductsAndTargets() throws {
         #if !os(macOS)
-            try XCTSkip("Test requires macOS")
+        try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/Libraries") { path in
@@ -277,7 +276,7 @@ final class XCBuildTests: XCTestCase {
         try XCTSkip("FIXME: ld: warning: ignoring file /../XCBuild_SystemTargets.b38QoO/Inputs/libsys.a, building for macOS-arm64 but attempting to link with file built for unknown-x86_64\n\nUndefined symbols for architecture arm64:\n  \"_GetSystemLibName\", referenced from:\n      _main in main.o\n\nld: symbol(s) not found for architecture arm64\n\nclang: error: linker command failed with exit code 1 (use -v to see invocation)\n\nBuild cancelled\n")
 
         #if !os(macOS)
-            try XCTSkip("Test requires macOS")
+        try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/SystemTargets") { path in
@@ -313,7 +312,7 @@ final class XCBuildTests: XCTestCase {
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
         #if !os(macOS) || Xcode
-            try XCTSkip("Test requires macOS")
+        try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/TestProducts") { path in

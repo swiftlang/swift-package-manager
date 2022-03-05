@@ -13,7 +13,6 @@ import Dispatch
 import Foundation
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {
@@ -36,7 +35,7 @@ public final class InMemoryGitRepository {
     /// A struct representing a revision state. Minimally it contains a hash identifier for the revision
     /// and the file system state.
     fileprivate struct RevisionState {
-        /// The revision identifier hash. It should be unique amoung all the identifiers.
+        /// The revision identifier hash. It should be unique among all the identifiers.
         var hash: RevisionIdentifier
 
         /// The filesystem state contained in this revision.
@@ -142,9 +141,12 @@ public final class InMemoryGitRepository {
             throw InMemoryGitRepositoryError.unknownTag
         }
         // Point the head to the revision state of the tag.
-        // It should be impossible that a tag exisits which doesnot have a state.
-        self.lock.withLock {
-            self.head = history[hash]!
+        // It should be impossible that a tag exists which does not have a state.
+        try self.lock.withLock {
+            guard let head = history[hash] else {
+                throw InternalError("unknown hash \(hash)")
+            }
+            self.head = head
             self.isDirty = false
         }
         // Install this state on the passed filesystem.
@@ -234,6 +236,14 @@ extension InMemoryGitRepository: FileSystem {
         }
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
     }
@@ -310,8 +320,11 @@ extension InMemoryGitRepository: FileSystem {
 
 extension InMemoryGitRepository: Repository {
     public func resolveRevision(tag: String) throws -> Revision {
-        self.lock.withLock {
-            return Revision(identifier: self.tagsMap[tag]!)
+        try self.lock.withLock {
+            guard let revision = self.tagsMap[tag] else {
+                throw InternalError("unknown tag \(tag)")
+            }
+            return Revision(identifier: revision)
         }
     }
 
@@ -328,8 +341,11 @@ extension InMemoryGitRepository: Repository {
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
-        self.lock.withLock {
-            return self.history[revision.identifier]!.fileSystem
+        try self.lock.withLock {
+            guard let entry = self.history[revision.identifier] else {
+                throw InternalError("unknown revision \(revision)")
+            }
+            return entry.fileSystem
         }
     }
 
@@ -370,7 +386,7 @@ extension InMemoryGitRepository: WorkingCheckout {
     }
 }
 
-/// This class implement provider for in memeory git repository.
+/// This class implement provider for in memory git repository.
 public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Contains the repository added to this provider.
     public var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
@@ -393,26 +409,43 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     }
 
     /// This method returns the stored reference to the git repository which was fetched or checked out.
-    public func openRepo(at path: AbsolutePath) -> InMemoryGitRepository {
-        return fetchedMap[path] ?? checkoutsMap[path]!
+    public func openRepo(at path: AbsolutePath) throws -> InMemoryGitRepository {
+        if let fetch = fetchedMap[path] {
+            return fetch
+        }
+        guard let checkout = checkoutsMap[path] else {
+            throw InternalError("unknown repo at \(path)")
+        }
+        return checkout
     }
 
     // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        let repo = specifierMap[RepositorySpecifier(location: repository.location)]!
+        guard let repo = specifierMap[RepositorySpecifier(location: repository.location)] else {
+            throw InternalError("unknown repo at \(repository.location)")
+        }
         fetchedMap[path] = try repo.copy()
         add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
+    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        return fetchedMap[path] != nil
+    }
+
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        let repo = fetchedMap[sourcePath]!
+        guard let repo = fetchedMap[sourcePath] else {
+            throw InternalError("unknown repo at \(sourcePath)")
+        }
         fetchedMap[destinationPath] = try repo.copy()
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return fetchedMap[path]!
+        guard let repo = fetchedMap[path] else {
+            throw InternalError("unknown repo at \(path)")
+        }
+        return repo
     }
 
     public func createWorkingCopy(
@@ -421,9 +454,12 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         at destinationPath: AbsolutePath,
         editable: Bool
     ) throws -> WorkingCheckout {
-        let checkout = try fetchedMap[sourcePath]!.copy(at: destinationPath)
-        checkoutsMap[destinationPath] = checkout
-        return checkout
+        guard let checkout = fetchedMap[sourcePath] else {
+            throw InternalError("unknown checkout at \(sourcePath)")
+        }
+        let copy = try checkout.copy(at: destinationPath)
+        checkoutsMap[destinationPath] = copy
+        return copy
     }
 
     public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
@@ -431,7 +467,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     }
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
-        return checkoutsMap[path]!
+        guard let checkout = checkoutsMap[path] else {
+            throw InternalError("unknown checkout at \(path)")
+        }
+        return checkout
     }
 
     public func isValidDirectory(_ directory: AbsolutePath) -> Bool {

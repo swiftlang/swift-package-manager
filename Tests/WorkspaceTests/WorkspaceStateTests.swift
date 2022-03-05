@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
+import Basics
 @testable import Workspace
+import TSCBasic
 import XCTest
 
 final class WorkspaceStateTests: XCTestCase {
@@ -17,9 +18,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -81,7 +82,7 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
@@ -91,9 +92,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -155,7 +156,7 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
@@ -165,9 +166,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -229,7 +230,7 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
@@ -239,9 +240,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -289,10 +290,10 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         try state.save()
 
-        let serialized = try fs.readFileContents(statePath).description
+        let serialized: String = try fs.readFileContents(statePath)
 
         let argpRange = try XCTUnwrap(serialized.range(of: "swift-argument-parser"))
         let yamsRange = try XCTUnwrap(serialized.range(of: "yams"))
@@ -304,9 +305,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -365,7 +366,7 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
         XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "bar" }))
         XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
@@ -376,9 +377,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -426,7 +427,7 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
         XCTAssertTrue(state.dependencies.isEmpty)
@@ -437,9 +438,9 @@ final class WorkspaceStateTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
-        let statePath = buildDir.appending(component: "workspace-state.json")
-
         try fs.createDirectory(buildDir, recursive: true)
+
+        let statePath = buildDir.appending(component: "workspace-state.json")
         try fs.writeFileContents(statePath) {
             """
             {
@@ -483,9 +484,15 @@ final class WorkspaceStateTests: XCTestCase {
             """
         }
 
-        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
         XCTAssertTrue(state.artifacts.isEmpty)
+    }
+}
+
+extension WorkspaceState {
+    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
+        self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in })
     }
 }

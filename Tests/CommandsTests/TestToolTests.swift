@@ -8,15 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import SPMTestSupport
 import Commands
+import SPMTestSupport
+import TSCBasic
+import XCTest
 
 final class TestToolTests: CommandsTestCase {
     
-    private func execute(_ args: [String]) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftTest.execute(args)
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> (stdout: String, stderr: String) {
+        return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath)
     }
     
     func testUsage() throws {
@@ -35,27 +35,51 @@ final class TestToolTests: CommandsTestCase {
     }
 
     func testNumWorkersParallelRequirement() throws {
+        #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
-        #if os(macOS)
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
-            do {
-                _ = try execute(["--num-workers", "1"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: --num-workers must be used with --parallel"))
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            XCTAssertThrowsCommandExecutionError(try execute(["--num-workers", "1"])) { error in
+                XCTAssertMatch(error.stderr, .contains("error: --num-workers must be used with --parallel"))
             }
         }
-        #endif
     }
     
     func testNumWorkersValue() throws {
-        #if os(macOS)
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
-            do {
-                _ = try execute(["--parallel", "--num-workers", "0"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--num-workers' must be greater than zero"))
+        #if !os(macOS)
+        // Running swift-test fixtures on linux is not yet possible.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            XCTAssertThrowsCommandExecutionError(try execute(["--parallel", "--num-workers", "0"])) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--num-workers' must be greater than zero"))
             }
         }
-        #endif
+    }
+
+    func testEnableDisableTestability() throws {
+        // default should run with testability
+        try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            do {
+                let result = try execute(["--vv"], packagePath: fixturePath)
+                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
+            }
+        }
+
+        // disabled
+        try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            XCTAssertThrowsCommandExecutionError( try execute(["--disable-testable-imports", "--vv"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("was not compiled for testing"))
+            }
+        }
+
+        // enabled
+        try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            do {
+                let result = try execute(["--enable-testable-imports", "--vv"], packagePath: fixturePath)
+                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
+            }
+        }
     }
 }

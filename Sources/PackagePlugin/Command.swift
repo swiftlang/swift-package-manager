@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -34,8 +34,8 @@ public enum Command {
 public extension Command {
     
     /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list as well as in the input and output lists should be
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list as well as in the input and output lists should be
     /// based on the paths provided in the target build context structure.
     ///
     /// The build command will run whenever its outputs are missing or if its
@@ -61,17 +61,24 @@ public extension Command {
     static func buildCommand(
         displayName: String?,
         executable: Path,
-        arguments: [String],
-        environment: [String: String] = [:],
+        arguments: [CustomStringConvertible],
+        environment: [String: CustomStringConvertible] = [:],
         inputFiles: [Path] = [],
         outputFiles: [Path] = []
     ) -> Command {
-        return _buildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, inputFiles: inputFiles, outputFiles: outputFiles)
+        return _buildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments.map{ $0.description },
+            environment: environment.mapValues{ $0.description },
+            workingDirectory: .none,
+            inputFiles: inputFiles,
+            outputFiles: outputFiles)
     }
 
     /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list as well as in the input and output lists should be
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list as well as in the input and output lists should be
     /// based on the paths provided in the target build context structure.
     ///
     /// The build command will run whenever its outputs are missing or if its
@@ -99,18 +106,25 @@ public extension Command {
     static func buildCommand(
         displayName: String?,
         executable: Path,
-        arguments: [String],
-        environment: [String: String] = [:],
-        workingDirectory: Path? = nil,
+        arguments: [CustomStringConvertible],
+        environment: [String: CustomStringConvertible] = [:],
+        workingDirectory: Path? = .none,
         inputFiles: [Path] = [],
         outputFiles: [Path] = []
     ) -> Command {
-        return _buildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, inputFiles: inputFiles, outputFiles: outputFiles)
+        return _buildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments.map{ $0.description },
+            environment: environment.mapValues{ $0.description },
+            workingDirectory: workingDirectory,
+            inputFiles: inputFiles,
+            outputFiles: outputFiles)
     }
 
     /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list and the output files directory should be based on
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list and in the output files directory should be based on
     /// the paths provided in the target build context structure.
     ///
     /// The build command will run before the build starts, and is allowed to
@@ -140,16 +154,22 @@ public extension Command {
     static func prebuildCommand(
         displayName: String?,
         executable: Path,
-        arguments: [String],
-        environment: [String: String] = [:],
+        arguments: [CustomStringConvertible],
+        environment: [String: CustomStringConvertible] = [:],
         outputFilesDirectory: Path
     ) -> Command {
-       return  _prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, outputFilesDirectory: outputFilesDirectory)
+       return _prebuildCommand(
+           displayName: displayName,
+           executable: executable,
+           arguments: arguments.map{ $0.description },
+           environment: environment.mapValues{ $0.description },
+           workingDirectory: .none,
+           outputFilesDirectory: outputFilesDirectory)
     }
 
     /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list and the output files directory should be based on
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list and in the output files directory should be based on
     /// the paths provided in the target build context structure.
     ///
     /// The build command will run before the build starts, and is allowed to
@@ -181,11 +201,17 @@ public extension Command {
     static func prebuildCommand(
         displayName: String?,
         executable: Path,
-        arguments: [String],
-        environment: [String: String] = [:],
-        workingDirectory: Path? = nil,
+        arguments: [CustomStringConvertible],
+        environment: [String: CustomStringConvertible] = [:],
+        workingDirectory: Path? = .none,
         outputFilesDirectory: Path
     ) -> Command {
-        return _prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, outputFilesDirectory: outputFilesDirectory)
+        return _prebuildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments.map{ $0.description },
+            environment: environment.mapValues{ $0.description },
+            workingDirectory: workingDirectory,
+            outputFilesDirectory: outputFilesDirectory)
     }
 }

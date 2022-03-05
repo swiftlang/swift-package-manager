@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// A package reference.
 ///
@@ -29,7 +28,7 @@ public struct PackageReference {
         case localSourceControl(AbsolutePath)
 
         /// A remote source package.
-        case remoteSourceControl(Foundation.URL)
+        case remoteSourceControl(URL)
 
         /// A package from  a registry.
         case registry(PackageIdentity)
@@ -149,7 +148,7 @@ public struct PackageReference {
         PackageReference(identity: identity, kind: .localSourceControl(path))
     }
 
-    public static func remoteSourceControl(identity: PackageIdentity, url: Foundation.URL) -> PackageReference {
+    public static func remoteSourceControl(identity: PackageIdentity, url: URL) -> PackageReference {
         PackageReference(identity: identity, kind: .remoteSourceControl(url))
     }
 

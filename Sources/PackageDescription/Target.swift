@@ -37,7 +37,7 @@ public final class Target {
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         case targetItem(name: String, condition: TargetDependencyCondition?)
-        case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
+        case productItem(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
     
@@ -88,7 +88,7 @@ public final class Target {
     /// The paths to source and resource files you don’t want to include in the target.
     ///
     /// Excluded paths are relative to the target path.
-    /// This property has precedence over the `sources` and `resources` properties.
+    /// This property has precedence over the ``sources`` and ``resources`` properties.
     public var exclude: [String]
     
     /// A boolean value that indicates if this is a test target.
@@ -299,7 +299,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
@@ -337,7 +337,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       Paths are relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
@@ -387,7 +387,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -440,7 +440,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -497,7 +497,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -551,7 +551,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -606,7 +606,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
@@ -641,7 +641,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - cSettings: The C settings for this target.
@@ -688,7 +688,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -738,7 +738,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -936,9 +936,20 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
-    
+
+    /// Creates a dependency on a product from a dependent package.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - package: The name of the package.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
+        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
+    }
+
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - parameters:
@@ -960,7 +971,7 @@ extension Target.Dependency {
         name: String,
         package: String
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
     
     /// Creates a dependency on a target in the same package.
@@ -981,15 +992,34 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.3)
+    @_disfavoredOverload
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.7)
     public static func product(
         name: String,
         package: String,
         condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: condition)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: condition)
     }
-    
+
+    /// Creates a target dependency on a product from a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - package: The name of the package.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func product(
+      name: String,
+      package: String,
+      moduleAliases: [String: String]? = nil,
+      condition: TargetDependencyCondition? = nil
+    ) -> Target.Dependency {
+        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
+    }
+
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
     /// has loaded the package graph.
     ///
@@ -1000,6 +1030,40 @@ extension Target.Dependency {
     @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
+    }
+}
+
+/// A condition that limits the application of a target's dependency.
+public struct TargetDependencyCondition: Encodable {
+    private let platforms: [Platform]?
+
+    private init(platforms: [Platform]?) {
+        self.platforms = platforms
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    @_disfavoredOverload
+    @available(_PackageDescription, obsoleted: 5.7, message: "using .when with nil platforms is obsolete")
+    public static func when(
+        platforms: [Platform]? = nil
+    ) -> TargetDependencyCondition {
+        // FIXME: This should be an error, not a precondition.
+        precondition(!(platforms == nil))
+        return TargetDependencyCondition(platforms: platforms)
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func when(
+        platforms: [Platform]
+    ) -> TargetDependencyCondition? {
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms) : .none
     }
 }
 
@@ -1103,7 +1167,7 @@ extension Target.PluginUsage {
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
-    
+
     /// Creates a target dependency instance with the given value.
     ///
     /// - parameters:
@@ -1114,7 +1178,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 }
 
 extension Target.PluginUsage: ExpressibleByStringLiteral {
-    
+
     /// Specifies use of a plugin target in the same package.
     ///
     /// - parameters:

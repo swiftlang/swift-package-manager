@@ -9,6 +9,7 @@
 */
 
 import Basics
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -19,13 +20,16 @@ import XCTest
 class PackageGraphPerfTests: XCTestCasePerf {
 
     func testLoading100Packages() throws {
-      #if os(macOS)
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
         let N = 100
         let files = (1...N).map { "/Foo\($0)/source.swift" }
         let fs = InMemoryFileSystem(emptyFiles: files)
 
         let identityResolver = DefaultIdentityResolver()
-        var externalManifests = OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+        var externalManifests = OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
         var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
@@ -55,7 +59,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 toolsVersion: .v4_2,
                 dependencies: dependencies,
                 products: [
-                    ProductDescription(name: name, type: .library(.automatic), targets: [name])
+                    try ProductDescription(name: name, type: .library(.automatic), targets: [name])
                 ],
                 targets: targets
             )
@@ -79,6 +83,5 @@ class PackageGraphPerfTests: XCTestCasePerf {
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
-      #endif
     }
 }

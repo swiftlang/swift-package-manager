@@ -46,7 +46,7 @@ public enum BuildSettings {
     /// An individual build setting assignment.
     public struct Assignment: Codable {
         /// The assignment value.
-        public var value: [String]
+        public var values: [String]
 
         // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
         /// The condition associated with this assignment.
@@ -63,7 +63,7 @@ public enum BuildSettings {
 
         public init() { 
             self._conditions = []
-            self.value = []
+            self.values = []
         }
     }
 
@@ -108,7 +108,7 @@ public enum BuildSettings {
             let values = assignments
                 .lazy
                 .filter { $0.conditions.allSatisfy { $0.satisfies(self.environment) } }
-                .flatMap { $0.value }
+                .flatMap { $0.values }
 
             return Array(values)
         }

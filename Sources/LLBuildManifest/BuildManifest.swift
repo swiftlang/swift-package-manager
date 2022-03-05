@@ -51,7 +51,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = PhonyTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -61,7 +61,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = TestDiscoveryTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -71,7 +71,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = CopyTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -81,7 +81,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = PackageStructureTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -91,7 +91,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = ArchiveTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -106,7 +106,7 @@ public struct BuildManifest {
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = ShellTool(
             description: description,
             inputs: inputs,
@@ -127,7 +127,7 @@ public struct BuildManifest {
         outputs: [Node],
         arguments: [String]
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftFrontendTool(
                 moduleName: moduleName,
                 description: description,
@@ -146,7 +146,7 @@ public struct BuildManifest {
         arguments: [String],
         dependencies: String? = nil
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = ClangTool(
             description: description,
             inputs: inputs,
@@ -163,6 +163,7 @@ public struct BuildManifest {
         outputs: [Node],
         executable: AbsolutePath,
         moduleName: String,
+        moduleAliases: [String: String]?,
         moduleOutputPath: AbsolutePath,
         importPath: AbsolutePath,
         tempsPath: AbsolutePath,
@@ -172,12 +173,13 @@ public struct BuildManifest {
         isLibrary: Bool,
         wholeModuleOptimization: Bool
     ) {
-        assert(commands[name] == nil, "aleady had a command named '\(name)'")
+        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftCompilerTool(
             inputs: inputs,
             outputs: outputs,
             executable: executable,
             moduleName: moduleName,
+            moduleAliases: moduleAliases,
             moduleOutputPath: moduleOutputPath,
             importPath: importPath,
             tempsPath: tempsPath,

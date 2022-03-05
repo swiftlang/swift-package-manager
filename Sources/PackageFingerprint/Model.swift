@@ -9,7 +9,8 @@
  */
 
 import struct Foundation.URL
-import TSCUtility
+
+import struct TSCUtility.Version
 
 public struct Fingerprint: Equatable {
     public let origin: Origin
@@ -28,8 +29,8 @@ public extension Fingerprint {
     }
 
     enum Origin: Equatable, CustomStringConvertible {
-        case sourceControl(Foundation.URL)
-        case registry(Foundation.URL)
+        case sourceControl(URL)
+        case registry(URL)
 
         public var kind: Fingerprint.Kind {
             switch self {
@@ -40,7 +41,7 @@ public extension Fingerprint {
             }
         }
 
-        public var url: Foundation.URL? {
+        public var url: URL? {
             switch self {
             case .sourceControl(let url):
                 return url

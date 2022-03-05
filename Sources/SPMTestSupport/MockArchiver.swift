@@ -10,10 +10,10 @@
 
 import Basics
 import TSCBasic
-import TSCUtility
 
 public class MockArchiver: Archiver {
-    public typealias Handler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) throws -> Void
+    public typealias ExtractionHandler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) throws -> Void
+    public typealias ValidationHandler = (MockArchiver, AbsolutePath, (Result<Bool, Error>) -> Void) throws -> Void
 
     public struct Extraction: Equatable {
         public let archivePath: AbsolutePath
@@ -27,10 +27,16 @@ public class MockArchiver: Archiver {
 
     public let supportedExtensions: Set<String> = ["zip"]
     public let extractions = ThreadSafeArrayStore<Extraction>()
-    public let handler: Handler?
+    public let extractionHandler: ExtractionHandler?
+    public let validationHandler: ValidationHandler?
 
-    public init(handler: Handler? = nil) {
-        self.handler = handler
+    public convenience init(handler: ExtractionHandler? = nil) {
+        self.init(extractionHandler: handler, validationHandler: nil)
+    }
+
+    public init(extractionHandler: ExtractionHandler? = nil, validationHandler: ValidationHandler? = nil) {
+        self.extractionHandler = extractionHandler
+        self.validationHandler = validationHandler
     }
 
     public func extract(
@@ -39,11 +45,23 @@ public class MockArchiver: Archiver {
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         do {
-            if let handler = self.handler {
+            if let handler = self.extractionHandler {
                 try handler(self, archivePath, destinationPath, completion)
             } else {
                 self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
                 completion(.success(()))
+            }
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+        do {
+            if let handler = self.validationHandler {
+                try handler(self, path, completion)
+            } else {
+                completion(.success(true))
             }
         } catch {
             completion(.failure(error))

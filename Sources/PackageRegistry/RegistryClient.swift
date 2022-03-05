@@ -10,85 +10,11 @@
 
 import Basics
 import Dispatch
-import class Foundation.JSONDecoder
-import struct Foundation.URL
-import struct Foundation.URLComponents
-import struct Foundation.URLQueryItem
+import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
 import TSCBasic
-import protocol TSCUtility.Archiver
-import struct TSCUtility.ZipArchiver
-
-public enum RegistryError: Error, CustomStringConvertible {
-    case registryNotConfigured(scope: PackageIdentity.Scope?)
-    case invalidPackage(PackageIdentity)
-    case invalidURL(URL)
-    case invalidResponseStatus(expected: Int, actual: Int)
-    case invalidContentVersion(expected: String, actual: String?)
-    case invalidContentType(expected: String, actual: String?)
-    case invalidResponse
-    case missingSourceArchive
-    case invalidSourceArchive
-    case unsupportedHashAlgorithm(String)
-    case failedToDetermineExpectedChecksum(Error)
-    case failedToComputeChecksum(Error)
-    case checksumChanged(latest: String, previous: String)
-    case invalidChecksum(expected: String, actual: String)
-    case pathAlreadyExists(AbsolutePath)
-    case failedRetrievingReleases(Error)
-    case failedRetrievingReleaseChecksum(Error)
-    case failedRetrievingManifest(Error)
-    case failedDownloadingSourceArchive(Error)
-
-    public var description: String {
-        switch self {
-        case .registryNotConfigured(let scope):
-            if let scope = scope {
-                return "No registry configured for '\(scope)' scope"
-            } else {
-                return "No registry configured'"
-            }
-        case .invalidPackage(let package):
-            return "Invalid package '\(package)'"
-        case .invalidURL(let url):
-            return "Invalid URL '\(url)'"
-        case .invalidResponseStatus(let expected, let actual):
-            return "Invalid registry response status '\(actual)', expected '\(expected)'"
-        case .invalidContentVersion(expected: let expected, actual: let actual):
-            return "Invalid registry response content version '\(actual ?? "")', expected '\(expected)'"
-        case .invalidContentType(let expected, let actual):
-            return "Invalid registry response content type '\(actual ?? "")', expected '\(expected)'"
-        case .invalidResponse:
-            return "Invalid registry response"
-        case .missingSourceArchive:
-            return "Missing registry source archive"
-        case .invalidSourceArchive:
-            return "Invalid registry source archive"
-        case .unsupportedHashAlgorithm(let algorithm):
-            return "Unsupported hash algorithm '\(algorithm)'"
-        case .failedToDetermineExpectedChecksum(let error):
-            return "Failed determining registry source archive checksum: \(error)"
-        case .failedToComputeChecksum(let error):
-            return "Failed computing registry source archive checksum: \(error)"
-        case .checksumChanged(let latest, let previous):
-            return "The latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
-        case .invalidChecksum(let expected, let actual):
-            return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
-        case .pathAlreadyExists(let path):
-            return "Path already exists '\(path)'"
-        case .failedRetrievingReleases(let error):
-            return "Failed fetching releases from registry: \(error)"
-        case .failedRetrievingReleaseChecksum(let error):
-            return "Failed fetching release checksum from registry: \(error)"
-        case .failedRetrievingManifest(let error):
-            return "Failed retrieving manifest from registry: \(error)"
-        case .failedDownloadingSourceArchive(let error):
-            return "Failed downloading source archive from registry: \(error)"
-        }
-    }
-}
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
@@ -96,7 +22,6 @@ public final class RegistryClient {
     private let apiVersion: APIVersion = .v1
 
     private let configuration: RegistryConfiguration
-    private let identityResolver: IdentityResolver
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
@@ -106,15 +31,13 @@ public final class RegistryClient {
 
     public init(
         configuration: RegistryConfiguration,
-        identityResolver: IdentityResolver,
-        fingerprintStorage: PackageFingerprintStorage? = .none,
+        fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: HTTPClientAuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
     ) {
         self.configuration = configuration
-        self.identityResolver = identityResolver
         self.authorizationProvider = authorizationProvider
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
@@ -123,12 +46,16 @@ public final class RegistryClient {
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
-    public func fetchVersions(
+    public var configured: Bool {
+        return !self.configuration.isEmpty
+    }
+
+    public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[Version], Error>) -> Void
+        completion: @escaping (Result<PackageMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
@@ -167,11 +94,16 @@ public final class RegistryClient {
                     }
 
                     let packageMetadata = try self.jsonDecoder.decode(Serialization.PackageMetadata.self, from: data)
-
                     let versions = packageMetadata.releases.filter { $0.value.problem == nil }
                         .compactMap { Version($0.key) }
                         .sorted(by: >)
-                    return versions
+
+                    let alternateLocations = try response.headers.parseAlternativeLocationLinks()
+
+                    return PackageMetadata(
+                        versions: versions,
+                        alternateLocations: alternateLocations?.map{ $0.url }
+                    )
                 }.mapError {
                     RegistryError.failedRetrievingReleases($0)
                 }
@@ -231,7 +163,7 @@ public final class RegistryClient {
                     let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
                     result[Manifest.filename] = (toolsVersion: toolsVersion, content: manifestContent)
 
-                    let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap { $0 }
+                    let alternativeManifests = try response.headers.parseManifestLinks()
                     for alternativeManifest in alternativeManifests {
                         result[alternativeManifest.filename] = (toolsVersion: alternativeManifest.toolsVersion, content: .none)
                     }
@@ -242,67 +174,7 @@ public final class RegistryClient {
             )
         }
 
-        func parseLinkHeader(_ value: String) throws -> [ManifestLink] {
-            let linkLines = value.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
-            return try linkLines.compactMap { linkLine in
-                try parseLinkLine(linkLine)
-            }
-        }
 
-        // <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
-        func parseLinkLine(_ value: String) throws -> ManifestLink? {
-            let fields = value.split(separator: ";")
-                .map(String.init)
-                .map { $0.spm_chuzzle() ?? $0 }
-
-            guard fields.count == 4 else {
-                return nil
-            }
-
-            guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }) else {
-                return nil
-            }
-
-            guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), rel == "alternate" else {
-                return nil
-            }
-
-            guard let filename = fields.first(where: { $0.hasPrefix("filename=") }).flatMap({ parseLinkFieldValue($0) }) else {
-                return nil
-            }
-
-            guard let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") }).flatMap({ parseLinkFieldValue($0) }) else {
-                return nil
-            }
-
-            guard let toolsVersion = ToolsVersion(string: toolsVersion) else {
-                throw StringError("Invalid tools version in alternate manifest link '\(value)'")
-            }
-
-            return ManifestLink(
-                value: link,
-                filename: filename,
-                toolsVersion: toolsVersion
-            )
-        }
-
-        func parseLinkFieldValue(_ field: String) -> String? {
-            let parts = field.split(separator: "=")
-                .map(String.init)
-                .map { $0.spm_chuzzle() ?? $0 }
-
-            guard parts.count == 2 else {
-                return nil
-            }
-
-            return parts[1].replacingOccurrences(of: "\"", with: "")
-        }
-
-        struct ManifestLink {
-            let value: String
-            let filename: String
-            let toolsVersion: ToolsVersion
-        }
     }
 
     public func getManifestContent(
@@ -500,7 +372,6 @@ public final class RegistryClient {
             guard !fileSystem.exists(destinationPath) else {
                 throw RegistryError.pathAlreadyExists(destinationPath)
             }
-            try fileSystem.createDirectory(destinationPath, recursive: true)
         } catch {
             return completion(.failure(error))
         }
@@ -539,7 +410,12 @@ public final class RegistryClient {
                                     observabilityScope.emit(warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)")
                                 }
                             }
-
+                            // validate that the destination does not already exist (again, as this is async)
+                            guard !fileSystem.exists(destinationPath) else {
+                                throw RegistryError.pathAlreadyExists(destinationPath)
+                            }
+                            try fileSystem.createDirectory(destinationPath, recursive: true)
+                            // extract the content
                             let archiver = self.archiverProvider(fileSystem)
                             // TODO: Bail if archive contains relative paths or overlapping files
                             archiver.extract(from: downloadPath, to: destinationPath) { result in
@@ -599,7 +475,7 @@ public final class RegistryClient {
     }
 
     public func lookupIdentities(
-        url: Foundation.URL,
+        url: URL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -637,21 +513,14 @@ public final class RegistryClient {
             completion(result.tryMap { response in
                 try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
 
-                guard let data = response.body,
-                      case .dictionary(let payload) = try? JSON(data: data),
-                      case .array(let identifiers) = payload["identifiers"]
-                else {
+                guard let data = response.body else {
                     throw RegistryError.invalidResponse
                 }
 
-                let packageIdentities: [PackageIdentity] = identifiers.compactMap {
-                    guard case .string(let string) = $0 else {
-                        return nil
-                    }
-                    return PackageIdentity.plain(string)
-                }
-
-                return Set(packageIdentities)
+                let packageIdentities = try self.jsonDecoder.decode(Serialization.PackageIdentifiers.self, from: data)
+                return Set(packageIdentities.identifiers.map {
+                    return PackageIdentity.plain($0)
+                })
             })
         }
     }
@@ -672,13 +541,82 @@ public final class RegistryClient {
     }
 }
 
-private extension RegistryClient {
+public enum RegistryError: Error, CustomStringConvertible {
+    case registryNotConfigured(scope: PackageIdentity.Scope?)
+    case invalidPackage(PackageIdentity)
+    case invalidURL(URL)
+    case invalidResponseStatus(expected: Int, actual: Int)
+    case invalidContentVersion(expected: String, actual: String?)
+    case invalidContentType(expected: String, actual: String?)
+    case invalidResponse
+    case missingSourceArchive
+    case invalidSourceArchive
+    case unsupportedHashAlgorithm(String)
+    case failedToDetermineExpectedChecksum(Error)
+    case failedToComputeChecksum(Error)
+    case checksumChanged(latest: String, previous: String)
+    case invalidChecksum(expected: String, actual: String)
+    case pathAlreadyExists(AbsolutePath)
+    case failedRetrievingReleases(Error)
+    case failedRetrievingReleaseChecksum(Error)
+    case failedRetrievingManifest(Error)
+    case failedDownloadingSourceArchive(Error)
+
+    public var description: String {
+        switch self {
+        case .registryNotConfigured(let scope):
+            if let scope = scope {
+                return "No registry configured for '\(scope)' scope"
+            } else {
+                return "No registry configured'"
+            }
+        case .invalidPackage(let package):
+            return "Invalid package '\(package)'"
+        case .invalidURL(let url):
+            return "Invalid URL '\(url)'"
+        case .invalidResponseStatus(let expected, let actual):
+            return "Invalid registry response status '\(actual)', expected '\(expected)'"
+        case .invalidContentVersion(expected: let expected, actual: let actual):
+            return "Invalid registry response content version '\(actual ?? "")', expected '\(expected)'"
+        case .invalidContentType(let expected, let actual):
+            return "Invalid registry response content type '\(actual ?? "")', expected '\(expected)'"
+        case .invalidResponse:
+            return "Invalid registry response"
+        case .missingSourceArchive:
+            return "Missing registry source archive"
+        case .invalidSourceArchive:
+            return "Invalid registry source archive"
+        case .unsupportedHashAlgorithm(let algorithm):
+            return "Unsupported hash algorithm '\(algorithm)'"
+        case .failedToDetermineExpectedChecksum(let error):
+            return "Failed determining registry source archive checksum: \(error)"
+        case .failedToComputeChecksum(let error):
+            return "Failed computing registry source archive checksum: \(error)"
+        case .checksumChanged(let latest, let previous):
+            return "The latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
+        case .invalidChecksum(let expected, let actual):
+            return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
+        case .pathAlreadyExists(let path):
+            return "Path already exists '\(path)'"
+        case .failedRetrievingReleases(let error):
+            return "Failed fetching releases from registry: \(error)"
+        case .failedRetrievingReleaseChecksum(let error):
+            return "Failed fetching release checksum from registry: \(error)"
+        case .failedRetrievingManifest(let error):
+            return "Failed retrieving manifest from registry: \(error)"
+        case .failedDownloadingSourceArchive(let error):
+            return "Failed downloading source archive from registry: \(error)"
+        }
+    }
+}
+
+fileprivate extension RegistryClient {
     enum APIVersion: String {
         case v1 = "1"
     }
 }
 
-private extension RegistryClient {
+fileprivate extension RegistryClient {
     enum MediaType: String {
         case json
         case swift
@@ -712,12 +650,142 @@ private extension RegistryClient {
     }
 }
 
+extension RegistryClient {
+    public struct PackageMetadata {
+        public let versions: [Version]
+        public let alternateLocations: [URL]?
+    }
+}
+
+fileprivate extension RegistryClient {
+    struct AlternativeLocationLink {
+        let url: URL
+        let kind: Kind
+
+        enum Kind: String {
+            case canonical
+            case alternate
+        }
+    }
+}
+
+fileprivate extension RegistryClient {
+    struct ManifestLink {
+        let url: URL
+        let filename: String
+        let toolsVersion: ToolsVersion
+    }
+}
+
+fileprivate extension HTTPClientHeaders {
+    /*
+    <https://github.com/mona/LinkedList>; rel="canonical",
+    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+     */
+    func parseAlternativeLocationLinks() throws -> [RegistryClient.AlternativeLocationLink]? {
+        return try self.get("Link").map { header -> [RegistryClient.AlternativeLocationLink] in
+            let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
+            return try linkLines.compactMap { linkLine in
+                try parseAlternativeLocationLine(linkLine)
+            }
+        }.flatMap{ $0 }
+    }
+
+    private func parseAlternativeLocationLine(_ value: String) throws -> RegistryClient.AlternativeLocationLink? {
+        let fields = value.split(separator: ";")
+            .map(String.init)
+            .map { $0.spm_chuzzle() ?? $0 }
+
+        guard fields.count == 2 else {
+            return nil
+        }
+
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }), let url = URL(string: link) else {
+            return nil
+        }
+
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel)  else {
+            return nil
+        }
+
+        return RegistryClient.AlternativeLocationLink(
+            url: url,
+            kind: kind
+        )
+    }
+}
+
+fileprivate extension HTTPClientHeaders {
+    /*
+    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0"
+    */
+    func parseManifestLinks() throws -> [RegistryClient.ManifestLink] {
+        return try self.get("Link").map { header -> [RegistryClient.ManifestLink] in
+            let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
+            return try linkLines.compactMap { linkLine in
+                try parseManifestLinkLine(linkLine)
+            }
+        }.flatMap{ $0 }
+    }
+
+    private func parseManifestLinkLine(_ value: String) throws -> RegistryClient.ManifestLink? {
+        let fields = value.split(separator: ";")
+            .map(String.init)
+            .map { $0.spm_chuzzle() ?? $0 }
+
+        guard fields.count == 4 else {
+            return nil
+        }
+
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }), let url = URL(string: link) else {
+            return nil
+        }
+
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), rel == "alternate" else {
+            return nil
+        }
+
+        guard let filename = fields.first(where: { $0.hasPrefix("filename=") }).flatMap({ parseLinkFieldValue($0) }) else {
+            return nil
+        }
+
+        guard let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") }).flatMap({ parseLinkFieldValue($0) }) else {
+            return nil
+        }
+
+        guard let toolsVersion = ToolsVersion(string: toolsVersion) else {
+            throw StringError("Invalid tools version in alternate manifest link '\(value)'")
+        }
+
+        return RegistryClient.ManifestLink(
+            url: url,
+            filename: filename,
+            toolsVersion: toolsVersion
+        )
+    }
+}
+
+fileprivate extension HTTPClientHeaders {
+     func parseLinkFieldValue(_ field: String) -> String? {
+        let parts = field.split(separator: "=")
+            .map(String.init)
+            .map { $0.spm_chuzzle() ?? $0 }
+
+        guard parts.count == 2 else {
+            return nil
+        }
+
+        return parts[1].replacingOccurrences(of: "\"", with: "")
+    }
+}
+
 // MARK: - Serialization
 
+// marked public for cross module visibility
 public extension RegistryClient {
     enum Serialization {
         public struct PackageMetadata: Codable {
-            public var releases: [String: Release]
+            public let releases: [String: Release]
 
             public init(releases: [String: Release]) {
                 self.releases = releases
@@ -746,11 +814,12 @@ public extension RegistryClient {
             }
         }
 
+        // marked public for cross module visibility
         public struct VersionMetadata: Codable {
-            public var id: String
-            public var version: String
-            public var resources: [Resource]
-            public var metadata: AdditionalMetadata?
+            public let id: String
+            public let version: String
+            public let resources: [Resource]
+            public let metadata: AdditionalMetadata?
 
             public init(
                 id: String,
@@ -784,22 +853,21 @@ public extension RegistryClient {
                 }
             }
         }
+
+        // marked public for cross module visibility
+        public struct PackageIdentifiers: Codable {
+            public let identifiers: [String]
+
+            public init(identifiers: [String]) {
+                self.identifiers = identifiers
+            }
+        }
     }
 }
 
 // MARK: - Utilities
 
-private extension String {
-    /// Drops the given suffix from the string, if present.
-    func spm_dropPrefix(_ prefix: String) -> String {
-        if hasPrefix(prefix) {
-            return String(dropFirst(prefix.count))
-        }
-        return self
-    }
-}
-
-private extension AbsolutePath {
+fileprivate extension AbsolutePath {
     func withExtension(_ extension: String) -> AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
@@ -807,7 +875,7 @@ private extension AbsolutePath {
     }
 }
 
-private extension URLComponents {
+fileprivate extension URLComponents {
     mutating func appendPathComponents(_ components: String...) {
         path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
     }

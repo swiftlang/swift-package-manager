@@ -1036,15 +1036,15 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(
                             name: "Bar",
                             settings: [
-                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .swift, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                                .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
                             ]
                         ),
                         TargetDescription(
                             name: "Bar2",
                             settings: [
-                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .swift, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                                .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
                             ]
                         ),
                         TargetDescription(
@@ -1883,7 +1883,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
             ])
-        // Make sure aliases are found properly and do not fall back to pre‐5.2 behaviour, leaking across onto other dependencies.
+        // Make sure aliases are found properly and do not fall back to pre‐5.2 behavior, leaking across onto other dependencies.
         let required = manifest.dependenciesRequired(for: .everything)
         let unrelated = try XCTUnwrap(required.first(where: { $0.nameForTargetDependencyResolutionOnly == "Unrelated" }))
         let requestedProducts = unrelated.productFilter

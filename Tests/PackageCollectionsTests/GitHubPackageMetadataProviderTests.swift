@@ -17,7 +17,6 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
@@ -41,81 +40,48 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         XCTAssertNil(GitHubPackageMetadataProvider.apiURL("bad/Hello-World.git"))
     }
 
-    func testAuthTokenType() throws {
-        let metadataProvider = GitHubPackageMetadataProvider()
-        let expectedAuthTokenType = AuthTokenType.github("github.com")
-
-        // Not remote
-        do {
-            let url = "file:///local/Hello-World.git"
-            let authTokenType = metadataProvider.getAuthTokenType(for: url)
-            XCTAssertNil(authTokenType)
-        }
-
-        // Invalid URL
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "bad/Hello-World.git")
-            XCTAssertNil(authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "git@github.com:octocat/Hello-World.git")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World.git")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-    }
-
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
             let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let handler: HTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
-                        let path = directoryPath.appending(components: "GitHub", "metadata.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "metadata.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, releasesURL):
-                        let path = directoryPath.appending(components: "GitHub", "releases.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "releases.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("contributors")):
-                        let path = directoryPath.appending(components: "GitHub", "contributors.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "contributors.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("readme")):
-                        let path = directoryPath.appending(components: "GitHub", "readme.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "readme.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("license")):
-                        let path = directoryPath.appending(components: "GitHub", "license.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "license.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("languages")):
-                        let path = directoryPath.appending(components: "GitHub", "languages.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let path = fixturePath.appending(components: "GitHub", "languages.json")
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
@@ -132,7 +98,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions.count, 2)
@@ -170,7 +136,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                 XCTAssert(error is NotFoundError, "\(error)")
             }
         }
@@ -181,8 +147,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
-                let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
@@ -203,7 +169,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions, [])
@@ -231,8 +197,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .permissionDenied(apiURL))
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .permissionDenied(apiURL))
             }
         }
     }
@@ -261,8 +227,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidAuthToken(apiURL))
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidAuthToken(apiURL))
             }
         }
     }
@@ -275,8 +241,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let total = 5
             var remaining = total
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
-                let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
                     var headers = HTTPClientHeaders()
@@ -296,7 +262,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 }
 
                 // Disable cache so we hit the API
-                let configuration = GitHubPackageMetadataProvider.Configuration(cacheDir: tmpPath, cacheTTLInSeconds: -1)
+                let configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true)
 
                 var httpClient = HTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
@@ -307,11 +273,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 for index in 0 ... total * 2 {
                     if index >= total {
-                        XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .apiLimitsExceeded(apiURL, total))
+                        XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                            XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .apiLimitsExceeded(apiURL, total))
                         }
                     } else {
-                        XCTAssertNoThrow(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) })
+                        XCTAssertNoThrow(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString))
                     }
                 }
             }
@@ -320,7 +286,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections", createGitRepo: false) { _ in
+            try fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -328,8 +294,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let url = UUID().uuidString
                 let identity = PackageIdentity(urlString: url)
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: identity, location: url, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(url))
+                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: url), "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(url))
                 }
             }
         }
@@ -337,7 +303,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL2() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections", createGitRepo: false) { _ in
+            try fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -345,8 +311,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let path = AbsolutePath.root
                 let identity = PackageIdentity(path: path)
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: identity, location: path.pathString, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(path.pathString))
+                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: path.pathString), "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(path.pathString))
                 }
             }
         }
@@ -365,17 +331,16 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         httpClient.configuration.requestHeaders = .init()
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
-        var configuration = GitHubPackageMetadataProvider.Configuration()
+        var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true) // Disable cache so we hit the API
         if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
             configuration.authTokens = { [.github("github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50
-        configuration.cacheTTLInSeconds = -1 // Disable cache so we hit the API
         let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
         defer { XCTAssertNoThrow(try provider.close()) }
 
         for _ in 0 ... 60 {
-            let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+            let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)
             XCTAssert(metadata.keywords!.count > 0)
@@ -392,5 +357,13 @@ internal extension GitHubPackageMetadataProvider {
             observabilityScope: ObservabilitySystem.NOOP,
             httpClient: httpClient
         )
+    }
+}
+
+private extension GitHubPackageMetadataProvider {
+    func syncGet(identity: PackageIdentity, location: String) throws -> Model.PackageBasicMetadata {
+        try tsc_await { callback in
+            self.get(identity: identity, location: location) { result, _ in callback(result) }
+        }
     }
 }

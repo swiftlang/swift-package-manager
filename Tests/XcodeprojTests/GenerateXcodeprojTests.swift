@@ -13,7 +13,6 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCUtility
 import TSCBasic
 import Xcodeproj
 import XCTest
@@ -22,54 +21,56 @@ class GenerateXcodeprojTests: XCTestCase {
     func testBuildXcodeprojPath() {
         let outdir = AbsolutePath("/path/to/project")
         let projectName = "Bar"
-        let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: outdir, projectName: projectName)
+        let xcodeprojPath = XcodeProject.makePath(outputDir: outdir, projectName: projectName)
         let expectedPath = AbsolutePath("/path/to/project/Bar.xcodeproj")
         XCTAssertEqual(xcodeprojPath, expectedPath)
     }
 
     func testXcodebuildCanParseIt() throws {
-      #if os(macOS)
-      try testWithTemporaryDirectory { dstdir in
-          let packagePath = dstdir.appending(component: "foo")
-          let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
-          try makeDirectories(modulePath)
-          try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try testWithTemporaryDirectory { dstdir in
+            let packagePath = dstdir.appending(component: "foo")
+            let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
+            try makeDirectories(modulePath)
+            try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
-          let observability = ObservabilitySystem.makeForTesting()
-          let graph = try loadPackageGraph(
-            fs: localFileSystem,
-            manifests: [
-                Manifest.createRootManifest(
-                    name: "Foo",
-                    path: packagePath,
-                    targets: [
-                        TargetDescription(name: "DummyModuleName"),
-                    ])
-            ],
-            observabilityScope: observability.topScope
-          )
-          XCTAssertNoDiagnostics(observability.diagnostics)
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: localFileSystem,
+                manifests: [
+                    Manifest.createRootManifest(
+                        name: "Foo",
+                        path: packagePath,
+                        targets: [
+                            TargetDescription(name: "DummyModuleName"),
+                        ])
+                ],
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
 
-          let projectName = "DummyProjectName"
-          let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-          try Xcodeproj.generate(
-            projectName: projectName,
-            xcodeprojPath: outpath,
-            graph: graph,
-            options: XcodeprojOptions(),
-            fileSystem: localFileSystem,
-            observabilityScope: observability.topScope
-          )
+            let projectName = "DummyProjectName"
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            try XcodeProject.generate(
+                projectName: projectName,
+                xcodeprojPath: outpath,
+                graph: graph,
+                options: XcodeprojOptions(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
 
-          XCTAssertDirectoryExists(outpath)
-          XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
+            XCTAssertDirectoryExists(outpath)
+            XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
-          // We can only validate this on OS X.
-          // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-          let output = try Process.checkNonZeroExit(
-              args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
+            // We can only validate this on OS X.
+            // Don't allow TOOLCHAINS to be overridden here, as it breaks the test below.
+            let output = try Process.checkNonZeroExit(
+                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
-          XCTAssertMatch(output, .contains("""
+            XCTAssertMatch(output, .contains("""
              Information about project "DummyProjectName":
                  Targets:
                      DummyModuleName
@@ -84,7 +85,6 @@ class GenerateXcodeprojTests: XCTestCase {
                      Foo-Package
              """))
         }
-      #endif
     }
 
     func testXcconfigOverrideValidatesPath() throws {
@@ -191,8 +191,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -232,8 +232,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -272,8 +272,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -284,7 +284,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             XCTAssertTrue(project.mainGroup.subitems.contains { $0.path == "a.txt" })
 
-            let projectWithoutExtraFiles = try Xcodeproj.generate(
+            let projectWithoutExtraFiles = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -323,8 +323,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: tmpdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: tmpdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -372,8 +372,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -436,8 +436,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: "Foo")
-            try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: "Foo")
+            try XcodeProject.generate(
                 projectName: "Foo",
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -457,10 +457,10 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojDeprecation() {
-            fixture(name: "DependencyResolution/External/Simple/Foo") { path in
-                let (_, stderr) = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"], packagePath: path)
-                XCTAssertMatch(stderr, .contains("'generate-xcodeproj' is no longer needed and will be deprecated soon"))
-            }
+    func testGenerateXcodeprojDeprecation() throws {
+        try fixture(name: "DependencyResolution/External/Simple/Foo") { fixturePath in
+            let (_, stderr) = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"], packagePath: fixturePath)
+            XCTAssertMatch(stderr, .contains("'generate-xcodeproj' is no longer needed and will be deprecated soon"))
         }
+    }
 }

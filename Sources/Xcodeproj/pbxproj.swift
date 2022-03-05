@@ -13,7 +13,6 @@ import TSCBasic
 import PackageGraph
 import PackageModel
 import PackageLoading
-import TSCUtility
 
 /// Errors encounter during Xcode project generation
 public enum ProjectGenerationError: Swift.Error {
@@ -567,7 +566,7 @@ public func xcodeProject(
             targetSettings.common.CLANG_CXX_LANGUAGE_STANDARD = clangTarget.cxxLanguageStandard
         }
 
-        // Add the `include` group for a libary C language target.
+        // Add the `include` group for a library C language target.
         if case let clangTarget as ClangTarget = target.underlyingTarget,
             clangTarget.type == .library,
             fileSystem.isDirectory(clangTarget.includeDir) {
@@ -615,7 +614,7 @@ public func xcodeProject(
 
             if let moduleMapPath = moduleMapPath {
                 includeGroup.addFileReference(path: moduleMapPath.pathString, name: moduleMapPath.basename)
-                // Save this modulemap path mapped to target so we can later wire it up for its dependees.
+                // Save this modulemap path mapped to target so we can later wire it up for its dependencies.
                 modulesToModuleMap[target] = (moduleMapPath, isGenerated)
             }
         }
@@ -633,7 +632,7 @@ public func xcodeProject(
                     }
                 }
                 let config = assignment.conditions.compactMap { $0 as? ConfigurationCondition }.first?.configuration
-                try appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
+                try appendSetting(assignment.values, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }
     }

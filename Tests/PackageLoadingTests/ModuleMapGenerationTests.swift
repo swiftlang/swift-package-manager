@@ -207,7 +207,7 @@ final class ModuleMapResult {
         XCTAssertEqual(isCreated, false, "unexpected modulemap created: \(contents)", file: (file), line: line)
     }
 
-    private var contents: ByteString {
+    private var contents: String {
         return try! fs.readFileContents(path)
     }
 
@@ -219,6 +219,6 @@ final class ModuleMapResult {
         guard isCreated else {
             return XCTFail("Can't compare values, modulemap not generated.", file: (file), line: line)
         }
-        XCTAssertEqual(ByteString(encodingAsUTF8: contents), self.contents, file: (file), line: line)
+        XCTAssertEqual(contents, self.contents, file: (file), line: line)
     }
 }

@@ -14,7 +14,6 @@ import Foundation
 import PackageCollections
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
@@ -79,10 +78,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var jsonOptions: JSONOptions
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            let collections = try with(swiftTool.observabilityScope) { collections in
+            let collections = try with(swiftTool) { collections in
                 try tsc_await { collections.listCollections(identifiers: nil, callback: $0) }
             }
 
@@ -100,10 +99,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Refresh configured collections")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            let collections = try with(swiftTool.observabilityScope) { collections in
+            let collections = try with(swiftTool) { collections in
                 try tsc_await { collections.refreshCollections(callback: $0) }
             }
             print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
@@ -126,13 +125,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var skipSignatureCheck: Bool = false
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
-            let collection: PackageCollectionsModel.Collection = try with(swiftTool.observabilityScope) { collections in
+            let collection: PackageCollectionsModel.Collection = try with(swiftTool) { collections in
                 do {
                     let userTrusted = self.trustUnsigned
                     return try tsc_await {
@@ -165,13 +164,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var collectionURL: String
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
-            try with(swiftTool.observabilityScope) { collections in
+            try with(swiftTool) { collections in
                 let collection = try tsc_await { collections.getCollection(source, callback: $0) }
                 _ = try tsc_await { collections.removeCollection(source, callback: $0) }
                 print("Removed \"\(collection.name)\" from your package collections.")
@@ -199,10 +198,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var searchQuery: String
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try with(swiftTool.observabilityScope) { collections in
+            try with(swiftTool) { collections in
                 switch searchMethod {
                 case .keywords:
                     let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
@@ -246,7 +245,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var version: String?
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         private func printVersion(_ version: PackageCollectionsModel.Package.Version?) -> String? {
             guard let version = version else {
@@ -281,7 +280,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            try with(swiftTool.observabilityScope) { collections in
+            try with(swiftTool) { collections in
                 let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
@@ -375,8 +374,15 @@ private extension JSONEncoder {
 }
 
 private extension ParsableCommand {
-    func with<T>(_ observabilityScope: ObservabilityScope, handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
-        let collections = PackageCollections(observabilityScope: observabilityScope)
+    func with<T>(_ swiftTool: SwiftTool, handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
+        let collections = PackageCollections(
+            configuration: .init(
+                configurationDirectory: swiftTool.sharedConfigurationDirectory,
+                cacheDirectory: swiftTool.sharedCacheDirectory
+            ),
+            fileSystem: swiftTool.fileSystem,
+            observabilityScope: swiftTool.observabilityScope
+        )
         defer {
             do {
                 try collections.shutdown()
@@ -388,7 +394,7 @@ private extension ParsableCommand {
         return try handler(collections)
     }
 
-    func url(_ urlString: String) throws -> Foundation.URL {
+    func url(_ urlString: String) throws -> URL {
         guard let url = URL(string: urlString) else {
             let filePrefix = "file://"
             guard urlString.hasPrefix(filePrefix) else {

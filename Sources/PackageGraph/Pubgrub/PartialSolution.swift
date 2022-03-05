@@ -9,6 +9,7 @@
  */
 
 import Basics
+import OrderedCollections
 import TSCBasic
 import struct TSCUtility.Version
 
@@ -17,7 +18,7 @@ import struct TSCUtility.Version
 public struct PartialSolution {
     var root: DependencyResolutionNode?
 
-    /// All known assigments.
+    /// All known assignments.
     public private(set) var assignments: [Assignment]
 
     /// All known decisions.
@@ -25,7 +26,7 @@ public struct PartialSolution {
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    public private(set) var _positive: OrderedDictionary<DependencyResolutionNode, Term> = [:]
+    public private(set) var _positive: OrderedCollections.OrderedDictionary<DependencyResolutionNode, Term> = [:]
 
     /// Union of all negative assignments for a package.
     ///
@@ -67,7 +68,7 @@ public struct PartialSolution {
         register(decision)
     }
 
-    /// Populates the _positive and _negative poperties with the assignment.
+    /// Populates the _positive and _negative properties with the assignment.
     private mutating func register(_ assignment: Assignment) {
         let term = assignment.term
         let pkg = term.node

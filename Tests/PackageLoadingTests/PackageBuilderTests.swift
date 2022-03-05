@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 /// Tests for the handling of source layout conventions.
@@ -340,7 +339,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
+                try ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -376,7 +375,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -404,7 +403,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
             ],
             targets: [
                 try TargetDescription(name: "exec1", type: .executable),
@@ -442,7 +441,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -462,7 +461,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -482,7 +481,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
+                try ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -1457,10 +1456,10 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
-                ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
-                ProductDescription(name: "foo", type: .library(.dynamic), targets: ["foo"]),
-                ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.dynamic), targets: ["foo"]),
+                try ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -1520,7 +1519,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1552,7 +1551,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1571,7 +1570,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
-                ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1590,7 +1589,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "bar",
             products: [
-                ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
+                try ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
             ],
             targets: [
                 try TargetDescription(name: "bar", type: .system)
@@ -1615,9 +1614,9 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             products: [
-                ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
-                ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
-                ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
+                try ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
+                try ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
+                try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
             ],
             targets: [
                 try TargetDescription(name: "foo1"),
@@ -1962,33 +1961,33 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "cbar",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
-                        .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
+                        .init(tool: .c, kind: .headerSearchPath("Sources/headers")),
+                        .init(tool: .cxx, kind: .headerSearchPath("Sources/cppheaders")),
 
-                        .init(tool: .c, name: .define, value: ["CCC=2"]),
-                        .init(tool: .cxx, name: .define, value: ["CXX"]),
-                        .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
+                        .init(tool: .c, kind: .define("CCC=2")),
+                        .init(tool: .cxx, kind: .define("CXX")),
+                        .init(tool: .cxx, kind: .define("RCXX"), condition: .init(config: "release")),
 
-                        .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                        .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                        .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                        .init(tool: .cxx, kind: .unsafeFlags(["-Icxxfoo", "-L", "cxxbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "bar", dependencies: ["foo"],
                     settings: [
-                        .init(tool: .swift, name: .define, value: ["SOMETHING"]),
-                        .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
-                        .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
-                        .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                        .init(tool: .swift, kind: .define("SOMETHING")),
+                        .init(tool: .swift, kind: .define("LINUX"), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .define("RLINUX"), condition: .init(platformNames: ["linux"], config: "release")),
+                        .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .swift, kind: .unsafeFlags(["-Isfoo", "-L", "sbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "exe", dependencies: ["bar"],
                     settings: [
-                        .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
-                        .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["ios"])),
-                        .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                        .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
+                        .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["ios"])),
+                        .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
                     ]
                 ),
             ]
@@ -2073,18 +2072,18 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "foo",
                     settings: [
-                        .init(tool: .c, name: .unsafeFlags, value: []),
-                        .init(tool: .cxx, name: .unsafeFlags, value: []),
-                        .init(tool: .cxx, name: .unsafeFlags, value: [], condition: .init(config: "release")),
-                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                        .init(tool: .c, kind: .unsafeFlags([])),
+                        .init(tool: .cxx, kind: .unsafeFlags([])),
+                        .init(tool: .cxx, kind: .unsafeFlags([]), condition: .init(config: "release")),
+                        .init(tool: .linker, kind: .unsafeFlags([])),
                     ]
                 ),
                 try TargetDescription(
                     name: "bar",
                     settings: [
-                        .init(tool: .swift, name: .unsafeFlags, value: [], condition: .init(platformNames: ["macos"], config: "debug")),
-                        .init(tool: .linker, name: .unsafeFlags, value: []),
-                        .init(tool: .linker, name: .unsafeFlags, value: [], condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .unsafeFlags([]), condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .linker, kind: .unsafeFlags([])),
+                        .init(tool: .linker, kind: .unsafeFlags([]), condition: .init(platformNames: ["linux"])),
                     ]
                 ),
             ]
@@ -2146,7 +2145,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
+                        .init(tool: .c, kind: .headerSearchPath("/Sources/headers")),
                     ]
                 ),
             ]
@@ -2163,7 +2162,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["../../.."]),
+                        .init(tool: .c, kind: .headerSearchPath("../../..")),
                     ]
                 ),
             ]
@@ -2178,7 +2177,11 @@ class PackageBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo2/foo.swift",
-            "/Bar/Sources/Bar/bar.swift"
+            "/Foo/Sources/Foo3/foo.swift",
+            "/Foo/Sources/Qux/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Bar/Sources/Bar2/bar.swift",
+            "/Bar/Sources/Qux/bar.swift"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -2191,24 +2194,51 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "Foo",
                     dependencies: [
+                        // invalid - same target in package "Bar"
                         "Bar",
                         "Bar",
+                        
+                        // invalid - same target in package "Bar"
+                        "Bar2",
+                        .product(name: "Bar2", package: "Bar"),
+                        
+                        // invalid - same target in this package
                         "Foo2",
                         "Foo2",
+                        
+                        // invalid - same target in this package
+                        "Foo3",
+                        .target(name: "Foo3"),
+                        
+                        // valid - different packages
+                        "Qux",
+                        .product(name: "Qux", package: "Bar")
                     ]),
                 try TargetDescription(name: "Foo2"),
+                try TargetDescription(name: "Foo3"),
+                try TargetDescription(name: "Qux")
             ]
         )
 
         PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
             package.checkModule("Foo")
             package.checkModule("Foo2")
+            package.checkModule("Foo3")
+            package.checkModule("Qux")
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package '\(package.packageIdentity)'",
+                severity: .warning
+            )
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Bar2' in target 'Foo' from package '\(package.packageIdentity)'",
+                severity: .warning
+            )
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Foo3' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
         }
@@ -2290,7 +2320,7 @@ class PackageBuilderTests: XCTestCase {
             toolsVersion: .v5_3,
             targets: [
                 try TargetDescription(name: "Foo", resources: [
-                    .init(rule: .process, path: "Resources")
+                    .init(rule: .process(localization: .none), path: "Resources")
                 ]),
             ]
         )

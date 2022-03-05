@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import OrderedCollections
 import PackageModel
 import TSCBasic
 
@@ -679,12 +680,11 @@ public final class PackageBuilder {
                         guard let target = targets[name] else { return nil }
                         return .target(target, conditions: buildConditions(from: condition))
 
-                    case .product(let name, let package, let condition):
+                    case .product(let name, let package, let moduleAliases, let condition):
                         return .product(
-                            .init(name: name, package: package),
+                            .init(name: name, package: package, moduleAliases: moduleAliases),
                             conditions: buildConditions(from: condition)
                         )
-
                     case .byName(let name, let condition):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
@@ -782,9 +782,8 @@ public final class PackageBuilder {
             )
         }
 
-        // Check for duplicate target dependencies by name
-        let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
-        combinedDependencyNames.spm_findDuplicates().forEach {
+        // Check for duplicate target dependencies
+        dependencies.spm_findDuplicateElements(by: \.nameAndType).map(\.[0].name).forEach {
             self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.identity.description))
         }
 
@@ -890,7 +889,7 @@ public final class PackageBuilder {
                 moduleMapType = .none
             }
 
-            return ClangTarget(
+            return try ClangTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
@@ -918,10 +917,12 @@ public final class PackageBuilder {
         // Process each setting.
         for setting in target.settings {
             let decl: BuildSettings.Declaration
+            let values: [String]
 
             // Compute appropriate declaration for the setting.
-            switch setting.name {
-            case .headerSearchPath:
+            switch setting.kind {
+            case .headerSearchPath(let value):
+                values = [value]
 
                 switch setting.tool {
                 case .c, .cxx:
@@ -931,12 +932,14 @@ public final class PackageBuilder {
                 }
 
                 // Ensure that the search path is contained within the package.
-                let subpath = try RelativePath(validating: setting.value[0])
+                let subpath = try RelativePath(validating: value)
                 guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 
-            case .define:
+            case .define(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx:
                     decl = .GCC_PREPROCESSOR_DEFINITIONS
@@ -946,7 +949,9 @@ public final class PackageBuilder {
                     throw InternalError("unexpected tool for setting type \(setting)")
                 }
 
-            case .linkedLibrary:
+            case .linkedLibrary(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx, .swift:
                     throw InternalError("unexpected tool for setting type \(setting)")
@@ -954,7 +959,9 @@ public final class PackageBuilder {
                     decl = .LINK_LIBRARIES
                 }
 
-            case .linkedFramework:
+            case .linkedFramework(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx, .swift:
                     throw InternalError("unexpected tool for setting type \(setting)")
@@ -962,7 +969,9 @@ public final class PackageBuilder {
                     decl = .LINK_FRAMEWORKS
                 }
 
-            case .unsafeFlags:
+            case .unsafeFlags(let _values):
+                values = _values
+
                 switch setting.tool {
                 case .c:
                     decl = .OTHER_CFLAGS
@@ -977,7 +986,7 @@ public final class PackageBuilder {
 
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
-            assignment.value = setting.value
+            assignment.values = values
             assignment.conditions = buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.
@@ -1128,7 +1137,9 @@ public final class PackageBuilder {
             }
 
             while true {
-                assert(searchPath.isDescendantOfOrEqual(to: packagePath), "search path \(searchPath) is outside the package \(packagePath)")
+                guard searchPath.isDescendantOfOrEqual(to: packagePath) else {
+                    throw InternalError("search path \(searchPath) is outside the package \(packagePath)")
+                }
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     SwiftTarget.testManifestNames.forEach { name in
@@ -1156,11 +1167,11 @@ public final class PackageBuilder {
 
     /// Collects the products defined by a package.
     private func constructProducts(_ targets: [Target]) throws -> [Product] {
-        var products = OrderedSet<KeyedPair<Product, String>>()
+        var products = OrderedCollections.OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
         func append(_ product: Product) {
-            let inserted = products.append(KeyedPair(product, key: product.name))
+            let inserted = products.append(KeyedPair(product, key: product.name)).inserted
             if !inserted {
                 self.observabilityScope.emit(.duplicateProduct(product: product))
             }
@@ -1182,7 +1193,7 @@ public final class PackageBuilder {
         // If enabled, create one test product for each test target.
         if self.shouldCreateMultipleTestProducts {
             for testTarget in testModules {
-                let product = Product(name: testTarget.name, type: .test, targets: [testTarget])
+                let product = try Product(name: testTarget.name, type: .test, targets: [testTarget])
                 append(product)
             }
         } else if !testModules.isEmpty {
@@ -1195,7 +1206,7 @@ public final class PackageBuilder {
             let productName = self.manifest.displayName + "PackageTests"
             let testManifest = try self.findTestManifest(in: testModules)
 
-            let product = Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
+            let product = try Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
             append(product)
         }
 
@@ -1251,7 +1262,7 @@ public final class PackageBuilder {
                 }
             }
 
-            append(Product(name: product.name, type: product.type, targets: targets))
+            try append(Product(name: product.name, type: product.type, targets: targets))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1295,7 +1306,7 @@ public final class PackageBuilder {
             } else {
                 if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(target.name) {
                     // Generate an implicit product for the executable target
-                    let product = Product(name: target.name, type: .executable, targets: [target])
+                    let product = try Product(name: target.name, type: .executable, targets: [target])
                     append(product)
                 }
             }
@@ -1308,7 +1319,7 @@ public final class PackageBuilder {
             if libraryTargets.isEmpty {
                 self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
-                let replProduct = Product(
+                let replProduct = try Product(
                     name: self.identity.description + Product.replProductSuffix,
                     type: .library(.dynamic),
                     targets: libraryTargets
@@ -1318,9 +1329,9 @@ public final class PackageBuilder {
         }
 
         // Create implicit snippet products
-        targets
+        try targets
             .filter { $0.type == .snippet }
-            .map { Product(name: $0.name, type: .snippet, targets: [$0]) }
+            .map { try Product(name: $0.name, type: .snippet, targets: [$0]) }
             .forEach(append)
 
         return products.map{ $0.item }
@@ -1361,7 +1372,6 @@ public final class PackageBuilder {
 
 /// We create this structure after scanning the filesystem for potential targets.
 private struct PotentialModule: Hashable {
-
     /// Name of the target.
     let name: String
 
@@ -1375,16 +1385,6 @@ private struct PotentialModule: Hashable {
 
     /// The target type.
     let type: TargetDescription.TargetType
-
-    /// The base prefix for the test target, used to associate with the target it tests.
-    public var basename: String {
-        guard isTest else {
-            fatalError("\(Swift.type(of: self)) should be a test target to access basename.")
-        }
-        precondition(name.hasSuffix(Target.testModuleNameSuffix))
-        let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)
-        return String(name[name.startIndex..<endIndex])
-    }
 }
 
 private extension Manifest {
@@ -1437,6 +1437,18 @@ extension Sources {
         return isLibrary ? .library : .executable
     }
 }
+
+extension Target.Dependency {
+    fileprivate var nameAndType: String {
+        switch self {
+            case .target:
+                return "target-\(name)"
+            case .product:
+                return "product-\(name)"
+        }
+    }
+}
+
 
 // MARK: - Snippets
 

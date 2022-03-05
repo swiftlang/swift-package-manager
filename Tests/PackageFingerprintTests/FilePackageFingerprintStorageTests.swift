@@ -21,8 +21,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = Foundation.URL(string: "https://example.packages.com")!
-        let sourceControlURL = Foundation.URL(string: "https://example.com/mona/LinkedList.git")!
+        let registryURL = URL(string: "https://example.packages.com")!
+        let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
 
         // Add fingerprints for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
@@ -70,7 +70,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = Foundation.URL(string: "https://example.packages.com")!
+        let registryURL = URL(string: "https://example.packages.com")!
 
         let package = PackageIdentity.plain("mona.LinkedList")
         try storage.put(package: package, version: Version("1.0.0"), fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0"))
@@ -82,7 +82,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             }
         }
 
-        // No fingerprints found for the packagge
+        // No fingerprints found for the package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
         XCTAssertThrowsError(try storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
@@ -95,7 +95,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = Foundation.URL(string: "https://example.packages.com")!
+        let registryURL = URL(string: "https://example.packages.com")!
 
         let package = PackageIdentity.plain("mona.LinkedList")
         // Write registry checksum for v1.0.0

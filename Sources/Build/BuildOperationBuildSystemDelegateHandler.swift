@@ -16,7 +16,10 @@ import PackageModel
 import SPMBuildCore
 import SPMLLBuild
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.IndexStore
+import class TSCUtility.IndexStoreAPI
+import protocol TSCUtility.ProgressAnimationProtocol
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
@@ -101,7 +104,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = self.context.buildParameters.indexStore
         let api = try self.context.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
@@ -135,7 +138,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
             guard let tests = testsByModule[module] else {
                 // This module has no tests so just write an empty file for it.
-                try localFileSystem.writeFileContents(file, bytes: "")
+                try fileSystem.writeFileContents(file, bytes: "")
                 continue
             }
             try write(tests: tests, forModule: module, to: file)
@@ -182,7 +185,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
                 throw StringError("command \(command.name) not registered")
             }
-            try execute(with: tool)
+            try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
         } catch {
             self.context.observabilityScope.emit(error)
@@ -225,36 +228,40 @@ public struct BuildDescription: Codable {
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
 
+    /// Distilled information about any plugins defined in the package.
+    let pluginDescriptions: [PluginDescription]
+
     public init(
         plan: BuildPlan,
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
-        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
+        pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
-
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binary
             )
         }
+        self.pluginDescriptions = pluginDescriptions
     }
 
-    public func write(to path: AbsolutePath) throws {
+    public func write(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
-        try localFileSystem.writeFileContents(path, bytes: ByteString(data))
+        try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    public static func load(from path: AbsolutePath) throws -> BuildDescription {
-        let contents = try localFileSystem.readFileContents(path).contents
+    public static func load(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+        let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
-        return try decoder.decode(BuildDescription.self, from: Data(contents))
+        return try decoder.decode(BuildDescription.self, from: contents)
     }
 }
 
@@ -287,17 +294,21 @@ public final class BuildExecutionContext {
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
+    let fileSystem: TSCBasic.FileSystem
+
     let observabilityScope: ObservabilityScope
 
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
+        fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.packageStructureDelegate = packageStructureDelegate
         self.buildErrorAdviceProvider = buildErrorAdviceProvider
@@ -372,9 +383,9 @@ final class CopyCommand: CustomLLBuildCommand {
 
             let input = AbsolutePath(tool.inputs[0].name)
             let output = AbsolutePath(tool.outputs[0].name)
-            try localFileSystem.createDirectory(output.parentDirectory, recursive: true)
-            try localFileSystem.removeFileTree(output)
-            try localFileSystem.copy(from: input, to: output)
+            try self.context.fileSystem.createDirectory(output.parentDirectory, recursive: true)
+            try self.context.fileSystem.removeFileTree(output)
+            try self.context.fileSystem.copy(from: input, to: output)
         } catch {
             self.context.observabilityScope.emit(error)
             return false
@@ -594,6 +605,26 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
         return false
     }
+    
+    /// Invoked right before running an action taken before building.
+    func preparationStepStarted(_ name: String) {
+        self.outputStream <<< name <<< "\n"
+        self.outputStream.flush()
+    }
+
+    /// Invoked when an action taken before building emits output.
+    func preparationStepHadOutput(_ name: String, output: String) {
+        queue.async {
+            self.progressAnimation.clear()
+            self.outputStream <<< output.spm_chomp() <<< "\n"
+            self.outputStream.flush()
+        }
+    }
+
+    /// Invoked right after running an action taken before building. The result
+    /// indicates whether the action succeeded, failed, or was cancelled.
+    func preparationStepFinished(_ name: String, result: CommandResult) {
+    }
 
     // MARK: SwiftCompilerOutputParserDelegate
 
@@ -733,10 +764,10 @@ fileprivate struct CommandTaskTracker {
     private func progressText(of command: SPMLLBuild.Command, targetName: String?) -> String {
         // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
         if let firstSpaceIndex = command.description.firstIndex(of: " "),
-           let lastDirectorySeperatorIndex = command.description.lastIndex(of: "/")
+           let lastDirectorySeparatorIndex = command.description.lastIndex(of: "/")
         {
             let action = command.description[..<firstSpaceIndex]
-            let fileNameStartIndex = command.description.index(after: lastDirectorySeperatorIndex)
+            let fileNameStartIndex = command.description.index(after: lastDirectorySeparatorIndex)
             let fileName = command.description[fileNameStartIndex...]
 
             if let targetName = targetName {

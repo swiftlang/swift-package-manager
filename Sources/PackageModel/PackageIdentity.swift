@@ -10,7 +10,6 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible {
@@ -25,7 +24,7 @@ public struct PackageIdentity: CustomStringConvertible {
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
-    public init(url: Foundation.URL) {
+    public init(url: URL) {
         self.init(urlString: url.absoluteString)
     }
 
@@ -276,7 +275,7 @@ struct PackageIdentityParser {
     }
 
     /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: Foundation.URL) -> String {
+    public static func computeDefaultName(fromURL url: URL) -> String {
         Self.computeDefaultName(fromLocation: url.absoluteString)
     }
 

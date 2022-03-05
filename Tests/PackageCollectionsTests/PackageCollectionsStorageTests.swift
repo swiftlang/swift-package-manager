@@ -12,9 +12,10 @@ import Basics
 @testable import PackageCollections
 import TSCBasic
 import TSCTestSupport
-import TSCUtility
 import tsan_utils
 import XCTest
+
+import struct TSCUtility.SQLite
 
 class PackageCollectionsStorageTests: XCTestCase {
     func testHappyCase() throws {

@@ -10,7 +10,6 @@
 
 @testable import Basics
 import TSCTestSupport
-import TSCUtility
 import XCTest
 
 final class HTTPClientTest: XCTestCase {
@@ -267,7 +266,7 @@ final class HTTPClientTest: XCTestCase {
     }
 
     func testAuthorization() {
-        let url = Foundation.URL(string: "http://test")!
+        let url = URL(string: "http://test")!
         let authorization = UUID().uuidString
 
         let handler: HTTPClient.Handler = { request, _, completion in
@@ -322,19 +321,19 @@ final class HTTPClientTest: XCTestCase {
     }
 
     func testExponentialBackoff() {
-        var count = 0
-        var lastCall: Date?
+        let count = ThreadSafeBox<Int>(0)
+        let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let delay = DispatchTimeInterval.milliseconds(100)
 
         let brokenHandler: HTTPClient.Handler = { _, _, completion in
-            let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
-            let delta = lastCall.flatMap { Date().timeIntervalSince($0) } ?? 0
+            let expectedDelta = pow(2.0, Double(count.get(default: 0) - 1)) * delay.timeInterval()!
+            let delta = lastCall.get().flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
-            count += 1
-            lastCall = Date()
+            count.increment()
+            lastCall.put(Date())
             completion(.success(HTTPClient.Response(statusCode: errorCode)))
         }
 
@@ -349,97 +348,133 @@ final class HTTPClientTest: XCTestCase {
                 XCTFail("unexpected error \(error)")
             case .success(let response):
                 XCTAssertEqual(response.statusCode, errorCode)
-                XCTAssertEqual(count, maxAttempts, "retries should match")
+                XCTAssertEqual(count.get(), maxAttempts, "retries should match")
             }
             promise.fulfill()
         }
 
         let timeout = Double(Int(pow(2.0, Double(maxAttempts))) * delay.milliseconds()!) / 1000
-        wait(for: [promise], timeout: timeout)
+        wait(for: [promise], timeout: 1.0 + timeout)
     }
 
     func testHostCircuitBreaker() {
-        var count = 0
-        let errorCode = Int.random(in: 500 ..< 600)
         let maxErrors = 5
-        let age = DispatchTimeInterval.milliseconds(100)
-
-        let brokenHandler: HTTPClient.Handler = { _, _, completion in
-            count += 1
-            completion(.success(HTTPClient.Response(statusCode: errorCode)))
-        }
+        let errorCode = Int.random(in: 500 ..< 600)
+        let age = DispatchTimeInterval.seconds(5)
 
         let host = "http://tes-\(UUID().uuidString).com"
-        let httpClient = HTTPClient(handler: brokenHandler)
+        var httpClient = HTTPClient(handler: { _, _, completion in
+            completion(.success(HTTPClient.Response(statusCode: errorCode)))
+        })
+        httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
 
+        // make the initial errors
+        do {
+            let sync = DispatchGroup()
+            let count = ThreadSafeBox<Int>(0)
+            (0 ..< maxErrors).forEach { index in
+                sync.enter()
+                httpClient.get(URL(string: "\(host)/\(index)/foo")!) { result in
+                    defer { sync.leave() }
+                    count.increment()
+                    switch result {
+                    case .failure(let error):
+                        XCTFail("unexpected failure \(error)")
+                    case .success(let response):
+                        XCTAssertEqual(response.statusCode, errorCode)
+                    }
+                }
+            }
+            XCTAssertEqual(sync.wait(timeout: .now() + .seconds(1)), .success, "should not timeout")
+            XCTAssertEqual(count.get(), maxErrors, "expected results count to match")
+        }
+
+        // these should all circuit break
         let sync = DispatchGroup()
-        (0 ... maxErrors * 2).forEach { index in
+        let count = ThreadSafeBox<Int>(0)
+        let total = Int.random(in: 10 ..< 20)
+        (0 ..< total).forEach { index in
             sync.enter()
-            var request = HTTPClient.Request(method: .get, url: URL(string: "\(host)/\(index)/foo")!)
-            request.options.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
-            httpClient.execute(request) { result in
+            httpClient.get(URL(string: "\(host)/\(index)/foo")!) { result in
                 defer { sync.leave() }
+                count.increment()
                 switch result {
                 case .failure(let error):
-                    if index < maxErrors {
-                        XCTFail("unexpected error \(error)")
-                    } else {
-                        XCTAssertEqual(error as? HTTPClientError, .circuitBreakerTriggered, "expected error to match")
-                    }
+                    XCTAssertEqual(error as? HTTPClientError, .circuitBreakerTriggered, "expected error to match")
                 case .success(let response):
-                    if index < maxErrors {
-                        XCTAssertEqual(response.statusCode, errorCode, "expected status code to match")
-                    } else {
-                        XCTFail("unexpected success \(response)")
-                    }
+                    XCTFail("unexpected success \(response)")
                 }
             }
         }
 
-        let timeout = DispatchTime.now() + .milliseconds(age.milliseconds()! * maxErrors)
-        XCTAssertEqual(sync.wait(timeout: timeout), .success, "should not timeout")
+        XCTAssertEqual(sync.wait(timeout: .now() + .seconds(1)), .success, "should not timeout")
+        XCTAssertEqual(count.get(), total, "expected results count to match")
     }
 
     func testHostCircuitBreakerAging() {
-        var count = 0
-        let errorCode = Int.random(in: 500 ..< 600)
         let maxErrors = 5
+        let errorCode = Int.random(in: 500 ..< 600)
         let age = DispatchTimeInterval.milliseconds(100)
 
-        let brokenHandler: HTTPClient.Handler = { _, _, completion in
-            if count < maxErrors / 2 {
-                // immediate
-                completion(.success(HTTPClient.Response(statusCode: errorCode)))
-            } else {
-                // age it
-                DispatchQueue.global().asyncAfter(deadline: .now() + age) {
-                    completion(.success(HTTPClient.Response(statusCode: errorCode)))
-                }
-            }
-            count += 1
-        }
-
         let host = "http://tes-\(UUID().uuidString).com"
-        let httpClient = HTTPClient(handler: brokenHandler)
+        var httpClient = HTTPClient(handler: { request, _, completion in
+            if request.url.lastPathComponent == "error" {
+                completion(.success(HTTPClient.Response(statusCode: errorCode)))
+            } else if request.url.lastPathComponent == "okay" {
+                completion(.success(.okay()))
+            } else {
+                completion(.failure(StringError("unknown request \(request.url)")))
+            }
+        })
+        httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
 
+
+        // make the initial errors
+        do {
+            let sync = DispatchGroup()
+            let count = ThreadSafeBox<Int>(0)
+            (0 ..< maxErrors).forEach { index in
+                sync.enter()
+                httpClient.get(URL(string: "\(host)/\(index)/error")!) { result in
+                    defer { sync.leave() }
+                    count.increment()
+                    switch result {
+                    case .failure(let error):
+                        XCTFail("unexpected failure \(error)")
+                    case .success(let response):
+                        XCTAssertEqual(response.statusCode, errorCode)
+                    }
+                }
+            }
+            XCTAssertEqual(sync.wait(timeout: .now() + .seconds(1)), .success, "should not timeout")
+            XCTAssertEqual(count.get(), maxErrors, "expected results count to match")
+        }
+
+        // these should not circuit break since they are deliberately aged
         let sync = DispatchGroup()
-        (0 ... maxErrors * 2).forEach { index in
+        let total = Int.random(in: 10 ..< 20)
+        let count = ThreadSafeBox<Int>(0)
+
+        (0 ..< total).forEach { index in
             sync.enter()
-            var request = HTTPClient.Request(method: .get, url: URL(string: "\(host)/\(index)/foo")!)
-            request.options.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
-            httpClient.execute(request) { result in
-                defer { sync.leave() }
-                switch result {
-                case .failure(let error):
-                    XCTFail("unexpected error \(error)")
-                case .success(let response):
-                    XCTAssertEqual(response.statusCode, errorCode, "expected status code to match")
+            // age it
+            DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + age) {
+                httpClient.get(URL(string: "\(host)/\(index)/okay")!) { result in
+                    defer { sync.leave() }
+                    count.increment()
+                    switch result {
+                    case .failure(let error):
+                        XCTFail("unexpected error \(error)")
+                    case .success(let response):
+                        XCTAssertEqual(response.statusCode, 200, "expected status code to match")
+                    }
                 }
             }
         }
 
-        let timeout = DispatchTime.now() + .milliseconds(age.milliseconds()! * maxErrors)
+        let timeout = DispatchTime.now() + .seconds(1) + .milliseconds(age.milliseconds()! * maxErrors)
         XCTAssertEqual(sync.wait(timeout: timeout), .success, "should not timeout")
+        XCTAssertEqual(count.get(), total, "expected results count to match")
     }
 
     func testHTTPClientHeaders() {
@@ -463,6 +498,85 @@ final class HTTPClientTest: XCTestCase {
         }
         XCTAssertEqual(headers.count, items.count + 1, "headers count should match (no duplicates)")
         XCTAssertEqual(values, headers.get(name), "multiple headers value should match")
+    }
+
+    func testExceedsDownloadSizeLimitProgress() throws {
+        let maxSize: Int64 = 50
+
+        let httpClient = HTTPClient(handler: { request, progress, completion in
+            switch request.method {
+            case .head:
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Length", value: "0")])
+                )))
+            case .get:
+                progress?(Int64(maxSize * 2), 0)
+            default:
+                XCTFail("method should match")
+            }
+        })
+
+        var request = HTTPClient.Request(url: URL(string: "http://test")!)
+        request.options.maximumResponseSizeInBytes = 10
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.execute(request) { result in
+            switch result {
+            case .failure(let error):
+                XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2), "expected error to match")
+            case .success(let response):
+                XCTFail("unexpected success \(response)")
+            }
+            promise.fulfill()
+        }
+
+        wait(for: [promise], timeout: 1)
+    }
+
+    func testMaxConcurrency() throws {
+        let maxConcurrentRequests = 2
+        var concurrentRequests = 0
+        let concurrentRequestsLock = Lock()
+
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequests = maxConcurrentRequests
+        let httpClient = HTTPClient(configuration: configuration, handler: { request, _, completion in
+            defer {
+                concurrentRequestsLock.withLock {
+                    concurrentRequests -= 1
+                }
+            }
+
+            concurrentRequestsLock.withLock {
+                concurrentRequests += 1
+                if concurrentRequests > maxConcurrentRequests {
+                    XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+                }
+            }
+
+            completion(.success(.okay()))
+        })
+
+        let total = 1000
+        let sync = DispatchGroup()
+        let results = ThreadSafeArrayStore<Result<HTTPClient.Response, Error>>()
+        for _ in 0 ..< total {
+            sync.enter()
+            httpClient.get(URL(string: "http://localhost/test")!) { result in
+                defer { sync.leave() }
+                results.append(result)
+            }
+        }
+
+        if case .timedOut = sync.wait(timeout: .now() + .seconds(5)) {
+            throw StringError("requests timed out")
+        }
+
+        XCTAssertEqual(results.count, total, "expected number of results to match")
+        for result in results.get() {
+            XCTAssertEqual(try? result.get().statusCode, 200, "expected '200 okay' response")
+        }
     }
 
     private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {

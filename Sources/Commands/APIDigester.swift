@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -11,7 +11,6 @@
 import Dispatch
 
 import TSCBasic
-import TSCUtility
 
 import SPMBuildCore
 import Basics
@@ -20,6 +19,10 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.SerializedDiagnostics
+import var TSCUtility.verbosity
 
 /// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {
@@ -58,8 +61,8 @@ struct APIDigesterBaselineDumper {
         for modulesToDiff: Set<String>,
         at baselineDir: AbsolutePath?,
         force: Bool,
-        outputStream: OutputByteStream,
-        logLevel: Diagnostic.Severity
+        logLevel: Diagnostic.Severity,
+        swiftTool: SwiftTool
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
@@ -71,7 +74,7 @@ struct APIDigesterBaselineDumper {
         if !force {
             // Baselines which already exist don't need to be regenerated.
             modulesToDiff = modulesToDiff.filter {
-                !localFileSystem.exists(baselinePath($0))
+                !swiftTool.fileSystem.exists(baselinePath($0))
             }
         }
 
@@ -82,8 +85,8 @@ struct APIDigesterBaselineDumper {
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
         let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineRevision.identifier)-checkout")
-        if localFileSystem.exists(baselinePackageRoot) {
-            try localFileSystem.removeFileTree(baselinePackageRoot)
+        if swiftTool.fileSystem.exists(baselinePackageRoot) {
+            try swiftTool.fileSystem.removeFileTree(baselinePackageRoot)
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
@@ -99,13 +102,11 @@ struct APIDigesterBaselineDumper {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot
-        )
+        let workspace = try Workspace(forRootPackage: baselinePackageRoot)
 
         let graph = try workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,
-            observabilityScope: observabilityScope
+            observabilityScope: self.observabilityScope
         )
 
         // Don't emit a baseline for a module that didn't exist yet in this revision.
@@ -122,21 +123,15 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildOp = BuildOperation(
-            buildParameters: buildParameters,
+        let buildOp = try swiftTool.createBuildOperation(
             cacheBuildManifest: false,
-            packageGraphLoader: { graph },
-            buildToolPluginInvoker: { _ in [:] },
-            outputStream: outputStream,
-            logLevel: logLevel,
-            fileSystem: localFileSystem,
-            observabilityScope: observabilityScope
+            customBuildParameters: buildParameters,
+            customPackageGraphLoader: { graph }
         )
-
         try buildOp.build()
 
         // Dump the SDK JSON.
-        try localFileSystem.createDirectory(baselineDir, recursive: true)
+        try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: Int(buildParameters.jobs))
         let errors = ThreadSafeArrayStore<Swift.Error>()
@@ -170,11 +165,14 @@ struct APIDigesterBaselineDumper {
 
 /// A wrapper for the swift-api-digester tool.
 public struct SwiftAPIDigester {
+    /// The file system to use
+    let fileSystem: FileSystem
 
     /// The absolute path to `swift-api-digester` in the toolchain.
     let tool: AbsolutePath
 
-    init(tool: AbsolutePath) {
+    init(fileSystem: FileSystem, tool: AbsolutePath) {
+        self.fileSystem = fileSystem
         self.tool = tool
     }
 
@@ -190,7 +188,7 @@ public struct SwiftAPIDigester {
 
         try runTool(args)
 
-        if !localFileSystem.exists(outputPath) {
+        if !self.fileSystem.exists(outputPath) {
             throw Error.failedToGenerateBaseline(module)
         }
     }
@@ -215,7 +213,7 @@ public struct SwiftAPIDigester {
         return try? withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)
-            let contents = try localFileSystem.readFileContents(file.path)
+            let contents = try self.fileSystem.readFileContents(file.path)
             guard contents.count > 0 else {
                 return nil
             }
@@ -233,8 +231,7 @@ public struct SwiftAPIDigester {
         let arguments = [tool.pathString] + args
         let process = Process(
             arguments: arguments,
-            outputRedirection: .collect,
-            verbose: verbosity != .concise
+            outputRedirection: .collect
         )
         try process.launch()
         try process.waitUntilExit()

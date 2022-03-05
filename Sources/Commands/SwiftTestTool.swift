@@ -16,13 +16,17 @@ import PackageGraph
 import SPMBuildCore
 import TSCBasic
 import func TSCLibc.exit
-import TSCUtility
 import Workspace
+
+import class TSCUtility.NinjaProgressAnimation
+import class TSCUtility.PercentProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
     case multipleTestProducts([String])
+    case xctestNotAvailable
 }
 
 extension TestError: CustomStringConvertible {
@@ -34,6 +38,8 @@ extension TestError: CustomStringConvertible {
             return "invalid list test JSON structure"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
+        case .xctestNotAvailable:
+            return "XCTest not available"
         }
     }
 }
@@ -110,17 +116,6 @@ struct TestToolOptions: ParsableArguments {
         """)
     var filter: [String] = []
 
-    var testCaseSkip: TestCaseSpecifier {
-        // TODO: Remove this once the environment variable is no longer used.
-        if let override = testCaseSkipOverride() {
-            return override
-        }
-
-        return _testCaseSkip.isEmpty
-            ? .none
-            : .skip(_testCaseSkip)
-    }
-
     @Option(name: .customLong("skip"),
             help: "Skip test cases matching regular expression, Example: --skip PerformanceTests")
     var _testCaseSkip: [String] = []
@@ -135,29 +130,15 @@ struct TestToolOptions: ParsableArguments {
     @Option(help: "Test the specified product.")
     var testProduct: String?
 
-    /// Returns the test case specifier if overridden in the env.
-    private func testCaseSkipOverride() -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
-            return nil
-        }
+    /// Generate LinuxMain entries and exit.
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
+    var enableTestableImports: Bool = true
 
-        do {
-            let skipTests: [String.SubSequence]
-            // Read from the file if it exists.
-            if let path = try? AbsolutePath(validating: override), localFileSystem.exists(path) {
-                let contents = try localFileSystem.readFileContents(path).cString
-                skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
-            } else {
-                // Otherwise, read the env variable.
-                skipTests = override.split(separator: ":", omittingEmptySubsequences: true)
-            }
-
-            return .skip(skipTests.map(String.init))
-        } catch {
-            // FIXME: We should surface errors from here.
-        }
-        return nil
-    }
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
+    var enableCodeCoverage: Bool = false
 }
 
 /// Tests filtering specifier
@@ -192,27 +173,39 @@ public struct SwiftTestTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup(_hiddenFromHelp: true)
-    var swiftOptions: SwiftToolOptions
+    @OptionGroup()
+    var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: TestToolOptions
 
-    var shouldEnableCodeCoverage: Bool {
-        swiftOptions.shouldEnableCodeCoverage
-    }
-
     public func run(_ swiftTool: SwiftTool) throws {
-        // Validate commands arguments
-        try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
+        do {
+            // Validate commands arguments
+            try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
+
+            // validate XCTest available on darwin based systems
+            let toolchain = try swiftTool.getToolchain()
+            if toolchain.triple.isDarwin() && toolchain.configuration.xctestPath == nil {
+                throw TestError.xctestNotAvailable
+            }
+        } catch {
+            swiftTool.observabilityScope.emit(error)
+            throw ExitCode.failure
+        }
 
         switch options.mode {
         case .listTests:
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.testCaseSkip)
+                .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
 
             // Print the tests.
             for test in tests {
@@ -232,7 +225,7 @@ public struct SwiftTestTool: SwiftCommand {
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
             }
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName))
 
         case .generateLinuxMain:
@@ -245,7 +238,12 @@ public struct SwiftTestTool: SwiftCommand {
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let allTestSuites = testSuites.values.flatMap { $0 }
             let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
             try generator.generate()
@@ -253,19 +251,19 @@ public struct SwiftTestTool: SwiftCommand {
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
-                try localFileSystem.removeFileTree(buildParameters.codeCovPath)
+            if self.options.enableCodeCoverage {
+                try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
             let xctestArg: String?
 
             switch options.testCaseSpecifier {
             case .none:
-                if case .skip = options.testCaseSkip {
+                if case .skip = options.skippedTests(fileSystem: swiftTool.fileSystem) {
                     fallthrough
                 } else {
                     xctestArg = nil
@@ -278,10 +276,15 @@ public struct SwiftTestTool: SwiftCommand {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+                let testSuites = try TestingSupport.getTestSuites(
+                    in: testProducts,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: options.enableCodeCoverage,
+                    sanitizers: globalOptions.build.sanitizers
+                )
                 let tests = try testSuites
                     .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.testCaseSkip)
+                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
@@ -292,7 +295,11 @@ public struct SwiftTestTool: SwiftCommand {
                 }
             }
 
-            let testEnv = try TestingSupport.constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
+            let testEnv = try TestingSupport.constructTestEnvironment(
+                toolchain: toolchain,
+                buildParameters: buildParameters,
+                sanitizers: globalOptions.build.sanitizers
+            )
 
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
@@ -300,28 +307,36 @@ public struct SwiftTestTool: SwiftCommand {
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 testEnv: testEnv,
-                outputStream: swiftTool.outputStream,
                 observabilityScope: swiftTool.observabilityScope
             )
 
             // Finally, run the tests.
-            let (ranSuccessfully, _) = runner.test(writeToOutputStream: true)
+            let ranSuccessfully = runner.test(outputHandler: {
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print($0)
+            })
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
 
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
         case .runParallel:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.testCaseSkip)
-            let buildParameters = try swiftTool.buildParametersForTest()
+                .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -331,8 +346,8 @@ public struct SwiftTestTool: SwiftCommand {
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
-                try localFileSystem.removeFileTree(buildParameters.codeCovPath)
+            if self.options.enableCodeCoverage {
+                try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
             // Run the tests using the parallel runner.
@@ -340,21 +355,31 @@ public struct SwiftTestTool: SwiftCommand {
                 bundlePaths: testProducts.map { $0.bundlePath },
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
-                xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                options: swiftOptions,
+                buildOptions: globalOptions.build,
                 buildParameters: buildParameters,
-                outputStream: swiftTool.outputStream,
+                shouldOutputSuccess: swiftTool.logLevel <= .info,
                 observabilityScope: swiftTool.observabilityScope
             )
-            try runner.run(tests, outputStream: swiftTool.outputStream)
+
+            let testResults = try runner.run(tests)
+
+            // Generate xUnit file if requested
+            if let xUnitOutput = options.xUnitOutput {
+                let generator = XUnitGenerator(
+                    fileSystem: swiftTool.fileSystem,
+                    results: testResults
+                )
+                try generator.generate(at: xUnitOutput)
+            }
+
+            // process code Coverage if request
+            if self.options.enableCodeCoverage {
+                try processCodeCoverage(testProducts, swiftTool: swiftTool)
+            }
 
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
-            }
-
-            if shouldEnableCodeCoverage {
-                try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
         }
     }
@@ -377,7 +402,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
@@ -393,8 +418,8 @@ public struct SwiftTestTool: SwiftCommand {
         let llvmProf = try swiftTool.getToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParametersForTest()
-        let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let codeCovFiles = try swiftTool.fileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
         var args = [llvmProf.pathString, "merge", "-sparse"]
@@ -417,7 +442,7 @@ public struct SwiftTestTool: SwiftCommand {
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftTool.getToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         let args = [
             llvmCov.pathString,
             "export",
@@ -430,14 +455,15 @@ public struct SwiftTestTool: SwiftCommand {
             let output = try result.utf8Output() + result.utf8stderrOutput()
             throw StringError("Unable to export code coverage:\n \(output)")
         }
-        try localFileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
+        try swiftTool.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
     }
 
     /// Builds the "test" target if enabled in options.
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildSystem = try swiftTool.createBuildSystem(buildParameters: swiftTool.buildParametersForTest())
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
@@ -470,13 +496,11 @@ public struct SwiftTestTool: SwiftCommand {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                observabilityScope.emit(error: "--num-workers must be used with --parallel")
-                throw ExitCode.failure
+                throw StringError("--num-workers must be used with --parallel")
             }
 
             guard workers > 0 else {
-                observabilityScope.emit(error: "'--num-workers' must be greater than zero")
-                throw ExitCode.failure
+                throw StringError("'--num-workers' must be greater than zero")
             }
         }
 
@@ -523,9 +547,6 @@ final class TestRunner {
 
     private let testEnv: [String: String]
 
-    /// Output stream for test results
-    private let outputStream: OutputByteStream
-
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
 
@@ -540,7 +561,6 @@ final class TestRunner {
         processSet: ProcessSet,
         toolchain: UserToolchain,
         testEnv: [String: String],
-        outputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
@@ -548,98 +568,75 @@ final class TestRunner {
         self.processSet = processSet
         self.toolchain = toolchain
         self.testEnv = testEnv
-        self.outputStream = outputStream
         self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
     }
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    public func test(writeToOutputStream: Bool) -> (Bool, String) {
+    public func test(outputHandler: @escaping (String) -> Void) -> Bool {
         var success = true
-        var output = ""
         for path in self.bundlePaths {
-            let (testSuccess, testOutput) = self.test(at: path, writeToOutputStream: writeToOutputStream)
+            let testSuccess = self.test(at: path, outputHandler: outputHandler)
             success = success && testSuccess
-            output += testOutput
         }
-        return (success, output)
+        return success
     }
 
     /// Constructs arguments to execute XCTest.
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
-      #if os(macOS)
-        guard let xctest = self.toolchain.xctest else {
-            throw TestError.testsExecutableNotFound
+        #if os(macOS)
+        guard let xctestPath = self.toolchain.configuration.xctestPath else {
+            throw TestError.xctestNotAvailable
         }
-        args = [xctest.pathString]
+        args = [xctestPath.pathString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
         args += [testPath.pathString]
-      #else
+        #else
         args += [testPath.description]
         if let xctestArg = xctestArg {
             args += [xctestArg]
         }
-      #endif
+        #endif
         return args
     }
 
-    private func test(at path: AbsolutePath, writeToOutputStream: Bool) -> (Bool, String) {
-        var stdout: [UInt8] = []
-        var stderr: [UInt8] = []
-
-        func makeOutput() -> String {
-            return String(bytes: stdout + stderr, encoding: .utf8)?.spm_chuzzle() ?? ""
-        }
-
+    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Bool {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputRedirection = Process.OutputRedirection.stream(
-                stdout: {
-                    stdout += $0
-                    if writeToOutputStream {
-                        self.outputStream.write($0)
-                        self.outputStream.flush()
-                    }
-                },
-                stderr: {
-                    stderr += $0
-                    if writeToOutputStream {
-                        TSCBasic.stderrStream.write($0)
-                        TSCBasic.stderrStream.flush()
-                    }
+            let outputHandler = { (bytes: [UInt8]) in
+                if let output = String(bytes: bytes, encoding: .utf8)?.spm_chuzzle() {
+                    outputHandler(output)
                 }
+            }
+            let outputRedirection = Process.OutputRedirection.stream(
+                stdout: outputHandler,
+                stderr: outputHandler
             )
-            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection, verbose: false)
+            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             try self.processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
             switch result.exitStatus {
             case .terminated(code: 0):
-                return (true, makeOutput())
+                return true
             #if !os(Windows)
             case .signalled(let signal):
-                if writeToOutputStream {
-                    testObservabilityScope.emit(error: "Exited with signal code \(signal)")
-                } else {
-                    stderr += "\nExited with signal code \(signal)".utf8
-                }
+                testObservabilityScope.emit(error: "Exited with signal code \(signal)")
+                return false
             #endif
-            default: break
+            default:
+                return false
             }
         } catch ProcessSetError.cancelled {
-            // do nothing
+            return false
         } catch {
-            if writeToOutputStream {
-                testObservabilityScope.emit(error)
-            } else {
-                stderr += "\n\(error)".utf8
-            }
+            testObservabilityScope.emit(error)
+            return false
         }
-        return (false, makeOutput())
     }
 }
 
@@ -676,16 +673,15 @@ final class ParallelTestRunner {
     private let processSet: ProcessSet
 
     private let toolchain: UserToolchain
-    private let xUnitOutput: AbsolutePath?
 
-    private let options: SwiftToolOptions
+    private let buildOptions: BuildOptions
     private let buildParameters: BuildParameters
 
     /// Number of tests to execute in parallel.
     private let numJobs: Int
 
-    /// Output stream for test results
-    private let outputStream: OutputByteStream
+    /// Whether to display output from successful tests.
+    private let shouldOutputSuccess: Bool
 
     /// ObservabilityScope to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -694,38 +690,31 @@ final class ParallelTestRunner {
         bundlePaths: [AbsolutePath],
         processSet: ProcessSet,
         toolchain: UserToolchain,
-        xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        options: SwiftToolOptions,
+        buildOptions: BuildOptions,
         buildParameters: BuildParameters,
-        outputStream: OutputByteStream,
+        shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.processSet = processSet
         self.toolchain = toolchain
-        self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.outputStream = outputStream
+        self.shouldOutputSuccess = shouldOutputSuccess
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
+        // command's result output goes on stdout
+        // ie "swift test" should output to stdout
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
+            progressAnimation = PercentProgressAnimation(stream: TSCBasic.stdoutStream, header: "Testing:")
         } else {
-            progressAnimation = NinjaProgressAnimation(stream: outputStream)
+            progressAnimation = NinjaProgressAnimation(stream: TSCBasic.stdoutStream)
         }
 
-        self.options = options
+        self.buildOptions = buildOptions
         self.buildParameters = buildParameters
 
         assert(numJobs > 0, "num jobs should be > 0")
-    }
-
-    /// Whether to display output from successful tests.
-    private var shouldOutputSuccess: Bool {
-        // FIXME: It is weird to read Process's verbosity to determine this, we
-        // should improve our verbosity infrastructure.
-        return Process.verbose
     }
 
     /// Updates the progress bar status.
@@ -748,10 +737,14 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
+    func run(_ tests: [UnitTest]) throws -> [TestResult] {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
-        let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
+        let testEnv = try TestingSupport.constructTestEnvironment(
+            toolchain: self.toolchain,
+            buildParameters: self.buildParameters,
+            sanitizers: self.buildOptions.sanitizers
+        )
 
         // Enqueue all the tests.
         try enqueueTests(tests)
@@ -767,10 +760,10 @@ final class ParallelTestRunner {
                         processSet: self.processSet,
                         toolchain: self.toolchain,
                         testEnv: testEnv,
-                        outputStream: self.outputStream,
                         observabilityScope: self.observabilityScope
                     )
-                    let (success, output) = testRunner.test(writeToOutputStream: false)
+                    var output = ""
+                    let success = testRunner.test(outputHandler: { output += $0 })
                     if !success {
                         self.ranSuccessfully = false
                     }
@@ -807,25 +800,15 @@ final class ParallelTestRunner {
         // Print test results.
         for test in processedTests.get() {
             if !test.success || shouldOutputSuccess {
-                print(test, outputStream: outputStream)
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print(test.output)
             }
         }
 
-        // Generate xUnit file if requested.
-        if let xUnitOutput = xUnitOutput {
-            try XUnitGenerator(processedTests.get()).generate(at: xUnitOutput)
-        }
+        return processedTests.get()
     }
 
-    // Print a test result.
-    private func print(_ test: TestResult, outputStream: OutputByteStream) {
-        outputStream <<< "\n"
-        outputStream <<< test.output
-        if !test.output.isEmpty {
-            outputStream <<< "\n"
-        }
-        outputStream.flush()
-    }
 }
 
 /// A struct to hold the XCTestSuite data.
@@ -962,10 +945,14 @@ fileprivate extension Array where Element == UnitTest {
 final class XUnitGenerator {
     typealias TestResult = ParallelTestRunner.TestResult
 
+    /// The file system to use
+    let fileSystem: FileSystem
+
     /// The test results.
     let results: [TestResult]
 
-    init(_ results: [TestResult]) {
+    init(fileSystem: FileSystem, results: [TestResult]) {
+        self.fileSystem = fileSystem
         self.results = results
     }
 
@@ -1009,7 +996,53 @@ final class XUnitGenerator {
         stream <<< "</testsuite>\n"
         stream <<< "</testsuites>\n"
 
-        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+    }
+}
+
+extension SwiftTool {
+    func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
+        try self.buildParametersForTest(
+            enableCodeCoverage: options.enableCodeCoverage,
+            enableTestability: options.enableTestableImports
+        )
+    }
+}
+
+extension TestToolOptions {
+    func skippedTests(fileSystem: FileSystem) -> TestCaseSpecifier {
+        // TODO: Remove this once the environment variable is no longer used.
+        if let override = skippedTestsOverride(fileSystem: fileSystem) {
+            return override
+        }
+
+        return self._testCaseSkip.isEmpty
+            ? .none
+        : .skip(self._testCaseSkip)
+    }
+
+    /// Returns the test case specifier if overridden in the env.
+    private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
+        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+            return nil
+        }
+
+        do {
+            let skipTests: [String.SubSequence]
+            // Read from the file if it exists.
+            if let path = try? AbsolutePath(validating: override), fileSystem.exists(path) {
+                let contents: String = try fileSystem.readFileContents(path)
+                skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
+            } else {
+                // Otherwise, read the env variable.
+                skipTests = override.split(separator: ":", omittingEmptySubsequences: true)
+            }
+
+            return .skip(skipTests.map(String.init))
+        } catch {
+            // FIXME: We should surface errors from here.
+        }
+        return nil
     }
 }
 
@@ -1018,3 +1051,4 @@ private extension Basics.Diagnostic {
         .warning("No matching test cases were run")
     }
 }
+

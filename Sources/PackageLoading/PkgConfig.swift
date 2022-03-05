@@ -80,7 +80,7 @@ public struct PkgConfig {
             )
         }
 
-        var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
+        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
 
         func getFlags(from dependencies: [String]) throws -> (cFlags: [String], libs: [String]) {
@@ -128,7 +128,7 @@ public struct PkgConfig {
 }
 
 extension PkgConfig {
-    /// Informations to track circular dependencies and other PkgConfig issues
+    /// Information to track circular dependencies and other PkgConfig issues
     public class LoadingContext {
         public init() {
             pkgConfigStack = [String]()
@@ -152,8 +152,10 @@ internal struct PkgConfigParser {
     public private(set) var cFlags = [String]()
     public private(set) var libs = [String]()
 
-    public init(pcFile: AbsolutePath, fileSystem: FileSystem) {
-        precondition(fileSystem.isFile(pcFile))
+    public init(pcFile: AbsolutePath, fileSystem: FileSystem) throws {
+        guard fileSystem.isFile(pcFile) else {
+            throw StringError("invalid pcfile \(pcFile)")
+        }
         self.pcFile = pcFile
         self.fileSystem = fileSystem
     }
@@ -172,9 +174,8 @@ internal struct PkgConfigParser {
         // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
         variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? "/"
 
-        let fileContents = try fileSystem.readFileContents(pcFile)
-        // FIXME: Should we error out instead if content is not UTF8 representable?
-        for line in fileContents.validDescription?.components(separatedBy: "\n") ?? [] {
+        let fileContents: String = try fileSystem.readFileContents(pcFile)
+        for line in fileContents.components(separatedBy: "\n") {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.
@@ -196,7 +197,9 @@ internal struct PkgConfigParser {
     }
 
     private mutating func parseKeyValue(line: String) throws {
-        precondition(line.contains(":"))
+        guard line.contains(":") else {
+            throw InternalError("invalid pcfile, expecting line to contain :")
+        }
         let (key, maybeValue) = line.spm_split(around: ":")
         let value = try resolveVariables(maybeValue?.spm_chuzzle() ?? "")
         switch key {
@@ -215,8 +218,8 @@ internal struct PkgConfigParser {
 
     /// Parses `Requires: ` string into array of dependencies.
     ///
-    /// The dependency string has seperator which can be (multiple) space or a
-    /// comma.  Additionally each there can be an optional version constaint to
+    /// The dependency string has separator which can be (multiple) space or a
+    /// comma. Additionally each there can be an optional version constraint to
     /// a dependency.
     private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
@@ -234,7 +237,7 @@ internal struct PkgConfigParser {
             var tokens = [String]()
             var token = ""
             for (idx, char) in depString.enumerated() {
-                // Encountered a seperator, use the token.
+                // Encountered a separator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
                     if let peeked = peek(idx: idx+1), peeked == " " { continue }

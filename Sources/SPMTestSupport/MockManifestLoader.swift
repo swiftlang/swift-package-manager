@@ -14,7 +14,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import TSCBasic
-import TSCUtility
 import func XCTest.XCTFail
 
 public enum MockManifestLoaderError: Swift.Error {
@@ -58,10 +57,11 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
-        queue.async {
+        callbackQueue.async {
             let key = Key(url: packageLocation, version: version)
             if let result = self.manifests[key] {
                 return completion(.success(result))
@@ -116,7 +116,8 @@ extension ManifestLoader {
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                on: .sharedConcurrent,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
                 completion: $0
             )
         }

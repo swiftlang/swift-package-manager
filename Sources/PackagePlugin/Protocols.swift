@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -35,50 +35,7 @@ public protocol BuildToolPlugin: Plugin {
     func createBuildCommands(
         context: PluginContext,
         target: Target
-    ) throws -> [Command]
-
-    /// Invoked by SwiftPM to create build commands for a particular target.
-    /// The context parameter contains information about the package and its
-    /// dependencies, as well as other environmental inputs.
-    ///
-    /// This function should create and return build commands or prebuild
-    /// commands, configured based on the information in the context.
-    ///
-    /// This is the old form of this method and is marginally deprecated.
-    func createBuildCommands(
-        context: TargetBuildContext
-    ) throws -> [Command]
-}
-
-extension BuildToolPlugin {
-    /// Default implementation that invokes the old callback with an old-style
-    /// context, for compatibility.
-    public func createBuildCommands(
-        context: PluginContext,
-        target: Target
-    ) throws -> [Command] {
-        return try self.createBuildCommands(context: TargetBuildContext(
-            targetName: target.name,
-            moduleName: (target as? SourceModuleTarget)?.moduleName ?? target.name,
-            targetDirectory: target.directory,
-            packageDirectory: context.package.directory,
-            inputFiles: (target as? SourceModuleTarget)?.sourceFiles ?? .init([]),
-            dependencies: target.recursiveTargetDependencies.map { .init(
-                targetName: $0.name,
-                moduleName: ($0 as? SourceModuleTarget)?.moduleName ?? $0.name,
-                targetDirectory: $0.directory,
-                publicHeadersDirectory: ($0 as? ClangSourceModuleTarget)?.publicHeadersDirectory) },
-            pluginWorkDirectory: context.pluginWorkDirectory,
-            builtProductsDirectory: context.builtProductsDirectory,
-            toolNamesToPaths: context.toolNamesToPaths))
-    }
-
-    /// Default implementation that does nothing.
-    public func createBuildCommands(
-        context: TargetBuildContext
-    ) throws -> [Command] {
-        return []
-    }
+    ) async throws -> [Command]
 }
 
 /// Defines functionality for all plugins that have a `command` capability.
@@ -90,22 +47,16 @@ public protocol CommandPlugin: Plugin {
         /// directories, etc.
         context: PluginContext,
         
-        /// The targets to which the command should be applied. If the invoker of
-        /// the command has not specified particular targets, this will be a list
-        /// of all the targets in the package to which the command is applied.
-        targets: [Target],
-        
         /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
-    ) throws
+    ) async throws
 
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     var packageManager: PackageManager { get }
 }
 
-extension CommandPlugin {
-    
+extension CommandPlugin {    
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {

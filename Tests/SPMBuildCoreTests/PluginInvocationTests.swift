@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -15,9 +15,11 @@ import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
+
+import struct TSCUtility.SerializedDiagnostics
+import struct TSCUtility.Triple
 
 class PluginInvocationTests: XCTestCase {
 
@@ -85,12 +87,18 @@ class PluginInvocationTests: XCTestCase {
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
+            
             var hostTriple: Triple {
                 return UserToolchain.default.triple
             }
+            
+            func compilePluginScript(sources: Sources, toolsVersion: ToolsVersion, observabilityScope: ObservabilityScope) throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
+            }
+            
             func runPluginScript(
                 sources: Sources,
-                input: PluginScriptRunnerInput,
+                initialMessage: Data,
                 toolsVersion: ToolsVersion,
                 workingDirectory: AbsolutePath,
                 writableDirectories: [AbsolutePath],
@@ -98,54 +106,67 @@ class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginInvocationDelegate,
-                completion: @escaping (Result<Bool, Error>) -> Void
+                delegate: PluginScriptRunnerDelegate,
+                completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
 
-                // Check the input structure we received.
-                XCTAssertEqual(input.products.count, 2, "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[0].name, "Foo", "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[0].targetIds.count, 1, "unexpected product targets: \(dump(input.products[0].targetIds))")
-                XCTAssertEqual(input.products[1].name, "FooTool", "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[1].targetIds.count, 1, "unexpected product targets: \(dump(input.products[1].targetIds))")
-                XCTAssertEqual(input.targets.count, 2, "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[0].name, "Foo", "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[0].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[0].dependencies))")
-                XCTAssertEqual(input.targets[1].name, "FooTool", "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
+                do {
+                    // Pretend the plugin emitted some output.
+                    callbackQueue.sync {
+                        delegate.handleOutput(data: Data("Hello Plugin!".utf8))
+                    }
+                    
+                    // Pretend it emitted a warning.
+                    try callbackQueue.sync {
+                        let message = Data("""
+                        {   "emitDiagnostic": {
+                                "severity": "warning",
+                                "message": "A warning",
+                                "file": "/Foo/Sources/Foo/SomeFile.abc",
+                                "line": 42
+                            }
+                        }
+                        """.utf8)
+                        try delegate.handleMessage(data: message, responder: { _ in })
+                    }
 
-                // Pretend the plugin emitted some output.
-                callbackQueue.sync {
-                    delegate.pluginEmittedOutput(Data("Hello Plugin!".utf8))
+                    // Pretend it defined a build command.
+                    try callbackQueue.sync {
+                        let message = Data("""
+                        {   "defineBuildCommand": {
+                                "configuration": {
+                                    "displayName": "Do something",
+                                    "executable": "/bin/FooTool",
+                                    "arguments": [
+                                        "-c", "/Foo/Sources/Foo/SomeFile.abc"
+                                    ],
+                                    "workingDirectory": "/Foo/Sources/Foo",
+                                    "environment": {
+                                        "X": "Y"
+                                    },
+                                },
+                                "inputFiles": [
+                                ],
+                                "outputFiles": [
+                                ]
+                            }
+                        }
+                        """.utf8)
+                        try delegate.handleMessage(data: message, responder: { _ in })
+                    }
                 }
-                
-                // Pretend it emitted a warning.
-                callbackQueue.sync {
-                    var locationMetadata = ObservabilityMetadata()
-                    locationMetadata.fileLocation = .init(AbsolutePath("/Foo/Sources/Foo/SomeFile.abc"), line: 42)
-                    delegate.pluginEmittedDiagnostic(.warning("A warning", metadata: locationMetadata))
+                catch {
+                    callbackQueue.sync {
+                        completion(.failure(error))
+                    }
                 }
-                
-                // Pretend it defined a build command.
+
+                // If we get this far we succeded, so invoke the completion handler.
                 callbackQueue.sync {
-                    delegate.pluginDefinedBuildCommand(
-                        displayName: "Do something",
-                        executable: AbsolutePath("/bin/FooTool"),
-                        arguments: ["-c", "/Foo/Sources/Foo/SomeFile.abc"],
-                        environment: [
-                            "X": "Y"
-                        ],
-                        workingDirectory: AbsolutePath("/Foo/Sources/Foo"),
-                        inputFiles: [],
-                        outputFiles: [])
-                }
-                
-                // Finally, invoke the completion handler.
-                callbackQueue.sync {
-                    completion(.success(true))
+                    completion(.success(0))
                 }
             }
         }
@@ -196,8 +217,8 @@ class PluginInvocationTests: XCTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
-                $0 <<< """
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -215,19 +236,19 @@ class PluginInvocationTests: XCTestCase {
                         ),
                     ]
                 )
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
+                """)
+            
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
                 public func Foo() { }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
+                """)
+            
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin
-
-                @main
-                struct MyBuildToolPlugin: BuildToolPlugin {
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
                         context: PluginContext,
                         target: Target
@@ -235,14 +256,13 @@ class PluginInvocationTests: XCTestCase {
                         // missing return statement
                     }
                 }
-                """
-            }
+                """)
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
-                location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
+                forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -270,25 +290,21 @@ class PluginInvocationTests: XCTestCase {
 
             // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: ToolchainConfiguration.default
+            )
 
             // Try to compile the broken plugin script.
             do {
-                var compilationResult: PluginCompilationResult? = .none
-                XCTAssertThrowsError(try pluginScriptRunner.compilePluginScript(
+                let result = try pluginScriptRunner.compilePluginScript(
                     sources: buildToolPlugin.sources,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope)
-                ) { error in
-                    // Check that we got the expected error, and capture the result.
-                    guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
-                        return XCTFail("unexpected error: \(error)")
-                    }
-                    compilationResult = result
-                }
 
                 // This should invoke the compiler but should fail.
-                let result = try XCTUnwrap(compilationResult)
+                XCTAssert(result.succeeded == false)
                 XCTAssert(result.wasCached == false)
                 XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
@@ -306,12 +322,9 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with syntactically valid contents that still produces a warning.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin
-                
-                @main
-                struct MyBuildToolPlugin: BuildToolPlugin {
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
                         context: PluginContext,
                         target: Target
@@ -320,8 +333,7 @@ class PluginInvocationTests: XCTestCase {
                         return []
                     }
                 }
-                """
-            }
+                """)
             
             // Try to compile the fixed plugin.
             let firstExecModTime: Date
@@ -332,6 +344,7 @@ class PluginInvocationTests: XCTestCase {
                     observabilityScope: observability.topScope)
 
                 // This should invoke the compiler and this time should succeed.
+                XCTAssert(result.succeeded == true)
                 XCTAssert(result.wasCached == false)
                 XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
@@ -360,6 +373,7 @@ class PluginInvocationTests: XCTestCase {
                     observabilityScope: observability.topScope)
 
                 // This should not invoke the compiler (just reuse the cached executable).
+                XCTAssert(result.succeeded == true)
                 XCTAssert(result.wasCached == true)
                 XCTAssert(result.compilerResult == nil, "\(String(describing: result.compilerResult))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
@@ -381,12 +395,9 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with syntactically valid contents that no longer produces a warning.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin
-
-                @main
-                struct MyBuildToolPlugin: BuildToolPlugin {
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
                         context: PluginContext,
                         target: Target
@@ -394,8 +405,7 @@ class PluginInvocationTests: XCTestCase {
                         return []
                     }
                 }
-                """
-            }
+                """)
 
             // Recompile the plugin again.
             let thirdExecModTime: Date
@@ -406,6 +416,7 @@ class PluginInvocationTests: XCTestCase {
                     observabilityScope: observability.topScope)
 
                 // This should invoke the compiler and not use the cache.
+                XCTAssert(result.succeeded == true)
                 XCTAssert(result.wasCached == false)
                 XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
@@ -426,12 +437,9 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with a broken one again.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin
-
-                @main
-                struct MyBuildToolPlugin: BuildToolPlugin {
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
                         context: PluginContext,
                         target: Target
@@ -439,26 +447,17 @@ class PluginInvocationTests: XCTestCase {
                         return nil  // returning the wrong type
                     }
                 }
-                """
-            }
+                """)
 
             // Recompile the plugin again.
             do {
-                var compilationResult: PluginCompilationResult? = .none
-                XCTAssertThrowsError(try pluginScriptRunner.compilePluginScript(
+                let result = try pluginScriptRunner.compilePluginScript(
                     sources: buildToolPlugin.sources,
                     toolsVersion: buildToolPlugin.apiVersion,
                     observabilityScope: observability.topScope)
-                ) { error in
-                    // Check that we got the expected error, and capture the result.
-                    guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
-                        return XCTFail("unexpected error: \(error)")
-                    }
-                    compilationResult = result
-                }
 
                 // This should again invoke the compiler but should fail.
-                let result = try XCTUnwrap(compilationResult)
+                XCTAssert(result.succeeded == false)
                 XCTAssert(result.wasCached == false)
                 XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")

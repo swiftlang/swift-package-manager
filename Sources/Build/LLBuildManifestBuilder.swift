@@ -15,7 +15,6 @@ import LLBuildManifest
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -92,7 +91,7 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        try ManifestWriter().write(manifest, at: path)
+        try ManifestWriter(fileSystem: self.fileSystem).write(manifest, at: path)
         return manifest
     }
 
@@ -265,8 +264,8 @@ extension LLBuildManifestBuilder {
                 }
             }
 
-            let jobInputs = try job.inputs.map { try $0.resolveToNode() }
-            let jobOutputs = try job.outputs.map { try $0.resolveToNode() }
+            let jobInputs = try job.inputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
+            let jobOutputs = try job.outputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
 
             // Add target dependencies as inputs to the main module build command.
             //
@@ -323,7 +322,7 @@ extension LLBuildManifestBuilder {
     // Consider an example SwiftPM package with two targets: target B, and target A, where A
     // depends on B:
     // SwiftPM will process targets in a topological order and “bubble-up” each target’s
-    // inter-module dependency graph to its dependees. First, SwiftPM will process B, and be
+    // inter-module dependency graph to its dependencies. First, SwiftPM will process B, and be
     // able to plan its full build because it does not have any target dependencies. Then the
     // driver is tasked with planning a build for A. SwiftPM will pass as input to the driver
     // the module dependency graph of its target’s dependencies, in this case, just the
@@ -514,6 +513,7 @@ extension LLBuildManifestBuilder {
             outputs: cmdOutputs,
             executable: buildParameters.toolchain.swiftCompiler,
             moduleName: target.target.c99name,
+            moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
@@ -549,8 +549,8 @@ extension LLBuildManifestBuilder {
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
-                let _product = plan.graph.allProducts.first {
-                    $0.type == .executable && $0.executableModule == target
+                let _product = try plan.graph.allProducts.first {
+                    try $0.type == .executable && $0.executableTarget() == target
                 }
                 if let product = _product {
                     guard let planProduct = plan.productMap[product] else {
@@ -601,7 +601,7 @@ extension LLBuildManifestBuilder {
 
         for binaryPath in target.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
-            if localFileSystem.isDirectory(binaryPath) {
+            if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
                 inputs.append(file: path)
@@ -655,7 +655,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
-        // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
+        // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
             target.buildParameters.toolchain.swiftCompiler.pathString,
@@ -754,7 +754,7 @@ extension LLBuildManifestBuilder {
 
         for binaryPath in target.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
-            if localFileSystem.isDirectory(binaryPath) {
+            if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
                 inputs.append(file: path)
@@ -823,7 +823,7 @@ extension LLBuildManifestBuilder {
         for target in plan.targets {
             guard case .swift(let target) = target,
                 target.isTestTarget,
-                target.testDiscoveryTarget else { continue }
+                target.isTestDiscoveryTarget else { continue }
 
             let testDiscoveryTarget = target
 
@@ -935,7 +935,7 @@ extension LLBuildManifestBuilder {
         from source: AbsolutePath,
         to destination: AbsolutePath
     ) -> (inputNode: Node, outputNode: Node) {
-        let isDirectory = localFileSystem.isDirectory(source)
+        let isDirectory = self.fileSystem.isDirectory(source)
         let nodeType = isDirectory ? Node.directory : Node.file
         let inputNode = nodeType(source)
         let outputNode = nodeType(destination)
@@ -951,11 +951,11 @@ extension LLBuildManifestBuilder {
 extension TypedVirtualPath {
     /// Resolve a typed virtual path provided by the Swift driver to
     /// a node in the build graph.
-    func resolveToNode() throws -> Node {
+    func resolveToNode(fileSystem: FileSystem) throws -> Node {
         if let absolutePath = file.absolutePath {
             return Node.file(absolutePath)
         } else if let relativePath = file.relativePath {
-            guard let workingDirectory = localFileSystem.currentWorkingDirectory else {
+            guard let workingDirectory = fileSystem.currentWorkingDirectory else {
                 throw InternalError("unknown working directory")
             }
             return Node.file(workingDirectory.appending(relativePath))

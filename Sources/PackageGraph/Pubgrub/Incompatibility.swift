@@ -9,6 +9,7 @@
  */
 
 import Basics
+import OrderedCollections
 import TSCBasic
 import PackageModel
 
@@ -16,20 +17,20 @@ import PackageModel
 /// all be true at the same time. In dependency resolution, these are derived
 /// from version requirements and when running into unresolvable situations.
 public struct Incompatibility: Equatable, Hashable {
-    public let terms: OrderedSet<Term>
+    public let terms: OrderedCollections.OrderedSet<Term>
     public let cause: Cause
 
-    public init(terms: OrderedSet<Term>, cause: Cause) {
+    public init(terms: OrderedCollections.OrderedSet<Term>, cause: Cause) {
         self.terms = terms
         self.cause = cause
     }
 
     public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) throws {
-        let termSet = OrderedSet(terms)
+        let termSet = OrderedCollections.OrderedSet(terms)
         try self.init(termSet, root: root, cause: cause)
     }
 
-    public init(_ terms: OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
+    public init(_ terms: OrderedCollections.OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
         if terms.isEmpty {
             self.init(terms: terms, cause: cause)
             return
@@ -43,9 +44,10 @@ public struct Incompatibility: Equatable, Hashable {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
         }
 
-        let normalizedTerms = try normalize(terms: terms.contents)
-        assert(normalizedTerms.count > 0,
-               "An incompatibility must contain at least one term after normalization.")
+        let normalizedTerms = try normalize(terms: terms.elements)
+        guard normalizedTerms.count > 0 else {
+            throw InternalError("An incompatibility must contain at least one term after normalization.")
+        }
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
 }
@@ -134,7 +136,7 @@ extension Incompatibility {
 /// requirements to a^1.5.0.
 fileprivate func normalize(terms: [Term]) throws -> [Term] {
 
-    let dict = try terms.reduce(into: OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
+    let dict = try terms.reduce(into: OrderedCollections.OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.node] else {

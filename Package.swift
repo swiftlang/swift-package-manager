@@ -54,7 +54,7 @@ automatic linking type with `-auto` suffix appended to product's name.
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V2"] != nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.4" : "1.1.4"
+let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.4" : "1.1.7"
 var swiftSettings: [SwiftSetting] = []
 if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
@@ -138,6 +138,7 @@ let package = Package(
         .target(
             name: "Basics",
             dependencies: [
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
@@ -166,7 +167,10 @@ let package = Package(
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["Basics"],
+            dependencies: [
+                "Basics",
+                "PackageModel"
+            ],
             exclude: ["CMakeLists.txt"]
         ),
 
@@ -259,7 +263,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
-        
+
         .target(
             name: "PackageFingerprint",
             dependencies: [
@@ -412,7 +416,11 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"]
+            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"],
+            exclude: [
+                "Inputs/archive.zip",
+                "Inputs/invalid_archive.zip",
+            ]
         ),
         .testTarget(
             name: "BuildTests",
@@ -507,6 +515,10 @@ let package = Package(
             dependencies: ["PackageFingerprint", "SPMTestSupport"]
         ),
         .testTarget(
+            name: "PackagePluginAPITests",
+            dependencies: ["PackagePlugin", "SPMTestSupport"]
+        ),
+        .testTarget(
             name: "PackageRegistryTests",
             dependencies: ["SPMTestSupport", "PackageRegistry"]
         ),
@@ -568,10 +580,11 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.3")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
+        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
     ]
 } else {
     package.dependencies += [
@@ -580,5 +593,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
+        .package(path: "../swift-collections"),
     ]
 }

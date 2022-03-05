@@ -26,7 +26,7 @@ public struct BuildConfiguration: Encodable {
 /// A condition that limits the application of a build setting.
 ///
 /// By default, build settings are applicable for all platforms and build
-/// configurations. Use the `.when` modifier to define  a build
+/// configurations. Use the ``when(platforms:configuration:)`` modifier to define  a build
 /// setting for a specific condition. Invalid usage of `.when` emits an error during
 /// manifest parsing. For example, it's invalid to specify a `.when` condition with
 /// both parameters as `nil`.
@@ -58,20 +58,41 @@ public struct BuildSettingCondition: Encodable {
         self.config = config
     }
     
-    /// Creates a build setting condition.
-    ///
-    /// At least one parameter is mandatory.
-    ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this build setting condition.
-    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, deprecated: 5.7)
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil
     ) -> BuildSettingCondition {
-        // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil && configuration == nil))
         return BuildSettingCondition(platforms: platforms, config: configuration)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this build setting condition.
+    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: platforms, config: configuration)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this build setting condition.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func when(platforms: [Platform]) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: platforms, config: .none)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: .none, config: configuration)
     }
 }
 

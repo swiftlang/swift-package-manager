@@ -20,15 +20,15 @@ class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -40,15 +40,15 @@ class CertificatePolicyTests: XCTestCase {
     func test_EC_validate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "Test_ec.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -60,15 +60,15 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_untrustedRoot() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -91,15 +91,15 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_expiredCert() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -121,15 +121,15 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "development-revoked.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "development-revoked.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -168,15 +168,15 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -236,16 +236,16 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Swift Package Collection cert
-            let certPath = directoryPath.appending(components: "Signing", "swift_package_collection.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+            let certPath = fixturePath.appending(components: "Signing", "swift_package_collection.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -305,16 +305,16 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Distribution cert
-            let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+            let certPath = fixturePath.appending(components: "Signing", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -374,15 +374,15 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Signing", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -449,16 +449,16 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Swift Package Collection cert
-            let certPath = directoryPath.appending(components: "Signing", "swift_package_collection.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+            let certPath = fixturePath.appending(components: "Signing", "swift_package_collection.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 
@@ -527,16 +527,16 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Distribution cert
-            let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
+            let certPath = fixturePath.appending(components: "Signing", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
+            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
 
             let certChain = [certificate, intermediateCA, rootCA]
 

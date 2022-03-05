@@ -11,7 +11,6 @@
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public extension Manifest {
 
@@ -125,7 +124,7 @@ public extension Manifest {
 
     static func createRemoteSourceControlManifest(
         name: String,
-        url: Foundation.URL,
+        url: URL,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],

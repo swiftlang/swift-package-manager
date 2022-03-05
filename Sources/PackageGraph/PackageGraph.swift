@@ -36,6 +36,12 @@ enum PackageGraphError: Swift.Error {
 
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [String])
+
+    /// Duplicate aliases for a target found in a product.
+    case multipleModuleAliases(target: String,
+                               product: String,
+                               package: String,
+                               aliases: [String])
 }
 
 /// A collection of packages.
@@ -153,11 +159,11 @@ public struct PackageGraph {
         let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = {
+        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
                 ($0, Set($0.dependencies.compactMap({ $0.target })))
             })
-            return Dictionary(uniqueKeysWithValues: testTargetDeps)
+            return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
         for target in rootTargets where target.type == .executable {
@@ -217,6 +223,8 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .duplicateProduct(let product, let packages):
             return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
+        case .multipleModuleAliases(let target, let product, let package, let aliases):
+            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         }
     }
 }

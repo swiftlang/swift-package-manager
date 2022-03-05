@@ -8,6 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import struct TSCBasic.StringError
+
+public typealias StringError = TSCBasic.StringError
+
 public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {

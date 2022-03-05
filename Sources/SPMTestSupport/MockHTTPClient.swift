@@ -10,7 +10,6 @@
 
 import Basics
 import TSCBasic
-import TSCUtility
 
 extension HTTPClient {
     public static func mock(fileSystem: FileSystem) -> HTTPClient {

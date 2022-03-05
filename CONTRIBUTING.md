@@ -188,14 +188,21 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
    ```
 
-76. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+7. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
+8. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+
+    For example, if the latest tag is 1.0.1:
+    ```sh
+    $> git clone https://github.com/apple/swift-collections --branch 1.0.1
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
+[swift-collections]: https://github.com/apple/swift-collections
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-driver]: https://github.com/apple/swift-driver
 [swift-llbuild]: https://github.com/apple/swift-llbuild
@@ -339,6 +346,24 @@ To run package compatibility test suite (validates we do not break 3rd party pac
 ```
 @swift-ci please test package compatibility
 ```
+
+## Generating Documentation
+
+SwiftPM uses [DocC](https://github.com/apple/swift-docc) to generate some of its documentation (currently only the `PackageDescription` module). Documentation can be built using Xcode's GUI (Product → Build Documentation or `⌃⇧⌘D`) or manually:
+
+1. Build and dump the symbol graph metadata used to generate the documentation:
+
+```
+swift package dump-symbol-graph
+```
+
+2. Generate the documentation and start a local preview server to review your changes:
+
+```
+xcrun docc preview Sources/PackageDescription/PackageDescription.docc --additional-symbol-graph-dir .build/*/symbolgraph/
+```
+
+Note that this may generate documentation for multiple modules — the preview link for PackageDescription will typically be: http://localhost:8000/documentation/packagedescription
 
 ## Advanced
 

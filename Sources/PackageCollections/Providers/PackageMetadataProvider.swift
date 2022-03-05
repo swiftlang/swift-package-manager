@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,26 +13,20 @@ import struct Foundation.URL
 
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 /// `PackageBasicMetadata` provider
-protocol PackageMetadataProvider: Closable {
-    /// The name of the provider
-    var name: String { get }
-
-    /// Retrieves metadata for a package at the given repository address.
+protocol PackageMetadataProvider {
+    /// Retrieves metadata for a package with the given identity and repository address.
     ///
     /// - Parameters:
     ///   - identity: The package's identity
     ///   - location: The package's location
     ///   - callback: The closure to invoke when result becomes available
-    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
-
-    /// Returns `AuthTokenType` for a package.
-    ///
-    /// - Parameters:
-    ///   - location: The package's location
-    func getAuthTokenType(for location: String) -> AuthTokenType?
+    func get(
+        identity: PackageIdentity,
+        location: String,
+        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
+    )
 }
 
 extension Model {
@@ -41,28 +35,33 @@ extension Model {
         let keywords: [String]?
         let versions: [PackageBasicVersionMetadata]
         let watchersCount: Int?
-        let readmeURL: Foundation.URL?
+        let readmeURL: URL?
         let license: PackageCollectionsModel.License?
         let authors: [PackageCollectionsModel.Package.Author]?
         let languages: Set<String>?
-        let processedAt: Date
     }
 
     struct PackageBasicVersionMetadata: Equatable, Codable {
         let version: TSCUtility.Version
         let title: String?
         let summary: String?
-        let createdAt: Date
-        let publishedAt: Date?
+        let createdAt: Date?
     }
 }
 
 public struct PackageMetadataProviderContext: Equatable {
+    public let name: String
     public let authTokenType: AuthTokenType?
     public let isAuthTokenConfigured: Bool
-    public internal(set) var error: PackageMetadataProviderError?
+    public let error: PackageMetadataProviderError?
 
-    init(authTokenType: AuthTokenType?, isAuthTokenConfigured: Bool, error: PackageMetadataProviderError? = nil) {
+    init(
+        name: String,
+        authTokenType: AuthTokenType?,
+        isAuthTokenConfigured: Bool,
+        error: PackageMetadataProviderError? = nil
+    ) {
+        self.name = name
         self.authTokenType = authTokenType
         self.isAuthTokenConfigured = isAuthTokenConfigured
         self.error = error

@@ -19,9 +19,9 @@ class CertificateTests: XCTestCase {
     func test_withRSAKey_fromDER() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "Signing", "Test_rsa.cer")
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let certificate = try Certificate(derEncoded: data)
 
@@ -42,9 +42,9 @@ class CertificateTests: XCTestCase {
     func test_withECKey_fromDER() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "Signing", "Test_ec.cer")
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let certificate = try Certificate(derEncoded: data)
 

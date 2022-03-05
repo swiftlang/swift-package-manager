@@ -15,8 +15,8 @@ import SPMTestSupport
 class ManifestTests: XCTestCase {
     func testRequiredTargets() throws {
         let products = [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
-            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            try ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
         ]
 
         let targets = [
@@ -71,7 +71,7 @@ class ManifestTests: XCTestCase {
         ]
 
         let products = [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
         ]
 
         let targets = [

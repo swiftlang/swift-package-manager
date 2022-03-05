@@ -11,7 +11,9 @@
 import Basics
 import Dispatch
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Git
+import protocol TSCUtility.DiagnosticLocationProviding
 
 // MARK: - GitShellHelper
 
@@ -114,11 +116,18 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
     }
+
+    public func repositoryExists(at directory: AbsolutePath) -> Bool {
+        if !localFileSystem.isDirectory(directory) {
+            return false
+        }
+        return self.isValidDirectory(directory)
+    }
     
     public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
         do {
-            _ = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return true
+            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
         } catch {
             return false
         }
@@ -850,6 +859,14 @@ private class GitFileSystemView: FileSystem {
         return false
     }
 
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
     }
@@ -1000,7 +1017,7 @@ public enum GitProgressParser: FetchProgress {
     case receivingObjects(progress: Double, currentObjects: Int, totalObjects: Int, downloadProgress: String?, downloadSpeed: String?)
     case resolvingDeltas(progress: Double, currentObjects: Int, totalObjects: Int)
 
-    /// The pattern used to match git output. Caputre groups are labled from ?<i0> to ?<i19>.
+    /// The pattern used to match git output. Capture groups are labeled from ?<i0> to ?<i19>.
     static let pattern = #"""
 (?xi)
 (?:

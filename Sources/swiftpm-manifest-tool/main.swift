@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import TSCBasic
-import TSCUtility
 import func POSIX.exit
 
 import SPMPackageEditor
@@ -69,10 +68,10 @@ final class PackageIndex {
             return
         }
 
-        let bytes = try localFileSystem.readFileContents(indexFile).contents
-        let entries = try JSONDecoder.makeWithDefaults().decode(Array<Entry>.self, from: Data(bytes: bytes, count: bytes.count))
+        let data: Data = try localFileSystem.readFileContents(indexFile)
+        let entries = try JSONDecoder.makeWithDefaults().decode(Array<Entry>.self, from: data)
 
-        index = Dictionary(uniqueKeysWithValues: entries.map{($0.name, $0.url)})
+        self.index = try Dictionary(throwingUniqueKeysWithValues: entries.map{($0.name, $0.url)})
     }
 }
 

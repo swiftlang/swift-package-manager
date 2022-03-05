@@ -531,7 +531,7 @@ class VersionTests: XCTestCase {
         
     }
     
-    // A semantic version string is always longer than 1 character, so the only way to test these 2 initialisers is by calling them directly.
+    // A semantic version string is always longer than 1 character, so the only way to test these 2 initializers is by calling them directly.
     
     func testExpressingVersionByExtendedGraphemeClusterLiteral() {
         XCTAssertEqual(Version(extendedGraphemeClusterLiteral: "版⃣"), Version(0, 0, 0))

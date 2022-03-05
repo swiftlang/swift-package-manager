@@ -11,8 +11,9 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import Foundation
 import XCTest
 import TSCBasic
-import TSCUtility
 import TSCTestSupport
+
+import enum TSCUtility.Git
 
 let sdkRoot: AbsolutePath? = {
     if let environmentPath = ProcessInfo.processInfo.environment["SDK_ROOT"] {
@@ -285,9 +286,9 @@ func initGitRepo(
 }
 
 func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
-    fixture(name: "BinaryTargets") { prefix in
-        let inputsPath = prefix.appending(component: "Inputs")
-        let packagePath = prefix.appending(component: "TestBinary")
+    fixture(name: "BinaryTargets") { fixturePath in
+        let inputsPath = fixturePath.appending(component: "Inputs")
+        let packagePath = fixturePath.appending(component: "TestBinary")
 
         // Generating StaticLibrary.xcframework.
         try withTemporaryDirectory { tmpDir in
@@ -340,13 +341,5 @@ extension ProcessResult {
         stderr:
         \((try? utf8stderrOutput()) ?? "")
         """
-    }
-}
-
-func swiftcSupportsRenamingMainSymbol() throws -> Bool {
-    try withTemporaryDirectory { tmpDir in
-        FileManager.default.createFile(atPath: "\(tmpDir)/foo.swift", contents: Data())
-        let result = try Process.popen(args: swiftc.pathString, "-c", "-Xfrontend", "-entry-point-function-name", "-Xfrontend", "foo", "\(tmpDir)/foo.swift", "-o", "\(tmpDir)/foo.o")
-        return try !result.utf8stderrOutput().contains("unknown argument: '-entry-point-function-name'")
     }
 }

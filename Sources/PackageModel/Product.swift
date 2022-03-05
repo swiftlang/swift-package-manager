@@ -8,8 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.PolymorphicCodableArray
 
 public class Product: Codable {
     /// The name of the product.
@@ -31,14 +33,19 @@ public class Product: Codable {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) {
-        precondition(!targets.isEmpty)
+    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) throws {
+        guard !targets.isEmpty else {
+            throw InternalError("Targets cannot be empty")
+        }
         if type == .executable {
-            assert(targets.filter({ $0.type == .executable }).count == 1,
-                   "Executable products should have exactly one executable target.")
+            guard targets.filter({ $0.type == .executable }).count == 1 else {
+                throw InternalError("Executable products should have exactly one executable target.")
+            }
         }
         if testManifest != nil {
-            assert(type == .test, "Test manifest should only be set on test products")
+            guard type == .test else {
+                throw InternalError("Test manifest should only be set on test products")
+            }
         }
         self.name = name
         self.type = type
@@ -97,9 +104,9 @@ public enum ProductType: Equatable, Hashable {
 
 /// The products requested of a package.
 ///
-/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ingored.
+/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ignored.
 ///
-/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
+/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fulfill the request; packages that do not know what it is will simply ignore it.
 public enum ProductFilter: Codable, Equatable, Hashable {
 
     /// All products, targets, and tests are requested.

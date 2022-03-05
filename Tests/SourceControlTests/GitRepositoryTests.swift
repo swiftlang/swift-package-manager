@@ -12,9 +12,10 @@ import XCTest
 
 import TSCBasic
 @testable import SourceControl
-import TSCUtility
 
 import SPMTestSupport
+
+import enum TSCUtility.Git
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
@@ -576,7 +577,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
-            // Add a submodule too to check for recusive submodules.
+            // Add a submodule too to check for recursive submodules.
             try systemQuietly([Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz"])
             try bar.stageEverything()
             try bar.commit()
@@ -704,5 +705,4 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
         }
     }
-
 }

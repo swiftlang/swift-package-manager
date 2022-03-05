@@ -19,7 +19,7 @@ import TSCBasic
 import XCTest
 
 final class RegistryClientTests: XCTestCase {
-    func testFetchVersions() throws {
+    func testGetPackageMetadata() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let (scope, name) = identity.scopeAndName!
@@ -51,12 +51,21 @@ final class RegistryClientTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
+                let links = """
+                <https://github.com/mona/LinkedList>; rel="canonical",
+                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                <git@github.com:mona/LinkedList.git>; rel="alternate",
+                <https://gitlab.com/mona/LinkedList>; rel="alternate"
+                """
+
                 completion(.success(.init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
                         .init(name: "Content-Type", value: "application/json"),
                         .init(name: "Content-Version", value: "1"),
+                        .init(name: "Link", value: links)
+
                     ]),
                     body: data
                 )))
@@ -73,8 +82,14 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let versions = try registryClient.fetchVersions(package: identity)
-        XCTAssertEqual(["1.1.1", "1.0.0"], versions)
+        let metadata = try registryClient.getPackageMetadata(package: identity)
+        XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
+        XCTAssertEqual(metadata.alternateLocations!, [
+            URL(string: "https://github.com/mona/LinkedList"),
+            URL(string: "ssh://git@github.com:mona/LinkedList.git"),
+            URL(string: "git@github.com:mona/LinkedList.git"),
+            URL(string: "https://gitlab.com/mona/LinkedList")
+        ])
     }
 
     func testAvailableManifests() throws {
@@ -501,7 +516,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -580,7 +594,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -613,9 +626,8 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        // Unzip didn't take place so directory is empty
-        let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, [])
+        // download did not succeed so directory does not exist
+        XCTAssertFalse(fileSystem.exists(path))
     }
 
     func testDownloadSourceArchive_nonMatchingChecksumInStorage_fingerprintChecking_warn() throws {
@@ -665,7 +677,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .warn,
             customHTTPClient: httpClient,
@@ -781,7 +792,6 @@ final class RegistryClientTests: XCTestCase {
         let fingerprintStorage = MockPackageFingerprintStorage()
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -868,9 +878,9 @@ final class RegistryClientTests: XCTestCase {
 // MARK: - Sugar
 
 private extension RegistryClient {
-    func fetchVersions(package: PackageIdentity) throws -> [Version] {
+    func getPackageMetadata(package: PackageIdentity) throws -> RegistryClient.PackageMetadata {
         return try tsc_await {
-            self.fetchVersions(
+            self.getPackageMetadata(
                 package: package,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
@@ -950,7 +960,7 @@ private extension RegistryClient {
         }
     }
 
-    func lookupIdentities(url: Foundation.URL) throws -> Set<PackageIdentity> {
+    func lookupIdentities(url: URL) throws -> Set<PackageIdentity> {
         return try tsc_await {
             self.lookupIdentities(
                 url: url,
@@ -970,7 +980,6 @@ private func makeRegistryClient(
 ) -> RegistryClient {
     RegistryClient(
         configuration: configuration,
-        identityResolver: DefaultIdentityResolver(),
         fingerprintStorage: fingerprintStorage,
         fingerprintCheckingMode: fingerprintCheckingMode,
         customHTTPClient: httpClient,

@@ -19,9 +19,9 @@ class RSAKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "Signing", "Test_rsa.cer")
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let certificate = try Certificate(derEncoded: data)
             XCTAssertNoThrow(try certificate.publicKey())

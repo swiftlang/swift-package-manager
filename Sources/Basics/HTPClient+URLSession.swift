@@ -17,7 +17,7 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-public struct URLSessionHTTPClient: HTTPClientProtocol {
+public struct URLSessionHTTPClient {
     private let dataTasksManager: DataTaskManager
     private let downloadsTasksManager: DownloadTaskManager
 
@@ -26,11 +26,11 @@ public struct URLSessionHTTPClient: HTTPClientProtocol {
         self.downloadsTasksManager = DownloadTaskManager(configuration: configuration)
     }
 
-    public func execute(_ request: HTTPClient.Request, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    public func execute(_ request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
     }
 
-    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         switch request.kind {
         case .generic:
             let task = self.dataTasksManager.makeTask(request: request, progress: progress, completion: completion)
@@ -144,12 +144,16 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         task.progressHandler?(totalBytesWritten, totalBytesToDownload)
     }
 
-    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL) {
+    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard let task = self.tasks[downloadTask.taskIdentifier] else {
             return
         }
 
-        task.location = location
+        do {
+            try task.fileSystem.move(from: AbsolutePath(location.path), to: task.destination)
+        } catch {
+            task.moveFileError = error
+        }
     }
 
     public func urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?) {
@@ -160,10 +164,9 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         do {
             if let error = error {
                 throw HTTPClientError.downloadError("\(error)")
+            } else if let error = task.moveFileError {
+                throw error
             } else if let response = downloadTask.response as? HTTPURLResponse {
-                if let location = task.location {
-                    try task.fileSystem.move(from: AbsolutePath(location.path), to: task.destination)
-                }
                 task.completionHandler(.success(response.response(body: nil)))
             } else {
                 throw HTTPClientError.invalidResponse
@@ -180,7 +183,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let completionHandler: HTTPClient.CompletionHandler
         let progressHandler: HTTPClient.ProgressHandler?
 
-        var location: Foundation.URL?
+        var moveFileError: Error?
 
         init(task: URLSessionDownloadTask, fileSystem: FileSystem, destination: AbsolutePath, progressHandler: HTTPClient.ProgressHandler?, completionHandler: @escaping HTTPClient.CompletionHandler) {
             self.task = task

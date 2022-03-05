@@ -10,7 +10,6 @@
 
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
 
@@ -108,9 +107,9 @@ final class MirrorsConfigurationTests: XCTestCase {
         let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
 
         let config = try Workspace.Configuration.Mirrors(
-            localMirrorFile: localConfigFile,
-            sharedMirrorFile: sharedConfigFile,
-            fileSystem: fs
+            fileSystem: fs,
+            localMirrorsFile: localConfigFile,
+            sharedMirrorsFile: sharedConfigFile
         )
 
         // first write to shared location

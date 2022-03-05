@@ -14,7 +14,10 @@ import Build
 import PackageGraph
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import func TSCUtility.getClangVersion
+import struct TSCUtility.Version
 
 extension BuildSubset {
     var argumentName: String {
@@ -83,8 +86,8 @@ public struct SwiftBuildTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup(_hiddenFromHelp: true)
-    var swiftOptions: SwiftToolOptions
+    @OptionGroup()
+    var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: BuildToolOptions
@@ -104,7 +107,12 @@ public struct SwiftBuildTool: SwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
             throw ExitCode.failure
         }
-        let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.product)
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitProduct: options.product,
+            // command result output goes on stdout
+            // ie "swift build" should output to stdout
+            customOutputStream: TSCBasic.stdoutStream
+        )
         do {
             try buildSystem.build(subset: subset)
         } catch _ as Diagnostics {

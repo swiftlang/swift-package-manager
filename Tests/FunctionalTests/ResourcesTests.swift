@@ -14,8 +14,8 @@ import SPMTestSupport
 import TSCBasic
 
 class ResourcesTests: XCTestCase {
-    func testSimpleResources() {
-        fixture(name: "Resources/Simple") { prefix in
+    func testSimpleResources() throws {
+        try fixture(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -25,17 +25,17 @@ class ResourcesTests: XCTestCase {
             #endif
 
             for execName in executables {
-                let (output, _) = try executeSwiftRun(prefix, execName)
+                let (output, _) = try executeSwiftRun(fixturePath, execName)
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }
     }
 
-    func testLocalizedResources() {
-        fixture(name: "Resources/Localized") { prefix in
-            try executeSwiftBuild(prefix)
+    func testLocalizedResources() throws {
+        try fixture(name: "Resources/Localized") { fixturePath in
+            try executeSwiftBuild(fixturePath)
 
-            let exec = prefix.appending(RelativePath(".build/debug/exe"))
+            let exec = fixturePath.appending(RelativePath(".build/debug/exe"))
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try Process.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
             XCTAssertEqual(output, """
@@ -47,8 +47,8 @@ class ResourcesTests: XCTestCase {
         }
     }
 
-    func testMovedBinaryResources() {
-        fixture(name: "Resources/Moved") { prefix in
+    func testMovedBinaryResources() throws {
+        try fixture(name: "Resources/Moved") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -57,12 +57,12 @@ class ResourcesTests: XCTestCase {
             #endif
 
             let binPath = try AbsolutePath(
-                executeSwiftBuild(prefix, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
+                executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
-                _ = try executeSwiftBuild(prefix, configuration: .Release, extraArgs: ["--product", execName])
+                _ = try executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--product", execName])
 
                 try withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {

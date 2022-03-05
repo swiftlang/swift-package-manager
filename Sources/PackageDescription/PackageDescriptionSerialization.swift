@@ -292,6 +292,7 @@ extension Target.Dependency: Encodable {
         case type
         case name
         case package
+        case moduleAliases
         case condition
     }
 
@@ -308,10 +309,11 @@ extension Target.Dependency: Encodable {
             try container.encode(Kind.target, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(condition, forKey: .condition)
-        case .productItem(let name, let package, let condition):
+        case .productItem(let name, let package, let moduleAliases, let condition):
             try container.encode(Kind.product, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(package, forKey: .package)
+            try container.encode(moduleAliases, forKey: .moduleAliases)
             try container.encode(condition, forKey: .condition)
         case .byNameItem(let name, let condition):
             try container.encode(Kind.byName, forKey: .type)
@@ -379,28 +381,6 @@ extension Target: Encodable {
         if let pluginUsages = self.plugins {
             try container.encode(pluginUsages, forKey: .pluginUsages)
         }
-    }
-}
-
-/// A condition that limits the application of a target's dependency.
-public struct TargetDependencyCondition: Encodable {
-
-    private let platforms: [Platform]?
-
-    private init(platforms: [Platform]?) {
-        self.platforms = platforms
-    }
-
-    /// Creates a target dependency condition.
-    ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
-    public static func when(
-        platforms: [Platform]? = nil
-    ) -> TargetDependencyCondition {
-        // FIXME: This should be an error, not a precondition.
-        precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms)
     }
 }
 

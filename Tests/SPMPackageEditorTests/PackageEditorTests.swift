@@ -61,7 +61,7 @@ final class PackageEditorTests: XCTestCase {
         try editor.addTarget(options:
             .init(manifestPath: manifestPath, targetName: "baz"))
 
-        let newManifest = try fs.readFileContents(manifestPath).cString
+        let newManifest: String = try fs.readFileContents(manifestPath)
         XCTAssertEqual(newManifest, """
             // swift-tools-version:5.0
             import PackageDescription

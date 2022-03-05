@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,7 @@ import PackageModel
 import TSCBasic
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
-public struct PackageCollections: PackageCollectionsProtocol {
+public struct PackageCollections: PackageCollectionsProtocol, Closable {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
     #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSupportedPlatform = true
@@ -22,62 +22,98 @@ public struct PackageCollections: PackageCollectionsProtocol {
     #endif
 
     let configuration: Configuration
+    private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
-    let searchProvider: PackageSearchProvider
 
     private var storage: Storage {
         self.storageContainer.storage
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
+    public init(
+        configuration: Configuration = .init(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.init(
+            configuration: configuration,
+            customMetadataProvider: nil,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
+    
+    init(
+        configuration: Configuration = .init(),
+        customMetadataProvider: PackageMetadataProvider?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
         let storage = Storage(
-            sources: FilePackageCollectionsSourcesStorage(),
-            collections: SQLitePackageCollectionsStorage(observabilityScope: observabilityScope)
+            sources: FilePackageCollectionsSourcesStorage(
+                fileSystem: fileSystem,
+                path: configuration.configurationDirectory?.appending(component: "collections.json")
+            ),
+            collections: SQLitePackageCollectionsStorage(
+                location: configuration.cacheDirectory.map { .path($0.appending(components: "package-collection.db")) },
+                observabilityScope: observabilityScope
+            )
         )
 
         let collectionProviders = [
-            Model.CollectionSourceType.json: JSONPackageCollectionProvider(observabilityScope: observabilityScope)
+            Model.CollectionSourceType.json: JSONPackageCollectionProvider(
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
         ]
 
-        let metadataProvider = GitHubPackageMetadataProvider(
-            configuration: .init(authTokens: configuration.authTokens),
+        let metadataProvider = customMetadataProvider ?? GitHubPackageMetadataProvider(
+            configuration: .init(
+                authTokens: configuration.authTokens,
+                cacheDir: configuration.cacheDirectory?.appending(components: "package-metadata")
+            ),
             observabilityScope: observabilityScope
         )
-        
-        let searchProvider = StorageBackedPackageSearchProvider(storage: storage.collections)
 
         self.configuration = configuration
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
-        self.searchProvider = searchProvider
     }
 
     // internal initializer for testing
     init(configuration: Configuration = .init(),
+         fileSystem: FileSystem,
          observabilityScope: ObservabilityScope,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
-         metadataProvider: PackageMetadataProvider,
-         customSearchProvider: PackageSearchProvider? = nil) {
+         metadataProvider: PackageMetadataProvider
+    ) {
         self.configuration = configuration
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
-        self.searchProvider = customSearchProvider ?? StorageBackedPackageSearchProvider(storage: storage.collections)
     }
 
     public func shutdown() throws {
         if self.storageContainer.owned {
             try self.storageContainer.storage.close()
         }
-        try self.metadataProvider.close()
+        
+        if let metadataProvider = self.metadataProvider as? Closable {
+            try metadataProvider.close()
+        }
+    }
+    
+    public func close() throws {
+        try self.shutdown()
     }
 
     // MARK: - Collections
@@ -196,7 +232,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
-        if let errors = source.validate()?.errors() {
+        if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
@@ -283,7 +319,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             switch result {
             case .failure:
                 // The collection is not in storage. Validate the source before fetching it.
-                if let errors = source.validate()?.errors() {
+                if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
                     return callback(.failure(MultipleErrors(errors)))
                 }
                 guard let provider = self.collectionProviders[source.type] else {
@@ -314,7 +350,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(Model.PackageSearchResult(items: [])))
                 }
-                self.searchProvider.searchPackages(query, collections: Set(identifiers), callback: callback)
+                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
             }
         }
     }
@@ -390,30 +426,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let packageSearchResult):
-
                 // then try to get more metadata from provider (optional)
-                let authTokenType = self.metadataProvider.getAuthTokenType(for: packageSearchResult.package.location)
-                let isAuthTokenConfigured = authTokenType.flatMap { self.configuration.authTokens()?[$0] } != nil
-
-                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result in
+                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result, provider in
                     switch result {
                     case .failure(let error):
-                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
-
-                        let provider: PackageMetadataProviderContext?
-                        switch error {
-                        case let error as GitHubPackageMetadataProvider.Errors:
-                            let providerError = PackageMetadataProviderError.from(error)
-                            if providerError == nil {
-                                // The metadata provider cannot be used for the package
-                                provider = nil
-                            } else {
-                                provider = PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured, error: providerError)
-                            }
-                        default:
-                            // For all other errors, including NotFoundError, assume the provider is not intended for the package.
-                            provider = nil
-                        }
+                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self): \(error)")
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections,
@@ -425,7 +442,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
                             collections: packageSearchResult.collections,
-                            provider: PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured)
+                            provider: provider
                         )
                         callback(.success(metadata))
                     }
@@ -472,7 +489,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(.init(items: [])))
                 }
-                self.searchProvider.searchTargets(query, searchType: searchType, collections: Set(identifiers), callback: callback)
+                self.storage.collections.searchTargets(identifiers: identifiers, query: query, type: searchType, callback: callback)
             }
         }
     }
@@ -552,7 +569,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
+            let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
+            
             switch result {
+            case .failure(is NotFoundError):
+                callback(.failure(notFoundError))
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
@@ -561,10 +582,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(identity)")))
+                    return callback(.failure(notFoundError))
                 }
                 self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
                     switch findPackageResult {
+                    case .failure(is NotFoundError):
+                        callback(.failure(notFoundError))
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let packagesCollections):
@@ -577,7 +600,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                             matches = packagesCollections.packages
                         }
                         guard let package = matches.first else {
-                            return callback(.failure(NotFoundError("\(identity), \(location ?? "none")")))
+                            return callback(.failure(notFoundError))
                         }
                         callback(.success(.init(package: package, collections: packagesCollections.collections)))
                     }

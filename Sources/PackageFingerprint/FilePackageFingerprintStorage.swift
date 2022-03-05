@@ -13,7 +13,6 @@ import Dispatch
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
@@ -94,12 +93,12 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             return .init()
         }
 
-        let buffer = try fileSystem.readFileContents(path).contents
-        guard buffer.count > 0 else {
+        let data: Data = try fileSystem.readFileContents(path)
+        guard data.count > 0 else {
             return .init()
         }
 
-        let container = try self.decoder.decode(StorageModel.Container.self, from: Data(buffer))
+        let container = try self.decoder.decode(StorageModel.Container.self, from: data)
         return try container.packageFingerprints()
     }
 
@@ -108,7 +107,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
-        let container = StorageModel.Container(fingerprints)
+        let container = try StorageModel.Container(fingerprints)
         let buffer = try encoder.encode(container)
 
         let path = self.directoryPath.appending(component: package.fingerprintFilename)
@@ -131,8 +130,8 @@ private enum StorageModel {
     struct Container: Codable {
         let versionFingerprints: [String: [String: StoredFingerprint]]
 
-        init(_ versionFingerprints: PackageFingerprints) {
-            self.versionFingerprints = Dictionary(uniqueKeysWithValues: versionFingerprints.map { version, fingerprints in
+        init(_ versionFingerprints: PackageFingerprints) throws {
+            self.versionFingerprints = try Dictionary(throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprints in
                 let fingerprintByKind: [String: StoredFingerprint] = Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
                     let origin: String
                     switch fingerprint.origin {
@@ -148,12 +147,12 @@ private enum StorageModel {
         }
 
         func packageFingerprints() throws -> PackageFingerprints {
-            try Dictionary(uniqueKeysWithValues: self.versionFingerprints.map { version, fingerprints in
+            try Dictionary(throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprints in
                 let fingerprintByKind: [Fingerprint.Kind: Fingerprint] = try Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
                     guard let kind = Fingerprint.Kind(rawValue: kind) else {
                         throw SerializationError.unknownKind(kind)
                     }
-                    guard let originURL = Foundation.URL(string: fingerprint.origin) else {
+                    guard let originURL = URL(string: fingerprint.origin) else {
                         throw SerializationError.invalidURL(fingerprint.origin)
                     }
 

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -192,6 +192,10 @@ public protocol SourceModuleTarget: Target {
     /// The name of the module produced by the target (derived from the target
     /// name, though future SwiftPM versions may allow this to be customized).
     var moduleName: String { get }
+    
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    var kind: ModuleKind { get }
 
     /// The source files that are associated with this target (any files that
     /// have been excluded in the manifest have already been filtered out).
@@ -206,6 +210,16 @@ public protocol SourceModuleTarget: Target {
     var linkedFrameworks: [String] { get }
 }
 
+/// Represents the kind of module.
+public enum ModuleKind {
+    /// A module that contains generic code (not a test nor an executable).
+    case generic
+    /// A module that contains code for an executable's main module.
+    case executable
+    /// A module that contains unit tests.
+    case test
+}
+
 /// Represents a target consisting of a source code module compiled using Swift.
 public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// Unique identifier for the target.
@@ -215,6 +229,10 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// is unique among the targets of the package in which it is defined.
     public let name: String
     
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    public let kind: ModuleKind
+
     /// The absolute path of the target directory in the local file system.
     public let directory: Path
     
@@ -253,6 +271,10 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     /// is unique among the targets of the package in which it is defined.
     public let name: String
     
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    public let kind: ModuleKind
+
     /// The absolute path of the target directory in the local file system.
     public let directory: Path
     
@@ -412,29 +434,4 @@ public enum FileType {
 
     /// A file not covered by any other rule.
     case unknown
-}
-
-extension Target {
-    /// The transitive closure of all the targets on which the reciver depends,
-    /// ordered such that every dependency appears before any other target that
-    /// depends on it (i.e. in "topological sort order").
-    public var recursiveTargetDependencies: [Target] {
-        // FIXME: We can rewrite this to use a stack instead of recursion.
-        var result = [Target]()
-        var visited = Set<Target.ID>()
-        func visit(target: Target) {
-            guard !visited.insert(target.id).inserted else { return }
-            target.dependencies.forEach{ visit(dependency: $0) }
-            result.append(target)
-        }
-        func visit(dependency: TargetDependency) {
-            switch dependency {
-            case .target(let target):
-                visit(target: target)
-            case .product(let product):
-                product.targets.forEach{ visit(target: $0) }
-            }
-        }
-        return result
-    }
 }

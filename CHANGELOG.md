@@ -1,7 +1,34 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift 5.7
+-----------
+
+* [SE-0339]
+
+  Module aliases can now be defined in the package manifest to disambiguate between modules with the same name originating from different packages. 
+
+* [#4119] 
+ 
+  Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @testable` disabled).
+
+* [#4131]
+
+  Update to manifest API to make it impossible to create an invalid build settings condition.
+
+* [#4135]
+
+  Enable linker dead stripping for all platforms. This can be disabled with `--disable-dead-strip`
+
+* [#4168]
+
+  Update to manifest API to make it impossible to create an invalid target dependency condition.
+
 Swift 5.6
 -----------
+* [SE-0303]
+
+  Package plugins of the type `buildTool` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift build` command.
+  
 * [SE-0332]
 
   Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
@@ -186,7 +213,9 @@ Swift 3.0
 [SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0303]: https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
+[SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -209,3 +238,7 @@ Swift 3.0
 [#3890]: https://github.com/apple/swift-package-manager/pull/3890
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
+[#4119]: https://github.com/apple/swift-package-manager/pull/4119
+[#4131]: https://github.com/apple/swift-package-manager/pull/4131
+[#4135]: https://github.com/apple/swift-package-manager/pull/4135
+[#4168]: https://github.com/apple/swift-package-manager/pull/4168

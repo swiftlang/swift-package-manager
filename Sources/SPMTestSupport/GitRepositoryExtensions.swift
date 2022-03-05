@@ -9,8 +9,9 @@
 */
 
 import TSCBasic
-import TSCUtility
 import SourceControl
+
+import enum TSCUtility.Git
 
 /// Extensions useful for unit testing purposes.
 /// Note: These are not thread safe.
@@ -25,6 +26,12 @@ public extension GitRepository {
     func currentBranch() throws -> String {
         return try Process.checkNonZeroExit(
             args: Git.tool, "-C", path.pathString, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
+    }
+
+    /// Returns the revision for a given tag.
+    func revision(forTag tag: String) throws -> String {
+        return try Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.pathString, "rev-parse", tag).spm_chomp()
     }
 
     /// Stage a file.

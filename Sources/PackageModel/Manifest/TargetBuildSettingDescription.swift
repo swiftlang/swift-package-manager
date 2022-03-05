@@ -19,14 +19,14 @@ public enum TargetBuildSettingDescription {
         case linker
     }
 
-    /// The name of the build setting.
-    public enum SettingName: String, Codable, Equatable {
-        case headerSearchPath
-        case define
-        case linkedLibrary
-        case linkedFramework
+    /// The kind of the build setting, with associate configuration
+    public enum Kind: Codable, Equatable {
+        case headerSearchPath(String)
+        case define(String)
+        case linkedLibrary(String)
+        case linkedFramework(String)
 
-        case unsafeFlags
+        case unsafeFlags([String])
     }
 
     /// An individual build setting.
@@ -35,38 +35,19 @@ public enum TargetBuildSettingDescription {
         /// The tool associated with this setting.
         public let tool: Tool
 
-        /// The name of the setting.
-        public let name: SettingName
+        /// The kind of the setting.
+        public let kind: Kind
 
         /// The condition at which the setting should be applied.
         public let condition: PackageConditionDescription?
 
-        /// The value of the setting.
-        ///
-        /// This is kind of like an "untyped" value since the length
-        /// of the array will depend on the setting type.
-        public let value: [String]
-
         public init(
             tool: Tool,
-            name: SettingName,
-            value: [String],
-            condition: PackageConditionDescription? = nil
+            kind: Kind,
+            condition: PackageConditionDescription? = .none
         ) {
-            switch name {
-            case .headerSearchPath: fallthrough
-            case .define: fallthrough
-            case .linkedLibrary: fallthrough
-            case .linkedFramework:
-                assert(value.count == 1, "\(tool) \(name) \(value)")
-                break
-            case .unsafeFlags:
-                break
-            }
-
             self.tool = tool
-            self.name = name
-            self.value = value
+            self.kind = kind
             self.condition = condition
         }
     }

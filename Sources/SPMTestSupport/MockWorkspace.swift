@@ -23,69 +23,67 @@ public typealias Diagnostic = TSCBasic.Diagnostic
 public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
-    public let httpClient: HTTPClient
-    public var registryClient: RegistryClient
-    public let archiver: MockArchiver
-    public let checksumAlgorithm: MockHashAlgorithm
-    public let fingerprintStorage: MockPackageFingerprintStorage
-    public let customPackageContainerProvider: MockPackageContainerProvider?
     let roots: [MockPackage]
     let packages: [MockPackage]
-    public let mirrors: DependencyMirrors
-    let identityResolver: IdentityResolver
-    public var manifestLoader: MockManifestLoader
-    public var repositoryProvider: InMemoryGitRepositoryProvider
-    let registry: MockRegistry
-    public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
-    let resolverUpdateEnabled: Bool
+    let fingerprints: MockPackageFingerprintStorage
+    let mirrors: DependencyMirrors
+    public var  httpClient: HTTPClient
+    public var registryClient: RegistryClient
+    let registry: MockRegistry
+    public var archiver: MockArchiver
+    public var checksumAlgorithm: MockHashAlgorithm
+    public private(set) var manifestLoader: MockManifestLoader
+    public let repositoryProvider: InMemoryGitRepositoryProvider
+    let identityResolver: IdentityResolver
+    let customPackageContainerProvider: MockPackageContainerProvider?
+    public let delegate = MockWorkspaceDelegate()
+    let skipDependenciesUpdates: Bool
+    public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
 
     public init(
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
-        mirrors: DependencyMirrors? = nil,
         roots: [MockPackage],
-        packages: [MockPackage],
+        packages: [MockPackage] = [],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        customHttpClient: HTTPClient? = .none,
-        customRegistryClient: RegistryClient? = .none,
-        customBinaryArchiver: MockArchiver? = .none,
-        customChecksumAlgorithm: MockHashAlgorithm? = .none,
-        customFingerprintStorage: MockPackageFingerprintStorage? = .none,
+        fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
+        mirrors customMirrors: DependencyMirrors? = nil,
+        httpClient customHttpClient: HTTPClient? = .none,
+        registryClient customRegistryClient: RegistryClient? = .none,
+        binaryArchiver customBinaryArchiver: MockArchiver? = .none,
+        checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
-        resolverUpdateEnabled: Bool = true
+        skipDependenciesUpdates: Bool = false,
+        sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled
     ) throws {
-        let archiver = customBinaryArchiver ?? MockArchiver()
-        let httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
-
         self.sandbox = sandbox
         self.fileSystem = fileSystem
-        self.httpClient = httpClient
-        self.archiver = archiver
-        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
-        self.fingerprintStorage = customFingerprintStorage ?? MockPackageFingerprintStorage()
-        self.mirrors = mirrors ?? DependencyMirrors()
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
-        self.customPackageContainerProvider = customPackageContainerProvider
         self.roots = roots
         self.packages = packages
-
+        self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
+        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.manifestLoader = MockManifestLoader(manifests: [:])
+        self.customPackageContainerProvider = customPackageContainerProvider
+        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.repositoryProvider = InMemoryGitRepositoryProvider()
         self.registry = MockRegistry(
+            filesystem: self.fileSystem,
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            filesystem: self.fileSystem,
-            fingerprintStorage: self.fingerprintStorage
+            fingerprintStorage: self.fingerprints
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
-        self.resolverUpdateEnabled = resolverUpdateEnabled
-
+        self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
+        self.httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+        self.archiver = customBinaryArchiver ?? MockArchiver()
         try self.create()
     }
 
-    private var rootsDir: AbsolutePath {
+    public var rootsDir: AbsolutePath {
         return self.sandbox.appending(component: "roots")
     }
 
@@ -95,6 +93,10 @@ public final class MockWorkspace {
 
     public var artifactsDir: AbsolutePath {
         return self.sandbox.appending(components: ".build", "artifacts")
+    }
+
+    public func pathToRoot(withName name: String) -> AbsolutePath {
+        return self.rootsDir.appending(RelativePath(name))
     }
 
     public func pathToPackage(withName name: String) -> AbsolutePath {
@@ -129,7 +131,7 @@ public final class MockWorkspace {
                 } else {
                     packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
                 }
-            case .registry(let identity):
+            case .registry(let identity, _):
                 packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
             }
 
@@ -139,6 +141,7 @@ public final class MockWorkspace {
 
             var sourceControlSpecifier: RepositorySpecifier? = nil
             var registryIdentity: PackageIdentity? = nil
+            var registryAlternativeURLs: [URL]? = nil
 
             switch (isRoot, package.location) {
             case (true, _):
@@ -153,10 +156,11 @@ public final class MockWorkspace {
                 packageLocation = url.absoluteString
                 packageKind = .remoteSourceControl(url)
                 sourceControlSpecifier = RepositorySpecifier(url: url)
-            case (_, .registry(let identity)):
+            case (_, .registry(let identity, let alternativeURLs)):
                 packageLocation = identity.description
                 packageKind = .registry(identity)
                 registryIdentity = identity
+                registryAlternativeURLs = alternativeURLs
             }
 
             let toolsVersion = package.toolsVersion ?? .currentToolsVersion
@@ -166,7 +170,7 @@ public final class MockWorkspace {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
                 
-                let versions = packageVersions.compactMap({ $0 })
+                let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
                     try repository.commit()
                 } else {
@@ -178,9 +182,14 @@ public final class MockWorkspace {
 
                 self.repositoryProvider.add(specifier: specifier, repository: repository)
             } else if let identity = registryIdentity {
-                let source = InMemoryRegistrySource(path: packagePath, fileSystem: self.fileSystem)
+                let source = InMemoryRegistryPackageSource(fileSystem: self.fileSystem, path: packagePath, writeContent: false)
                 try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: toolsVersion)
-                self.registry.addPackage(identity: identity, versions: packageVersions.compactMap({ $0 }), source: source)
+                self.registry.addPackage(
+                    identity: identity,
+                    versions: packageVersions.compactMap{ $0 },
+                    sourceControlURLs: registryAlternativeURLs ?? [],
+                    source: source
+                )
             } else {
                 throw InternalError("unknown package type")
             }
@@ -197,7 +206,7 @@ public final class MockWorkspace {
                     version: v,
                     toolsVersion: toolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
-                    products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
+                    products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }
                 )
             }
@@ -233,17 +242,27 @@ public final class MockWorkspace {
             return workspace
         }
 
-        let workspace = try Workspace(
+        let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             location: .init(
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
-                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,  
-                sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory
+                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
+                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory
             ),
-            mirrors: self.mirrors,
+            configuration: .init(
+                skipDependenciesUpdates: self.skipDependenciesUpdates,
+                prefetchBasedOnResolvedFile: WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
+                additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
+                sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
+                fingerprintCheckingMode: .strict,
+                sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation
+            ),
+            customFingerprints: self.fingerprints,
+            customMirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
             customPackageContainerProvider: self.customPackageContainerProvider,
@@ -253,10 +272,6 @@ public final class MockWorkspace {
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
             customChecksumAlgorithm: self.checksumAlgorithm,
-            customFingerprintStorage: self.fingerprintStorage,
-            resolverUpdateEnabled: self.resolverUpdateEnabled,
-            resolverPrefetchingEnabled: true,
-            resolverFingerprintCheckingMode: .strict,
             delegate: self.delegate
         )
 
@@ -267,7 +282,10 @@ public final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    public func closeWorkspace() {
+    public func closeWorkspace(resetState: Bool = true) throws {
+        if resetState {
+            try self._workspace?.resetState()
+        }
         self._workspace = nil
     }
 
@@ -491,7 +509,7 @@ public final class MockWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: PinsStore.PinState] = [:],
+        pins: [PackageReference: PinsStore.PinState],
         managedDependencies: [Workspace.ManagedDependency] = [],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
@@ -755,47 +773,47 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
 
     public init() {}
 
-    public func repositoryWillUpdate(_ repository: String) {
-        self.append("updating repo: \(repository)")
+    public func willUpdateRepository(package: PackageIdentity, repository url: String) {
+        self.append("updating repo: \(url)")
     }
 
-    public func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
-        self.append("finished updating repo: \(repository)")
+    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+        self.append("finished updating repo: \(url)")
     }
 
     public func dependenciesUpToDate() {
         self.append("Everything is already up-to-date")
     }
 
-    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
-        self.append("fetching repo: \(repository)")
+    public func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+        self.append("fetching package: \(packageLocation ?? package.description)")
     }
 
-    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
     }
 
-    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
-        self.append("finished fetching repo: \(repository)")
+    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.append("finished fetching package: \(packageLocation ?? package.description)")
     }
 
-    public func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
+    public func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.append("creating working copy for: \(url)")
     }
 
-    public func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.append("finished creating working copy for: \(url)")
     }
 
-    public func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
+    public func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         self.append("checking out repo: \(url)")
     }
 
-    public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         self.append("finished checking out repo: \(url)")
     }
 
-    public func removing(repository: String) {
-        self.append("removing repo: \(repository)")
+    public func removing(package: PackageIdentity, packageLocation: String?) {
+        self.append("removing repo: \(packageLocation ?? package.description)")
     }
 
     public func willResolveDependencies(reason: WorkspaceResolveReason) {
@@ -826,11 +844,19 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
+    public func willDownloadBinaryArtifact(from url: String) {
+        self.append("downloading binary artifact package: \(url)")
+    }
+
+    public func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
+        self.append("finished downloading binary artifact package: \(url)")
+    }
+
     public func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 
-    public func didDownloadBinaryArtifacts() {
+    public func didDownloadAllBinaryArtifacts() {
         // noop
     }
 

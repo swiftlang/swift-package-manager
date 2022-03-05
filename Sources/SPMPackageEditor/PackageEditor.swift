@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCUtility
 import TSCBasic
 import SourceControl
 import PackageLoading
@@ -91,7 +90,7 @@ public final class PackageEditor {
         }
 
         // Add the package dependency.
-        let manifestContents = try fs.readFileContents(options.manifestPath).cString
+        let manifestContents: String = try fs.readFileContents(options.manifestPath)
         let editor = try ManifestRewriter(manifestContents)
         try editor.addPackageDependency(url: options.url, requirement: requirement)
 
@@ -121,7 +120,7 @@ public final class PackageEditor {
             throw StringError("Already has a target named \(targetName)")
         }
 
-        let manifestContents = try fs.readFileContents(options.manifestPath).cString
+        let manifestContents: String = try fs.readFileContents(options.manifestPath)
         let editor = try ManifestRewriter(manifestContents)
         try editor.addTarget(targetName: targetName)
         try editor.addTarget(targetName: testTargetName, type: .test)
@@ -132,7 +131,7 @@ public final class PackageEditor {
 
         // Write template files.
         let targetPath = manifest.parentDirectory.appending(components: "Sources", targetName)
-        if !localFileSystem.exists(targetPath) {
+        if !fs.exists(targetPath) {
             let file = targetPath.appending(components: targetName + ".swift")
             try fs.createDirectory(targetPath)
             try fs.writeFileContents(file, bytes: "")
@@ -260,11 +259,11 @@ public final class PackageEditorContext {
     let repositoryManager: RepositoryManager
 
     /// The file system in use.
-    let fs: FileSystem
+    let fileSystem: FileSystem
 
-    public init(buildDir: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+    public init(buildDir: AbsolutePath, fileSystem: FileSystem) throws {
         self.buildDir = buildDir
-        self.fs = fs
+        self.fileSystem = fileSystem
 
         // Create toolchain.
         let hostToolchain = try UserToolchain(destination: .hostDestination())
