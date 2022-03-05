@@ -10298,7 +10298,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic:
                         """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
-                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0 and no versions of 'bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
@@ -10318,7 +10318,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic:
                         """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
-                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0 and no versions of 'bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
@@ -10573,7 +10573,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic:
                         """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0 and no versions of 'org.bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
@@ -10593,7 +10593,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic:
                         """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0 and no versions of 'org.bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
@@ -10886,7 +10886,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic: """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
                         'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0 and no versions of 'org.bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
@@ -10906,7 +10906,7 @@ final class WorkspaceTests: XCTestCase {
                         diagnostic: """
                         Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
                         'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0 and no versions of 'org.bar' match the requirement 1.0.1..<2.0.0.
                         """,
                         severity: .error
                     )
