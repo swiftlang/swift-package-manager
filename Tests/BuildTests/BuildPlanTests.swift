@@ -1785,22 +1785,27 @@ final class BuildPlanTests: XCTestCase {
                                         "/thisPkg/Sources/exe/main.swift",
                                         "/thisPkg/Sources/Logging/file.swift",
                                         "/otherPkg/Sources/Utils/fileUtils.swift",
-                                        "/otherPkg/Sources/Logging/fileLogging.swift"
+                                        "/otherPkg/Sources/Logging/fileLogging.swift",
+                                        "/otherPkg/Sources/Math/file.swift",
+                                        "/otherPkg/Sources/Tools/file.swift"
         )
         
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createFileSystemManifest(
+                Manifest.createRootManifest(
                     name: "otherPkg",
                     path: .init("/otherPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Math", type: .library(.automatic), targets: ["Math"]),
                     ],
                     targets: [
                         TargetDescription(name: "Utils", dependencies: ["Logging"]),
                         TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Math", dependencies: ["Tools"]),
+                        TargetDescription(name: "Tools", dependencies: []),
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
@@ -1811,6 +1816,8 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "exe",
                                           dependencies: ["Logging",
+                                                         .product(name: "Math",
+                                                                  package: "otherPkg"),
                                                          .product(name: "Utils",
                                                                   package: "otherPkg",
                                                                   moduleAliases: ["Logging": "OtherLogging"])]),
@@ -1829,8 +1836,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         
         result.checkProductsCount(1)
-        result.checkTargetsCount(4)
-        
+        result.checkTargetsCount(6)
+
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
@@ -1859,7 +1866,7 @@ final class BuildPlanTests: XCTestCase {
         let _ = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createFileSystemManifest(
+                Manifest.createRootManifest(
                     name: "otherPkg",
                     path: .init("/otherPkg"),
                     products: [
@@ -1908,7 +1915,7 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createFileSystemManifest(
+                Manifest.createRootManifest(
                     name: "barPkg",
                     path: .init("/barPkg"),
                     products: [
@@ -1917,7 +1924,7 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Logging", dependencies: []),
                     ]),
-                Manifest.createFileSystemManifest(
+                Manifest.createRootManifest(
                     name: "fooPkg",
                     path: .init("/fooPkg"),
                     dependencies: [
@@ -1974,7 +1981,7 @@ final class BuildPlanTests: XCTestCase {
                                     "/barPkg/Sources/Logging/fileLogging.swift",
                                     "/barPkg/Sources/Math/fileMath.swift"
         )
-        
+
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
@@ -2031,17 +2038,17 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        
+
         let result = try BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
-        
+
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
-        
+
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "FooLogging" && $0.target.moduleAliases?["Math"] == "FooMath" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
@@ -2049,6 +2056,440 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarMath" && $0.target.moduleAliases?["Math"] == "BarMath" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Math" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingOverrideSameNameTargetAndDepWithAliases() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/appPkg/Sources/Utils/file1.swift",
+                                    "/appPkg/Sources/Render/file2.swift",
+                                    "/libPkg/Sources/Lib/fileLib.swift",
+                                    "/gamePkg/Sources/Render/fileRender.swift",
+                                    "/gamePkg/Sources/Utils/fileUtils.swift",
+                                    "/drawPkg/Sources/Render/fileDraw.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "drawPkg",
+                    path: .init("/drawPkg"),
+                    products: [
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "gamePkg",
+                    path: .init("/gamePkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "RenderProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Game", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render",
+                                          dependencies: [
+                                            .product(name: "DrawProd",
+                                                     package: "drawPkg",
+                                                     moduleAliases: ["Render": "DrawRender"]
+                                          )]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "libPkg",
+                    path: .init("/libPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib",
+                                          dependencies: [.product(name: "UtilsProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Utils": "GameUtils"]
+                                                                 ),
+                                                         .product(name: "RenderProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Render": "GameRender"]
+                                                                 )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: ["Utils",
+                                                         "Render",
+                                                         .product(name: "LibProd",
+                                                                  package: "libPkg",
+                                                                  moduleAliases: ["Utils": "LibUtils", "Render": "LibRender"]
+                                                        )]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases?["Utils"] == "LibUtils" && $0.target.moduleAliases?["Render"] == "LibRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibRender" && $0.target.moduleAliases?["Render"] == "LibRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibUtils" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "DrawRender" && $0.target.moduleAliases?["Render"] == "DrawRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingAddOverrideAliasesUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/appPkg/Sources/Utils/file1.swift",
+                                    "/appPkg/Sources/Render/file2.swift",
+                                    "/libPkg/Sources/Lib/fileLib.swift",
+                                    "/gamePkg/Sources/Render/fileRender.swift",
+                                    "/gamePkg/Sources/Utils/fileUtils.swift",
+                                    "/drawPkg/Sources/Render/fileDraw.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "drawPkg",
+                    path: .init("/drawPkg"),
+                    products: [
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "gamePkg",
+                    path: .init("/gamePkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "RenderProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Game", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render",
+                                          dependencies: [
+                                            .product(name: "DrawProd",
+                                                     package: "drawPkg",
+                                                     moduleAliases: ["Render": "DrawRender"]
+                                          )]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "libPkg",
+                    path: .init("/libPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib",
+                                          dependencies: [.product(name: "UtilsProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Utils": "GameUtils"]
+                                                                 ),
+                                                         .product(name: "RenderProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Render": "GameRender"]
+                                                                 )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: ["Utils",
+                                                         "Render",
+                                                         .product(name: "LibProd",
+                                                                  package: "libPkg"
+                                                        )]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "GameRender" && $0.target.moduleAliases?["Render"] == "GameRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "GameUtils" && $0.target.moduleAliases?["Utils"] == "GameUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "DrawRender" && $0.target.moduleAliases?["Render"] == "DrawRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingOverrideUpstreamTargetsWithAliases() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/appPkg/Sources/Utils/file1.swift",
+                                    "/appPkg/Sources/Render/file2.swift",
+                                    "/libPkg/Sources/Lib/fileLib.swift",
+                                    "/gamePkg/Sources/Scene/fileScene.swift",
+                                    "/gamePkg/Sources/Render/fileRender.swift",
+                                    "/gamePkg/Sources/Utils/fileUtils.swift",
+                                    "/drawPkg/Sources/Render/fileDraw.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "drawPkg",
+                    path: .init("/drawPkg"),
+                    products: [
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "gamePkg",
+                    path: .init("/gamePkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "RenderProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "SceneProd", type: .library(.automatic), targets: ["Scene"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Game", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Scene",
+                                          dependencies: [
+                                            .product(name: "DrawProd",
+                                                     package: "drawPkg",
+                                                     moduleAliases: ["Render": "DrawRender"]
+                                          )]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "libPkg",
+                    path: .init("/libPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib",
+                                          dependencies: [.product(name: "UtilsProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Utils": "GameUtils"]
+                                                                 ),
+                                                         .product(name: "RenderProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Render": "GameRender"]
+                                                                 ),
+                                                         .product(name: "SceneProd",
+                                                                  package: "gamePkg"
+                                                                 )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: ["Utils",
+                                                         "Render",
+                                                         .product(name: "LibProd",
+                                                                  package: "libPkg"
+                                                        )]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(8)
+
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "GameRender" && $0.target.moduleAliases?["Render"] == "GameRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "GameUtils" && $0.target.moduleAliases?["Utils"] == "GameUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "DrawRender" && $0.target.moduleAliases?["Render"] == "DrawRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingOverrideUpstreamTargetsWithAliasesDownstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/appPkg/Sources/Utils/file1.swift",
+                                    "/appPkg/Sources/Render/file2.swift",
+                                    "/libPkg/Sources/Lib/fileLib.swift",
+                                    "/gamePkg/Sources/Scene/fileScene.swift",
+                                    "/gamePkg/Sources/Render/fileRender.swift",
+                                    "/gamePkg/Sources/Utils/fileUtils.swift",
+                                    "/drawPkg/Sources/Render/fileDraw.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "drawPkg",
+                    path: .init("/drawPkg"),
+                    products: [
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "gamePkg",
+                    path: .init("/gamePkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "RenderProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "SceneProd", type: .library(.automatic), targets: ["Scene"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Game", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Scene",
+                                          dependencies: [
+                                            .product(name: "DrawProd",
+                                                     package: "drawPkg",
+                                                     moduleAliases: ["Render": "DrawRender"]
+                                          )]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "libPkg",
+                    path: .init("/libPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib",
+                                          dependencies: [.product(name: "UtilsProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Utils": "GameUtils"]
+                                                                 ),
+                                                         .product(name: "RenderProd",
+                                                                  package: "gamePkg",
+                                                                  moduleAliases: ["Render": "GameRender"]
+                                                                 ),
+                                                         .product(name: "SceneProd",
+                                                                  package: "gamePkg"
+                                                                 )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: ["Utils",
+                                                         "Render",
+                                                         .product(name: "LibProd",
+                                                                  package: "libPkg",
+                                                                  moduleAliases: ["Utils": "LibUtils", "Render": "LibRender"]
+                                                        )]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(8)
+
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases?["Utils"] == "LibUtils" && $0.target.moduleAliases?["Render"] == "LibRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibRender" && $0.target.moduleAliases?["Render"] == "LibRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibUtils" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "DrawRender" && $0.target.moduleAliases?["Render"] == "DrawRender" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
     }
 
     func testModuleAliasingSameTargetFromUpstreamWithoutAlias() throws {
@@ -2205,7 +2646,7 @@ final class BuildPlanTests: XCTestCase {
         
         result.checkProductsCount(1)
         result.checkTargetsCount(5)
-        
+
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "CarLogging" && $0.target.moduleAliases?["Logging"] == "CarLogging" })

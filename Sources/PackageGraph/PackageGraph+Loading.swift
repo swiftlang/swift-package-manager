@@ -197,24 +197,24 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
 
 extension Package {
     // Add module aliases specified for applicable targets
-    fileprivate func setModuleAliasesForTargets(with moduleAliasMap: [String: String]) {
+    fileprivate func setModuleAliasesForTargets(with moduleAliasMap: [String: [ModuleAliasModel]]) {
         // Set module aliases for each target's dependencies
-        for (entryName, entryAlias) in moduleAliasMap {
-            for target in self.targets {
-                // First add dependency module aliases for this target
-                if entryName != target.name {
-                    target.addModuleAlias(for: entryName, as: entryAlias)
+        for target in self.targets {
+            let aliasesForTarget = moduleAliasMap.filter {$0.key == target.name}.values.flatMap{$0}
+            for entry in aliasesForTarget {
+                if entry.name != target.name {
+                    target.addModuleAlias(for: entry.name, as: entry.alias)
                 }
             }
         }
         
         // This loop should run after the loop above as it may rename the target
         // as an alias if specified
-        for (entryName, entryAlias) in moduleAliasMap {
-            for target in self.targets {
-                // Then set this target to be aliased if specified
-                if entryName == target.name  {
-                    target.addModuleAlias(for: target.name, as: entryAlias)
+        for target in self.targets {
+            let aliasesForTarget = moduleAliasMap.filter {$0.key == target.name}.values.flatMap{$0}
+            for entry in aliasesForTarget {
+                if entry.name == target.name {
+                    target.addModuleAlias(for: entry.name, as: entry.alias)
                 }
             }
         }
@@ -264,8 +264,9 @@ private func createResolvedPackages(
         return ($0.package.identity, $0)
     }
 
-    // Gather all module aliases specified for targets in all dependent packages
-    let packageAliases = gatherModuleAliases(from: packageBuilders, for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
+    // Gather and resolve module aliases specified for targets in all dependent packages
+    let packageAliases = resolveModuleAliases(with: packageBuilders,
+                                               onError: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -522,11 +523,10 @@ private func createResolvedPackages(
     return try packageBuilders.map{ try $0.construct() }
 }
 
-// Create a map between a package and module aliases specified for the targets in the package.
-private func gatherModuleAliases(from packageBuilders: [ResolvedPackageBuilder],
-                                 for rootPkgID: PackageIdentity?,
-                                 with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
-                                 onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: String]]? {
+// Track and override module aliases specified for targets in a package graph
+private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder],
+                                  onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: [ModuleAliasModel]]]? {
+
     // If there are no aliases, return early
     let depsWithAliases = packageBuilders.map { $0.package.targets.map { $0.dependencies.filter { dep in
         if case let .product(prodRef, _) = dep {
@@ -536,76 +536,162 @@ private func gatherModuleAliases(from packageBuilders: [ResolvedPackageBuilder],
     }}}.flatMap{$0}.flatMap{$0}
 
     guard !depsWithAliases.isEmpty else { return nil }
-
-    var result = [PackageIdentity: [String: String]]()
     
-    // There could be multiple root packages but the common cases involve
-    // just one root package; handling multiple roots is tracked rdar://88518683
-    if let rootPkg = rootPkgID {
-        var pkgStack = [PackageIdentity]()
-        walkPkgTreeAndGetModuleAliases(for: rootPkg, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
+    let aliasTracker = ModuleAliasTracker()
+    for packageBuilder in packageBuilders {
+        for target in packageBuilder.package.targets {
+            for dep in target.dependencies {
+                if case let .product(prodRef, _) = dep,
+                   let prodPkg = prodRef.package {
+                    let prodPkgID = PackageIdentity.plain(prodPkg)
+                    // Track package ID dependency chain
+                    aliasTracker.addPackageIDChain(parent: packageBuilder.package.identity, child: prodPkgID)
+                    
+                    if let aliasList = prodRef.moduleAliases {
+                        for (depName, depAlias) in aliasList {
+                            if let existingAlias = aliasTracker.alias(of: depName, in: prodPkgID) {
+                                // Error if there are multiple aliases specified for this product dependency
+                                observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
+                                return nil
+                            }
+                            // Track aliases for this product
+                            aliasTracker.addAlias(depAlias,
+                                                  of: depName,
+                                                  for: prodRef.name,
+                                                  from: PackageIdentity.plain(prodPkg),
+                                                  in: packageBuilder.package.identity)
+                        }
+                    }
+                }
+            }
+        }
     }
-    return result
+
+    // Track targets that need module aliases for each package
+    for packageBuilder in packageBuilders {
+        for prod in packageBuilder.package.products {
+            var list = prod.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target?.name}
+            list.append(contentsOf: prod.targets.map{$0.name})
+            aliasTracker.addAliasesForTargets(list, for: prod.name, in: packageBuilder.package.identity)
+        }
+    }
+
+    // Override module aliases upstream if needed
+    aliasTracker.propagateAliases()
+
+    return aliasTracker.idTargetToAliases
 }
 
-// Walk a package dependency tree and set the module aliases for targets in each package.
-// If multiple aliases are specified in upstream packages, aliases specified most downstream
-// will be used.
-private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
-                                            with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
-                                            onError observabilityScope: ObservabilityScope,
-                                            using pkgStack: inout [PackageIdentity],
-                                            output result: inout [PackageIdentity: [String: String]]) {
-    // Get the builder first
-    if let builder = packagesByIdentity[pkgID] {
-        builder.package.targets.forEach { target in
-            target.dependencies.forEach { dep in
-                // Check if a dependency for this target has module aliases specified
-                if case let .product(prodRef, _) = dep {
-                    if let prodPkg = prodRef.package {
-                        if let prodModuleAliases = prodRef.moduleAliases {
-                            for (depName, depAlias) in prodModuleAliases {
-                                let prodPkgID = PackageIdentity.plain(prodPkg)
-                                if let existingAlias = result[prodPkgID, default: [:]][depName] {
-                                    // error if there are multiple aliases for
-                                    // a dependency target for a product
-                                    observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
-                                    return
-                                }
+// This class helps track module aliases in a package graph and override
+// upstream alises if needed
+private class ModuleAliasTracker {
+    var aliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
+    var idTargetToAliases = [PackageIdentity: [String: [ModuleAliasModel]]]()
+    var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
+    var childToParentID = [PackageIdentity: PackageIdentity]()
 
-                                // Add the specified alias and the dependency package to a map
-                                result[prodPkgID, default: [:]][depName] = depAlias
+    init() {}
+
+    func addAlias(_ alias: String,
+                  of targetName: String,
+                  for product: String,
+                  from originPackage: PackageIdentity,
+                  in parentPackage: PackageIdentity) {
+        let model = ModuleAliasModel(name: targetName, alias: alias, originPackage: originPackage, parentPackage: parentPackage)
+        aliasMap[originPackage, default: [:]][product, default: []].append(model)
+    }
+
+    func addPackageIDChain(parent: PackageIdentity,
+                         child: PackageIdentity) {
+        if parentToChildIDs[parent]?.contains(child) ?? false {
+            // Already added
+        } else {
+            parentToChildIDs[parent, default: []].append(child)
+            // Used to track the top-most level package
+            childToParentID[child] = parent
+        }
+    }
+
+    func addAliasesForTargets(_ targets: [String],
+                              for product: String,
+                              in package: PackageIdentity) {
+        
+        let aliases = aliasMap[package]?[product]
+        for targetName in targets {
+            if idTargetToAliases[package]?[targetName] == nil {
+                idTargetToAliases[package, default: [:]][targetName] = []
+            }
+
+            if let aliases = aliases {
+                idTargetToAliases[package]?[targetName]?.append(contentsOf: aliases)
+            }
+        }
+    }
+
+    func alias(of targetName: String,
+               in originPackage: PackageIdentity) -> String? {
+        if let aliasDict = aliasMap[originPackage] {
+            let models = aliasDict.values.flatMap{$0}.filter { $0.name == targetName }
+            // this func only checks if there's any existing alias so
+            // just return the first alias value
+            return models.first?.alias
+        }
+        return nil
+    }
+
+    func propagateAliases() {
+        // First get the root package ID
+        var pkgID = childToParentID.first?.key
+        var rootPkg = pkgID
+        while pkgID != nil {
+            rootPkg = pkgID
+            // pkgID is not nil here so can be force unwrapped
+            pkgID = childToParentID[pkgID!]
+        }
+    
+        guard let rootPkg = rootPkg else { return }
+        propagate(from: rootPkg)
+    }
+
+    func propagate(from cur: PackageIdentity) {
+        guard let children = parentToChildIDs[cur] else { return }
+        for child in children {
+            if let parentMap = idTargetToAliases[cur],
+               let childMap = idTargetToAliases[child] {
+                for (parentTarget, parentAliases) in parentMap {
+                    for parentModel in parentAliases {
+                        for (childTarget, childAliases) in childMap {
+                            if !parentMap.keys.contains(childTarget),
+                                childTarget == parentModel.name {
+                                if childAliases.isEmpty {
+                                    idTargetToAliases[child]?[childTarget]?.append(parentModel)
+                                } else {
+                                    for childModel in childAliases {
+                                        childModel.alias = parentModel.alias
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            
-            // If multiple aliases are specified in the package chain,
-            // use the ones specified most downstream to override
-            // upstream targets
-            for pkgInChain in pkgStack {
-                if let entry = result[pkgInChain],
-                   let aliasToOverride = entry[target.name] {
-                    result[pkgID, default: [:]][target.name] = aliasToOverride
-                    break
-                }
-            }
+            propagate(from: child)
         }
-        // Add pkgID to a stack used to keep track of multiple
-        // aliases specified in the package chain. Need to add
-        // pkgID here, otherwise need pkgID != pkgInChain check
-        // in the for loop above
-        pkgStack.append(pkgID)
+    }
+}
 
-        // Recursively (depth-first) walk the package dependency tree
-        for pkgDep in builder.package.manifest.dependencies {
-            walkPkgTreeAndGetModuleAliases(for: pkgDep.identity, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
-            // Last added package has been looked up, so pop here
-            if !pkgStack.isEmpty {
-                pkgStack.removeLast()
-            }
-        }
+// Used to keep track of module alias info for each package
+private class ModuleAliasModel {
+    let name: String
+    var alias: String
+    let originPackage: PackageIdentity
+    let parentPackage: PackageIdentity
+
+    init(name: String, alias: String, originPackage: PackageIdentity, parentPackage: PackageIdentity) {
+        self.name = name
+        self.alias = alias
+        self.originPackage = originPackage
+        self.parentPackage = parentPackage
     }
 }
 
