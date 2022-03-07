@@ -28,10 +28,9 @@ public final class MockWorkspace {
     let toolsVersion: ToolsVersion
     let fingerprints: MockPackageFingerprintStorage
     let mirrors: DependencyMirrors
-    public var  httpClient: HTTPClient
     public var registryClient: RegistryClient
     let registry: MockRegistry
-    public var archiver: MockArchiver
+    let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
     public var checksumAlgorithm: MockHashAlgorithm
     public private(set) var manifestLoader: MockManifestLoader
     public let repositoryProvider: InMemoryGitRepositoryProvider
@@ -49,9 +48,8 @@ public final class MockWorkspace {
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
-        httpClient customHttpClient: HTTPClient? = .none,
         registryClient customRegistryClient: RegistryClient? = .none,
-        binaryArchiver customBinaryArchiver: MockArchiver? = .none,
+        binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
@@ -66,8 +64,8 @@ public final class MockWorkspace {
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.manifestLoader = MockManifestLoader(manifests: [:])
         self.customPackageContainerProvider = customPackageContainerProvider
-        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.repositoryProvider = InMemoryGitRepositoryProvider()
+        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.registry = MockRegistry(
             filesystem: self.fileSystem,
             identityResolver: self.identityResolver,
@@ -78,8 +76,10 @@ public final class MockWorkspace {
         self.toolsVersion = toolsVersion
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
-        self.httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
-        self.archiver = customBinaryArchiver ?? MockArchiver()
+        self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
+            httpClient: HTTPClient.mock(fileSystem: fileSystem),
+            archiver: MockArchiver()
+        )
         try self.create()
     }
 
@@ -268,9 +268,8 @@ public final class MockWorkspace {
             customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,
             customRegistryClient: self.registryClient,
+            customBinaryArtifactsManager: self.customBinaryArtifactsManager,
             customIdentityResolver: self.identityResolver,
-            customHTTPClient: self.httpClient,
-            customArchiver: self.archiver,
             customChecksumAlgorithm: self.checksumAlgorithm,
             delegate: self.delegate
         )
