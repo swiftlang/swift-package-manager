@@ -91,37 +91,34 @@ public final class ResolvedProduct {
     }
 
     private static func computePlatforms(targets: [ResolvedTarget]) -> SupportedPlatforms {
-        // merge from targets, preferring the max constraint
-        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-            for declared in item.platforms.declared {
-                if let existing = partial.firstIndex(where: { $0.platform == declared.platform }) {
-                    if partial[existing].version < declared.version {
+        // merging two sets of supported platforms, preferring the max constraint
+        func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
+            for platformSupport in platforms {
+                if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
+                    if partial[existing].version < platformSupport.version {
                         partial.remove(at: existing)
-                        partial.append(declared)
+                        partial.append(platformSupport)
                     }
                 } else {
-                    partial.append(declared)
+                    partial.append(platformSupport)
                 }
             }
         }
 
+        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+            merge(into: &partial, platforms: item.platforms.declared)
+        }
+
         let derived = targets.reduce(into: [SupportedPlatform]()) { partial, item in
-            for derived in item.platforms.derived {
-                if let existing = partial.firstIndex(where: { $0.platform == derived.platform }) {
-                    if partial[existing].version < derived.version {
-                        partial.remove(at: existing)
-                        partial.append(derived)
-                    }
-                } else {
-                    partial.append(derived)
-                }
-            }
+            merge(into: &partial, platforms: item.platforms.derived)
         }
 
         return SupportedPlatforms(
             declared: declared.sorted(by: { $0.platform.name < $1.platform.name }),
             derived: derived.sorted(by: { $0.platform.name < $1.platform.name })
         )
+
+
     }
 }
 
