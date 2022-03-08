@@ -31,7 +31,7 @@ public enum ModuleError: Swift.Error {
     case moduleNotFound(String, TargetDescription.TargetType)
 
     /// The artifact for the binary target could not be found.
-    case artifactNotFound(String)
+    case artifactNotFound(targetName: String, expectedArtifactName: String)
 
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
@@ -82,8 +82,8 @@ extension ModuleError: CustomStringConvertible {
         case .moduleNotFound(let target, let type):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
-        case .artifactNotFound(let target):
-            return "artifact not found for target '\(target)'"
+        case .artifactNotFound(let targetName, let expectedArtifactName):
+            return "binary target '\(targetName)' could not be mapped to an artifact with expected name '\(expectedArtifactName)'"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -223,7 +223,7 @@ public final class PackageBuilder {
     private let packagePath: AbsolutePath
 
     /// Information concerning the different downloaded or local (archived) binary target artifacts.
-    private let binaryArtifacts: [BinaryArtifact]
+    private let binaryArtifacts: [String: BinaryArtifact]
 
     /// Create multiple test products.
     ///
@@ -264,7 +264,7 @@ public final class PackageBuilder {
         productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
-        binaryArtifacts: [BinaryArtifact],
+        binaryArtifacts: [String: BinaryArtifact],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
@@ -323,7 +323,7 @@ public final class PackageBuilder {
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
-                    binaryArtifacts: [], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
+                    binaryArtifacts: [:], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
@@ -534,8 +534,8 @@ public final class PackageBuilder {
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
             if target.type == .binary {
-                guard let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) else {
-                    throw ModuleError.artifactNotFound(target.name)
+                guard let artifact = self.binaryArtifacts[target.name] else {
+                    throw ModuleError.artifactNotFound(targetName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
             } else if let subpath = target.path { // If there is a custom path defined, use that.
@@ -769,7 +769,7 @@ public final class PackageBuilder {
                 providers: manifestTarget.providers
             )
         } else if potentialModule.type == .binary {
-            guard let artifact = self.binaryArtifacts.first(where: { $0.path == potentialModule.path }) else {
+            guard let artifact = self.binaryArtifacts[potentialModule.name] else {
                 throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
             }
             let artifactOrigin: BinaryTarget.Origin = artifact.originURL.flatMap{ .remote(url: $0) } ?? .local

@@ -221,7 +221,7 @@ public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fs: FileSystem,
     manifests: [Manifest],
-    binaryArtifacts: [BinaryArtifact] = [],
+    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,

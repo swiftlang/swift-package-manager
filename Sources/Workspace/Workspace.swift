@@ -1199,8 +1199,8 @@ extension Workspace {
             )
         }
 
-        let binaryArtifacts = try self.state.artifacts.map{ artifact -> BinaryArtifact in
-            return try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
+        let binaryArtifacts = try self.state.artifacts.reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
+            partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
         }
 
         // Load the graph.
@@ -1359,13 +1359,13 @@ extension Workspace {
                 // radar/82263304
                 // compute binary artifacts for the sake of constructing a project model
                 // note this does not actually download remote artifacts and as such does not have the artifact's type or path
-                let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.map { target -> BinaryArtifact in
+                let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.reduce(into: [String: BinaryArtifact]()) { partial, target in
                     if let path = target.path {
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                        return try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
+                        partial[target.name] = try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
                         let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
-                        return BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
+                        partial[target.name] = BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
                     } else {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
                     }
@@ -2333,8 +2333,8 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard artifact.targetName == artifact.path.basenameWithoutExt else {
-                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                guard artifact.isMatchingDirectory(artifact.path) else {
+                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
                     continue
                 }
                 artifactsToAdd.append(artifact)

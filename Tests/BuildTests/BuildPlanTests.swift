@@ -3928,8 +3928,10 @@ final class BuildPlanTests: XCTestCase {
                 ),
             ],
             binaryArtifacts: [
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework")),
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"))
+                .plain("pkg"): [
+                    "Framework": .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework")),
+                    "StaticLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"))
+                ]
             ],
             observabilityScope: observability.topScope
         )
@@ -4032,7 +4034,9 @@ final class BuildPlanTests: XCTestCase {
                 ),
             ],
             binaryArtifacts: [
-                .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
+                .plain("pkg"): [
+                    "MyTool": .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
+                ]
             ],
             observabilityScope: observability.topScope
         )

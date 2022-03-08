@@ -228,12 +228,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
 
             if progress == total && !self.binaryDownloadProgress.isEmpty {
-                self.binaryDownloadAnimation.clear()
                 self.binaryDownloadProgress.removeAll()
             } else {
                 self.binaryDownloadProgress[url] = nil
             }
 
+            self.binaryDownloadAnimation.clear()
             self.outputStream <<< "Downloaded \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
