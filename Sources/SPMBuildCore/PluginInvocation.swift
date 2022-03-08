@@ -294,7 +294,8 @@ public extension PluginTarget {
     /// The set of tools that are accessible to this plugin.
     func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
         return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
-            if case .target(let target, _) = dependency {
+            switch dependency {
+            case .target(let target, _):
                 // For a binary target we create a `vendedTool`.
                 if let target = target as? BinaryTarget {
                     // TODO: Memoize this result for the host triple
@@ -309,8 +310,12 @@ public extension PluginTarget {
                     // TODO: How do we determine what the executable name will be for the host platform?
                     return [.builtTool(name: target.name, path: RelativePath(target.name))]
                 }
+                else {
+                    return []
+                }
+            case .product(let product, _):
+                return [.builtTool(name: product.name, path: RelativePath(product.name))]
             }
-            return []
         })
     }
 }
