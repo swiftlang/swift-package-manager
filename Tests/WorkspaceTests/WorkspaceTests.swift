@@ -4147,9 +4147,13 @@ final class WorkspaceTests: XCTestCase {
         try testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
             let packagePath = path.appending(component: "MyPkg")
+            let xctestMinVersions = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets
             let initPackage = try InitPackage(
                 name: packagePath.basename,
-                packageType: .executable,
+                options: .init(
+                    packageType: .executable,
+                    platforms: xctestMinVersions[.macOS].map{ .init(platform: .macOS, version: $0) }.map{ [$0] } ?? []
+                ),
                 destinationPath: packagePath,
                 fileSystem: localFileSystem
             )
