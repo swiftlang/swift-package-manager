@@ -1919,10 +1919,10 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/FooLib/lib.swift",
-                                    "/Foo/Sources/FooTests/FooTests.swift",
-                                    "/Foo/BinaryLibrary.xcframework/Info.plist"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/FooLib/lib.swift",
+            "/Foo/Sources/FooTests/FooTests.swift",
+            "/Foo/BinaryLibrary.xcframework/Info.plist"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1944,7 +1944,9 @@ class PIFBuilderTests: XCTestCase {
                     ]),
             ],
             binaryArtifacts: [
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
+                .plain("foo"): [
+                    "BinaryLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
+                ]
             ],
             shouldCreateMultipleTestProducts: true,
             observabilityScope: observability.topScope

@@ -1045,8 +1045,8 @@ class PackageBuilderTests: XCTestCase {
             try fs.writeFileContents(AbsolutePath("/foo2.zip"), bytes: "")
 
             let binaryArtifacts = [
-                BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework")),
-                BinaryArtifact(kind: .xcframework, originURL: nil, path: AbsolutePath("/foo2.xcframework"))
+                "foo": BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework")),
+                "foo2": BinaryArtifact(kind: .xcframework, originURL: nil, path: AbsolutePath("/foo2.xcframework"))
             ]
             PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 package.checkModule("foo")
@@ -2390,7 +2390,7 @@ final class PackageBuilderTester {
     init(
         _ manifest: Manifest,
         path: AbsolutePath = .root,
-        binaryArtifacts: [BinaryArtifact] = [],
+        binaryArtifacts: [String: BinaryArtifact] = [:],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
