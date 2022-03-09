@@ -72,7 +72,7 @@ signature is valid before importing it and return an error if any of these fails
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
-The collection's signature is invalid. If you would still like to add it please rerun 'add' with '--skip-signature-check'.
+The collection's signature is invalid. If you would like to continue please rerun command with '--skip-signature-check'.
 ```
 
 Users may continue adding the collection despite the error or preemptively skip the signature check on a package collection by passing the `--skip-signature-check` flag:
@@ -146,6 +146,21 @@ Created At: 2020-05-30 12:33
 Packages:
     https://github.com/jpsim/yams
     ...
+```
+
+##### Signed package collections
+
+If a collection is signed, SwiftPM will check that the signature is valid before showing a preview.
+
+```bash
+$ swift package-collection describe https://www.example.com/bad-packages.json
+The collection's signature is invalid. If you would like to continue please rerun command with '--skip-signature-check'.
+```
+
+Users may continue previewing the collection despite the error or preemptively skip the signature check on a package collection by passing the `--skip-signature-check` flag:
+
+```bash
+$ swift package-collection describe https://www.example.com/packages.json --skip-signature-check
 ```
 
 #### Metadata of a package
