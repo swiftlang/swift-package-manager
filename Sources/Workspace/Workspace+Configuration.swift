@@ -25,8 +25,19 @@ import protocol TSCUtility.SimplePersistanceProtocol
 extension Workspace {
     /// Workspace location configuration
     public struct Location {
-        /// Path to scratch space (working) directory for this workspace.
+        /// Path to scratch space (working) directory for this workspace (aka .build).
         public var scratchDirectory: AbsolutePath
+
+        // deprecated 3/22, remove once client move over
+        @available(*, deprecated, message: "use scratchDirectory instead")
+        public var workingDirectory: AbsolutePath {
+            get {
+                self.scratchDirectory
+            }
+            set {
+                self.scratchDirectory = newValue
+            }
+        }
 
         /// Path to store the editable versions of dependencies.
         public var editsDirectory: AbsolutePath
@@ -123,6 +134,7 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
+        // deprecated 3/22, remove once client move over
         @available(*, deprecated, message: "use (scratchDirectory:) variant instead")
         public init(
             workingDirectory: AbsolutePath,
@@ -192,6 +204,7 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
+        // deprecated 3/22, remove once client move over
         @available(*, deprecated, message: "use scratchDirectory instead")
         public static func workingDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             Self.scratchDirectory(forRootPackage: rootPath)
