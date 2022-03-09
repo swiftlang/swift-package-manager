@@ -322,8 +322,8 @@ public class SwiftTool {
         return PackageGraphRootInput(packages: packages)
     }
 
-    /// Path to the build directory.
-    let buildPath: AbsolutePath
+    /// Scratch space (.build) directory.
+    let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     let sharedSecurityDirectory: AbsolutePath?
@@ -396,7 +396,7 @@ public class SwiftTool {
             self.options = options
 
             // Honor package-path option is provided.
-            if let packagePath = options.locations.packagePath ?? options.locations.chdir {
+            if let packagePath = options.locations.packageDirectory {
                 try ProcessEnv.chdir(packagePath)
             }
 
@@ -466,13 +466,13 @@ public class SwiftTool {
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let customBuildPath = options.locations.buildPath
         let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
-        self.buildPath = getEnvBuildPath(workingDir: cwd) ??
-        customBuildPath ??
-        (packageRoot ?? cwd).appending(component: ".build")
+        self.scratchDirectory =
+            getEnvBuildPath(workingDir: cwd) ??
+            options.locations.scratchDirectory ??
+            (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
@@ -484,7 +484,11 @@ public class SwiftTool {
     }
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
-        if options.locations.chdir != nil {
+        if options.locations._deprecated_buildPath != nil {
+            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-space-path' instead")
+        }
+
+        if options.locations._deprecated_chdir != nil {
             observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
@@ -544,7 +548,7 @@ public class SwiftTool {
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
-                workingDirectory: self.buildPath,
+                scratchDirectory: self.scratchDirectory,
                 editsDirectory: self.getEditsDirectory(),
                 resolvedVersionsFile: self.getResolvedVersionsFile(),
                 localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
@@ -817,7 +821,7 @@ public class SwiftTool {
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
-            let dataPath = buildPath.appending(
+            let dataPath = self.scratchDirectory.appending(
                 component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
@@ -905,7 +909,7 @@ public class SwiftTool {
             case (false, .none):
                 cachePath = .none
             case (false, .local):
-                cachePath = self.buildPath
+                cachePath = self.scratchDirectory
             case (false, .shared):
                 cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
@@ -964,12 +968,12 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 
 
 private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitSecurityPath = options.locations.securityPath {
+    if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
-        if !fileSystem.exists(explicitSecurityPath) {
-            try fileSystem.createDirectory(explicitSecurityPath, recursive: true)
+        if !fileSystem.exists(explicitSecurityDirectory) {
+            try fileSystem.createDirectory(explicitSecurityDirectory, recursive: true)
         }
-        return explicitSecurityPath
+        return explicitSecurityDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMSecurityDirectory
@@ -977,12 +981,12 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
 }
 
 private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitConfigPath = options.locations.configPath {
+    if let explicitConfigurationDirectory = options.locations.configurationDirectory {
         // Create the explicit config path if necessary
-        if !fileSystem.exists(explicitConfigPath) {
-            try fileSystem.createDirectory(explicitConfigPath, recursive: true)
+        if !fileSystem.exists(explicitConfigurationDirectory) {
+            try fileSystem.createDirectory(explicitConfigurationDirectory, recursive: true)
         }
-        return explicitConfigPath
+        return explicitConfigurationDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMConfigurationDirectory
@@ -990,12 +994,12 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
 }
 
 private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitCachePath = options.locations.cachePath {
+    if let explicitCacheDirectory = options.locations.cacheDirectory {
         // Create the explicit cache path if necessary
-        if !fileSystem.exists(explicitCachePath) {
-            try fileSystem.createDirectory(explicitCachePath, recursive: true)
+        if !fileSystem.exists(explicitCacheDirectory) {
+            try fileSystem.createDirectory(explicitCacheDirectory, recursive: true)
         }
-        return explicitCachePath
+        return explicitCacheDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMCacheDirectory
