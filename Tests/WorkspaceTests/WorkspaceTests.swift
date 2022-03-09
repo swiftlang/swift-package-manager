@@ -1668,7 +1668,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Drop a build artifact in data directory.
         let ws = try workspace.getOrCreateWorkspace()
-        let buildArtifact = ws.location.workingDirectory.appending(component: "test.o")
+        let buildArtifact = ws.location.scratchDirectory.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
         // Sanity checks.
@@ -1680,7 +1680,7 @@ final class WorkspaceTests: XCTestCase {
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
             XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
-            XCTAssert(fs.exists(ws.location.workingDirectory))
+            XCTAssert(fs.exists(ws.location.scratchDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1696,7 +1696,7 @@ final class WorkspaceTests: XCTestCase {
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
             XCTAssertFalse(fs.exists(ws.location.repositoriesCheckoutsDirectory))
-            XCTAssertFalse(fs.exists(ws.location.workingDirectory))
+            XCTAssertFalse(fs.exists(ws.location.scratchDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }

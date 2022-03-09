@@ -323,7 +323,7 @@ public class SwiftTool {
     }
 
     /// Scratch space (.build) directory.
-    let workingDirectory: AbsolutePath
+    let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     let sharedSecurityDirectory: AbsolutePath?
@@ -469,9 +469,9 @@ public class SwiftTool {
         let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
-        self.workingDirectory =
+        self.scratchDirectory =
             getEnvBuildPath(workingDir: cwd) ??
-            options.locations.workingDirectory ??
+            options.locations.scratchDirectory ??
             (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
@@ -548,7 +548,7 @@ public class SwiftTool {
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
-                workingDirectory: self.workingDirectory,
+                scratchDirectory: self.scratchDirectory,
                 editsDirectory: self.getEditsDirectory(),
                 resolvedVersionsFile: self.getResolvedVersionsFile(),
                 localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
@@ -821,7 +821,7 @@ public class SwiftTool {
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
-            let dataPath = self.workingDirectory.appending(
+            let dataPath = self.scratchDirectory.appending(
                 component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
@@ -909,7 +909,7 @@ public class SwiftTool {
             case (false, .none):
                 cachePath = .none
             case (false, .local):
-                cachePath = self.workingDirectory
+                cachePath = self.scratchDirectory
             case (false, .shared):
                 cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }

@@ -1580,7 +1580,7 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    watchmanScriptsDir: swiftTool.workingDirectory.appending(component: "watchman"),
+                    watchmanScriptsDir: swiftTool.scratchDirectory.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!,
                     fileSystem: swiftTool.fileSystem,
                     observabilityScope: swiftTool.observabilityScope

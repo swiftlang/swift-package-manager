@@ -775,7 +775,7 @@ public class Workspace {
         self.pinsStore = LoadableResult {
             try PinsStore(
                 pinsFile: location.resolvedVersionsFile,
-                workingDirectory: location.workingDirectory,
+                workingDirectory: location.scratchDirectory,
                 fileSystem: fileSystem,
                 mirrors: mirrors
             )
@@ -783,7 +783,7 @@ public class Workspace {
 
         self.state = WorkspaceState(
             fileSystem: fileSystem,
-            storageDirectory: self.location.workingDirectory,
+            storageDirectory: self.location.scratchDirectory,
             initializationWarningHandler: initializationWarningHandler
         )
     }
@@ -948,23 +948,23 @@ extension Workspace {
             self.state.storagePath,
         ].map({ path -> String in
             // Assert that these are present inside data directory.
-            assert(path.parentDirectory == self.location.workingDirectory)
+            assert(path.parentDirectory == self.location.scratchDirectory)
             return path.basename
         })
 
         // If we have no data yet, we're done.
-        guard fileSystem.exists(self.location.workingDirectory) else {
+        guard fileSystem.exists(self.location.scratchDirectory) else {
             return
         }
 
-        guard let contents = observabilityScope.trap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
+        guard let contents = observabilityScope.trap({ try fileSystem.getDirectoryContents(self.location.scratchDirectory) }) else {
             return
         }
 
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(self.location.workingDirectory.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(self.location.scratchDirectory.appending(RelativePath(name)))
         }
     }
 
@@ -1010,7 +1010,7 @@ extension Workspace {
         try? self.repositoryManager.reset()
         try? self.registryDownloadsManager.reset()
         try? self.manifestLoader.resetCache()
-        try? self.fileSystem.removeFileTree(self.location.workingDirectory)
+        try? self.fileSystem.removeFileTree(self.location.scratchDirectory)
     }
 
     // FIXME: @testable internal

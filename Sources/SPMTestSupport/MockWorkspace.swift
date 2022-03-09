@@ -245,7 +245,7 @@ public final class MockWorkspace {
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             location: .init(
-                workingDirectory: self.sandbox.appending(component: ".build"),
+                scratchDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
                 localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),

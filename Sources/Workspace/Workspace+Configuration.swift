@@ -25,8 +25,8 @@ import protocol TSCUtility.SimplePersistanceProtocol
 extension Workspace {
     /// Workspace location configuration
     public struct Location {
-        /// Path to scratch space / working directory for this workspace.
-        public var workingDirectory: AbsolutePath
+        /// Path to scratch space (working) directory for this workspace.
+        public var scratchDirectory: AbsolutePath
 
         /// Path to store the editable versions of dependencies.
         public var editsDirectory: AbsolutePath
@@ -50,27 +50,27 @@ extension Workspace {
 
         /// Path to the repositories clones.
         public var repositoriesDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "repositories")
+            self.scratchDirectory.appending(component: "repositories")
         }
 
         /// Path to the repository checkouts.
         public var repositoriesCheckoutsDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "checkouts")
+            self.scratchDirectory.appending(component: "checkouts")
         }
 
         /// Path to the registry downloads.
         public var registryDownloadDirectory: AbsolutePath {
-            self.workingDirectory.appending(components: "registry", "downloads")
+            self.scratchDirectory.appending(components: "registry", "downloads")
         }
 
         /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "artifacts")
+            self.scratchDirectory.appending(component: "artifacts")
         }
 
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "plugins")
+            self.scratchDirectory.appending(component: "plugins")
         }
 
         // config locations
@@ -123,15 +123,7 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
-        /// Create a new workspace location.
-        ///
-        /// - Parameters:
-        ///   - workingDirectory: Path to working directory for this workspace.
-        ///   - editsDirectory: Path to store the editable versions of dependencies.
-        ///   - resolvedVersionsFile: Path to the Package.resolved file.
-        ///   - sharedSecurityDirectory: Path to the shared security directory.
-        ///   - sharedCacheDirectory: Path to the shared cache directory.
-        ///   - sharedConfigurationDirectory: Path to the shared configuration directory.
+        @available(*, deprecated, message: "use (scratchDirectory:) variant instead")
         public init(
             workingDirectory: AbsolutePath,
             editsDirectory: AbsolutePath,
@@ -141,7 +133,34 @@ extension Workspace {
             sharedSecurityDirectory: AbsolutePath?,
             sharedCacheDirectory: AbsolutePath?
         ) {
-            self.workingDirectory = workingDirectory
+            self.scratchDirectory = workingDirectory
+            self.editsDirectory = editsDirectory
+            self.resolvedVersionsFile = resolvedVersionsFile
+            self.localConfigurationDirectory = localConfigurationDirectory
+            self.sharedConfigurationDirectory = sharedConfigurationDirectory
+            self.sharedSecurityDirectory = sharedSecurityDirectory
+            self.sharedCacheDirectory = sharedCacheDirectory
+        }
+
+        /// Create a new workspace location.
+        ///
+        /// - Parameters:
+        ///   - scratchDirectory: Path to scratch space (working) directory for this workspace.
+        ///   - editsDirectory: Path to store the editable versions of dependencies.
+        ///   - resolvedVersionsFile: Path to the Package.resolved file.
+        ///   - sharedSecurityDirectory: Path to the shared security directory.
+        ///   - sharedCacheDirectory: Path to the shared cache directory.
+        ///   - sharedConfigurationDirectory: Path to the shared configuration directory.
+        public init(
+            scratchDirectory: AbsolutePath,
+            editsDirectory: AbsolutePath,
+            resolvedVersionsFile: AbsolutePath,
+            localConfigurationDirectory: AbsolutePath,
+            sharedConfigurationDirectory: AbsolutePath?,
+            sharedSecurityDirectory: AbsolutePath?,
+            sharedCacheDirectory: AbsolutePath?
+        ) {
+            self.scratchDirectory = scratchDirectory
             self.editsDirectory = editsDirectory
             self.resolvedVersionsFile = resolvedVersionsFile
             self.localConfigurationDirectory = localConfigurationDirectory
@@ -156,7 +175,7 @@ extension Workspace {
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
         public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) {
             self.init(
-                workingDirectory: DefaultLocations.workingDirectory(forRootPackage: rootPath),
+                scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
@@ -173,7 +192,12 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
+        @available(*, deprecated, message: "use scratchDirectory instead")
         public static func workingDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            Self.scratchDirectory(forRootPackage: rootPath)
+        }
+
+        public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(component: ".build")
         }
 

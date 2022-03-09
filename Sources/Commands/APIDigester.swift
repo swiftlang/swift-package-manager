@@ -119,7 +119,7 @@ struct APIDigesterBaselineDumper {
 
         // Update the data path input build parameters so it's built in the sandbox.
         var buildParameters = inputBuildParameters
-        buildParameters.dataPath = workspace.location.workingDirectory
+        buildParameters.dataPath = workspace.location.scratchDirectory
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934

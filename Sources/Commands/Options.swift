@@ -66,14 +66,14 @@ struct LocationOptions: ParsableArguments {
     }
 
     /// The custom .build directory, if provided.
-    @Option(name: .customLong("working-directory-path"), help: "Specify a custom working directory path (default .build)", completion: .directory)
-    var _workingDirectory: AbsolutePath?
+    @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
+    var _scratchDirectory: AbsolutePath?
 
     @Option(name: .customLong("build-path"), help: .hidden)
     var _deprecated_buildPath: AbsolutePath?
 
-    var workingDirectory: AbsolutePath? {
-        self._workingDirectory ?? self._deprecated_buildPath
+    var scratchDirectory: AbsolutePath? {
+        self._scratchDirectory ?? self._deprecated_buildPath
     }
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
