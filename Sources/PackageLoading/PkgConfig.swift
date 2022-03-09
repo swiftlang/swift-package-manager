@@ -381,7 +381,6 @@ internal struct PCFileFinder {
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
     public init(brewPrefix: AbsolutePath? = .none) {
-        //self.diagnostics = diagnostics
         if PCFileFinder.pkgConfigPaths == nil {
             do {
                 let pkgConfigPath: String

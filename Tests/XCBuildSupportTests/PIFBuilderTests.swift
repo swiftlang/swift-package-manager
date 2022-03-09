@@ -38,7 +38,7 @@ class PIFBuilderTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: fs,
+                fileSystem: fs,
                 manifests: [
                     Manifest.createLocalSourceControlManifest(
                         name: "B",
@@ -109,7 +109,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -392,7 +392,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -726,7 +726,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -974,7 +974,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -1176,7 +1176,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -1474,7 +1474,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "App",
@@ -1697,7 +1697,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Bar",
@@ -1750,7 +1750,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
@@ -1808,7 +1808,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -1927,7 +1927,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -2001,7 +2001,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -2217,7 +2217,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -2431,7 +2431,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -2500,7 +2500,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -2550,7 +2550,7 @@ class PIFBuilderTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "MyLib",

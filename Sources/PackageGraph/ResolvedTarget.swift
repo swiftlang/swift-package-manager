@@ -127,10 +127,23 @@ public final class ResolvedTarget {
         return underlyingTarget.sources
     }
 
+    /// The default localization for resources.
+    public let defaultLocalization: String?
+
+    /// The list of platforms that are supported by this target.
+    public let platforms: SupportedPlatforms
+
     /// Create a target instance.
-    public init(target: Target, dependencies: [Dependency]) {
+    public init(
+        target: Target,
+        dependencies: [Dependency],
+        defaultLocalization: String?,
+        platforms: SupportedPlatforms
+    ) {
         self.underlyingTarget = target
         self.dependencies = dependencies
+        self.defaultLocalization = defaultLocalization
+        self.platforms = platforms
     }
 }
 
