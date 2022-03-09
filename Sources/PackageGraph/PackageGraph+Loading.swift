@@ -365,7 +365,7 @@ private func createResolvedPackages(
 
         packageBuilder.defaultLocalization = package.manifest.defaultLocalization
 
-        packageBuilder.platforms = computePlatforms(
+        let platforms = computePlatforms(
             package: package,
             usingXCTest: false,
             platformRegistry: platformRegistry,
@@ -398,7 +398,7 @@ private func createResolvedPackages(
                 }
             }
             targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
-            targetBuilder.platforms = targetBuilder.target.type == .test ? testPlatforms : packageBuilder.platforms
+            targetBuilder.platforms = targetBuilder.target.type == .test ? testPlatforms : platforms
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -945,9 +945,6 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The defaultLocalization for this package.
     var defaultLocalization: String? = nil
 
-    /// The platforms supported by this package.
-    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
-
     init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
         self.productFilter = productFilter
@@ -959,7 +956,6 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         return ResolvedPackage(
             package: self.package,
             defaultLocalization: self.defaultLocalization,
-            platforms: self.platforms,
             dependencies: try self.dependencies.map{ try $0.construct() },
             targets: try self.targets.map{ try $0.construct() },
             products: try self.products.map{ try $0.construct() }

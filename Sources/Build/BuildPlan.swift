@@ -1358,7 +1358,7 @@ public final class ProductBuildDescription {
           // When deploying to macOS prior to macOS 12, add an rpath to the
           // back-deployed concurrency libraries.
           if useStdlibRpath, buildParameters.triple.isDarwin(),
-             let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
+             let macOSSupportedPlatform = self.product.platforms.getDerived(for: .macOS),
              macOSSupportedPlatform.version.major < 12 {
             let backDeployedStdlib = buildParameters.toolchain.macosSwiftStdlib
               .parentDirectory

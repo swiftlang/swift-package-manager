@@ -261,12 +261,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SDKROOT] = "auto"
         settings[.SDK_VARIANT] = "auto"
         settings[.SKIP_INSTALL] = "YES"
-        settings[.MACOSX_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .macOS)
-        settings[.IPHONEOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .iOS)
-        settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = package.platforms.deploymentTarget(for: .macCatalyst)
-        settings[.TVOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .tvOS)
-        settings[.WATCHOS_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .watchOS)
-        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = package.platforms.deploymentTarget(for: .driverKit)
         settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
         settings[.USE_HEADERMAP] = "NO"
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
@@ -286,14 +280,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         for platform: PIF.BuildSettings.Platform in [.macOS, .iOS, .tvOS] {
             settings[.FRAMEWORK_SEARCH_PATHS, for: platform, default: ["$(inherited)"]]
                 .append("$(PLATFORM_DIR)/Developer/Library/Frameworks")
-        }
-
-        PlatformRegistry.default.knownPlatforms.forEach {
-            guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
-            guard let supportedPlatform = package.platforms.getDerived(for: $0) else { return }
-            if !supportedPlatform.options.isEmpty {
-                settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
-            }
         }
 
         // Disable signing for all the things since there is no way to configure
@@ -414,13 +400,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.LIBRARY_SEARCH_PATHS] = ["$(inherited)", "\(parameters.toolchainLibDir.pathString)/swift/macosx"]
         }
 
-        // Tests can have a custom deployment target based on the minimum supported by XCTest.
-        if mainTarget.underlyingTarget.type == .test {
-            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .macOS)
-            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .iOS)
-            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .tvOS)
-            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.platforms.deploymentTarget(for: .watchOS)
-        }
+        // platform min deployment targets
+        setDeploymentTargetBuildSettings(target: mainTarget, settings: &settings)
 
         if product.type == .executable {
             // Command-line tools are only supported for the macOS platforms.
@@ -554,6 +535,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 settings[.CURRENT_PROJECT_VERSION] = "1" // Build
             }
 
+            // platform min deployment targets
+            setDeploymentTargetBuildSettings(product: product, settings: &settings)
+
             pifTarget.addSourcesBuildPhase()
         }
 
@@ -586,6 +570,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let aliases = target.moduleAliases {
             settings[.SWIFT_MODULE_ALIASES] = aliases.map{ $0.key + "=" + $0.value }
         }
+
+        // platform min deployment targets
+        setDeploymentTargetBuildSettings(target: target, settings: &settings)
 
         // Create a set of build settings that will be imparted to any target that depends on this one.
         var impartedSettings = PIF.BuildSettings()
@@ -713,6 +700,31 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         impartedSettings[.OTHER_CFLAGS, default: ["$(inherited)"]] += ["-fmodule-map-file=\(systemTarget.moduleMapPath)"] + cFlags
         impartedSettings[.OTHER_SWIFT_FLAGS, default: ["$(inherited)"]] += ["-Xcc", "-fmodule-map-file=\(systemTarget.moduleMapPath)"] + cFlags
         pifTarget.impartedBuildSettings = impartedSettings
+    }
+
+    private func setDeploymentTargetBuildSettings(target: ResolvedTarget, settings: inout PIF.BuildSettings) {
+        self.setDeploymentTargetBuildSettings(supportedPlatforms: target.platforms, settings: &settings)
+    }
+
+    private func setDeploymentTargetBuildSettings(product: ResolvedProduct, settings: inout PIF.BuildSettings) {
+        self.setDeploymentTargetBuildSettings(supportedPlatforms: product.platforms, settings: &settings)
+    }
+
+    private func setDeploymentTargetBuildSettings(supportedPlatforms platforms: SupportedPlatforms, settings: inout PIF.BuildSettings) {
+        settings[.MACOSX_DEPLOYMENT_TARGET] = platforms.deploymentTarget(for: .macOS)
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = platforms.deploymentTarget(for: .iOS)
+        settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = platforms.deploymentTarget(for: .macCatalyst)
+        settings[.TVOS_DEPLOYMENT_TARGET] = platforms.deploymentTarget(for: .tvOS)
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = platforms.deploymentTarget(for: .watchOS)
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = platforms.deploymentTarget(for: .driverKit)
+
+        PlatformRegistry.default.knownPlatforms.forEach {
+            guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
+            guard let supportedPlatform = platforms.getDerived(for: $0) else { return }
+            if !supportedPlatform.options.isEmpty {
+                settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
+            }
+        }
     }
 
     private func addSources(_ sources: Sources, to pifTarget: PIFTargetBuilder) {
