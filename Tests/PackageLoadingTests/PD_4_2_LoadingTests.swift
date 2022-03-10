@@ -365,7 +365,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 "let package = Package(name: \"Trivial\")"))
 
         // Check at each possible spelling.
-        let currentVersion = SwiftVersion.currentVersion
+        let currentVersion = SwiftVersion.current
         let possibleSuffixes = [
             "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
             "\(currentVersion.major).\(currentVersion.minor)",

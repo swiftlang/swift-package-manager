@@ -675,7 +675,7 @@ public class Workspace {
         // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
         let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
 
-        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
@@ -1047,7 +1047,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -2560,7 +2560,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)

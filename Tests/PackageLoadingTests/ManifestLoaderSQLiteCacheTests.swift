@@ -61,9 +61,9 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
         }
         let key = try ManifestLoader.CacheKey(packageIdentity: PackageIdentity(path: manifestPath),
                                               manifestPath: manifestPath,
-                                              toolsVersion: ToolsVersion.currentToolsVersion,
+                                              toolsVersion: ToolsVersion.current,
                                               env: [:],
-                                              swiftpmVersion: SwiftVersion.currentVersion.displayString,
+                                              swiftpmVersion: SwiftVersion.current.displayString,
                                               fileSystem: fileSystem)
         manifests[key] = ManifestLoader.EvaluationResult(compilerOutput: "mock-output-\(index)",
                                                          manifestJSON: "{ 'name': 'mock-manifest-\(index)' }")

@@ -176,7 +176,7 @@ final class RegistryClientTests: XCTestCase {
 
         let handler: HTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.currentToolsVersion
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
             let urlWithoutQuery = components.url
@@ -223,7 +223,7 @@ final class RegistryClientTests: XCTestCase {
             )
             let toolsVersionLoader = ToolsVersionLoader()
             let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
-            XCTAssertEqual(parsedToolsVersion, .currentToolsVersion)
+            XCTAssertEqual(parsedToolsVersion, .current)
         }
 
         do {

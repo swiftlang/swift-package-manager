@@ -15,7 +15,7 @@ import PackageModel
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion.currentToolsVersion
+    public static let newPackageToolsVersion = ToolsVersion.current
 
     /// Options for the template package.
     public struct InitPackageOptions {

@@ -607,7 +607,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 manifestPath: path,
                 toolsVersion: toolsVersion,
                 env: ProcessEnv.vars,
-                swiftpmVersion: SwiftVersion.currentVersion.displayString,
+                swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
         } catch {

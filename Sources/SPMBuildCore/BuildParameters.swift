@@ -179,6 +179,7 @@ public struct BuildParameters: Encodable {
 
     public var verboseOutput: Bool
 
+    #warning("FIXME")
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -188,7 +189,7 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
-        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        toolsVersion: ToolsVersion = ToolsVersion.current,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,

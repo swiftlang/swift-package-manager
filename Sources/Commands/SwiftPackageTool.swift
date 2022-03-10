@@ -32,7 +32,7 @@ public struct SwiftPackageTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             Clean.self,
             PurgeCache.self,
@@ -844,7 +844,7 @@ extension SwiftPackageTool {
                 // We do this to avoid adding unnecessary constraints to patch versions, if
                 // the package really needs it, they can do it using --set option.
                 try rewriteToolsVersionSpecification(
-                    toDefaultManifestIn: pkg, specifying: ToolsVersion.currentToolsVersion.zeroedPatch, fileSystem: swiftTool.fileSystem)
+                    toDefaultManifestIn: pkg, specifying: ToolsVersion.current.zeroedPatch, fileSystem: swiftTool.fileSystem)
             }
         }
     }

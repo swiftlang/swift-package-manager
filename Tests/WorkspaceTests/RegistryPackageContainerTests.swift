@@ -66,7 +66,7 @@ class RegistryPackageContainerTests: XCTestCase {
                     case "1.0.3":
                         toolsVersion = .v5_4
                     default:
-                        toolsVersion = .currentToolsVersion
+                        toolsVersion = .current
                     }
                     completion(.success(
                         HTTPClientResponse(
@@ -389,7 +389,7 @@ class RegistryPackageContainerTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "text/x-swift"
                     ],
-                    body: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)".data(using: .utf8)
+                    body: "// swift-tools-version:\(ToolsVersion.current)".data(using: .utf8)
                 )
             ))
         }

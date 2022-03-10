@@ -4005,7 +4005,7 @@ final class WorkspaceTests: XCTestCase {
             let newState = PinsStore.PinState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
-            try pinsStore.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
+            try pinsStore.saveState(toolsVersion: ToolsVersion.current)
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
@@ -11837,7 +11837,7 @@ final class WorkspaceTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "text/x-swift"
                     ],
-                    body: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)".data(using: .utf8)
+                    body: "// swift-tools-version:\(ToolsVersion.current)".data(using: .utf8)
                 )
             ))
         }

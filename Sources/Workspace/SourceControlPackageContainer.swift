@@ -99,7 +99,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     // Compute the map of known versions.
     private func knownVersions() throws -> [Version: String] {
         try self.knownVersionsCache.memoize() {
-            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(try repository.getTags())
+            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
 
             return knownVersionsWithDuplicates.mapValues({ tags -> String in
                 if tags.count > 1 {
@@ -424,14 +424,14 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 }
 
-fileprivate extension Git {
-    static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
+extension Git {
+    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]
         var versionSpecificKnownVersions: [Version: [String]] = [:]
 
         for tag in tags {
-            for versionSpecificKey in SwiftVersion.currentVersion.versionSpecificKeys {
+            for versionSpecificKey in toolsVersion.versionSpecificKeys {
                 if tag.hasSuffix(versionSpecificKey) {
                     let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
                     if let version = Version(tag: trimmedTag) {

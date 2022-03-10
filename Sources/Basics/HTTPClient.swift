@@ -101,7 +101,7 @@ public struct HTTPClient {
             }
         }
         if request.options.addUserAgent, !request.headers.contains("User-Agent") {
-            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.currentVersion.displayString)")
+            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
         }
         if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
             request.headers.add(name: "Authorization", value: authorization)

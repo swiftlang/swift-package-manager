@@ -324,7 +324,7 @@ public final class SwiftTarget: Target {
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
         // do that currently.
-        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
         let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
 
         super.init(

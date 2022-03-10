@@ -25,7 +25,7 @@ public final class MockWorkspace {
     let fileSystem: InMemoryFileSystem
     let roots: [MockPackage]
     let packages: [MockPackage]
-    let toolsVersion: ToolsVersion
+    let customToolsVersion: ToolsVersion?
     let fingerprints: MockPackageFingerprintStorage
     let mirrors: DependencyMirrors
     public var registryClient: RegistryClient
@@ -45,7 +45,7 @@ public final class MockWorkspace {
         fileSystem: InMemoryFileSystem,
         roots: [MockPackage],
         packages: [MockPackage] = [],
-        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        toolsVersion customToolsVersion: ToolsVersion? = .none,
         fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
@@ -73,7 +73,7 @@ public final class MockWorkspace {
             fingerprintStorage: self.fingerprints
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
-        self.toolsVersion = toolsVersion
+        self.customToolsVersion = customToolsVersion
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
@@ -163,12 +163,11 @@ public final class MockWorkspace {
                 registryAlternativeURLs = alternativeURLs
             }
 
-            let toolsVersion = package.toolsVersion ?? .currentToolsVersion
-
             // Create targets on disk.
+            let packageToolsVersion = package.toolsVersion ?? .current
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
-                try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
+                try writePackageContent(fileSystem: repository, root: .root, toolsVersion: packageToolsVersion)
                 
                 let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
@@ -183,7 +182,7 @@ public final class MockWorkspace {
                 self.repositoryProvider.add(specifier: specifier, repository: repository)
             } else if let identity = registryIdentity {
                 let source = InMemoryRegistryPackageSource(fileSystem: self.fileSystem, path: packagePath, writeContent: false)
-                try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: toolsVersion)
+                try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: packageToolsVersion)
                 self.registry.addPackage(
                     identity: identity,
                     versions: packageVersions.compactMap{ $0 },
@@ -204,7 +203,7 @@ public final class MockWorkspace {
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
-                    toolsVersion: toolsVersion,
+                    toolsVersion: packageToolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }
@@ -263,7 +262,7 @@ public final class MockWorkspace {
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
-            customToolsVersion: self.toolsVersion,
+            customToolsVersion: self.customToolsVersion,
             customManifestLoader: self.manifestLoader,
             customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,

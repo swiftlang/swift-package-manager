@@ -165,7 +165,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 
                 XCTAssertEqual(
                     error.description,
-                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                 )
             }
         }
@@ -205,7 +205,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                 )
             }
         }
@@ -272,7 +272,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version specification is possibly missing a version specifier; consider using '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                    "the Swift tools version specification is possibly missing a version specifier; consider using '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                 )
             }
         }
@@ -362,7 +362,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                    "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.current)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                 )
             }
         }
@@ -656,6 +656,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         
     }
 
+    #warning("FIXME")
     func testVersionSpecificManifest() throws {
         let fs = InMemoryFileSystem()
         let root = AbsolutePath("/pkg")
@@ -673,7 +674,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         }
 
         // Test version specific manifests.
-        let keys = SwiftVersion.currentVersion.versionSpecificKeys
+        let keys = ToolsVersion.current.versionSpecificKeys
 
         // In case the count ever changes, we will need to modify this test.
         XCTAssertEqual(keys.count, 3)

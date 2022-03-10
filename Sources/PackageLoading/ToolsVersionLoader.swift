@@ -14,6 +14,7 @@ import PackageModel
 import TSCBasic
 
 /// Protocol for the manifest loader interface.
+@available(*, deprecated)
 public protocol ToolsVersionLoaderProtocol {
 
     /// Load the tools version at the give package path.
@@ -31,13 +32,14 @@ extension Manifest {
     ///
     /// Version specific manifest is chosen if present, otherwise path to regular
     /// manifest is returned.
+    @available(*, deprecated)
     public static func path(
         atPackagePath packagePath: AbsolutePath,
-        currentToolsVersion: ToolsVersion = .currentToolsVersion,
+        currentToolsVersion: ToolsVersion = .current,
         fileSystem: FileSystem
     ) throws -> AbsolutePath {
         // Look for a version-specific manifest.
-        for versionSpecificKey in SwiftVersion.currentVersion.versionSpecificKeys {
+        for versionSpecificKey in ToolsVersion.current.versionSpecificKeys {
             let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
             if fileSystem.isFile(versionSpecificPath) {
                 return versionSpecificPath
@@ -110,6 +112,7 @@ extension Manifest {
     }
 }
 
+@available(*, deprecated)
 public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
     
     // FIXME: Remove this property and the initializer?
@@ -117,12 +120,12 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
     // Relevant discussion: https://github.com/apple/swift-package-manager/pull/2937#discussion_r512239726
     /// The Swift toolchain version used by the instance of `ToolsVersionLoader`.
     ///
-    /// If the value differs from `ToolsVersion.currentToolsVersion`, then the `ToolsVersionLoader` instance is simulating that it's run on a Swift version different from the version used by libSwiftPM.
+    /// If the value differs from `ToolsVersion.current`, then the `ToolsVersionLoader` instance is simulating that it's run on a Swift version different from the version used by libSwiftPM.
     let currentToolsVersion: ToolsVersion
     
     /// Creates a manifest loader with the given Swift toolchain version.
     /// - Parameter currentToolsVersion: The Swift toolchain version to simulate the manifest loading strategy for. By default, this parameter is the current version used by libSwiftPM. A non-default version is only used for providing testability.
-    public init(currentToolsVersion: ToolsVersion = .currentToolsVersion) {
+    public init(currentToolsVersion: ToolsVersion = .current) {
         self.currentToolsVersion = currentToolsVersion
     }
 
@@ -216,7 +219,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .commentMarker(let commentMarker):
                     switch commentMarker {
                     case .isMissing:
-                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                     case .isMisspelt(let misspeltCommentMarker):
                         return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                     }
@@ -230,12 +233,12 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .versionSpecifier(let versionSpecifier):
                     switch versionSpecifier {
                     case .isMissing:
-                        return "the Swift tools version specification is possibly missing a version specifier; consider using '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                        return "the Swift tools version specification is possibly missing a version specifier; consider using '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     case .isMisspelt(let misspeltVersionSpecifier):
-                        return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                        return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.current)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     }
                 case .unidentified:
-                    return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                    return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             case let .backwardIncompatiblePre5_4(incompatibility, specifiedVersion):
                 switch incompatibility {
@@ -332,7 +335,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard fileSystem.isFile(file) else {
             // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
             // This doesn't really cause issues (yet) in practice though.
-            return ToolsVersion.currentToolsVersion
+            return ToolsVersion.current
         }
         return try load(file: file, fileSystem: fileSystem)
     }
