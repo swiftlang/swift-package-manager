@@ -490,7 +490,7 @@ public final class MockWorkspace {
 
     public func set(
         pins: [PackageReference: CheckoutState] = [:],
-        managedDependencies: [Workspace.ManagedDependency] = [],
+        managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
         let pins = pins.mapValues { checkoutState -> PinsStore.PinState in
@@ -508,7 +508,7 @@ public final class MockWorkspace {
 
     public func set(
         pins: [PackageReference: PinsStore.PinState],
-        managedDependencies: [Workspace.ManagedDependency] = [],
+        managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
         let workspace = try self.getOrCreateWorkspace()
@@ -519,13 +519,20 @@ public final class MockWorkspace {
         }
 
         for dependency in managedDependencies {
-            try self.fileSystem.createDirectory(workspace.path(to: dependency), recursive: true)
-            workspace.state.dependencies.add(dependency)
+            // copy the package content to expected managed path
+            let managedPath = workspace.path(to: dependency.value)
+            if managedPath != dependency.key, self.fileSystem.exists(dependency.key) {
+                try self.fileSystem.createDirectory(managedPath.parentDirectory, recursive: true)
+                try self.fileSystem.copy(from: dependency.key, to: managedPath)
+            } else {
+                try self.fileSystem.createDirectory(managedPath, recursive: true)
+            }
+            workspace.state.dependencies.add(dependency.value)
         }
 
         for artifact in managedArtifacts {
+            // create an empty directory representing the artifact
             try self.fileSystem.createDirectory(artifact.path, recursive: true)
-
             workspace.state.artifacts.add(artifact)
         }
 

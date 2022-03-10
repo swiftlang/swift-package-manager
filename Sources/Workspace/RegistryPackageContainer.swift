@@ -22,7 +22,6 @@ public class RegistryPackageContainer: PackageContainer {
     private let registryClient: RegistryClient
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
-    private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let observabilityScope: ObservabilityScope
 
@@ -37,7 +36,6 @@ public class RegistryPackageContainer: PackageContainer {
         identityResolver: IdentityResolver,
         registryClient: RegistryClient,
         manifestLoader: ManifestLoaderProtocol,
-        toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
     ) {
@@ -45,7 +43,6 @@ public class RegistryPackageContainer: PackageContainer {
         self.identityResolver = identityResolver
         self.registryClient = registryClient
         self.manifestLoader = manifestLoader
-        self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
         self.observabilityScope = observabilityScope
     }
@@ -69,7 +66,11 @@ public class RegistryPackageContainer: PackageContainer {
             let result = try temp_await {
                 self.getAvailableManifestsFilesystem(version: version, completion: $0)
             }
-            return try self.toolsVersionLoader.load(at: .root, fileSystem: result.fileSystem)
+            //return try self.toolsVersionLoader.load(at: .root, fileSystem: result.fileSystem)
+            #warning("FIXME: cleanup")
+            // find the manifest path and parse it's tools-version
+            let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: result.fileSystem, currentToolsVersion: self.currentToolsVersion)
+            return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: result.fileSystem)
         }
     }
 
@@ -130,28 +131,28 @@ public class RegistryPackageContainer: PackageContainer {
                 do {
                     let manifests = result.manifests
                     let fileSystem = result.fileSystem
-                    
+
                     // first, decide the tools-version we should use
-                    let preferredToolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
-                    // validate preferred the tools version is compatible with the current toolchain
-                    try preferredToolsVersion.validateToolsVersion(
-                        self.currentToolsVersion,
-                        packageIdentity: self.package.identity
-                    )
-                    // load the manifest content
+                    //let preferredToolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
+                    #warning("FIXME: cleanup")
                     guard let defaultManifestToolsVersion = manifests.first(where: { $0.key == Manifest.filename })?.value.toolsVersion else {
                         throw StringError("Could not find the '\(Manifest.filename)' file for '\(self.package.identity)' '\(version)'")
                     }
-                    if preferredToolsVersion == defaultManifestToolsVersion {
-                        // default tools version - we already have the content on disk from getAvailableManifestsFileSystem()
+                    // find the preferred manifest path and parse it's tools-version
+                    let preferredToolsVersionManifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
+                    let preferredToolsVersion = try ToolsVersionParser.parse(manifestPath: preferredToolsVersionManifestPath, fileSystem: fileSystem)
+                    // validate preferred the tools version is compatible with the current toolchain
+                    //try preferredToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
+                    // load the manifest content
+
+                    let loadManifest = {
                         self.manifestLoader.load(
-                            at: .root,
+                            packagePath: .root,
                             packageIdentity: self.package.identity,
                             packageKind: self.package.kind,
                             packageLocation: self.package.locationString,
-                            version: version,
-                            revision: nil,
-                            toolsVersion: preferredToolsVersion,
+                            packageVersion: (version: version, revision: nil),
+                            currentToolsVersion: self.currentToolsVersion,
                             identityResolver: self.identityResolver,
                             fileSystem: result.fileSystem,
                             observabilityScope: self.observabilityScope,
@@ -159,6 +160,26 @@ public class RegistryPackageContainer: PackageContainer {
                             callbackQueue: .sharedConcurrent,
                             completion: completion
                         )
+                    }
+
+                    if preferredToolsVersion == defaultManifestToolsVersion {
+                        // default tools version - we already have the content on disk from getAvailableManifestsFileSystem()
+                        loadManifest()
+                        /*self.manifestLoader.load(
+                            packagePath: .root,
+                            packageIdentity: self.package.identity,
+                            packageKind: self.package.kind,
+                            packageLocation: self.package.locationString,
+                            currentToolsVersion: self.currentToolsVersion,
+                            version: version,
+                            revision: nil,
+                            identityResolver: self.identityResolver,
+                            fileSystem: result.fileSystem,
+                            observabilityScope: self.observabilityScope,
+                            delegateQueue: .sharedConcurrent,
+                            callbackQueue: .sharedConcurrent,
+                            completion: completion
+                        )*/
                     } else {
                         // custom tools-version, we need to fetch the content from the server
                         self.registryClient.getManifestContent(
@@ -190,21 +211,23 @@ public class RegistryPackageContainer: PackageContainer {
                                     try fileSystem.removeFileTree(manifestPath)
                                     try fileSystem.writeFileContents(manifestPath, string: manifestContent)
                                     // finally, load the manifest
+                                    loadManifest()
+                                    /*
                                     self.manifestLoader.load(
-                                        at: .root,
+                                        packagePath: .root,
                                         packageIdentity: self.package.identity,
                                         packageKind: self.package.kind,
                                         packageLocation: self.package.locationString,
+                                        currentToolsVersion: self.currentToolsVersion,
                                         version: version,
                                         revision: nil,
-                                        toolsVersion: preferredToolsVersion,
                                         identityResolver: self.identityResolver,
                                         fileSystem: fileSystem,
                                         observabilityScope: self.observabilityScope,
                                         delegateQueue: .sharedConcurrent,
                                         callbackQueue: .sharedConcurrent,
                                         completion: completion
-                                    )
+                                    )*/
                                 } catch {
                                     return completion(.failure(error))
                                 }

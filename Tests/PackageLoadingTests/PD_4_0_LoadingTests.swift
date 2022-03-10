@@ -342,7 +342,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         let manifest = try manifestLoader.load(
-            at: .root,
+            manifestPath: manifestPath,
             packageKind: .root(.root),
             toolsVersion: .v4,
             fileSystem: fs,

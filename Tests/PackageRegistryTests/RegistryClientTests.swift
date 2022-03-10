@@ -221,8 +221,7 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: nil
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .current)
         }
 
@@ -232,8 +231,7 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: .v5_3
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v5_3)
         }
 
@@ -243,8 +241,7 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: .v4
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v4)
         }
     }

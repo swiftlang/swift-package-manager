@@ -25,7 +25,6 @@ public struct FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
-    private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
     /// File system that should be used to load this package.
@@ -41,7 +40,6 @@ public struct FileSystemPackageContainer: PackageContainer {
         package: PackageReference,
         identityResolver: IdentityResolver,
         manifestLoader: ManifestLoaderProtocol,
-        toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -55,7 +53,6 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.package = package
         self.identityResolver = identityResolver
         self.manifestLoader = manifestLoader
-        self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -63,31 +60,37 @@ public struct FileSystemPackageContainer: PackageContainer {
 
     private func loadManifest() throws -> Manifest {
         try manifest.memoize() {
-            let path: AbsolutePath
+            let packagePath: AbsolutePath
             switch self.package.kind {
-            case .root(let _path), .fileSystem(let _path):
-                path = _path
+            case .root(let path), .fileSystem(let path):
+                packagePath = path
             default:
                 throw InternalError("invalid package type \(package.kind)")
             }
 
             // Load the tools version.
-            let toolsVersion = try self.toolsVersionLoader.load(at: path, fileSystem: self.fileSystem)
+            //let toolsVersion = try self.toolsVersionLoader.load(at: packagePath, fileSystem: self.fileSystem)
 
             // Validate the tools version.
-            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
+            //try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
+
+            #warning("FIXME: cleanup")
+            // find the manifest path and parse it's tools-version
+            //let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
+            //let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
+            // validate the manifest tools-version against the toolchain tools-version
+            //try manifestToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
 
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
                 manifestLoader.load(
-                    at: path,
+                    packagePath: packagePath,
                     packageIdentity: self.package.identity,
                     packageKind: self.package.kind,
-                    packageLocation: path.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: toolsVersion,
+                    packageLocation: self.package.locationString,
+                    packageVersion: nil,
+                    currentToolsVersion: self.currentToolsVersion,
                     identityResolver: self.identityResolver,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,

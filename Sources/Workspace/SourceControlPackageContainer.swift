@@ -54,7 +54,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let repository: Repository
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
-    private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
@@ -78,7 +77,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         repositorySpecifier: RepositorySpecifier,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
-        toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
@@ -89,7 +87,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.repositorySpecifier = repositorySpecifier
         self.repository = repository
         self.manifestLoader = manifestLoader
-        self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -229,7 +226,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 throw StringError("unknown tag \(version)")
             }
             let fileSystem = try repository.openFileView(tag: tag)
-            return try toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
+            //return try toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
+            #warning("FIXME: cleanup")
+            // find the manifest path and parse it's tools-version
+            let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
+            return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
         }
     }
 
@@ -375,36 +376,42 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private func loadManifest(tag: String, version: Version?) throws -> Manifest {
         try self.manifestsCache.memoize(tag) {
             let fileSystem = try repository.openFileView(tag: tag)
-            return try self.loadManifest(fileSystem: fileSystem, version: version, packageVersion: tag)
+            return try self.loadManifest(fileSystem: fileSystem, version: version, revision: tag)
         }
     }
 
     private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
         try self.manifestsCache.memoize(revision.identifier) {
             let fileSystem = try self.repository.openFileView(revision: revision)
-            return try self.loadManifest(fileSystem: fileSystem, version: version, packageVersion: revision.identifier)
+            return try self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
         }
     }
 
-    private func loadManifest(fileSystem: FileSystem, version: Version?, packageVersion: String) throws -> Manifest {
+    private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) throws -> Manifest {
         // Load the tools version.
-        let toolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
+        //let toolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
 
         // Validate the tools version.
-        try toolsVersion.validateToolsVersion(
-            self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
+        //try toolsVersion.validateToolsVersion(
+        //    self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
+
+        #warning("FIXME: cleanup")
+        // find the manifest path and parse it's tools-version
+        //let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
+        //let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+        // validate the manifest tools-version against the toolchain tools-version
+        //try manifestToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
 
         // Load the manifest.
         // FIXME: this should not block
         return try temp_await {
             self.manifestLoader.load(
-                at: AbsolutePath.root,
+                packagePath: .root,
                 packageIdentity: self.package.identity,
                 packageKind: self.package.kind,
                 packageLocation: self.package.locationString,
-                version: version,
-                revision: nil,
-                toolsVersion: toolsVersion,
+                packageVersion: (version: version, revision: revision),
+                currentToolsVersion: self.currentToolsVersion,
                 identityResolver: self.identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: self.observabilityScope,
