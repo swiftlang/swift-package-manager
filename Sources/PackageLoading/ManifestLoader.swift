@@ -202,6 +202,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    #warning("FIXME: remove in favor of manifest path directly")
     public func load(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
@@ -218,7 +219,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {
-            let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
+            let manifestPath = try ManifestLoader.findManifest(packagePath: path, fileSystem: fileSystem, currentToolsVersion: toolsVersion)
             self.loadFile(
                 at: manifestPath,
                 packageIdentity: packageIdentity,

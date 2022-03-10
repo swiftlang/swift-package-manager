@@ -74,6 +74,7 @@ public struct ManifestAccessError: Error, CustomStringConvertible {
 ///   - manifestDirectoryPath: The absolute path to the given directory.
 ///   - toolsVersion: The Swift tools version to specify as the lowest supported version.
 ///   - fileSystem: The filesystem to read/write the manifest file on.
+#warning("FIXME: move somewhere else")
 public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirectoryPath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
     let manifestFilePath = manifestDirectoryPath.appending(component: Manifest.filename)
     
@@ -97,10 +98,10 @@ public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirecto
     // The following lines up to line 77 append the file contents except for the Swift tools version specification line.
     
     guard let contentsDecodedWithUTF8 = contents.validDescription else {
-        throw ToolsVersionLoader.Error.nonUTF8EncodedManifest(path: manifestFilePath)
+        throw ToolsVersionParser.Error.nonUTF8EncodedManifest(path: manifestFilePath)
     }
     
-    let manifestComponents = ToolsVersionLoader.split(contentsDecodedWithUTF8)
+    let manifestComponents = ToolsVersionParser.split(contentsDecodedWithUTF8)
     
     let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
     

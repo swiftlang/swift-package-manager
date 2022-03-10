@@ -93,7 +93,8 @@ public struct BuildParameters: Encodable {
     public var flags: BuildFlags
 
     /// The tools version to use.
-    public var toolsVersion: ToolsVersion
+    #warning("FIXME: not in use?")
+    public var _toolsVersion: ToolsVersion
 
     /// How many jobs should llbuild and the Swift compiler spawn
     public var jobs: UInt32
@@ -179,7 +180,6 @@ public struct BuildParameters: Encodable {
 
     public var verboseOutput: Bool
 
-    #warning("FIXME")
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -189,7 +189,7 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
-        toolsVersion: ToolsVersion = ToolsVersion.current,
+        toolsVersion: ToolsVersion,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
@@ -220,7 +220,7 @@ public struct BuildParameters: Encodable {
         self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
-        self.toolsVersion = toolsVersion
+        self._toolsVersion = toolsVersion
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching

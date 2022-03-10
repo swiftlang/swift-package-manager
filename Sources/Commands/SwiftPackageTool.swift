@@ -828,14 +828,14 @@ extension SwiftPackageTool {
 
             switch toolsVersionMode {
             case .display:
-                let toolsVersionLoader = ToolsVersionLoader()
-                let version = try toolsVersionLoader.load(at: pkg, fileSystem: swiftTool.fileSystem)
+                let manifestPath = try ManifestLoader.findManifest(packagePath: pkg, fileSystem: swiftTool.fileSystem, currentToolsVersion: .current)
+                let version = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: swiftTool.fileSystem)
                 print("\(version)")
 
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
                     // FIXME: Probably lift this error definition to ToolsVersion.
-                    throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
+                    throw ToolsVersionParser.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
                 try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: swiftTool.fileSystem)
 

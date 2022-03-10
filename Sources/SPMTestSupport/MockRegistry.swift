@@ -299,7 +299,6 @@ public struct InMemoryRegistryPackageSource {
         self.path = path
     }
 
-    #warning("FIXME")
     public func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .current) throws {
         try self.fileSystem.createDirectory(self.path, recursive: true)
         let sourcesDir = self.path.appending(component: "Sources")
