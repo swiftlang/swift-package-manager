@@ -226,8 +226,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 throw StringError("unknown tag \(version)")
             }
             let fileSystem = try repository.openFileView(tag: tag)
-            //return try toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
-            #warning("FIXME: cleanup")
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
             return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
@@ -388,20 +386,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) throws -> Manifest {
-        // Load the tools version.
-        //let toolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
-
-        // Validate the tools version.
-        //try toolsVersion.validateToolsVersion(
-        //    self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
-
-        #warning("FIXME: cleanup")
-        // find the manifest path and parse it's tools-version
-        //let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
-        //let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-        // validate the manifest tools-version against the toolchain tools-version
-        //try manifestToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
-
         // Load the manifest.
         // FIXME: this should not block
         return try temp_await {

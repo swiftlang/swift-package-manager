@@ -2141,57 +2141,39 @@ extension Workspace {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        do {
-            // Load the tools version for the package.
-            //let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
+        let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+        let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
+            observabilityScope.emit(diagnostic)
+            manifestLoadingDiagnostics.append(diagnostic)
+        }).topScope.makeChildScope(description: "Loading manifest") {
+            .packageMetadata(identity: packageIdentity, kind: packageKind)
+        }
 
-            // Validate the tools version.
-            //try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
-
-            #warning("FIXME: cleanup")
-            // find the manifest path and parse it's tools-version
-            //let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
-            //let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-            // validate the manifest tools-version against the toolchain tools-version
-            //try manifestToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: packageIdentity)
-
-            let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-            let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-                observabilityScope.emit(diagnostic)
-                manifestLoadingDiagnostics.append(diagnostic)
-            }).topScope.makeChildScope(description: "Loading manifest") {
-                .packageMetadata(identity: packageIdentity, kind: packageKind)
+        self.manifestLoader.load(
+            packagePath: packagePath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion.map { (version: $0, revision: nil) },
+            currentToolsVersion: self.currentToolsVersion,
+            identityResolver: self.identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: manifestLoadingScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        ) { result in
+            switch result {
+            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+            case .failure(Diagnostics.fatalError):
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .failure(let error):
+                manifestLoadingScope.emit(error)
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .success(let manifest):
+                manifestLoadingScope.trap { try self.validateManifest(manifest) }
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
             }
-
-            self.manifestLoader.load(
-                packagePath: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                packageVersion: packageVersion.map { (version: $0, revision: nil) },
-                currentToolsVersion: self.currentToolsVersion,
-                identityResolver: self.identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
-            ) { result in
-                switch result {
-                // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                case .failure(Diagnostics.fatalError):
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .failure(let error):
-                    manifestLoadingScope.emit(error)
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .success(let manifest):
-                    manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
-                }
-                completion(result)
-            }
-        } catch {
-            observabilityScope.emit(error)
-            completion(.failure(error))
+            completion(result)
         }
     }
 

@@ -66,8 +66,6 @@ public class RegistryPackageContainer: PackageContainer {
             let result = try temp_await {
                 self.getAvailableManifestsFilesystem(version: version, completion: $0)
             }
-            //return try self.toolsVersionLoader.load(at: .root, fileSystem: result.fileSystem)
-            #warning("FIXME: cleanup")
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: result.fileSystem, currentToolsVersion: self.currentToolsVersion)
             return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: result.fileSystem)
@@ -133,18 +131,13 @@ public class RegistryPackageContainer: PackageContainer {
                     let fileSystem = result.fileSystem
 
                     // first, decide the tools-version we should use
-                    //let preferredToolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
-                    #warning("FIXME: cleanup")
                     guard let defaultManifestToolsVersion = manifests.first(where: { $0.key == Manifest.filename })?.value.toolsVersion else {
                         throw StringError("Could not find the '\(Manifest.filename)' file for '\(self.package.identity)' '\(version)'")
                     }
                     // find the preferred manifest path and parse it's tools-version
                     let preferredToolsVersionManifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
                     let preferredToolsVersion = try ToolsVersionParser.parse(manifestPath: preferredToolsVersionManifestPath, fileSystem: fileSystem)
-                    // validate preferred the tools version is compatible with the current toolchain
-                    //try preferredToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
                     // load the manifest content
-
                     let loadManifest = {
                         self.manifestLoader.load(
                             packagePath: .root,
@@ -165,21 +158,6 @@ public class RegistryPackageContainer: PackageContainer {
                     if preferredToolsVersion == defaultManifestToolsVersion {
                         // default tools version - we already have the content on disk from getAvailableManifestsFileSystem()
                         loadManifest()
-                        /*self.manifestLoader.load(
-                            packagePath: .root,
-                            packageIdentity: self.package.identity,
-                            packageKind: self.package.kind,
-                            packageLocation: self.package.locationString,
-                            currentToolsVersion: self.currentToolsVersion,
-                            version: version,
-                            revision: nil,
-                            identityResolver: self.identityResolver,
-                            fileSystem: result.fileSystem,
-                            observabilityScope: self.observabilityScope,
-                            delegateQueue: .sharedConcurrent,
-                            callbackQueue: .sharedConcurrent,
-                            completion: completion
-                        )*/
                     } else {
                         // custom tools-version, we need to fetch the content from the server
                         self.registryClient.getManifestContent(
@@ -212,22 +190,6 @@ public class RegistryPackageContainer: PackageContainer {
                                     try fileSystem.writeFileContents(manifestPath, string: manifestContent)
                                     // finally, load the manifest
                                     loadManifest()
-                                    /*
-                                    self.manifestLoader.load(
-                                        packagePath: .root,
-                                        packageIdentity: self.package.identity,
-                                        packageKind: self.package.kind,
-                                        packageLocation: self.package.locationString,
-                                        currentToolsVersion: self.currentToolsVersion,
-                                        version: version,
-                                        revision: nil,
-                                        identityResolver: self.identityResolver,
-                                        fileSystem: fileSystem,
-                                        observabilityScope: self.observabilityScope,
-                                        delegateQueue: .sharedConcurrent,
-                                        callbackQueue: .sharedConcurrent,
-                                        completion: completion
-                                    )*/
                                 } catch {
                                     return completion(.failure(error))
                                 }

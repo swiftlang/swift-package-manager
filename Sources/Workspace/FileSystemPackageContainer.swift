@@ -68,19 +68,6 @@ public struct FileSystemPackageContainer: PackageContainer {
                 throw InternalError("invalid package type \(package.kind)")
             }
 
-            // Load the tools version.
-            //let toolsVersion = try self.toolsVersionLoader.load(at: packagePath, fileSystem: self.fileSystem)
-
-            // Validate the tools version.
-            //try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
-
-            #warning("FIXME: cleanup")
-            // find the manifest path and parse it's tools-version
-            //let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
-            //let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
-            // validate the manifest tools-version against the toolchain tools-version
-            //try manifestToolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
-
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {

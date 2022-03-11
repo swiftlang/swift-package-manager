@@ -160,7 +160,7 @@ public final class RegistryClient {
                     }
 
                     var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
-                    let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
+                    let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
                     result[Manifest.filename] = (toolsVersion: toolsVersion, content: manifestContent)
 
                     let alternativeManifests = try response.headers.parseManifestLinks()

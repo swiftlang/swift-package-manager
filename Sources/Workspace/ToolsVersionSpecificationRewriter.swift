@@ -78,7 +78,7 @@ public struct ToolsVersionSpecificationWriter {
     }
 
     /// An error that causes the access to a manifest to fails.
-    public struct ManifestAccessError: Error, CustomStringConvertible {
+    struct ManifestAccessError: Error, CustomStringConvertible {
         public init(_ kind: Kind, at path: AbsolutePath) {
             self.kind = kind
             self.path = path
