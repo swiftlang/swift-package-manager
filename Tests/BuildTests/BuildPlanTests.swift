@@ -79,7 +79,6 @@ final class BuildPlanTests: XCTestCase {
             hostTriple: hostTriple,
             destinationTriple: destinationTriple,
             flags: flags,
-            toolsVersion: .current,
             jobs: 3,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,

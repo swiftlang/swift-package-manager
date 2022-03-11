@@ -11296,7 +11296,6 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let customFS = InMemoryFileSystem()
-        #warning("confirm with boris that this is expected")
         // write a manifest
         try customFS.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
         try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: .root, toolsVersion: .current, fileSystem: customFS)

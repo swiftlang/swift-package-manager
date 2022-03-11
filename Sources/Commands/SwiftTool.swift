@@ -831,7 +831,6 @@ public class SwiftTool {
                 archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
-                toolsVersion: .current,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
