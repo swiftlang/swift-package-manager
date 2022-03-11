@@ -194,9 +194,9 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
             try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
             try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)
 
-            try rewriteToolsVersionSpecification(
-                toDefaultManifestIn: manifestFilePath.parentDirectory,
-                specifying: version,
+            try ToolsVersionSpecificationWriter.rewriteSpecification(
+                manifestDirectory: manifestFilePath.parentDirectory,
+                toolsVersion: version,
                 fileSystem: inMemoryFileSystem
             )
 

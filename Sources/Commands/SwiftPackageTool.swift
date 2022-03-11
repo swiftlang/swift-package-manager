@@ -837,14 +837,21 @@ extension SwiftPackageTool {
                     // FIXME: Probably lift this error definition to ToolsVersion.
                     throw ToolsVersionParser.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
-                try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: swiftTool.fileSystem)
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: pkg,
+                    toolsVersion: toolsVersion,
+                    fileSystem: swiftTool.fileSystem
+                )
 
             case .setCurrent:
                 // Write the tools version with current version but with patch set to zero.
                 // We do this to avoid adding unnecessary constraints to patch versions, if
                 // the package really needs it, they can do it using --set option.
-                try rewriteToolsVersionSpecification(
-                    toDefaultManifestIn: pkg, specifying: ToolsVersion.current.zeroedPatch, fileSystem: swiftTool.fileSystem)
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: pkg,
+                    toolsVersion: ToolsVersion.current.zeroedPatch,
+                    fileSystem: swiftTool.fileSystem
+                )
             }
         }
     }

@@ -9432,7 +9432,7 @@ final class WorkspaceTests: XCTestCase {
 
         // write a manifest
         try fs.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
-        try rewriteToolsVersionSpecification(toDefaultManifestIn: .root, specifying: .current, fileSystem: fs)
+        try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: .root, toolsVersion: .current, fileSystem: fs)
 
         do {
             // no error
@@ -11303,7 +11303,7 @@ final class WorkspaceTests: XCTestCase {
         #warning("confirm with boris that this is expected")
         // write a manifest
         try customFS.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
-        try rewriteToolsVersionSpecification(toDefaultManifestIn: .root, specifying: .current, fileSystem: customFS)
+        try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: .root, toolsVersion: .current, fileSystem: customFS)
 
         let bazURL = try XCTUnwrap(URL(string: "https://example.com/baz"))
         let bazPackageReference = PackageReference(identity: PackageIdentity(url: bazURL), kind: .remoteSourceControl(bazURL))

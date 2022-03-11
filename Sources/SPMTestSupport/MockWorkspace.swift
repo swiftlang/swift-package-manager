@@ -219,7 +219,11 @@ public final class MockWorkspace {
                 }
                 let manifestPath = root.appending(component: Manifest.filename)
                 try fileSystem.writeFileContents(manifestPath, bytes: "")
-                try rewriteToolsVersionSpecification(toDefaultManifestIn: root, specifying: toolsVersion, fileSystem: fileSystem)
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: root,
+                    toolsVersion: toolsVersion,
+                    fileSystem: fileSystem
+                )
             }
         }
 

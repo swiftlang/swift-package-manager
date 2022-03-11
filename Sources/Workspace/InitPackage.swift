@@ -233,9 +233,9 @@ public final class InitPackage {
         let version = InitPackage.newPackageToolsVersion.zeroedPatch
 
         // Write the current tools version.
-        try rewriteToolsVersionSpecification(
-            toDefaultManifestIn: manifest.parentDirectory,
-            specifying: version,
+        try ToolsVersionSpecificationWriter.rewriteSpecification(
+            manifestDirectory: manifest.parentDirectory,
+            toolsVersion: version,
             fileSystem: self.fileSystem
         )
     }

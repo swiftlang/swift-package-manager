@@ -63,7 +63,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
 }
 
 public struct ToolsVersionParser {
-    // exposed a a static utility
+    // designed to be used as a static utility
     private init() {}
 
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
