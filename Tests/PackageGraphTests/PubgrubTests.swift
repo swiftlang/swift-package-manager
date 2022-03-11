@@ -2629,7 +2629,7 @@ public class MockContainer: PackageContainer {
     public var unversionedDeps: [PackageContainerConstraint] = []
 
     /// The list of versions that have incompatible tools version.
-    var toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+    var toolsVersion: ToolsVersion = ToolsVersion.current
     var versionsToolsVersions = [Version: ToolsVersion]()
 
     private var _versions: [BoundVersion]
@@ -2877,7 +2877,7 @@ class DependencyGraphBuilder {
             store.pin(packageRef: reference(for: package), state: pin.0)
         }
 
-        try! store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
+        try! store.saveState(toolsVersion: ToolsVersion.current)
         return store
     }
 

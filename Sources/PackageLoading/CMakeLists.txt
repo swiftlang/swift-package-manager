@@ -19,7 +19,7 @@ add_library(PackageLoading
   PkgConfig.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
-  ToolsVersionLoader.swift)
+  ToolsVersionParser.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics

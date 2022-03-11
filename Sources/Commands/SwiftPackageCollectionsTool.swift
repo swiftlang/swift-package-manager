@@ -55,7 +55,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Interact with package collections",
         discussion: "SEE ALSO: swift build, swift package, swift run, swift test",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             Add.self,
             Describe.self,

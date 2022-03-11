@@ -47,22 +47,11 @@ public struct SwiftVersion {
         }
         return vendorPrefix + "Swift Package Manager - Swift " + self.displayString
     }
-
-    /// The list of version specific identifiers to search when attempting to
-    /// load version specific package or version information, in order of
-    /// preference.
-    public var versionSpecificKeys: [String] {
-        return [
-            "@swift-\(self.major).\(self.minor).\(self.patch)",
-            "@swift-\(self.major).\(self.minor)",
-            "@swift-\(self.major)",
-        ]
-    }
 }
 
 extension SwiftVersion {
     /// The current version of the package manager.
-    public static let currentVersion = SwiftVersion(
+    public static let current = SwiftVersion(
         version: (5, 7, 0),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier()

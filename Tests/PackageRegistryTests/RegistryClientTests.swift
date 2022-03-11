@@ -176,7 +176,7 @@ final class RegistryClientTests: XCTestCase {
 
         let handler: HTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.currentToolsVersion
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
             let urlWithoutQuery = components.url
@@ -221,9 +221,8 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: nil
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
-            XCTAssertEqual(parsedToolsVersion, .currentToolsVersion)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .current)
         }
 
         do {
@@ -232,8 +231,7 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: .v5_3
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v5_3)
         }
 
@@ -243,8 +241,7 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: .v4
             )
-            let toolsVersionLoader = ToolsVersionLoader()
-            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v4)
         }
     }

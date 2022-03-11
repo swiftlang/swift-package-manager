@@ -62,8 +62,8 @@ public struct TargetSourcesBuilder {
         target: TargetDescription,
         path: AbsolutePath,
         defaultLocalization: String?,
-        additionalFileRules: [FileRuleDescription] = [],
-        toolsVersion: ToolsVersion = .currentToolsVersion,
+        additionalFileRules: [FileRuleDescription],
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {

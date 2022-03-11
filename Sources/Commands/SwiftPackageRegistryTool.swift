@@ -46,7 +46,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             Set.self,
             Unset.self

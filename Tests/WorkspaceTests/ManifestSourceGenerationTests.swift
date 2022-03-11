@@ -32,18 +32,18 @@ class ManifestSourceGenerationTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
 
             // Write the original manifest file contents, and load it.
-            try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
+            let manifestPath = packageDir.appending(component: Manifest.filename)
+            try fs.writeFileContents(manifestPath, string: manifestContents)
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(
-                    at: packageDir,
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: toolsVersion,
                     packageIdentity: .plain("Root"),
                     packageKind: .root(packageDir),
                     packageLocation: packageDir.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: toolsVersion,
+                    packageVersion: nil,
                     identityResolver: identityResolver,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,
@@ -65,16 +65,15 @@ class ManifestSourceGenerationTests: XCTestCase {
             XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
-            try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
+            try fs.writeFileContents(manifestPath, string: newContents)
             let newManifest = try tsc_await {
                 manifestLoader.load(
-                    at: packageDir,
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: toolsVersion,
                     packageIdentity: .plain("Root"),
                     packageKind: .root(packageDir),
                     packageLocation: packageDir.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: toolsVersion,
+                    packageVersion: nil,
                     identityResolver: identityResolver,
                     fileSystem: fs,
                     observabilityScope: observability.topScope,

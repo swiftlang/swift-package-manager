@@ -989,9 +989,9 @@ public final class PackageBuilder {
 
         // Figure out the swift version from declared list in the manifest.
         if let swiftLanguageVersions = manifest.swiftLanguageVersions {
-            guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= ToolsVersion.currentToolsVersion }) else {
+            guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= ToolsVersion.current }) else {
                 throw ModuleError.incompatibleToolsVersions(
-                    package: self.identity.description, required: swiftLanguageVersions, current: .currentToolsVersion)
+                    package: self.identity.description, required: swiftLanguageVersions, current: .current)
             }
             computedSwiftVersion = swiftVersion
         } else {

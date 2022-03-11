@@ -91,7 +91,7 @@ public struct SwiftRunTool: SwiftCommand {
         _superCommandName: "swift",
         abstract: "Build and run an executable product",
         discussion: "SEE ALSO: swift build, swift package, swift test",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()

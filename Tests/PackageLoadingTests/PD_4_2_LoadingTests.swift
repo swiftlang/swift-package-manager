@@ -360,12 +360,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     /// version specific customization is used.
     func testVersionSpecificLoading() throws {
         let bogusManifest: ByteString = "THIS WILL NOT PARSE"
-        let trivialManifest = ByteString(encodingAsUTF8: (
-                "import PackageDescription\n" +
-                "let package = Package(name: \"Trivial\")"))
-
+        let trivialManifest =
+        """
+        // swift-tools-version:4.2
+        import PackageDescription
+        let package = Package(name: \"Trivial\")
+        """
         // Check at each possible spelling.
-        let currentVersion = SwiftVersion.currentVersion
+        let currentVersion = SwiftVersion.current
         let possibleSuffixes = [
             "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
             "\(currentVersion.major).\(currentVersion.minor)",
@@ -378,7 +380,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             // Write the good manifests.
             try fs.writeFileContents(
                 root.appending(component: Manifest.basename + "@swift-\(key).swift"),
-                bytes: trivialManifest)
+                string: trivialManifest)
             // Write the bad manifests.
             let badManifests = [Manifest.filename] + possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
                 Manifest.basename + "@swift-\($0).swift"
@@ -390,9 +392,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
             // Check we can load the repository.
             let manifest = try manifestLoader.load(
-                at: root,
+                packagePath: root,
                 packageKind: .root(.root),
-                toolsVersion: .v4_2,
+                currentToolsVersion: .v4_2,
                 fileSystem: fs,
                 observabilityScope: ObservabilitySystem.NOOP
             )
@@ -416,7 +418,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             packageDir.appending(component: Manifest.basename + "@swift-3.swift"),
             bytes: ByteString(encodingAsUTF8: manifestContents))
         // Check we can load the manifest.
-        let manifest = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest.displayName, "Trivial")
 
@@ -428,7 +430,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             packageDir.appending(component: Manifest.basename + "@swift-4.swift"),
             bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
         // Check we can load the manifest.
-        let manifest2 = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest2 = try manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest2.displayName, "Trivial")
     }
@@ -594,7 +596,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 delegate.prepare(expectParsing: !expectCached)
 
                 let manifest = try! loader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
@@ -654,7 +656,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 delegate.prepare(expectParsing: !expectCached)
 
                 let manifest = try! loader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
@@ -732,7 +734,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 try fs.writeFileContents(manifestPath, bytes: stream.bytes)
 
                 let m = try manifestLoader.load(
-                    at: .root,
+                    manifestPath: manifestPath,
                     packageKind: .root(.root),
                     toolsVersion: .v4_2,
                     fileSystem: fs,
@@ -819,13 +821,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             delegate.prepare()
             let manifest = try tsc_await {
                 manifestLoader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: .v4_2,
                     packageIdentity: .plain("Trivial"),
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     packageLocation: manifestPath.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: .v4_2,
+                    packageVersion: nil,
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
@@ -844,13 +845,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 sync.enter()
                 delegate.prepare(expectParsing: false)
                 manifestLoader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: .v4_2,
                     packageIdentity: .plain("Trivial"),
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     packageLocation: manifestPath.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: .v4_2,
+                    packageVersion: nil,
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
@@ -914,13 +914,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 sync.enter()
                 delegate.prepare()
                 manifestLoader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
+                    manifestToolsVersion: .v4_2,
                     packageIdentity: .plain("Trivial-\(random)"),
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     packageLocation: manifestPath.pathString,
-                    version: nil,
-                    revision: nil,
-                    toolsVersion: .v4_2,
+                    packageVersion: nil,
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,

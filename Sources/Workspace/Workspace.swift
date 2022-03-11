@@ -255,9 +255,6 @@ public class Workspace {
     /// The tools version currently in use.
     fileprivate let currentToolsVersion: ToolsVersion
 
-    /// The manifest loader to use.
-    fileprivate var toolsVersionLoader: ToolsVersionLoaderProtocol
-
     /// Utility to resolve package identifiers
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var identityResolver: IdentityResolver
@@ -562,9 +559,6 @@ public class Workspace {
             resolverUpdateEnabled: skipUpdate.map{ !$0 },
             resolverPrefetchingEnabled: isResolverPrefetchingEnabled
         )
-        if let toolsVersionLoader = toolsVersionLoader {
-            self.toolsVersionLoader = toolsVersionLoader
-        }
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -675,8 +669,7 @@ public class Workspace {
         // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
         let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
 
-        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain.configuration,
@@ -761,7 +754,6 @@ public class Workspace {
         self.hostToolchain = hostToolchain
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
 
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryManager = repositoryManager
@@ -1047,7 +1039,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1911,15 +1903,24 @@ extension Workspace {
     }
 
     /// Returns manifest interpreter flags for a package.
+    // TODO: should this be throwing instead?
     public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
-        // We ignore all failures here and return empty array.
-        guard let manifestLoader = self.manifestLoader as? ManifestLoader,
-              let toolsVersion = try? toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem),
-              currentToolsVersion >= toolsVersion,
-              toolsVersion >= ToolsVersion.minimumRequired else {
+        do {
+            guard let manifestLoader = self.manifestLoader as? ManifestLoader else {
+                throw StringError("unexpected manifest loader kind")
+            }
+
+            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
+            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
+
+            guard self.currentToolsVersion >= manifestToolsVersion, manifestToolsVersion >= ToolsVersion.minimumRequired else {
+                throw StringError("invalid tools version")
+            }
+            return manifestLoader.interpreterFlags(for: manifestToolsVersion)
+        } catch {
+            // We ignore all failures here and return empty array.
             return []
         }
-        return manifestLoader.interpreterFlags(for: toolsVersion)
     }
 
     /// Load the manifests for the current dependency tree.
@@ -2073,25 +2074,25 @@ extension Workspace {
 
         // The kind and version, if known.
         let packageKind: PackageReference.Kind
-        let version: Version?
+        let packageVersion: Version?
         switch managedDependency.state {
         case .sourceControlCheckout(let checkoutState):
             packageKind = managedDependency.packageRef.kind
             switch checkoutState {
             case .version(let checkoutVersion, _):
-                version = checkoutVersion
+                packageVersion = checkoutVersion
             default:
-                version = .none
+                packageVersion = .none
             }
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
-            version = downloadedVersion
+            packageVersion = downloadedVersion
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
-            version = availableVersion
+            packageVersion = availableVersion
         case .edited, .fileSystem:
             packageKind = .fileSystem(packagePath)
-            version = .none
+            packageVersion = .none
         }
 
         let fileSystem: FileSystem?
@@ -2109,7 +2110,7 @@ extension Workspace {
             packageKind: packageKind,
             packagePath: packagePath,
             packageLocation: managedDependency.packageRef.locationString,
-            version: version,
+            packageVersion: packageVersion,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) { result in
@@ -2126,7 +2127,7 @@ extension Workspace {
         packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         packageLocation: String,
-        version: Version? = nil,
+        packageVersion: Version? = nil,
         fileSystem: FileSystem? = nil,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
@@ -2134,57 +2135,45 @@ extension Workspace {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
-        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
+        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
 
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading manifest") {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        do {
-            // Load the tools version for the package.
-            let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
+        let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+        let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
+            observabilityScope.emit(diagnostic)
+            manifestLoadingDiagnostics.append(diagnostic)
+        }).topScope.makeChildScope(description: "Loading manifest") {
+            .packageMetadata(identity: packageIdentity, kind: packageKind)
+        }
 
-            // Validate the tools version.
-            try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
-
-            let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-            let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-                observabilityScope.emit(diagnostic)
-                manifestLoadingDiagnostics.append(diagnostic)
-            }).topScope.makeChildScope(description: "Loading manifest") {
-                .packageMetadata(identity: packageIdentity, kind: packageKind)
+        self.manifestLoader.load(
+            packagePath: packagePath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion.map { (version: $0, revision: nil) },
+            currentToolsVersion: self.currentToolsVersion,
+            identityResolver: self.identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: manifestLoadingScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        ) { result in
+            switch result {
+            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+            case .failure(Diagnostics.fatalError):
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .failure(let error):
+                manifestLoadingScope.emit(error)
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .success(let manifest):
+                manifestLoadingScope.trap { try self.validateManifest(manifest) }
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
             }
-
-            self.manifestLoader.load(
-                at: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                version: version,
-                revision: nil,
-                toolsVersion: toolsVersion,
-                identityResolver: self.identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
-            ) { result in
-                switch result {
-                // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                case .failure(Diagnostics.fatalError):
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .failure(let error):
-                    manifestLoadingScope.emit(error)
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .success(let manifest):
-                    manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
-                }
-                completion(result)
-            }
-        } catch {
-            observabilityScope.emit(error)
-            completion(.failure(error))
+            completion(result)
         }
     }
 
@@ -2560,7 +2549,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -3161,7 +3150,6 @@ extension Workspace: PackageContainerProvider {
                     package: package,
                     identityResolver: self.identityResolver,
                     manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
@@ -3193,7 +3181,6 @@ extension Workspace: PackageContainerProvider {
                             repositorySpecifier: repositorySpecifier,
                             repository: repository,
                             manifestLoader: self.manifestLoader,
-                            toolsVersionLoader: self.toolsVersionLoader,
                             currentToolsVersion: self.currentToolsVersion,
                             fingerprintStorage: self.fingerprints,
                             fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
@@ -3209,7 +3196,6 @@ extension Workspace: PackageContainerProvider {
                     identityResolver: self.identityResolver,
                     registryClient: self.registryClient,
                     manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     observabilityScope: observabilityScope
                 )
@@ -3862,7 +3848,6 @@ extension Workspace {
     // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup to make sure the version exists
     // 2. handle registry returning multiple identifiers, how do we choose the right one?
     fileprivate struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
-        
         private let underlying: ManifestLoaderProtocol
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
@@ -3877,13 +3862,12 @@ extension Workspace {
         }
 
         func load(
-            at path: AbsolutePath,
+            manifestPath: AbsolutePath,
+            manifestToolsVersion: ToolsVersion,
             packageIdentity: PackageIdentity,
             packageKind: PackageReference.Kind,
             packageLocation: String,
-            version: Version?,
-            revision: String?,
-            toolsVersion: ToolsVersion,
+            packageVersion: (version: Version?, revision: String?)?,
             identityResolver: IdentityResolver,
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope,
@@ -3892,13 +3876,12 @@ extension Workspace {
             completion: @escaping (Result<Manifest, Error>) -> Void
         ) {
             self.underlying.load(
-                at: path,
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
                 packageKind: packageKind,
                 packageLocation: packageLocation,
-                version: version,
-                revision: revision,
-                toolsVersion: toolsVersion,
+                packageVersion: packageVersion,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,

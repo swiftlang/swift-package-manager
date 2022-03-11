@@ -16,21 +16,13 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
-class ToolsVersionLoaderTests: XCTestCase {
-
-    let loader = ToolsVersionLoader()
-
-    func load(_ bytes: ByteString, _ body: ((ToolsVersion) -> Void)? = nil) throws {
-        let fs = InMemoryFileSystem()
-        let path = AbsolutePath("/pkg/Package.swift")
-        try! fs.createDirectory(path.parentDirectory, recursive: true)
-        try! fs.writeFileContents(path, bytes: bytes)
-        let toolsVersion = try loader.load(at: AbsolutePath("/pkg"), fileSystem: fs)
+class ToolsVersionParserTests: XCTestCase {
+    func parse(_ content: String, _ body: ((ToolsVersion) -> Void)? = nil) throws {
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: content)
         body?(toolsVersion)
     }
 
     func testValidVersions() throws {
-
         let validVersions = [
             // No spacing surrounding the label for Swift ≥ 5.4:
             "//swift-tools-version:5.4.0"              : (5, 4, 0, "5.4.0"),
@@ -112,7 +104,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         ]
 
         for (version, result) in validVersions {
-            try load(ByteString(encodingAsUTF8: version)) { toolsVersion in
+            try self.parse(version) { toolsVersion in
                 XCTAssertEqual(toolsVersion.major, result.0)
                 XCTAssertEqual(toolsVersion.minor, result.1)
                 XCTAssertEqual(toolsVersion.patch, result.2)
@@ -125,7 +117,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             let stream = BufferedOutputByteStream()
             stream <<< "// swift-tools-version:3.1.0\n\n\n\n\n"
             stream <<< "let package = .."
-            try load(stream.bytes) { toolsVersion in
+            try self.parse(stream.bytes.validDescription!) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }
@@ -135,12 +127,12 @@ class ToolsVersionLoaderTests: XCTestCase {
             stream <<< "// swift-tools-version:3.1.0\n"
             stream <<< "// swift-tools-version:4.1.0\n\n\n\n"
             stream <<< "let package = .."
-            try load(stream.bytes) { toolsVersion in
+            try self.parse(stream.bytes.validDescription!) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each manifest missing its Swift tools version specification.
     func testMissingSpecifications() throws {
         /// Leading snippets of manifest files that don't have Swift tools version specifications.
@@ -152,25 +144,25 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\rimport PackageDescription",
             "let package = Package(\n",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithoutSpecification {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the Swift tools version specification is missing from the manifest snippet"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
-                
+
                 XCTAssertEqual(
                     error.description,
-                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                 )
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each Swift tools version specification missing its comment marker.
     func testMissingSpecificationCommentMarkers() throws {
         let manifestSnippetsWithoutSpecificationCommentMarker = [
@@ -193,24 +185,24 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\n\r\t3.14",
             "",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithoutSpecificationCommentMarker {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the comment marker is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                 )
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each Swift tools version specification missing its label.
     func testMissingSpecificationLabels() throws {
         let manifestSnippetsWithoutSpecificationLabel = [
@@ -228,13 +220,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//",
             "\n\r///\t2.1\r",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithoutSpecificationLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the label is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.label(.isMissing)) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.label(.isMissing)) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.label(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
@@ -245,7 +237,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each Swift tools version specification missing its version specifier.
     func testMissingVersionSpecifiers() throws {
         let manifestSnippetsWithoutVersionSpecifier = [
@@ -260,24 +252,24 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\r\n//\tswift-tools-version:",
             "\n\r///The swifts hung in the sky in much the same way that bricks don't.\u{85}",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithoutVersionSpecifier {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the version specifier is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMissing)) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMissing)) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version specification is possibly missing a version specifier; consider using '// swift-tools-version:\(ToolsVersion.currentToolsVersion < .v5_4 ? "" : " ")\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)\(ToolsVersion.currentToolsVersion.patch == 0 ? "" : ".\(ToolsVersion.currentToolsVersion.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                    "the Swift tools version specification is possibly missing a version specifier; consider using '// swift-tools-version:\(ToolsVersion.current < .v5_4 ? "" : " ")\(ToolsVersion.current.major).\(ToolsVersion.current.minor)\(ToolsVersion.current.patch == 0 ? "" : ".\(ToolsVersion.current.patch)")' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                 )
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each misspelt comment marker in Swift tools version specification.
     func testMisspeltSpecificationCommentMarkers() throws {
         let manifestSnippetsWithMisspeltSpecificationCommentMarker = [
@@ -292,13 +284,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\r\r\r*/swift-tools-version:4.5",
             "\n\n\n/*/*\t\tSwift5\r",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithMisspeltSpecificationCommentMarker {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the comment marker is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMisspelt(let misspeltCommentMarker))) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMisspelt(let misspeltCommentMarker))) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
@@ -309,7 +301,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each misspelt label in Swift tools version specification.
     func testMisspeltSpecificationLabels() throws {
         let manifestSnippetsWithMisspeltSpecificationLabel = [
@@ -320,13 +312,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             // Misspelt labels are diagnosed before backward-compatibility checks.
             "\n\r//\t\u{A0}prompt-t00ls-version:3.0.0.0\r\n",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithMisspeltSpecificationLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the label is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.label(.isMisspelt(let misspeltLabel))) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.label(.isMisspelt(let misspeltLabel))) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.label(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
@@ -337,7 +329,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
         }
     }
-    
+
     /// Verifies that the correct error is thrown for each misspelt version specifier in Swift tools version specification.
     func testMisspeltVersionSpecifiers() throws {
         let manifestSnippetsWithMisspeltVersionSpecifier = [
@@ -350,36 +342,36 @@ class ToolsVersionLoaderTests: XCTestCase {
             // Misspelt version specifiers are diagnosed before backward-compatibility checks.
             "\u{A}\u{B}\u{C}\u{D}//\u{3000}swift-tools-version:五.二\u{2028}",
         ]
-        
+
         for manifestSnippet in manifestSnippetsWithMisspeltVersionSpecifier {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: manifestSnippet)),
+                try self.parse(manifestSnippet),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the version specifier is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(let misspeltVersionSpecifier))) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(let misspeltVersionSpecifier))) = error else {
                     XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                    "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                 )
             }
         }
     }
-    
+
     /// Verifies that a correct error is thrown, if the manifest is valid for Swift tools version ≥ 5.4, but invalid for version < 5.4.
     func testBackwardIncompatibilityPre5_4() throws {
-        
+
         // The order of tests in this function:
         // 1. Test backward-incompatible leading whitespace for Swift < 5.4.
         // 2. Test that backward-incompatible leading whitespace is diagnosed before backward-incompatible spacings.
         // 3. Test spacings before the label.
         // 4. Test that backward-incompatible spacings before the label are diagnosed before those after the label.
         // 5. Test spacings after the label.
-        
+
         // MARK: 1 leading u+000D
-        
+
         let manifestSnippetWith1LeadingCarriageReturn = [
             "\u{D}//swift-tools-version:3.1"                : "3.1.0",
             "\u{D}//swift-tools-version:3.1-dev"            : "3.1.0",
@@ -395,13 +387,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\u{D}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
             "\u{D}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingCarriageReturn {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D, and the specified version \(toolsVersionString) (< 5.4) supports only leading line feeds (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -411,9 +403,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: 1 U+0020
-        
+
         let manifestSnippetWith1LeadingSpace = [
             "\u{20}//swift-tools-version:3.1"                : "3.1.0",
             "\u{20}//swift-tools-version:3.1-dev"            : "3.1.0",
@@ -429,13 +421,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\u{20}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
             "\u{20}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingSpace {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+0020, and the specified version \(toolsVersionString) (< 5.4) supports only leading line feeds (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -445,9 +437,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: An assortment of leading whitespace characters
-        
+
         let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters = [
             "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1"                : "3.1.0",
             "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1-dev"            : "3.1.0",
@@ -463,13 +455,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
             "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (< 5.4) supports only leading line feeds (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -479,9 +471,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: An assortment of leading whitespace characters and an assortment of horizontal whitespace characters surrounding the label
-        
+
         let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel = [
             "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1"                : "3.1.0",
             "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1-dev"            : "3.1.0",
@@ -497,15 +489,15 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2;hello"        : "3.5.2",
             "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         // Backward-incompatible leading whitespace is diagnosed before backward-incompatible spacings surrounding the label.
         // So the errors thrown here should be about invalid leading whitespace, although both the leading whitespace and the spacings here are backward-incompatible.
         for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (< 5.4) supports only leading line feeds (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -515,9 +507,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: No spacing surrounding the label
-        
+
         let specificationsWithZeroSpacing = [
             "//swift-tools-version:3.1"                : "3.1.0",
             "//swift-tools-version:3.1-dev"            : "3.1.0",
@@ -533,13 +525,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//swift-toolS-version:3.5.2;hello"        : "3.5.2",
             "//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in specificationsWithZeroSpacing {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because there is no spacing between '//' and 'swift-tools-version', and the specified version \(toolsVersionString) (< 5.4) supports exactly 1 space (U+0020) there"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -549,9 +541,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: An assortment of horizontal whitespace characters before the label
-        
+
         let specificationsWithAnAssortmentOfWhitespacesBeforeLabel = [
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1"                : "3.1.0",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1-dev"            : "3.1.0",
@@ -567,13 +559,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:3.5.2;hello"        : "3.5.2",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesBeforeLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between '//' and 'swift-tools-version' is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (< 5.4) supports exactly 1 space (U+0020) there."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -583,9 +575,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: An assortment of horizontal whitespace characters surrounding the label
-        
+
         let specificationsWithAnAssortmentOfWhitespacesBeforeAndAfterLabel = [
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
@@ -601,15 +593,15 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-toolS-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}sWiFt-tOoLs-vErSiOn:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         // Backward-incompatible spacings after the comment marker is diagnosed before backward-incompatible spacings after the label.
         // So the errors thrown here should be about invalid spacing after comment marker, although both the spacings here are backward-incompatible.
         for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesBeforeAndAfterLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between '//' and 'swift-tools-version' is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (< 5.4) supports exactly 1 space (U+0020) there."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -619,9 +611,9 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
         // MARK: 1 U+0020 before the label and an assortment of horizontal whitespace characters after the label
-        
+
         let specificationsWithAnAssortmentOfWhitespacesAfterLabel = [
             "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
             "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
@@ -637,13 +629,13 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-toolS-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
             "// sWiFt-tOoLs-vErSiOn:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
         ]
-        
+
         for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesAfterLabel {
             XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
+                try self.parse(specification),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between 'swift-tools-version' and the version specifier is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (< 5.4) supports no spacing there."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_4(.spacingAfterLabel, _) = error else {
+                guard let error = error as? ToolsVersionParser.Error, case .backwardIncompatiblePre5_4(.spacingAfterLabel, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_4(.spacingAfterLabel, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
@@ -653,7 +645,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 )
             }
         }
-        
+
     }
 
     func testVersionSpecificManifest() throws {
@@ -662,37 +654,38 @@ class ToolsVersionLoaderTests: XCTestCase {
         try fs.createDirectory(root, recursive: true)
 
         /// Loads the tools version of root pkg.
-        func load(_ body: (ToolsVersion) -> Void) {
-            body(try! loader.load(at: root, fileSystem: fs))
+        func parse(_ body: (ToolsVersion) -> Void) throws {
+            let manifestPath = try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: .current)
+            body(try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs))
         }
 
         // Test default manifest.
         try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: "// swift-tools-version:3.1.1\n")
-        load { version in
+        try parse { version in
             XCTAssertEqual(version.description, "3.1.1")
         }
 
         // Test version specific manifests.
-        let keys = SwiftVersion.currentVersion.versionSpecificKeys
+        let keys = ToolsVersion.current.versionSpecificKeys
 
         // In case the count ever changes, we will need to modify this test.
         XCTAssertEqual(keys.count, 3)
 
         // Test the last key.
         try fs.writeFileContents(root.appending(component: "Package\(keys[2]).swift"), bytes: "// swift-tools-version:3.4.1\n")
-        load { version in
+        try parse { version in
             XCTAssertEqual(version.description, "3.4.1")
         }
 
         // Test the second last key.
         try fs.writeFileContents(root.appending(component: "Package\(keys[1]).swift"), bytes: "// swift-tools-version:3.4.0\n")
-        load { version in
+        try parse { version in
             XCTAssertEqual(version.description, "3.4.0")
         }
 
         // Test the first key.
         try fs.writeFileContents(root.appending(component: "Package\(keys[0]).swift"), bytes: "// swift-tools-version:3.4.5\n")
-        load { version in
+        try parse { version in
             XCTAssertEqual(version.description, "3.4.5")
         }
     }
@@ -703,31 +696,32 @@ class ToolsVersionLoaderTests: XCTestCase {
         )
         let root = AbsolutePath("/pkg")
 
+        func parse(currentToolsVersion: ToolsVersion, _ body: (ToolsVersion) -> Void) throws {
+            let manifestPath = try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: currentToolsVersion)
+            body(try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs))
+        }
+
         try fs.writeFileContents(root.appending(component: "Package.swift"), bytes: "// swift-tools-version:1.0.0\n")
         try fs.writeFileContents(root.appending(component: "Package@swift-4.2.swift"), bytes: "// swift-tools-version:3.4.5\n")
         try fs.writeFileContents(root.appending(component: "Package@swift-15.1.swift"), bytes: "// swift-tools-version:3.4.6\n")
         try fs.writeFileContents(root.appending(component: "Package@swift-15.2.swift"), bytes: "// swift-tools-version:3.4.7\n")
         try fs.writeFileContents(root.appending(component: "Package@swift-15.3.swift"), bytes: "// swift-tools-version:3.4.8\n")
 
-        do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.1.1")).load(at: root, fileSystem: fs)
+        try parse(currentToolsVersion: ToolsVersion(version: "15.1.1")) { version in
             XCTAssertEqual(version.description, "3.4.6")
         }
 
-        do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.2.5")).load(at: root, fileSystem: fs)
+        try parse(currentToolsVersion: ToolsVersion(version: "15.2.5")) { version in
             XCTAssertEqual(version.description, "3.4.7")
         }
 
-        do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "3.0.0")).load(at: root, fileSystem: fs)
+        try parse(currentToolsVersion: ToolsVersion(version: "3.0.0")) { version in
             XCTAssertEqual(version.description, "1.0.0")
         }
 
-        do {
-            let version = try ToolsVersionLoader(currentToolsVersion: ToolsVersion(version: "15.3.0")).load(at: root, fileSystem: fs)
+        try parse(currentToolsVersion: ToolsVersion(version: "15.3.0")) { version in
             XCTAssertEqual(version.description, "3.4.8")
         }
     }
-    
+
 }

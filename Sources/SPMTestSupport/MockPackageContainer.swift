@@ -76,7 +76,7 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
-        return ToolsVersion.currentToolsVersion
+        return ToolsVersion.current
     }
 
     public var isRemoteContainer: Bool? {

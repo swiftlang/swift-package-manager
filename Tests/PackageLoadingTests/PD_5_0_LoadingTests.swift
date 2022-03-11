@@ -383,7 +383,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
                 do {
                     _ = try loader.load(
-                        at: manifestPath.parentDirectory,
+                        manifestPath: manifestPath,
                         packageKind: .fileSystem(manifestPath.parentDirectory),
                         toolsVersion: .v5,
                         fileSystem: fs,
@@ -418,7 +418,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
 
                 _ = try loader.load(
-                    at: manifestPath.parentDirectory,
+                    manifestPath: manifestPath,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v5,
                     fileSystem: fs,
@@ -607,7 +607,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             let manifest = try manifestLoader.load(
-                at: manifestPath.parentDirectory,
+                manifestPath: manifestPath,
                 packageKind: .fileSystem(manifestPath.parentDirectory),
                 toolsVersion: .v5,
                 fileSystem: fs,
