@@ -11296,14 +11296,15 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let customFS = InMemoryFileSystem()
-        let sourcesDir = AbsolutePath("/Sources")
-        let targetDir = sourcesDir.appending(component: "Baz")
-        try customFS.createDirectory(targetDir, recursive: true)
-        try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
         #warning("confirm with boris that this is expected")
         // write a manifest
         try customFS.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
         try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: .root, toolsVersion: .current, fileSystem: customFS)
+        // write the sources
+        let sourcesDir = AbsolutePath("/Sources")
+        let targetDir = sourcesDir.appending(component: "Baz")
+        try customFS.createDirectory(targetDir, recursive: true)
+        try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
 
         let bazURL = try XCTUnwrap(URL(string: "https://example.com/baz"))
         let bazPackageReference = PackageReference(identity: PackageIdentity(url: bazURL), kind: .remoteSourceControl(bazURL))
