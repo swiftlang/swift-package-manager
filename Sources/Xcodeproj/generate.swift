@@ -74,7 +74,7 @@ public enum XcodeProject {
         projectName: String,
         xcodeprojPath: AbsolutePath,
         graph: PackageGraph,
-        repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        repositoryProvider: RepositoryProvider,
         options: XcodeprojOptions,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope

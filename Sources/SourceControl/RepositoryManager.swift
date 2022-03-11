@@ -15,7 +15,7 @@ import TSCBasic
 import PackageModel
 
 /// Manages a collection of bare repositories.
-public class RepositoryManager {
+public class RepositoryManager: Cancellable {
     public typealias Delegate = RepositoryManagerDelegate
 
     /// The path under which repositories are stored.
@@ -41,8 +41,12 @@ public class RepositoryManager {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
+    // tracks outstanding lookups for de-duping requests
     private var pendingLookups = [RepositorySpecifier: DispatchGroup]()
     private var pendingLookupsLock = NSLock()
+
+    // tracks outstanding lookups for cancellation
+    private var outstandingLookups = ThreadSafeKeyValueStore<UUID, (repository: RepositorySpecifier, completion: (Result<RepositoryHandle, Error>) -> Void, queue: DispatchQueue)>()
 
     /// Create a new empty manager.
     ///
@@ -54,6 +58,7 @@ public class RepositoryManager {
     ///   - provider: The repository provider.
     ///   - cachePath: The repository cache location.
     ///   - cacheLocalPackages: Should cache local packages as well. For testing purposes.
+    ///   - maxConcurrentOperations: Max concurrent lookup operations
     ///   - initializationWarningHandler: Initialization warnings handler.
     ///   - delegate: The repository manager delegate.
     public init(
@@ -62,6 +67,7 @@ public class RepositoryManager {
         provider: RepositoryProvider,
         cachePath: AbsolutePath? =  .none,
         cacheLocalPackages: Bool = false,
+        maxConcurrentOperations: Int? = .none,
         initializationWarningHandler: (String) -> Void,
         delegate: Delegate? = .none
     ) {
@@ -74,11 +80,11 @@ public class RepositoryManager {
         self.delegate = delegate
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
-        let maxOperations = min(3, Concurrency.maxOperations)
+        let maxConcurrentOperations = min(maxConcurrentOperations ?? 3, Concurrency.maxOperations)
         self.lookupQueue = OperationQueue()
         self.lookupQueue.name = "org.swift.swiftpm.repository-manager"
-        self.lookupQueue.maxConcurrentOperationCount = maxOperations
-        self.concurrencySemaphore = DispatchSemaphore(value: maxOperations)
+        self.lookupQueue.maxConcurrentOperationCount = maxConcurrentOperations
+        self.concurrencySemaphore = DispatchSemaphore(value: maxConcurrentOperations)
     }
 
     /// Get a handle to a repository.
@@ -105,6 +111,10 @@ public class RepositoryManager {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<RepositoryHandle, Error>) -> Void
     ) {
+        // records outstanding lookups for cancellation purposes
+        let lookupKey = UUID()
+        self.outstandingLookups[lookupKey] = (repository: repository, completion: completion, queue: callbackQueue)
+
         // wrap the callback in the requested queue and cleanup operations
         let completion: (Result<RepositoryHandle, Error>) -> Void = { result in
             // free concurrency control semaphore
@@ -114,9 +124,12 @@ public class RepositoryManager {
             self.pendingLookups[repository]?.leave()
             self.pendingLookups[repository] = nil
             self.pendingLookupsLock.unlock()
-            // call back on the request queue
-            callbackQueue.async {
-                completion(result)
+            // cancellation support
+            // if the callback is no longer on the pending lists it has been canceled already
+            // read + remove from outstanding requests atomically
+            if let (_, callback, queue) = self.outstandingLookups.removeValue(forKey: lookupKey) {
+                // call back on the request queue
+                queue.async { callback(result) }
             }
         }
 
@@ -235,6 +248,18 @@ public class RepositoryManager {
         _ = try fetchResult.get()
 
         return handle
+    }
+
+    public func cancel(deadline: DispatchTime) throws {
+        // ask the provider to cancel
+        try self.provider.cancel(deadline: deadline)
+        // cancel any outstanding lookups
+        let outstanding = self.outstandingLookups.clear()
+        for (_, callback, queue) in outstanding.values {
+            queue.async {
+                callback(.failure(CancellationError()))
+            }
+        }
     }
 
     /// Fetches the repository into the cache. If no `cachePath` is set or an error occurred fall back to fetching the repository without populating the cache.

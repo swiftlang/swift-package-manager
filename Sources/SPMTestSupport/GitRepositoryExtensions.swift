@@ -16,7 +16,6 @@ import enum TSCUtility.Git
 /// Extensions useful for unit testing purposes.
 /// Note: These are not thread safe.
 public extension GitRepository {
-
     /// Create the repository using git init.
     func create() throws {
         try systemQuietly([Git.tool, "-C", self.path.pathString, "init"])

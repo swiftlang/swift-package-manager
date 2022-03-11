@@ -146,6 +146,10 @@ private class MockRepositories: RepositoryProvider {
     func isValidRefFormat(_ ref: String) -> Bool {
         return true
     }
+
+    func cancel(deadline: DispatchTime) throws {
+        // noop
+    }
 }
 
 private class MockResolverDelegate: RepositoryManager.Delegate {
