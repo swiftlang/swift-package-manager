@@ -308,7 +308,6 @@ public class Workspace {
     ///   - location: Workspace location configuration.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
-    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
@@ -320,7 +319,6 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
-        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customHostToolchain: UserToolchain? = .none,
@@ -335,7 +333,6 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
-            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: .none,
             customFingerprints: .none,
@@ -365,7 +362,6 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
-    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
@@ -376,7 +372,6 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
-        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customManifestLoader: ManifestLoaderProtocol? = .none,
@@ -390,7 +385,6 @@ public class Workspace {
         try self.init(
             fileSystem: fileSystem,
             location: location,
-            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
@@ -410,7 +404,6 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
-    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
@@ -421,7 +414,6 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
-        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customHostToolchain: UserToolchain,
@@ -441,7 +433,6 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
-            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customHostToolchain: customHostToolchain,
             customManifestLoader: manifestLoader,
@@ -491,7 +482,6 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
-            cancellator: .none,
             initializationWarningHandler: .none,
             customRegistriesConfiguration: registries,
             customFingerprints: customFingerprintStorage,
@@ -608,7 +598,6 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
-        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration? = .none,
@@ -632,7 +621,6 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
-            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: customRegistriesConfiguration,
             customFingerprints: customFingerprints,
@@ -657,7 +645,6 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         configuration: WorkspaceConfiguration?,
-        cancellator: Cancellator?,
         initializationWarningHandler: ((String) -> Void)?,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration?,
@@ -709,8 +696,6 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
         )
-        // register the source control dependencies fetcher with the cancellation handler
-        cancellator?.register(name: "repository fetching", handler: repositoryManager)
 
         let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
             FilePackageFingerprintStorage(
@@ -740,8 +725,6 @@ public class Workspace {
             checksumAlgorithm: checksumAlgorithm,
             delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
         )
-        // register the registry dependencies downloader with the cancellation handler
-        cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
         if registryClient.configured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
@@ -760,8 +743,6 @@ public class Workspace {
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
         )
-        // register the binary artifacts downloader with the cancellation handler
-        cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
         // initialize
         self.fileSystem = fileSystem

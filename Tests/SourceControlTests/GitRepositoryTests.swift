@@ -57,7 +57,7 @@ class GitRepositoryTests: XCTestCase {
             let provider = GitRepositoryProvider()
             XCTAssertTrue(try provider.workingCopyExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testCheckoutPath)
+            try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
             XCTAssertDirectoryExists(testCheckoutPath)

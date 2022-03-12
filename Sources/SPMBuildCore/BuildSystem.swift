@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basics
 import PackageGraph
 
 /// An enum representing what subset of the package to build.
@@ -28,7 +27,7 @@ public enum BuildSubset {
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
-public protocol BuildSystem: Cancellable {
+public protocol BuildSystem {
 
     /// The delegate used by the build system.
     var delegate: BuildSystemDelegate? { get }
@@ -43,6 +42,9 @@ public protocol BuildSystem: Cancellable {
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.
     func build(subset: BuildSubset) throws
+
+    /// Cancels the currently running operation, if possible.
+    func cancel()
 }
 
 extension BuildSystem {

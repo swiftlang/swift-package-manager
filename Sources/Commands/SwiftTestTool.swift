@@ -304,7 +304,7 @@ public struct SwiftTestTool: SwiftCommand {
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
                 xctestArg: xctestArg,
-                cancellator: swiftTool.cancellator,
+                processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 testEnv: testEnv,
                 observabilityScope: swiftTool.observabilityScope
@@ -353,7 +353,7 @@ public struct SwiftTestTool: SwiftCommand {
             // Run the tests using the parallel runner.
             let runner = ParallelTestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
-                cancellator: swiftTool.cancellator,
+                processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 buildOptions: globalOptions.build,
@@ -540,7 +540,7 @@ final class TestRunner {
     /// Arguments to pass to XCTest if any.
     private let xctestArg: String?
 
-    private let cancellator: Cancellator
+    private let processSet: ProcessSet
 
     // The toolchain to use.
     private let toolchain: UserToolchain
@@ -558,14 +558,14 @@ final class TestRunner {
     init(
         bundlePaths: [AbsolutePath],
         xctestArg: String? = nil,
-        cancellator: Cancellator,
+        processSet: ProcessSet,
         toolchain: UserToolchain,
         testEnv: [String: String],
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.xctestArg = xctestArg
-        self.cancellator = cancellator
+        self.processSet = processSet
         self.toolchain = toolchain
         self.testEnv = testEnv
         self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
@@ -617,10 +617,7 @@ final class TestRunner {
                 stderr: outputHandler
             )
             let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
-            guard let terminationKey = self.cancellator.register(process) else {
-                return false // terminating
-            }
-            defer { self.cancellator.deregister(terminationKey) }
+            try self.processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
             switch result.exitStatus {
@@ -634,6 +631,8 @@ final class TestRunner {
             default:
                 return false
             }
+        } catch ProcessSetError.cancelled {
+            return false
         } catch {
             testObservabilityScope.emit(error)
             return false
@@ -671,7 +670,7 @@ final class ParallelTestRunner {
     /// True if all tests executed successfully.
     private(set) var ranSuccessfully = true
 
-    private let cancellator: Cancellator
+    private let processSet: ProcessSet
 
     private let toolchain: UserToolchain
 
@@ -689,7 +688,7 @@ final class ParallelTestRunner {
 
     init(
         bundlePaths: [AbsolutePath],
-        cancellator: Cancellator,
+        processSet: ProcessSet,
         toolchain: UserToolchain,
         numJobs: Int,
         buildOptions: BuildOptions,
@@ -698,7 +697,7 @@ final class ParallelTestRunner {
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
-        self.cancellator = cancellator
+        self.processSet = processSet
         self.toolchain = toolchain
         self.numJobs = numJobs
         self.shouldOutputSuccess = shouldOutputSuccess
@@ -758,7 +757,7 @@ final class ParallelTestRunner {
                     let testRunner = TestRunner(
                         bundlePaths: [test.productPath],
                         xctestArg: test.specifier,
-                        cancellator: self.cancellator,
+                        processSet: self.processSet,
                         toolchain: self.toolchain,
                         testEnv: testEnv,
                         observabilityScope: self.observabilityScope
