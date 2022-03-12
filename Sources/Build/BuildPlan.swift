@@ -1351,14 +1351,9 @@ public final class ProductBuildDescription {
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
           }
 
-          if useStdlibRpath && buildParameters.triple.isDarwin() {
-            let stdlib = buildParameters.toolchain.macosSwiftStdlib
-            args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
-          }
-
           // When deploying to macOS prior to macOS 12, add an rpath to the
           // back-deployed concurrency libraries.
-          if buildParameters.triple.isDarwin(),
+          if useStdlibRpath, buildParameters.triple.isDarwin(),
              let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
              macOSSupportedPlatform.version.major < 12 {
             let backDeployedStdlib = buildParameters.toolchain.macosSwiftStdlib
