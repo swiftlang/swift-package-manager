@@ -18,7 +18,7 @@ import TSCBasic
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
-public final class RegistryClient: Cancellable {
+public final class RegistryClient {
     private let apiVersion: APIVersion = .v1
 
     private let configuration: RegistryConfiguration
@@ -48,11 +48,6 @@ public final class RegistryClient: Cancellable {
 
     public var configured: Bool {
         return !self.configuration.isEmpty
-    }
-
-    /// Cancel any outstanding requests
-    public func cancel(deadline: DispatchTime) throws {
-        try self.httpClient.cancel(deadline: deadline)
     }
 
     public func getPackageMetadata(

@@ -289,7 +289,7 @@ extension SwiftCommand {
 public class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
-    static var cancellator: Cancellator?
+    static var shutdownRegistry: (processSet: ProcessSet, buildSystemRef: BuildSystemRef)?
     #endif
 
     /// The original working directory.
@@ -334,8 +334,12 @@ public class SwiftTool {
     /// Path to the shared configuration directory
     let sharedConfigurationDirectory: AbsolutePath?
 
-    /// Cancellator to handle cancellation of outstanding work when handling SIGINT
-    let cancellator: Cancellator
+    /// The process set to hold the launched processes. These will be terminated on any signal
+    /// received by the swift tools.
+    let processSet: ProcessSet
+
+    /// The current build system reference. The actual reference is present only during an active build.
+    let buildSystemRef: BuildSystemRef
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
@@ -380,8 +384,6 @@ public class SwiftTool {
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
 
-        let cancellator = Cancellator(observabilityScope: self.observabilityScope)
-
         // Capture the original working directory ASAP.
         guard let cwd = self.fileSystem.currentWorkingDirectory else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
@@ -398,13 +400,17 @@ public class SwiftTool {
                 try ProcessEnv.chdir(packagePath)
             }
 
+            let processSet = ProcessSet()
+            let buildSystemRef = BuildSystemRef()
+
             #if os(Windows)
             // set shutdown handler to terminate sub-processes, etc
-            SwiftTool.cancellator = cancellator
+            SwiftTool.shutdownRegistry = (processSet: processSet, buildSystemRef: buildSystemRef)
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
                 DefaultPluginScriptRunner.cancelAllRunningPlugins()
-                SwiftTool.cancellator?.cancel()
+                SwiftTool.shutdownRegistry?.processSet.terminate()
+                SwiftTool.shutdownRegistry?.buildSystemRef.buildSystem?.cancel()
 
                 // Reset the handler.
                 _ = SetConsoleCtrlHandler(nil, false)
@@ -424,7 +430,8 @@ public class SwiftTool {
 
                 // Terminate all processes on receiving an interrupt signal.
                 DefaultPluginScriptRunner.cancelAllRunningPlugins()
-                try? cancellator.cancel(deadline: .now() + .seconds(30))
+                processSet.terminate()
+                buildSystemRef.buildSystem?.cancel()
 
                 #if os(macOS) || os(OpenBSD)
                 // Install the default signal handler.
@@ -450,7 +457,9 @@ public class SwiftTool {
             interruptSignalSource.resume()
             #endif
 
-            self.cancellator = cancellator
+            self.processSet = processSet
+            self.buildSystemRef = buildSystemRef
+
         } catch {
             self.observabilityScope.emit(error)
             throw ExitCode.failure
@@ -534,6 +543,7 @@ public class SwiftTool {
         }
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
@@ -555,10 +565,10 @@ public class SwiftTool {
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
             ),
-            cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
             customManifestLoader: self.getManifestLoader(),
+            customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate
         )
         _workspace = workspace
@@ -747,8 +757,8 @@ public class SwiftTool {
             observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
 
-        // register the build system with the cancellation handler
-        self.cancellator.register(name: "build system", handler: buildOp.cancel)
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildSystem = buildOp
         return buildOp
     }
 
@@ -793,8 +803,8 @@ public class SwiftTool {
             )
         }
 
-        // register the build system with the cancellation handler
-        self.cancellator.register(name: "build system", handler: buildSystem.cancel)
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildSystem = buildSystem
         return buildSystem
     }
 
@@ -994,6 +1004,12 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
         // further validation is done in workspace
         return fileSystem.swiftPMCacheDirectory
     }
+}
+
+/// A wrapper to hold the build system so we can use it inside
+/// the int. handler without requiring to initialize it.
+final class BuildSystemRef {
+    var buildSystem: BuildSystem?
 }
 
 extension Basics.Diagnostic {

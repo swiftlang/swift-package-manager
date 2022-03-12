@@ -9,7 +9,6 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import Basics
-import Dispatch
 import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
@@ -214,7 +213,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return file
     }
 
-    public func cancel(deadline: DispatchTime) throws {
+    public func cancel() {
     }
 
     /// Returns a new instance of `XCBuildDelegate` for a build operation.

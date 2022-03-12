@@ -102,10 +102,7 @@ struct APIDigesterBaselineDumper {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot,
-            cancellator: swiftTool.cancellator
-        )
+        let workspace = try Workspace(forRootPackage: baselinePackageRoot)
 
         let graph = try workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,

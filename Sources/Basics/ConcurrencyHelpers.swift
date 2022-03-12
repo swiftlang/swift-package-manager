@@ -55,12 +55,9 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         }
     }
 
-    @discardableResult
-    public func clear() -> [Key: Value] {
+    public func clear() {
         self.lock.withLock {
-            let underlying = self.underlying
             self.underlying.removeAll()
-            return underlying
         }
     }
 
@@ -116,12 +113,9 @@ public final class ThreadSafeArrayStore<Value> {
         }
     }
 
-    @discardableResult
-    public func clear() -> [Value] {
+    public func clear() {
         self.lock.withLock {
-            let underlying = self.underlying
-            self.underlying.removeAll()
-            return underlying
+            self.underlying = []
         }
     }
 

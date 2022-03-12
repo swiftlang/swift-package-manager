@@ -30,7 +30,7 @@ extension Workspace {
     }
 
     // marked public since used in tools
-    public struct BinaryArtifactsManager: Cancellable {
+    public struct BinaryArtifactsManager {
         public typealias Delegate = BinaryArtifactsManagerDelegate
 
         private let fileSystem: FileSystem
@@ -396,13 +396,6 @@ extension Workspace {
 
             let contents = try self.fileSystem.readFileContents(path)
             return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
-        }
-
-        public func cancel(deadline: DispatchTime) throws {
-            try self.httpClient.cancel(deadline: deadline)
-            if let cancellableArchiver = self.archiver as? Cancellable {
-                try cancellableArchiver.cancel(deadline: deadline)
-            }
         }
     }
 }

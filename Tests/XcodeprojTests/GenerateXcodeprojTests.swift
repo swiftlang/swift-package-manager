@@ -464,25 +464,3 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 }
-
-extension XcodeProject {
-    @discardableResult
-    static func generate(
-        projectName: String,
-        xcodeprojPath: AbsolutePath,
-        graph: PackageGraph,
-        options: XcodeprojOptions,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws -> Xcode.Project {
-        try Self.generate(
-            projectName: projectName,
-            xcodeprojPath: xcodeprojPath,
-            graph: graph,
-            repositoryProvider: GitRepositoryProvider(),
-            options: options,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-    }
-}

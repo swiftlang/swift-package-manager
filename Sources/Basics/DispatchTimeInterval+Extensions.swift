@@ -27,21 +27,6 @@ extension DispatchTimeInterval {
         }
     }
 
-    public func nanoseconds() -> Int? {
-        switch self {
-        case .seconds(let value):
-            return value.multipliedReportingOverflow(by: 1_000_000_000).partialValue
-        case .milliseconds(let value):
-            return value.multipliedReportingOverflow(by: 1_000_000).partialValue
-        case .microseconds(let value):
-            return value.multipliedReportingOverflow(by: 1000).partialValue
-        case .nanoseconds(let value):
-            return value
-        default:
-            return nil
-        }
-    }
-
     public func milliseconds() -> Int? {
         switch self {
         case .seconds(let value):
@@ -96,7 +81,7 @@ extension DispatchTimeInterval {
 #if os(Linux) || os(Windows) || os(Android) || os(OpenBSD)
 extension DispatchTime {
     public func distance(to: DispatchTime) -> DispatchTimeInterval {
-        let duration = to.uptimeNanoseconds.subtractingReportingOverflow(self.uptimeNanoseconds).partialValue
+        let duration = to.uptimeNanoseconds - self.uptimeNanoseconds
         return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
     }
 }
