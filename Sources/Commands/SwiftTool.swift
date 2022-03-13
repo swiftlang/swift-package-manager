@@ -404,7 +404,7 @@ public class SwiftTool {
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
                 DefaultPluginScriptRunner.cancelAllRunningPlugins()
-                SwiftTool.cancellator?.cancel()
+                try? SwiftTool.cancellator?.cancel(deadline: .now() + .seconds(30))
 
                 // Reset the handler.
                 _ = SetConsoleCtrlHandler(nil, false)
