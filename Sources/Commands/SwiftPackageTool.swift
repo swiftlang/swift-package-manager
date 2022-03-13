@@ -1287,7 +1287,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                         let testRunner = TestRunner(
                             bundlePaths: [testProduct.bundlePath],
                             xctestArg: testSpecifier,
-                            processSet: swiftTool.processSet,
+                            cancellator: swiftTool.cancellator,
                             toolchain: toolchain,
                             testEnv: testEnvironment,
                             observabilityScope: swiftTool.observabilityScope)
@@ -1577,6 +1577,7 @@ extension SwiftPackageTool {
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
+                repositoryProvider: GitRepositoryProvider(),
                 options: genOptions,
                 fileSystem: swiftTool.fileSystem,
                 observabilityScope: swiftTool.observabilityScope

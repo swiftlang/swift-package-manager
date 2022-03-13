@@ -38,5 +38,4 @@ class GitRepositoryProviderTests: XCTestCase {
             XCTAssertFalse(provider.repositoryExists(at: notGitChildPath))
         }
     }
-
 }

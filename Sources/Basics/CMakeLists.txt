@@ -11,6 +11,7 @@ add_library(Basics
   Archiver+Zip.swift
   AuthorizationProvider.swift
   ByteString+Extensions.swift
+  Cancellator.swift
   ConcurrencyHelpers.swift
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
