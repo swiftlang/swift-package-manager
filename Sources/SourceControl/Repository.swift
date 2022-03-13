@@ -10,6 +10,7 @@
 
 import Foundation
 import TSCBasic
+import Basics
 
 /// Specifies a repository address.
 public struct RepositorySpecifier: Hashable {
@@ -72,7 +73,7 @@ extension RepositorySpecifier: CustomStringConvertible {
 /// This protocol defines the lower level interface used to to access
 /// repositories. High-level clients should access repositories via a
 /// `RepositoryManager`.
-public protocol RepositoryProvider {
+public protocol RepositoryProvider: Cancellable {
     /// Fetch the complete repository at the given location to `path`.
     ///
     /// - Parameters:

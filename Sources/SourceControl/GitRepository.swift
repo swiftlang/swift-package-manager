@@ -19,11 +19,10 @@ import protocol TSCUtility.DiagnosticLocationProviding
 
 /// Helper for shelling out to `git`
 private struct GitShellHelper {
-    /// Reference to process set, if installed.
-    private let processSet: ProcessSet?
+    private let cancellator: Cancellator
 
-    init(processSet: ProcessSet? = nil) {
-        self.processSet = processSet
+    init(cancellator: Cancellator) {
+        self.cancellator = cancellator
     }
 
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
@@ -33,7 +32,10 @@ private struct GitShellHelper {
         let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
-            try self.processSet?.add(process)
+            guard let terminationKey = self.cancellator.register(process) else {
+                throw CancellationError() // terminating
+            }
+            defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
             result = try process.waitUntilExit()
             guard result.exitStatus == .terminated(code: 0) else {
@@ -57,11 +59,15 @@ private struct GitShellHelper {
 // MARK: - GitRepositoryProvider
 
 /// A `git` repository provider.
-public struct GitRepositoryProvider: RepositoryProvider {
+public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
+    private let cancellator: Cancellator
     private let git: GitShellHelper
 
-    public init(processSet: ProcessSet? = nil) {
-        self.git = GitShellHelper(processSet: processSet)
+    public init() {
+        // helper to cancel outstanding processes
+        self.cancellator = Cancellator(observabilityScope: .none)
+        // helper to abstract shelling out to git
+        self.git = GitShellHelper(cancellator: cancellator)
     }
 
     @discardableResult
@@ -204,6 +210,10 @@ public struct GitRepositoryProvider: RepositoryProvider {
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(git: self.git, path: path)
     }
+
+    public func cancel(deadline: DispatchTime) throws {
+        try self.cancellator.cancel(deadline: deadline)
+    }
 }
 
 // MARK: - GitRepository
@@ -317,6 +327,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Concurrent queue to execute git cli on.
     private let git: GitShellHelper
+
     // lock top protect concurrent modifications to the repository
     private let lock = Lock()
 
@@ -329,8 +340,10 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
 
-    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true) {
-        let git = GitShellHelper()
+    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
+        // used in one-off operations on git repo, as such the terminator is not ver important
+        let cancellator = cancellator ?? Cancellator(observabilityScope: .none)
+        let git = GitShellHelper(cancellator: cancellator)
         self.init(git: git, path: path, isWorkingRepo: isWorkingRepo)
     }
 
@@ -431,7 +444,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch() throws {
-       try fetch(progress: nil)
+        try self.fetch(progress: nil)
     }
 
     public func fetch(progress: FetchProgress.Handler? = nil) throws {
