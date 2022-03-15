@@ -33,6 +33,9 @@ public enum ModuleError: Swift.Error {
     /// The artifact for the binary target could not be found.
     case artifactNotFound(targetName: String, expectedArtifactName: String)
 
+    /// Invalid module alias.
+    case invalidModuleAlias(originalName: String, newName: String)
+
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
 
@@ -84,6 +87,8 @@ extension ModuleError: CustomStringConvertible {
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .artifactNotFound(let targetName, let expectedArtifactName):
             return "binary target '\(targetName)' could not be mapped to an artifact with expected name '\(expectedArtifactName)'"
+        case .invalidModuleAlias(let originalName, let newName):
+            return "empty or invalid module alias; ['\(originalName)': '\(newName)']"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -645,8 +650,8 @@ public final class PackageBuilder {
             let manifestTarget = manifest.targetMap[potentialModule.name]
 
             // Get the dependencies of this target.
-            let dependencies: [Target.Dependency] = manifestTarget.map {
-                $0.dependencies.compactMap { dependency in
+            let dependencies: [Target.Dependency] = try manifestTarget.map {
+                try $0.dependencies.compactMap { dependency in
                     switch dependency {
                     case .target(let name, let condition):
                         // We don't create an object for targets which have no sources.
@@ -655,6 +660,7 @@ public final class PackageBuilder {
                         return .target(target, conditions: buildConditions(from: condition))
 
                     case .product(let name, let package, let moduleAliases, let condition):
+                        try validateModuleAliases(moduleAliases)
                         return .product(
                             .init(name: name, package: package, moduleAliases: moduleAliases),
                             conditions: buildConditions(from: condition)
@@ -717,6 +723,16 @@ public final class PackageBuilder {
             throw Target.Error.invalidName(
                 path: path.relative(to: packagePath),
                 problem: .emptyName)
+        }
+    }
+
+    /// Validates module alias key and value pairs and throws an error if empty or contains invalid characters.
+    private func validateModuleAliases(_ aliases: [String: String]?) throws {
+        guard let aliases = aliases else { return }
+        for (aliasKey, aliasValue) in aliases {
+            if !aliasKey.isValidIdentifier || !aliasValue.isValidIdentifier {
+                throw ModuleError.invalidModuleAlias(originalName: aliasKey, newName: aliasValue)
+            }
         }
     }
 

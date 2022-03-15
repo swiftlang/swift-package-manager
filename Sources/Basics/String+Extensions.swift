@@ -25,4 +25,9 @@ extension String {
         }
         return self
     }
+
+    public var isValidIdentifier: Bool {
+        guard let first = first else { return false }
+        return first.isLetter && allSatisfy { $0.isLetter || $0.isNumber }
+    }
 }

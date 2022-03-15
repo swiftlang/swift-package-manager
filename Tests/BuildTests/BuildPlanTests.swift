@@ -1685,6 +1685,96 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testModuleAliasingEmptyAlias() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": ""]
+                                                                 ),
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertTrue(observability.diagnostics.contains(where: {
+            $0.message.contains("empty or invalid module alias; ['Logging': '']")
+        }), "expected invalid aliases diagnostics")
+    }
+
+    func testModuleAliasingInvalidIdentifierAlias() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "P$0%^#@"]
+                                                                 ),
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertTrue(observability.diagnostics.contains(where: {
+            $0.message.contains("empty or invalid module alias; ['Logging': 'P$0%^#@']")
+        }), "expected invalid aliases diagnostics")
+    }
+
     func testModuleAliasingDirectDeps() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                                         "/thisPkg/Sources/exe/main.swift",
