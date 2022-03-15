@@ -67,7 +67,7 @@ extension Package {
 
         /// Module aliases for targets in this dependency. The key is an original target name and
         /// the value is a new unique name mapped to the name of the .swiftmodule binary.
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 5.7)
         public var moduleAliases: [String: String]?
 
         /// The requirement of the dependency.
