@@ -130,6 +130,10 @@ public class Target: PolymorphicCodableProtocol {
     ///   - name: The original name of a dependent target or this target
     ///   - alias: A new unique name mapped to the resulting binary name
     public func addModuleAlias(for name: String, as alias: String) {
+        assert(!name.isEmpty, "Name can't be empty")
+        assert(!alias.isEmpty, "Alias can't be empty")
+        assert(name != alias, "Name and alias can't be the same")
+
         if moduleAliases == nil {
             moduleAliases = [name: alias]
         } else {
