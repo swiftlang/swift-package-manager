@@ -1038,7 +1038,7 @@ These metadata keys have special meanings to the server and should be included i
 
 | Key               | Description                                          | Server Use                             |
 | ----------------- | ---------------------------------------------------- | -------------------------------------- |
-| `repositoryURL`   | HTTPS URL of the package's source code repository.   | The mapping between package identifer and repository URL gets recorded for the [lookup package identifiers by URL]((#endpoint-5) endpoint. | 
+| `repositoryURLs`  | An array of the package's source code repository URLs (e.g., `["https://github.com/mona/LinkedList", "ssh://git@github.com:mona/LinkedList.git"]`). | The mappings between package identifer and repository URL get recorded for the [lookup package identifiers by URL](#endpoint-5) endpoint. | 
 
 #### 4.6.3. Synchronous and asynchronous publication
 
