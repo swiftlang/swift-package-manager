@@ -435,7 +435,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "thisPkg",
             path: .init("/thisPkg"),
-            toolsVersion: .vNext,
+            toolsVersion: .v5_7,
             dependencies: [
                 .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                 .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
