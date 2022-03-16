@@ -572,9 +572,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
         // Diagnose if any target in this product uses an unsafe flag.
         for target in try product.recursiveTargetDependencies() {
-            let declarations = target.underlyingTarget.buildSettings.assignments.keys
-            for decl in declarations {
-                if BuildSettings.Declaration.unsafeSettings.contains(decl) {
+            for (decl, assignments) in target.underlyingTarget.buildSettings.assignments {
+                let flags = assignments.flatMap(\.value)
+                if BuildSettings.Declaration.unsafeSettings.contains(decl) && !flags.isEmpty {
                     self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }

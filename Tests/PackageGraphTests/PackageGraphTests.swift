@@ -1048,7 +1048,10 @@ class PackageGraphTests: XCTestCase {
                             ]
                         ),
                         TargetDescription(
-                            name: "Bar3"
+                            name: "Bar3",
+                            settings: [
+                                .init(tool: .swift, name: .unsafeFlags, value: []),
+                            ]
                         ),
                         TargetDescription(
                             name: "TransitiveBar",
