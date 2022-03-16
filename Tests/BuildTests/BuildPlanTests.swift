@@ -1725,9 +1725,9 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertTrue(observability.diagnostics.contains(where: {
-            $0.message.contains("empty or invalid module alias; ['Logging': '']")
-        }), "expected invalid aliases diagnostics")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("empty or invalid module alias; ['Logging': '']"), severity: .error)
+        }
     }
 
     func testModuleAliasingInvalidIdentifierAlias() throws {
@@ -1770,9 +1770,9 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertTrue(observability.diagnostics.contains(where: {
-            $0.message.contains("empty or invalid module alias; ['Logging': 'P$0%^#@']")
-        }), "expected invalid aliases diagnostics")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("empty or invalid module alias; ['Logging': 'P$0%^#@']"), severity: .error)
+        }
     }
 
     func testModuleAliasingDirectDeps() throws {

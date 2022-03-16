@@ -730,7 +730,9 @@ public final class PackageBuilder {
     private func validateModuleAliases(_ aliases: [String: String]?) throws {
         guard let aliases = aliases else { return }
         for (aliasKey, aliasValue) in aliases {
-            if !aliasKey.isValidIdentifier || !aliasValue.isValidIdentifier {
+            if !aliasKey.isValidIdentifier ||
+                !aliasValue.isValidIdentifier ||
+                aliasKey == aliasValue {
                 throw ModuleError.invalidModuleAlias(originalName: aliasKey, newName: aliasValue)
             }
         }
