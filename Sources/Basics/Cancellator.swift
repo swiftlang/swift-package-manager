@@ -52,6 +52,10 @@ public class Cancellator: Cancellable {
         self.register(name: "\(process.arguments.joined(separator: " "))", handler:  process.terminate)
     }
 
+    public func register(_ process: Foundation.Process) -> RegistrationKey? {
+        self.register(name: "\(process.description)", handler: process.terminate(timeout:))
+    }
+
     public func deregister(_ key: RegistrationKey) {
         self.registry[key] = nil
     }
@@ -128,6 +132,27 @@ extension TSCBasic.Process {
         }
         forceKillThread.start()
         _ = try? self.waitUntilExit()
+        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
+        // join the force-kill thread thread so we don't exit before everything terminates
+        forceKillThread.join()
+    }
+}
+
+extension Foundation.Process {
+    fileprivate func terminate(timeout: DispatchTime) {
+        // send graceful shutdown signal (SIGINT)
+        self.interrupt()
+
+        // start a thread to see if we need to terminate more forcibly
+        let forceKillSemaphore = DispatchSemaphore(value: 0)
+        let forceKillThread = TSCBasic.Thread {
+            if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
+                // force kill (SIGTERM)
+                self.terminate()
+            }
+        }
+        forceKillThread.start()
+        self.waitUntilExit()
         forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
         // join the force-kill thread thread so we don't exit before everything terminates
         forceKillThread.join()

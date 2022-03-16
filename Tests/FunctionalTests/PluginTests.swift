@@ -665,11 +665,10 @@ class PluginTests: XCTestCase {
             #endif
             
             // Ask the plugin running to cancel all plugins.
-            DefaultPluginScriptRunner.cancelAllRunningPlugins()
+            try scriptRunner.cancel(deadline: .now() + .seconds(5))
             
             // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
             #if os(macOS)
-            usleep(500)
             errno = 0
             getpriority(Int32(PRIO_PROCESS), UInt32(pid))
             XCTAssertEqual(errno, ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")

@@ -18,11 +18,12 @@ import TSCBasic
 import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
-public struct DefaultPluginScriptRunner: PluginScriptRunner {
-    let fileSystem: FileSystem
-    let cacheDir: AbsolutePath
-    let toolchain: ToolchainConfiguration
-    let enableSandbox: Bool
+public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
+    private let fileSystem: FileSystem
+    private let cacheDir: AbsolutePath
+    private let toolchain: ToolchainConfiguration
+    private let enableSandbox: Bool
+    private let cancellator: Cancellator
 
     private static var _hostTriple = ThreadSafeBox<Triple>()
     private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
@@ -33,6 +34,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
+        self.cancellator = Cancellator(observabilityScope: .none)
     }
     
     /// Public protocol function that starts compiling the plugin script to an executable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
@@ -454,16 +456,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.standardError = stderrPipe
         
         // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
-        DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
-            _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.insert(process)
+        guard let cancellationKey = self.cancellator.register(process) else {
+            return callbackQueue.async {
+                completion(.failure(CancellationError()))
+            }
         }
 
         // Set up a handler to deal with the exit of the plugin process.
         process.terminationHandler = { process in
             // Remove the process from the list of currently running ones.
-            DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
-                _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.remove(process)
-            }
+            self.cancellator.deregister(cancellationKey)
 
             // Close the output handle through which we talked to the plugin.
             try? outputHandle.close()
@@ -506,22 +508,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
 #endif
     }
-    
-    /// Cancels all currently running plugins, resulting in an error code indicating that they were interrupted. This is intended for use when the host process is interrupted.
-    public static func cancelAllRunningPlugins() {
-#if !os(iOS) && !os(watchOS) && !os(tvOS)
-        currentlyRunningPlugins.lock.withLock {
-            currentlyRunningPlugins.processes.forEach{
-                $0.terminate()
-            }
-            currentlyRunningPlugins.processes = []
-        }
-#endif
+
+    public func cancel(deadline: DispatchTime) throws {
+        try self.cancellator.cancel(deadline: deadline)
     }
-    /// Private list of currently running plugin processes and the lock that protects the list.
-#if !os(iOS) && !os(watchOS) && !os(tvOS)
-    private static var currentlyRunningPlugins: (processes: Set<Foundation.Process>, lock: Lock) = (.init(), .init())
-#endif
 }
 
 /// An error encountered by the default plugin runner.
