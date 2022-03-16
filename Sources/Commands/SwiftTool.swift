@@ -403,7 +403,6 @@ public class SwiftTool {
             SwiftTool.cancellator = cancellator
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 try? SwiftTool.cancellator?.cancel(deadline: .now() + .seconds(30))
 
                 // Reset the handler.
@@ -423,7 +422,6 @@ public class SwiftTool {
                 interruptSignalSource.cancel()
 
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 try? cancellator.cancel(deadline: .now() + .seconds(30))
 
                 #if os(macOS) || os(OpenBSD)
@@ -668,8 +666,8 @@ public class SwiftTool {
         }
     }
     
-    func getPluginScriptRunner() throws -> PluginScriptRunner {
-        let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
+    func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
+        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
@@ -677,6 +675,8 @@ public class SwiftTool {
             toolchain: self.getHostToolchain().configuration,
             enableSandbox: !self.options.security.shouldDisableSandbox
         )
+        // register the plugin runner system with the cancellation handler
+        self.cancellator.register(name: "plugin runner", handler: pluginScriptRunner)
         return pluginScriptRunner
     }
 
@@ -766,19 +766,13 @@ public class SwiftTool {
         let buildSystem: BuildSystem
         switch options.build.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-
-            buildSystem = try BuildOperation(
-                buildParameters: customBuildParameters ?? self.buildParameters(),
-                cacheBuildManifest: self.canUseCachedBuildManifest(),
-                packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                pluginScriptRunner: self.getPluginScriptRunner(),
-                pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
-                outputStream: customOutputStream ?? self.outputStream,
-                logLevel: self.logLevel,
-                fileSystem: self.fileSystem,
-                observabilityScope: customObservabilityScope ?? self.observabilityScope
+            buildSystem = try self.createBuildOperation(
+                explicitProduct: explicitProduct,
+                cacheBuildManifest: true,
+                customBuildParameters: customBuildParameters,
+                customPackageGraphLoader: customPackageGraphLoader,
+                customOutputStream: customOutputStream,
+                customObservabilityScope: customObservabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
