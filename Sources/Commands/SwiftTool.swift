@@ -23,11 +23,11 @@ import TSCBasic
 import Workspace
 import XCBuildSupport
 
-#if os(Windows)
+#if canImport(WinSDK)
 import WinSDK
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
 #endif
 

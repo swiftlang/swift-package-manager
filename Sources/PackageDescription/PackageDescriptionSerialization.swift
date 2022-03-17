@@ -11,9 +11,9 @@
 import Foundation
 #if canImport(Glibc)
 @_implementationOnly import Glibc
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 @_implementationOnly import Darwin.C
-#elseif os(Windows)
+#elseif canImport(ucrt) && canImport(WinSDK)
 @_implementationOnly import ucrt
 @_implementationOnly import struct WinSDK.HANDLE
 #endif
