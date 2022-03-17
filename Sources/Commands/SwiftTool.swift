@@ -255,6 +255,14 @@ extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 }
 
+/// A safe wrapper of TSCBasic.exec.
+func exec(path: String, args: [String]) throws -> Never {
+    // SwiftTool can't handle signals anymore, so reset the signal handler to SIG_DFL before call TSCBasic.exec()
+    signal(SIGINT, SIG_DFL)
+
+    try TSCBasic.exec(path: path, args: args)
+}
+
 public class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
