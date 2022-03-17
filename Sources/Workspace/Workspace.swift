@@ -19,6 +19,10 @@ import PackageRegistry
 import SourceControl
 import TSCBasic
 
+// The Basics module is unavailable to package clients,
+// but ObservabilitySystem is necessary in order to use many of these APIs.
+@_exported import class Basics.ObservabilitySystem
+
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
 import struct TSCUtility.Triple
