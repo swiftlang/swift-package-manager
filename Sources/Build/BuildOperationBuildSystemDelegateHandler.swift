@@ -579,8 +579,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
-        if let buffer = self.nonSwiftMessageBuffers[command.name] {
-            queue.async {
+        queue.async {
+            if let buffer = self.nonSwiftMessageBuffers[command.name] {
                 self.progressAnimation.clear()
                 self.outputStream <<< buffer
                 self.outputStream.flush()
