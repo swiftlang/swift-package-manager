@@ -30,7 +30,7 @@ extension Workspace {
     }
 
     // marked public since used in tools
-    public struct BinaryArtifactsManager {
+    public struct BinaryArtifactsManager: Cancellable {
         public typealias Delegate = BinaryArtifactsManagerDelegate
 
         private let fileSystem: FileSystem
@@ -256,7 +256,7 @@ extension Workspace {
                                                             try self.fileSystem.removeFileTree(destination)
                                                         }
                                                         try self.fileSystem.copy(from: source, to: destination)
-                                                        if destination.basenameWithoutExt == artifact.targetName {
+                                                        if artifact.isMatchingDirectory(destination) {
                                                             artifactPath = destination
                                                         }
                                                     }
@@ -266,7 +266,7 @@ extension Workspace {
                                             }
 
                                             guard let mainArtifactPath = artifactPath else {
-                                                return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                                return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
                                             }
 
                                             result.append(
@@ -345,7 +345,7 @@ extension Workspace {
                                     try self.fileSystem.removeFileTree(destination)
                                 }
                                 try self.fileSystem.copy(from: source, to: destination)
-                                if destination.basenameWithoutExt == artifact.targetName {
+                                if artifact.isMatchingDirectory(destination) {
                                     artifactPath = destination
                                 }
                             }
@@ -354,7 +354,7 @@ extension Workspace {
                             try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
                             guard let mainArtifactPath = artifactPath else {
-                                return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
                             }
 
                             // compute the checksum
@@ -396,6 +396,13 @@ extension Workspace {
 
             let contents = try self.fileSystem.readFileContents(path)
             return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
+        }
+
+        public func cancel(deadline: DispatchTime) throws {
+            try self.httpClient.cancel(deadline: deadline)
+            if let cancellableArchiver = self.archiver as? Cancellable {
+                try cancellableArchiver.cancel(deadline: deadline)
+            }
         }
     }
 }
@@ -473,5 +480,27 @@ extension FileSystem {
         return try self.getDirectoryContents(rootDirectory)
             .map{ rootDirectory.appending(component: $0) }
             .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
+    }
+}
+
+extension Workspace.ManagedArtifact {
+    internal func isMatchingDirectory(_ path: AbsolutePath) -> Bool {
+        return path.basenameWithoutAnyExtension() == self.targetName
+    }
+}
+
+extension Workspace.BinaryArtifactsManager.RemoteArtifact {
+    fileprivate func isMatchingDirectory(_ path: AbsolutePath) -> Bool {
+        return path.basenameWithoutAnyExtension() == self.targetName
+    }
+}
+
+extension AbsolutePath {
+    fileprivate func basenameWithoutAnyExtension() -> String {
+        var basename = self.basename
+        if let index = basename.firstIndex(of: ".") {
+            basename.removeSubrange(index ..< basename.endIndex)
+        }
+        return String(basename)
     }
 }

@@ -32,7 +32,7 @@ public struct SwiftPackageTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             Clean.self,
             PurgeCache.self,
@@ -393,7 +393,7 @@ extension SwiftPackageTool {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftTool.fileSystem, tool: apiDigesterPath)
 
-            let packageRoot = try globalOptions.locations.packagePath ?? swiftTool.getPackageRoot()
+            let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
             let repository = GitRepository(path: packageRoot)
             let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
@@ -828,23 +828,30 @@ extension SwiftPackageTool {
 
             switch toolsVersionMode {
             case .display:
-                let toolsVersionLoader = ToolsVersionLoader()
-                let version = try toolsVersionLoader.load(at: pkg, fileSystem: swiftTool.fileSystem)
+                let manifestPath = try ManifestLoader.findManifest(packagePath: pkg, fileSystem: swiftTool.fileSystem, currentToolsVersion: .current)
+                let version = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: swiftTool.fileSystem)
                 print("\(version)")
 
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
                     // FIXME: Probably lift this error definition to ToolsVersion.
-                    throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
+                    throw ToolsVersionParser.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
-                try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: swiftTool.fileSystem)
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: pkg,
+                    toolsVersion: toolsVersion,
+                    fileSystem: swiftTool.fileSystem
+                )
 
             case .setCurrent:
                 // Write the tools version with current version but with patch set to zero.
                 // We do this to avoid adding unnecessary constraints to patch versions, if
                 // the package really needs it, they can do it using --set option.
-                try rewriteToolsVersionSpecification(
-                    toDefaultManifestIn: pkg, specifying: ToolsVersion.currentToolsVersion.zeroedPatch, fileSystem: swiftTool.fileSystem)
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: pkg,
+                    toolsVersion: ToolsVersion.current.zeroedPatch,
+                    fileSystem: swiftTool.fileSystem
+                )
             }
         }
     }
@@ -890,7 +897,7 @@ extension SwiftPackageTool {
         var output: AbsolutePath?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let packageRoot = try globalOptions.locations.packagePath ?? swiftTool.getPackageRoot()
+            let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
             let repository = GitRepository(path: packageRoot)
 
             let destination: AbsolutePath
@@ -1003,11 +1010,9 @@ extension SwiftPackageTool {
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory.appending(component: plugin.name)
 
             // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
-            let pluginScriptRunner = DefaultPluginScriptRunner(
-                fileSystem: swiftTool.fileSystem,
-                cacheDir: pluginsDir.appending(component: "cache"),
-                toolchain: try swiftTool.getToolchain().configuration,
-                enableSandbox: !swiftTool.options.security.shouldDisableSandbox)
+            let pluginScriptRunner = try swiftTool.getPluginScriptRunner(
+                customPluginsDir: pluginsDir
+            )
 
             // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
             let outputDir = pluginsDir.appending(component: "outputs")
@@ -1280,7 +1285,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                         let testRunner = TestRunner(
                             bundlePaths: [testProduct.bundlePath],
                             xctestArg: testSpecifier,
-                            processSet: swiftTool.processSet,
+                            cancellator: swiftTool.cancellator,
                             toolchain: toolchain,
                             testEnv: testEnvironment,
                             observabilityScope: swiftTool.observabilityScope)
@@ -1570,6 +1575,7 @@ extension SwiftPackageTool {
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
+                repositoryProvider: GitRepositoryProvider(),
                 options: genOptions,
                 fileSystem: swiftTool.fileSystem,
                 observabilityScope: swiftTool.observabilityScope
@@ -1580,7 +1586,7 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
+                    watchmanScriptsDir: swiftTool.scratchDirectory.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!,
                     fileSystem: swiftTool.fileSystem,
                     observabilityScope: swiftTool.observabilityScope

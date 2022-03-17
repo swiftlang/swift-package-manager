@@ -44,7 +44,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+        currentToolsVersion: ToolsVersion = ToolsVersion.current
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests

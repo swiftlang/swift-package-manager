@@ -83,7 +83,7 @@ public struct SwiftBuildTool: SwiftCommand {
         _superCommandName: "swift",
         abstract: "Build sources into binary products",
         discussion: "SEE ALSO: swift run, swift package, swift test",
-        version: SwiftVersion.currentVersion.completeDisplayString,
+        version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()

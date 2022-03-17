@@ -255,9 +255,6 @@ public class Workspace {
     /// The tools version currently in use.
     fileprivate let currentToolsVersion: ToolsVersion
 
-    /// The manifest loader to use.
-    fileprivate var toolsVersionLoader: ToolsVersionLoaderProtocol
-
     /// Utility to resolve package identifiers
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var identityResolver: IdentityResolver
@@ -311,6 +308,7 @@ public class Workspace {
     ///   - location: Workspace location configuration.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
@@ -322,6 +320,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customHostToolchain: UserToolchain? = .none,
@@ -336,6 +335,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: .none,
             customFingerprints: .none,
@@ -365,6 +365,7 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
@@ -375,6 +376,7 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customManifestLoader: ManifestLoaderProtocol? = .none,
@@ -388,6 +390,7 @@ public class Workspace {
         try self.init(
             fileSystem: fileSystem,
             location: location,
+            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
@@ -407,6 +410,7 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
@@ -417,6 +421,7 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customHostToolchain: UserToolchain,
@@ -436,6 +441,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customHostToolchain: customHostToolchain,
             customManifestLoader: manifestLoader,
@@ -485,6 +491,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            cancellator: .none,
             initializationWarningHandler: .none,
             customRegistriesConfiguration: registries,
             customFingerprints: customFingerprintStorage,
@@ -562,9 +569,6 @@ public class Workspace {
             resolverUpdateEnabled: skipUpdate.map{ !$0 },
             resolverPrefetchingEnabled: isResolverPrefetchingEnabled
         )
-        if let toolsVersionLoader = toolsVersionLoader {
-            self.toolsVersionLoader = toolsVersionLoader
-        }
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -604,6 +608,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration? = .none,
@@ -627,6 +632,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: customRegistriesConfiguration,
             customFingerprints: customFingerprints,
@@ -651,6 +657,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         configuration: WorkspaceConfiguration?,
+        cancellator: Cancellator?,
         initializationWarningHandler: ((String) -> Void)?,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration?,
@@ -675,8 +682,7 @@ public class Workspace {
         // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
         let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
 
-        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain.configuration,
@@ -703,6 +709,8 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
         )
+        // register the source control dependencies fetcher with the cancellation handler
+        cancellator?.register(name: "repository fetching", handler: repositoryManager)
 
         let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
             FilePackageFingerprintStorage(
@@ -732,6 +740,8 @@ public class Workspace {
             checksumAlgorithm: checksumAlgorithm,
             delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
         )
+        // register the registry dependencies downloader with the cancellation handler
+        cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
         if registryClient.configured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
@@ -750,6 +760,8 @@ public class Workspace {
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
         )
+        // register the binary artifacts downloader with the cancellation handler
+        cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
         // initialize
         self.fileSystem = fileSystem
@@ -761,7 +773,6 @@ public class Workspace {
         self.hostToolchain = hostToolchain
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
 
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryManager = repositoryManager
@@ -775,7 +786,7 @@ public class Workspace {
         self.pinsStore = LoadableResult {
             try PinsStore(
                 pinsFile: location.resolvedVersionsFile,
-                workingDirectory: location.workingDirectory,
+                workingDirectory: location.scratchDirectory,
                 fileSystem: fileSystem,
                 mirrors: mirrors
             )
@@ -783,7 +794,7 @@ public class Workspace {
 
         self.state = WorkspaceState(
             fileSystem: fileSystem,
-            storageDirectory: self.location.workingDirectory,
+            storageDirectory: self.location.scratchDirectory,
             initializationWarningHandler: initializationWarningHandler
         )
     }
@@ -948,23 +959,23 @@ extension Workspace {
             self.state.storagePath,
         ].map({ path -> String in
             // Assert that these are present inside data directory.
-            assert(path.parentDirectory == self.location.workingDirectory)
+            assert(path.parentDirectory == self.location.scratchDirectory)
             return path.basename
         })
 
         // If we have no data yet, we're done.
-        guard fileSystem.exists(self.location.workingDirectory) else {
+        guard fileSystem.exists(self.location.scratchDirectory) else {
             return
         }
 
-        guard let contents = observabilityScope.trap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
+        guard let contents = observabilityScope.trap({ try fileSystem.getDirectoryContents(self.location.scratchDirectory) }) else {
             return
         }
 
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(self.location.workingDirectory.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(self.location.scratchDirectory.appending(RelativePath(name)))
         }
     }
 
@@ -1010,7 +1021,7 @@ extension Workspace {
         try? self.repositoryManager.reset()
         try? self.registryDownloadsManager.reset()
         try? self.manifestLoader.resetCache()
-        try? self.fileSystem.removeFileTree(self.location.workingDirectory)
+        try? self.fileSystem.removeFileTree(self.location.scratchDirectory)
     }
 
     // FIXME: @testable internal
@@ -1047,7 +1058,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -1165,7 +1176,6 @@ extension Workspace {
             createMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             forceResolvedVersions: forceResolvedVersions,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
         )
     }
@@ -1177,7 +1187,6 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
 
@@ -1199,8 +1208,8 @@ extension Workspace {
             )
         }
 
-        let binaryArtifacts = try self.state.artifacts.map{ artifact -> BinaryArtifact in
-            return try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
+        let binaryArtifacts = try self.state.artifacts.reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
+            partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
         }
 
         // Load the graph.
@@ -1212,7 +1221,6 @@ extension Workspace {
             requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             fileSystem: fileSystem,
@@ -1359,13 +1367,13 @@ extension Workspace {
                 // radar/82263304
                 // compute binary artifacts for the sake of constructing a project model
                 // note this does not actually download remote artifacts and as such does not have the artifact's type or path
-                let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.map { target -> BinaryArtifact in
+                let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.reduce(into: [String: BinaryArtifact]()) { partial, target in
                     if let path = target.path {
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                        return try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
+                        partial[target.name] = try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
                         let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
-                        return BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
+                        partial[target.name] = BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
                     } else {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
                     }
@@ -1376,8 +1384,8 @@ extension Workspace {
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
+                    additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
-                    xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -1914,15 +1922,24 @@ extension Workspace {
     }
 
     /// Returns manifest interpreter flags for a package.
+    // TODO: should this be throwing instead?
     public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
-        // We ignore all failures here and return empty array.
-        guard let manifestLoader = self.manifestLoader as? ManifestLoader,
-              let toolsVersion = try? toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem),
-              currentToolsVersion >= toolsVersion,
-              toolsVersion >= ToolsVersion.minimumRequired else {
+        do {
+            guard let manifestLoader = self.manifestLoader as? ManifestLoader else {
+                throw StringError("unexpected manifest loader kind")
+            }
+
+            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: self.fileSystem, currentToolsVersion: self.currentToolsVersion)
+            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: self.fileSystem)
+
+            guard self.currentToolsVersion >= manifestToolsVersion, manifestToolsVersion >= ToolsVersion.minimumRequired else {
+                throw StringError("invalid tools version")
+            }
+            return manifestLoader.interpreterFlags(for: manifestToolsVersion)
+        } catch {
+            // We ignore all failures here and return empty array.
             return []
         }
-        return manifestLoader.interpreterFlags(for: toolsVersion)
     }
 
     /// Load the manifests for the current dependency tree.
@@ -2076,25 +2093,25 @@ extension Workspace {
 
         // The kind and version, if known.
         let packageKind: PackageReference.Kind
-        let version: Version?
+        let packageVersion: Version?
         switch managedDependency.state {
         case .sourceControlCheckout(let checkoutState):
             packageKind = managedDependency.packageRef.kind
             switch checkoutState {
             case .version(let checkoutVersion, _):
-                version = checkoutVersion
+                packageVersion = checkoutVersion
             default:
-                version = .none
+                packageVersion = .none
             }
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
-            version = downloadedVersion
+            packageVersion = downloadedVersion
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
-            version = availableVersion
+            packageVersion = availableVersion
         case .edited, .fileSystem:
             packageKind = .fileSystem(packagePath)
-            version = .none
+            packageVersion = .none
         }
 
         let fileSystem: FileSystem?
@@ -2112,7 +2129,7 @@ extension Workspace {
             packageKind: packageKind,
             packagePath: packagePath,
             packageLocation: managedDependency.packageRef.locationString,
-            version: version,
+            packageVersion: packageVersion,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) { result in
@@ -2129,7 +2146,7 @@ extension Workspace {
         packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         packageLocation: String,
-        version: Version? = nil,
+        packageVersion: Version? = nil,
         fileSystem: FileSystem? = nil,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
@@ -2137,57 +2154,45 @@ extension Workspace {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
-        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
+        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
 
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading manifest") {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        do {
-            // Load the tools version for the package.
-            let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
+        let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+        let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
+            observabilityScope.emit(diagnostic)
+            manifestLoadingDiagnostics.append(diagnostic)
+        }).topScope.makeChildScope(description: "Loading manifest") {
+            .packageMetadata(identity: packageIdentity, kind: packageKind)
+        }
 
-            // Validate the tools version.
-            try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
-
-            let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-            let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-                observabilityScope.emit(diagnostic)
-                manifestLoadingDiagnostics.append(diagnostic)
-            }).topScope.makeChildScope(description: "Loading manifest") {
-                .packageMetadata(identity: packageIdentity, kind: packageKind)
+        self.manifestLoader.load(
+            packagePath: packagePath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            packageVersion: packageVersion.map { (version: $0, revision: nil) },
+            currentToolsVersion: self.currentToolsVersion,
+            identityResolver: self.identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: manifestLoadingScope,
+            delegateQueue: .sharedConcurrent,
+            callbackQueue: .sharedConcurrent
+        ) { result in
+            switch result {
+            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+            case .failure(Diagnostics.fatalError):
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .failure(let error):
+                manifestLoadingScope.emit(error)
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+            case .success(let manifest):
+                manifestLoadingScope.trap { try self.validateManifest(manifest) }
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
             }
-
-            self.manifestLoader.load(
-                at: packagePath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                version: version,
-                revision: nil,
-                toolsVersion: toolsVersion,
-                identityResolver: self.identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
-            ) { result in
-                switch result {
-                // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                case .failure(Diagnostics.fatalError):
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .failure(let error):
-                    manifestLoadingScope.emit(error)
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                case .success(let manifest):
-                    manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
-                }
-                completion(result)
-            }
-        } catch {
-            observabilityScope.emit(error)
-            completion(.failure(error))
+            completion(result)
         }
     }
 
@@ -2333,8 +2338,8 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard artifact.targetName == artifact.path.basenameWithoutExt else {
-                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                guard artifact.isMatchingDirectory(artifact.path) else {
+                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
                     continue
                 }
                 artifactsToAdd.append(artifact)
@@ -2563,7 +2568,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -3164,7 +3169,6 @@ extension Workspace: PackageContainerProvider {
                     package: package,
                     identityResolver: self.identityResolver,
                     manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
@@ -3196,7 +3200,6 @@ extension Workspace: PackageContainerProvider {
                             repositorySpecifier: repositorySpecifier,
                             repository: repository,
                             manifestLoader: self.manifestLoader,
-                            toolsVersionLoader: self.toolsVersionLoader,
                             currentToolsVersion: self.currentToolsVersion,
                             fingerprintStorage: self.fingerprints,
                             fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
@@ -3212,7 +3215,6 @@ extension Workspace: PackageContainerProvider {
                     identityResolver: self.identityResolver,
                     registryClient: self.registryClient,
                     manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     observabilityScope: observabilityScope
                 )
@@ -3865,7 +3867,6 @@ extension Workspace {
     // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup to make sure the version exists
     // 2. handle registry returning multiple identifiers, how do we choose the right one?
     fileprivate struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
-        
         private let underlying: ManifestLoaderProtocol
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
@@ -3880,13 +3881,12 @@ extension Workspace {
         }
 
         func load(
-            at path: AbsolutePath,
+            manifestPath: AbsolutePath,
+            manifestToolsVersion: ToolsVersion,
             packageIdentity: PackageIdentity,
             packageKind: PackageReference.Kind,
             packageLocation: String,
-            version: Version?,
-            revision: String?,
-            toolsVersion: ToolsVersion,
+            packageVersion: (version: Version?, revision: String?)?,
             identityResolver: IdentityResolver,
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope,
@@ -3895,13 +3895,12 @@ extension Workspace {
             completion: @escaping (Result<Manifest, Error>) -> Void
         ) {
             self.underlying.load(
-                at: path,
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
                 packageKind: packageKind,
                 packageLocation: packageLocation,
-                version: version,
-                revision: revision,
-                toolsVersion: toolsVersion,
+                packageVersion: packageVersion,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,

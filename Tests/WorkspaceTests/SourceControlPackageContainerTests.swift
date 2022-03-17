@@ -146,6 +146,10 @@ private class MockRepositories: RepositoryProvider {
     func isValidRefFormat(_ ref: String) -> Bool {
         return true
     }
+
+    func cancel(deadline: DispatchTime) throws {
+        // noop
+    }
 }
 
 private class MockResolverDelegate: RepositoryManager.Delegate {
@@ -183,7 +187,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
+        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "v1.0.1")
@@ -318,7 +322,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
+        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
         try repo.commit()
         try repo.tag(name: "1.0.0-alpha.1")
         try repo.tag(name: "1.0.0-beta.1")
@@ -362,7 +366,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
         try repo.createDirectory(repoPath, recursive: true)
-        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
+        try repo.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.current)\n"))
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "1.0.0")

@@ -9,7 +9,7 @@
  */
 
 @testable import Basics
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
 
 final class HTTPClientTest: XCTestCase {
@@ -577,6 +577,81 @@ final class HTTPClientTest: XCTestCase {
         for result in results.get() {
             XCTAssertEqual(try? result.get().statusCode, 200, "expected '200 okay' response")
         }
+    }
+
+    func testCancel() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let cancellator = Cancellator(observabilityScope: observability.topScope)
+
+        let total = 10
+        // this DispatchGroup is used to wait for the requests to start before calling cancel
+        let startGroup = DispatchGroup()
+        // this DispatchGroup is used to park the delayed threads that would be cancelled
+        let terminatedGroup = DispatchGroup()
+        terminatedGroup.enter()
+        // this DispatchGroup is used to monitor the outstanding threads that would be cancelled and completion handlers thrown away
+        let outstandingGroup = DispatchGroup()
+
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            print("handling \(request.url)")
+            if Int(request.url.lastPathComponent)! < total / 2 {
+                DispatchQueue.sharedConcurrent.async {
+                    defer { startGroup.leave() }
+                    print("\(request.url) okay")
+                    completion(.success(.okay()))
+                }
+            } else {
+                defer { startGroup.leave() }
+                outstandingGroup.enter()
+                print("\(request.url) waiting to be cancelled")
+                DispatchQueue.sharedConcurrent.async {
+                    defer { outstandingGroup.leave() }
+                    XCTAssertEqual(.success, terminatedGroup.wait(timeout: .now() + 5), "timeout waiting on terminated signal")
+                    completion(.failure(StringError("should be cancelled")))
+                }
+            }
+        })
+
+        cancellator.register(name: "http client", handler: httpClient)
+
+        let finishGroup = DispatchGroup()
+        let results = ThreadSafeKeyValueStore<URL, Result<HTTPClient.Response, Error>>()
+        for index in 0 ..< total {
+            startGroup.enter()
+            finishGroup.enter()
+            let url = URL(string: "http://test/\(index)")!
+            httpClient.head(url) { result in
+                defer { finishGroup.leave() }
+                results[url] = result
+            }
+        }
+
+        XCTAssertEqual(.success, startGroup.wait(timeout: .now() + 5), "timeout starting tasks")
+
+        let cancelled = cancellator._cancel(deadline: .now() + .seconds(1))
+        XCTAssertEqual(cancelled, 1, "expected to be terminated")
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        // this releases the http handler threads that are waiting to test if the call was cancelled
+        terminatedGroup.leave()
+
+        XCTAssertEqual(.success, finishGroup.wait(timeout: .now() + 5), "timeout finishing tasks")
+
+        XCTAssertEqual(results.count, total, "expected \(total) results")
+        for (url, result) in results.get() {
+            switch (Int(url.lastPathComponent)! < total / 2, result) {
+            case (true, .success):
+                break // as expected!
+            case (true, .failure(let error)):
+                XCTFail("expected success, but failed with \(type(of: error)) '\(error)'")
+            case (false, .success):
+                XCTFail("expected operation to be cancelled")
+            case (false, .failure(let error)):
+                XCTAssert(error is CancellationError, "expected error to be CancellationError, but was \(type(of: error)) '\(error)'")
+            }
+        }
+
+        // wait for outstanding threads that would be cancelled and completion handlers thrown away
+        XCTAssertEqual(.success, outstandingGroup.wait(timeout: .now() + .seconds(5)), "timeout waiting for outstanding tasks")
     }
 
     private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {

@@ -77,6 +77,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 root: PackageGraphRoot(input: PackageGraphRootInput(packages: [rootManifest.path]), manifests: [rootManifest.path: rootManifest]),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
+                binaryArtifacts: [:],
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )

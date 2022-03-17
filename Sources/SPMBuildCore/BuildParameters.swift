@@ -92,9 +92,6 @@ public struct BuildParameters: Encodable {
     /// Extra build flags.
     public var flags: BuildFlags
 
-    /// The tools version to use.
-    public var toolsVersion: ToolsVersion
-
     /// How many jobs should llbuild and the Swift compiler spawn
     public var jobs: UInt32
 
@@ -188,7 +185,6 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
-        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
@@ -219,7 +215,6 @@ public struct BuildParameters: Encodable {
         self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
-        self.toolsVersion = toolsVersion
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching

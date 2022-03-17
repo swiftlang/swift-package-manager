@@ -99,7 +99,7 @@ class ToolsVersionTests: XCTestCase {
                 ["tools-version", "--set", "10000.1"], packagePath: primaryPath)
 
             XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)) { error in
-                XCTAssert(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.currentToolsVersion)"), error.stderr)
+                XCTAssert(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.current)"), error.stderr)
             }
 
             // Write the manifest with incompatible sources.
@@ -117,7 +117,7 @@ class ToolsVersionTests: XCTestCase {
                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
             XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)) { error in
-                XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), error.stderr)
+                XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
@@ -127,7 +127,7 @@ class ToolsVersionTests: XCTestCase {
                         name: "Primary",
                         dependencies: [.package(url: "../Dep", from: "1.0.0")],
                         targets: [.target(name: "Primary", dependencies: ["Dep"], path: ".")],
-                        swiftLanguageVersions: [.version("\(ToolsVersion.currentToolsVersion.major)"), .version("1000")])
+                        swiftLanguageVersions: [.version("\(ToolsVersion.current.major)"), .version("1000")])
                     """
              }
              _ = try SwiftPMProduct.SwiftPackage.execute(

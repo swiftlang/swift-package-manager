@@ -25,4 +25,9 @@ extension String {
         }
         return self
     }
+
+    public var isValidIdentifier: Bool {
+        guard !isEmpty else { return false }
+        return allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" }
+    }
 }

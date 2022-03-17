@@ -72,7 +72,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, bytes: bytes)
         let manifest = try manifestLoader.load(
-            at: packagePath,
+            manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,
             fileSystem: fileSystem,

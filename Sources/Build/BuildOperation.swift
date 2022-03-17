@@ -140,7 +140,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Cancel the active build operation.
-    public func cancel() {
+    public func cancel(deadline: DispatchTime) throws {
         buildSystem?.cancel()
     }
 

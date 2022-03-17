@@ -945,7 +945,7 @@ extension Target.Dependency {
     ///   - name: The name of the product.
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - package: The name of the package.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.7)
     public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
     }

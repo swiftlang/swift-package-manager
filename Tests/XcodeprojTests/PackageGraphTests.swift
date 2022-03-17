@@ -35,7 +35,7 @@ class PackageGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let g = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createLocalSourceControlManifest(
                     name: "Foo",
@@ -206,7 +206,7 @@ class PackageGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let g = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -255,7 +255,7 @@ class PackageGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let g = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Bar",
@@ -306,7 +306,7 @@ class PackageGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let g = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Pkg",
@@ -377,7 +377,7 @@ class PackageGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fs,
+            fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -430,7 +430,7 @@ class PackageGraphTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: fs,
+                fileSystem: fs,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",

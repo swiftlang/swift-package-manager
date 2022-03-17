@@ -28,10 +28,10 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
-    public static let currentToolsVersion = ToolsVersion(string:
-        "\(SwiftVersion.currentVersion.major)." +
-        "\(SwiftVersion.currentVersion.minor)." +
-        "\(SwiftVersion.currentVersion.patch)")!
+    public static let current = ToolsVersion(string:
+        "\(SwiftVersion.current.major)." +
+        "\(SwiftVersion.current.minor)." +
+        "\(SwiftVersion.current.patch)")!
 
     /// The minimum tools version that is required by the package manager.
     public static let minimumRequired: ToolsVersion = .v4
@@ -108,7 +108,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         packageVersion: String? = .none
     ) throws {
         // We don't want to throw any error when using the special vNext version.
-        if SwiftVersion.currentVersion.isDevelopment && self == .vNext {
+        if SwiftVersion.current.isDevelopment && self == .vNext {
             return
         }
 
@@ -160,9 +160,22 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     }
 }
 
+extension ToolsVersion {
+    /// The list of version specific identifiers to search when attempting to
+    /// load version specific package or version information, in order of
+    /// preference.
+    public var versionSpecificKeys: [String] {
+        return [
+            "@swift-\(self.major).\(self.minor).\(self.patch)",
+            "@swift-\(self.major).\(self.minor)",
+            "@swift-\(self.major)",
+        ]
+    }
+}
+
 extension ToolsVersion: CustomStringConvertible {
     public var description: String {
-        return _version.description
+        return self._version.description
     }
 }
 

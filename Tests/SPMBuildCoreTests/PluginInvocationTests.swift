@@ -33,7 +33,7 @@ class PluginInvocationTests: XCTestCase {
         )
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
-            fs: fileSystem,
+            fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",

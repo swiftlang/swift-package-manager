@@ -15,7 +15,7 @@ import PackageModel
 import TSCBasic
 import PackageLoading
 
-public class RegistryDownloadsManager {
+public class RegistryDownloadsManager: Cancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
     private let fileSystem: FileSystem
@@ -55,7 +55,7 @@ public class RegistryDownloadsManager {
         // wrap the callback in the requested queue
         let completion = { result in callbackQueue.async { completion(result) } }
         
-        let packageRelativePath: RelativePath!
+        let packageRelativePath: RelativePath
         let packagePath: AbsolutePath
 
         do {
@@ -131,7 +131,12 @@ public class RegistryDownloadsManager {
         }
     }
 
-    func downloadAndPopulateCache(
+    /// Cancel any outstanding requests
+    public func cancel(deadline: DispatchTime) throws {
+        try self.registryClient.cancel(deadline: deadline)
+    }
+
+    private func downloadAndPopulateCache(
         package: PackageIdentity,
         version: Version,
         packagePath: AbsolutePath,

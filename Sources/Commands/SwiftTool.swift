@@ -228,12 +228,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
 
             if progress == total && !self.binaryDownloadProgress.isEmpty {
-                self.binaryDownloadAnimation.clear()
                 self.binaryDownloadProgress.removeAll()
             } else {
                 self.binaryDownloadProgress[url] = nil
             }
 
+            self.binaryDownloadAnimation.clear()
             self.outputStream <<< "Downloaded \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
@@ -289,7 +289,7 @@ extension SwiftCommand {
 public class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
-    static var shutdownRegistry: (processSet: ProcessSet, buildSystemRef: BuildSystemRef)?
+    static var cancellator: Cancellator?
     #endif
 
     /// The original working directory.
@@ -322,8 +322,8 @@ public class SwiftTool {
         return PackageGraphRootInput(packages: packages)
     }
 
-    /// Path to the build directory.
-    let buildPath: AbsolutePath
+    /// Scratch space (.build) directory.
+    let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     let sharedSecurityDirectory: AbsolutePath?
@@ -334,12 +334,8 @@ public class SwiftTool {
     /// Path to the shared configuration directory
     let sharedConfigurationDirectory: AbsolutePath?
 
-    /// The process set to hold the launched processes. These will be terminated on any signal
-    /// received by the swift tools.
-    let processSet: ProcessSet
-
-    /// The current build system reference. The actual reference is present only during an active build.
-    let buildSystemRef: BuildSystemRef
+    /// Cancellator to handle cancellation of outstanding work when handling SIGINT
+    let cancellator: Cancellator
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
@@ -384,6 +380,8 @@ public class SwiftTool {
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
 
+        let cancellator = Cancellator(observabilityScope: self.observabilityScope)
+
         // Capture the original working directory ASAP.
         guard let cwd = self.fileSystem.currentWorkingDirectory else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
@@ -396,21 +394,16 @@ public class SwiftTool {
             self.options = options
 
             // Honor package-path option is provided.
-            if let packagePath = options.locations.packagePath ?? options.locations.chdir {
+            if let packagePath = options.locations.packageDirectory {
                 try ProcessEnv.chdir(packagePath)
             }
 
-            let processSet = ProcessSet()
-            let buildSystemRef = BuildSystemRef()
-
             #if os(Windows)
             // set shutdown handler to terminate sub-processes, etc
-            SwiftTool.shutdownRegistry = (processSet: processSet, buildSystemRef: buildSystemRef)
+            SwiftTool.cancellator = cancellator
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
-                SwiftTool.shutdownRegistry?.processSet.terminate()
-                SwiftTool.shutdownRegistry?.buildSystemRef.buildSystem?.cancel()
+                try? SwiftTool.cancellator?.cancel(deadline: .now() + .seconds(30))
 
                 // Reset the handler.
                 _ = SetConsoleCtrlHandler(nil, false)
@@ -429,9 +422,7 @@ public class SwiftTool {
                 interruptSignalSource.cancel()
 
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
-                processSet.terminate()
-                buildSystemRef.buildSystem?.cancel()
+                try? cancellator.cancel(deadline: .now() + .seconds(30))
 
                 #if os(macOS) || os(OpenBSD)
                 // Install the default signal handler.
@@ -457,22 +448,20 @@ public class SwiftTool {
             interruptSignalSource.resume()
             #endif
 
-            self.processSet = processSet
-            self.buildSystemRef = buildSystemRef
-
+            self.cancellator = cancellator
         } catch {
             self.observabilityScope.emit(error)
             throw ExitCode.failure
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let customBuildPath = options.locations.buildPath
         let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
-        self.buildPath = getEnvBuildPath(workingDir: cwd) ??
-        customBuildPath ??
-        (packageRoot ?? cwd).appending(component: ".build")
+        self.scratchDirectory =
+            getEnvBuildPath(workingDir: cwd) ??
+            options.locations.scratchDirectory ??
+            (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
@@ -484,7 +473,11 @@ public class SwiftTool {
     }
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
-        if options.locations.chdir != nil {
+        if options.locations._deprecated_buildPath != nil {
+            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-space-path' instead")
+        }
+
+        if options.locations._deprecated_chdir != nil {
             observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
@@ -539,12 +532,11 @@ public class SwiftTool {
         }
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
-                workingDirectory: self.buildPath,
+                scratchDirectory: self.scratchDirectory,
                 editsDirectory: self.getEditsDirectory(),
                 resolvedVersionsFile: self.getResolvedVersionsFile(),
                 localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
@@ -561,10 +553,10 @@ public class SwiftTool {
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
             ),
+            cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
             customManifestLoader: self.getManifestLoader(),
-            customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate
         )
         _workspace = workspace
@@ -674,8 +666,8 @@ public class SwiftTool {
         }
     }
     
-    func getPluginScriptRunner() throws -> PluginScriptRunner {
-        let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
+    func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
+        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
@@ -683,6 +675,8 @@ public class SwiftTool {
             toolchain: self.getHostToolchain().configuration,
             enableSandbox: !self.options.security.shouldDisableSandbox
         )
+        // register the plugin runner system with the cancellation handler
+        self.cancellator.register(name: "plugin runner", handler: pluginScriptRunner)
         return pluginScriptRunner
     }
 
@@ -753,8 +747,8 @@ public class SwiftTool {
             observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
 
-        // Save the instance so it can be cancelled from the int handler.
-        buildSystemRef.buildSystem = buildOp
+        // register the build system with the cancellation handler
+        self.cancellator.register(name: "build system", handler: buildOp.cancel)
         return buildOp
     }
 
@@ -772,19 +766,13 @@ public class SwiftTool {
         let buildSystem: BuildSystem
         switch options.build.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-
-            buildSystem = try BuildOperation(
-                buildParameters: customBuildParameters ?? self.buildParameters(),
-                cacheBuildManifest: self.canUseCachedBuildManifest(),
-                packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                pluginScriptRunner: self.getPluginScriptRunner(),
-                pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
-                outputStream: customOutputStream ?? self.outputStream,
-                logLevel: self.logLevel,
-                fileSystem: self.fileSystem,
-                observabilityScope: customObservabilityScope ?? self.observabilityScope
+            buildSystem = try self.createBuildOperation(
+                explicitProduct: explicitProduct,
+                cacheBuildManifest: true,
+                customBuildParameters: customBuildParameters,
+                customPackageGraphLoader: customPackageGraphLoader,
+                customOutputStream: customOutputStream,
+                customObservabilityScope: customObservabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
@@ -799,8 +787,8 @@ public class SwiftTool {
             )
         }
 
-        // Save the instance so it can be cancelled from the int handler.
-        buildSystemRef.buildSystem = buildSystem
+        // register the build system with the cancellation handler
+        self.cancellator.register(name: "build system", handler: buildSystem.cancel)
         return buildSystem
     }
 
@@ -817,7 +805,7 @@ public class SwiftTool {
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
-            let dataPath = buildPath.appending(
+            let dataPath = self.scratchDirectory.appending(
                 component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
@@ -905,7 +893,7 @@ public class SwiftTool {
             case (false, .none):
                 cachePath = .none
             case (false, .local):
-                cachePath = self.buildPath
+                cachePath = self.scratchDirectory
             case (false, .shared):
                 cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
@@ -964,12 +952,12 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 
 
 private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitSecurityPath = options.locations.securityPath {
+    if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
-        if !fileSystem.exists(explicitSecurityPath) {
-            try fileSystem.createDirectory(explicitSecurityPath, recursive: true)
+        if !fileSystem.exists(explicitSecurityDirectory) {
+            try fileSystem.createDirectory(explicitSecurityDirectory, recursive: true)
         }
-        return explicitSecurityPath
+        return explicitSecurityDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMSecurityDirectory
@@ -977,12 +965,12 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
 }
 
 private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitConfigPath = options.locations.configPath {
+    if let explicitConfigurationDirectory = options.locations.configurationDirectory {
         // Create the explicit config path if necessary
-        if !fileSystem.exists(explicitConfigPath) {
-            try fileSystem.createDirectory(explicitConfigPath, recursive: true)
+        if !fileSystem.exists(explicitConfigurationDirectory) {
+            try fileSystem.createDirectory(explicitConfigurationDirectory, recursive: true)
         }
-        return explicitConfigPath
+        return explicitConfigurationDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMConfigurationDirectory
@@ -990,22 +978,16 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
 }
 
 private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitCachePath = options.locations.cachePath {
+    if let explicitCacheDirectory = options.locations.cacheDirectory {
         // Create the explicit cache path if necessary
-        if !fileSystem.exists(explicitCachePath) {
-            try fileSystem.createDirectory(explicitCachePath, recursive: true)
+        if !fileSystem.exists(explicitCacheDirectory) {
+            try fileSystem.createDirectory(explicitCacheDirectory, recursive: true)
         }
-        return explicitCachePath
+        return explicitCacheDirectory
     } else {
         // further validation is done in workspace
         return fileSystem.swiftPMCacheDirectory
     }
-}
-
-/// A wrapper to hold the build system so we can use it inside
-/// the int. handler without requiring to initialize it.
-final class BuildSystemRef {
-    var buildSystem: BuildSystem?
 }
 
 extension Basics.Diagnostic {

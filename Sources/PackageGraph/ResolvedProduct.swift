@@ -32,6 +32,12 @@ public final class ResolvedProduct {
     /// Executable target for test manifest file.
     public let testManifestTarget: ResolvedTarget?
 
+    /// The default localization for resources.
+    public let defaultLocalization: String?
+
+    /// The list of platforms that are supported by this product.
+    public let platforms: SupportedPlatforms
+
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
@@ -50,9 +56,20 @@ public final class ResolvedProduct {
         self.testManifestTarget = underlyingProduct.testManifest.map{ testManifest in
             // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(testManifest: testManifest, name: product.name, dependencies: dependencies)
-            return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
+            let swiftTarget = SwiftTarget(name: product.name, dependencies: dependencies, testManifest: testManifest)
+            return ResolvedTarget(
+                target: swiftTarget,
+                dependencies: targets.map { .target($0, conditions: []) },
+                defaultLocalization: .none, // safe since this is a derived product
+                platforms: .init(declared: [], derived: []) // safe since this is a derived product
+            )
         }
+
+        // defaultLocalization is currently shared across the entire package
+        // this may need to be enhanced if / when we support localization per target or product
+        self.defaultLocalization = self.targets.first?.defaultLocalization
+
+        self.platforms = Self.computePlatforms(targets: targets)
     }
 
     /// True if this product contains Swift targets.
@@ -71,6 +88,37 @@ public final class ResolvedProduct {
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(Set(targets).union(recursiveDependencies))
+    }
+
+    private static func computePlatforms(targets: [ResolvedTarget]) -> SupportedPlatforms {
+        // merging two sets of supported platforms, preferring the max constraint
+        func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {
+            for platformSupport in platforms {
+                if let existing = partial.firstIndex(where: { $0.platform == platformSupport.platform }) {
+                    if partial[existing].version < platformSupport.version {
+                        partial.remove(at: existing)
+                        partial.append(platformSupport)
+                    }
+                } else {
+                    partial.append(platformSupport)
+                }
+            }
+        }
+
+        let declared = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+            merge(into: &partial, platforms: item.platforms.declared)
+        }
+
+        let derived = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+            merge(into: &partial, platforms: item.platforms.derived)
+        }
+
+        return SupportedPlatforms(
+            declared: declared.sorted(by: { $0.platform.name < $1.platform.name }),
+            derived: derived.sorted(by: { $0.platform.name < $1.platform.name })
+        )
+
+
     }
 }
 

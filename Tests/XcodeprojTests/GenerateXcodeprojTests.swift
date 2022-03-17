@@ -38,7 +38,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -96,7 +96,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Bar",
@@ -138,7 +138,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Modules",
@@ -177,7 +177,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -218,7 +218,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -258,7 +258,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -309,7 +309,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -358,7 +358,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -407,7 +407,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
-                fs: localFileSystem,
+                fileSystem: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -462,5 +462,27 @@ class GenerateXcodeprojTests: XCTestCase {
             let (_, stderr) = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"], packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("'generate-xcodeproj' is no longer needed and will be deprecated soon"))
         }
+    }
+}
+
+extension XcodeProject {
+    @discardableResult
+    static func generate(
+        projectName: String,
+        xcodeprojPath: AbsolutePath,
+        graph: PackageGraph,
+        options: XcodeprojOptions,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> Xcode.Project {
+        try Self.generate(
+            projectName: projectName,
+            xcodeprojPath: xcodeprojPath,
+            graph: graph,
+            repositoryProvider: GitRepositoryProvider(),
+            options: options,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
     }
 }

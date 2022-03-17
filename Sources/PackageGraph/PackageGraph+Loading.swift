@@ -24,10 +24,11 @@ extension PackageGraph {
         externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
-        binaryArtifacts: [BinaryArtifact] = [],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
+        customPlatformsRegistry: PlatformRegistry? = .none,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -113,8 +114,7 @@ extension PackageGraph {
                     productFilter: node.productFilter,
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
-                    binaryArtifacts: binaryArtifacts,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    binaryArtifacts: binaryArtifacts[node.identity] ?? [:],                
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: node.fileSystem,
@@ -139,6 +139,8 @@ extension PackageGraph {
             manifestToPackage: manifestToPackage,
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
+            platformRegistry: customPlatformsRegistry ?? .default,
+            xcTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             observabilityScope: observabilityScope
         )
 
@@ -239,6 +241,8 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
+    platformRegistry: PlatformRegistry,
+    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion],
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
 
@@ -265,8 +269,8 @@ private func createResolvedPackages(
     }
 
     // Gather and resolve module aliases specified for targets in all dependent packages
-    let packageAliases = resolveModuleAliases(with: packageBuilders,
-                                               onError: observabilityScope)
+    let packageAliases = resolveModuleAliases(packageBuilders: packageBuilders,
+                                              observabilityScope: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -357,6 +361,22 @@ private func createResolvedPackages(
 
         packageBuilder.dependencies = Array(dependencies.values)
 
+        packageBuilder.defaultLocalization = package.manifest.defaultLocalization
+
+        packageBuilder.platforms = computePlatforms(
+            package: package,
+            usingXCTest: false,
+            platformRegistry: platformRegistry,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
+        )
+
+        let testPlatforms = computePlatforms(
+            package: package,
+            usingXCTest: true,
+            platformRegistry: platformRegistry,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
+        )
+
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
         packageBuilder.targets = targetBuilders
@@ -375,6 +395,8 @@ private func createResolvedPackages(
                     return nil
                 }
             }
+            targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
+            targetBuilder.platforms = targetBuilder.target.type == .test ? testPlatforms : packageBuilder.platforms
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -523,20 +545,94 @@ private func createResolvedPackages(
     return try packageBuilders.map{ try $0.construct() }
 }
 
-// Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder],
-                                  onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: [ModuleAliasModel]]]? {
+private func computePlatforms(
+    package: Package,
+    usingXCTest: Bool,
+    platformRegistry: PlatformRegistry,
+    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]
+) -> SupportedPlatforms {
 
-    // If there are no aliases, return early
-    let depsWithAliases = packageBuilders.map { $0.package.targets.map { $0.dependencies.filter { dep in
-        if case let .product(prodRef, _) = dep {
-            return prodRef.moduleAliases != nil
+    // the supported platforms as declared in the manifest
+    let declaredPlatforms: [SupportedPlatform] = package.manifest.platforms.map { platform in
+        let declaredPlatform = platformRegistry.platformByName[platform.platformName]
+            ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
+        return SupportedPlatform(
+            platform: declaredPlatform,
+            version: .init(platform.version),
+            options: platform.options
+        )
+    }
+
+    // the derived platforms based on known minimum deployment target logic
+    var derivedPlatforms = [SupportedPlatform]()
+
+    /// Add each declared platform to the supported platforms list.
+    for platform in package.manifest.platforms {
+        let declaredPlatform = platformRegistry.platformByName[platform.platformName]
+            ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
+        var version = PlatformVersion(platform.version)
+
+        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], version < xcTestMinimumDeploymentTarget {
+            version = xcTestMinimumDeploymentTarget
         }
-        return false
-    }}}.flatMap{$0}.flatMap{$0}
 
-    guard !depsWithAliases.isEmpty else { return nil }
-    
+        let supportedPlatform = SupportedPlatform(
+            platform: declaredPlatform,
+            version: version,
+            options: platform.options
+        )
+
+        derivedPlatforms.append(supportedPlatform)
+    }
+
+    // Find the undeclared platforms.
+    let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(derivedPlatforms.map({ $0.platform.name }))
+
+    /// Start synthesizing for each undeclared platform.
+    for platformName in remainingPlatforms.sorted() {
+        let platform = platformRegistry.platformByName[platformName]!
+
+        let oldestSupportedVersion: PlatformVersion
+        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform] {
+            oldestSupportedVersion = xcTestMinimumDeploymentTarget
+        } else if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
+            // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+            oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
+        } else {
+            oldestSupportedVersion = platform.oldestSupportedVersion
+        }
+
+        let supportedPlatform = SupportedPlatform(
+            platform: platform,
+            version: oldestSupportedVersion,
+            options: []
+        )
+
+        derivedPlatforms.append(supportedPlatform)
+    }
+
+    return SupportedPlatforms(
+        declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
+        derived: derivedPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
+    )
+}
+
+// Track and override module aliases specified for targets in a package graph
+private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
+                                  observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: [ModuleAliasModel]]]? {
+
+    // If there are no module aliases specified, return early
+    let hasAliases = packageBuilders.contains { $0.package.targets.contains {
+            $0.dependencies.contains { dep in
+                if case let .product(prodRef, _) = dep {
+                    return prodRef.moduleAliases != nil
+                }
+                return false
+            }
+        }
+    }
+
+    guard hasAliases else { return nil }
     let aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         for target in packageBuilder.package.targets {
@@ -549,17 +645,17 @@ private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder]
                     
                     if let aliasList = prodRef.moduleAliases {
                         for (depName, depAlias) in aliasList {
-                            if let existingAlias = aliasTracker.alias(of: depName, in: prodPkgID) {
+                            if let existingAlias = aliasTracker.alias(target: depName, originPackage: prodPkgID) {
                                 // Error if there are multiple aliases specified for this product dependency
                                 observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
                                 return nil
                             }
                             // Track aliases for this product
                             aliasTracker.addAlias(depAlias,
-                                                  of: depName,
-                                                  for: prodRef.name,
-                                                  from: PackageIdentity.plain(prodPkg),
-                                                  in: packageBuilder.package.identity)
+                                                  target: depName,
+                                                  product: prodRef.name,
+                                                  originPackage: PackageIdentity.plain(prodPkg),
+                                                  consumingPackage: packageBuilder.package.identity)
                         }
                     }
                 }
@@ -569,10 +665,10 @@ private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder]
 
     // Track targets that need module aliases for each package
     for packageBuilder in packageBuilders {
-        for prod in packageBuilder.package.products {
-            var list = prod.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target?.name}
-            list.append(contentsOf: prod.targets.map{$0.name})
-            aliasTracker.addAliasesForTargets(list, for: prod.name, in: packageBuilder.package.identity)
+        for produdct in packageBuilder.package.products {
+            var list = produdct.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target?.name}
+            list.append(contentsOf: produdct.targets.map{$0.name})
+            aliasTracker.addAliasesForTargets(list, product: produdct.name, package: packageBuilder.package.identity)
         }
     }
 
@@ -593,11 +689,11 @@ private class ModuleAliasTracker {
     init() {}
 
     func addAlias(_ alias: String,
-                  of targetName: String,
-                  for product: String,
-                  from originPackage: PackageIdentity,
-                  in parentPackage: PackageIdentity) {
-        let model = ModuleAliasModel(name: targetName, alias: alias, originPackage: originPackage, parentPackage: parentPackage)
+                  target: String,
+                  product: String,
+                  originPackage: PackageIdentity,
+                  consumingPackage: PackageIdentity) {
+        let model = ModuleAliasModel(name: target, alias: alias, originPackage: originPackage, consumingPackage: consumingPackage)
         aliasMap[originPackage, default: [:]][product, default: []].append(model)
     }
 
@@ -613,8 +709,8 @@ private class ModuleAliasTracker {
     }
 
     func addAliasesForTargets(_ targets: [String],
-                              for product: String,
-                              in package: PackageIdentity) {
+                              product: String,
+                              package: PackageIdentity) {
         
         let aliases = aliasMap[package]?[product]
         for targetName in targets {
@@ -628,10 +724,10 @@ private class ModuleAliasTracker {
         }
     }
 
-    func alias(of targetName: String,
-               in originPackage: PackageIdentity) -> String? {
+    func alias(target: String,
+               originPackage: PackageIdentity) -> String? {
         if let aliasDict = aliasMap[originPackage] {
-            let models = aliasDict.values.flatMap{$0}.filter { $0.name == targetName }
+            let models = aliasDict.values.flatMap{$0}.filter { $0.name == target }
             // this func only checks if there's any existing alias so
             // just return the first alias value
             return models.first?.alias
@@ -658,7 +754,7 @@ private class ModuleAliasTracker {
         for child in children {
             if let parentMap = idTargetToAliases[cur],
                let childMap = idTargetToAliases[child] {
-                for (parentTarget, parentAliases) in parentMap {
+                for (_, parentAliases) in parentMap {
                     for parentModel in parentAliases {
                         for (childTarget, childAliases) in childMap {
                             if !parentMap.keys.contains(childTarget),
@@ -685,13 +781,13 @@ private class ModuleAliasModel {
     let name: String
     var alias: String
     let originPackage: PackageIdentity
-    let parentPackage: PackageIdentity
+    let consumingPackage: PackageIdentity
 
-    init(name: String, alias: String, originPackage: PackageIdentity, parentPackage: PackageIdentity) {
+    init(name: String, alias: String, originPackage: PackageIdentity, consumingPackage: PackageIdentity) {
         self.name = name
         self.alias = alias
         self.originPackage = originPackage
-        self.parentPackage = parentPackage
+        self.consumingPackage = consumingPackage
     }
 }
 
@@ -766,7 +862,16 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
-    init(target: Target, observabilityScope: ObservabilityScope) {
+    /// The defaultLocalization for this package
+    var defaultLocalization: String? = nil
+
+    /// The platforms supported by this package.
+    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
+
+    init(
+        target: Target,
+        observabilityScope: ObservabilityScope
+    ) {
         self.target = target
         self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
@@ -778,9 +883,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
         // Diagnose if any target in this product uses an unsafe flag.
         for target in try product.recursiveTargetDependencies() {
-            let declarations = target.underlyingTarget.buildSettings.assignments.keys
-            for decl in declarations {
-                if BuildSettings.Declaration.unsafeSettings.contains(decl) {
+            for (decl, assignments) in target.underlyingTarget.buildSettings.assignments {
+                let flags = assignments.flatMap(\.values)
+                if BuildSettings.Declaration.unsafeSettings.contains(decl) && !flags.isEmpty {
                     self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
@@ -802,7 +907,12 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             }
         }
 
-        return ResolvedTarget(target: target, dependencies: dependencies)
+        return ResolvedTarget(
+            target: self.target,
+            dependencies: dependencies,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms
+        )
     }
 }
 
@@ -815,6 +925,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The product filter applied to the package.
     let productFilter: ProductFilter
 
+    /// Package can vend unsafe products
+    let isAllowedToVendUnsafeProducts: Bool
+
+    /// Package can be overridden
+    let allowedToOverride: Bool
+
     /// The targets in the package.
     var targets: [ResolvedTargetBuilder] = []
 
@@ -824,9 +940,11 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
-    let isAllowedToVendUnsafeProducts: Bool
+    /// The defaultLocalization for this package.
+    var defaultLocalization: String? = nil
 
-    let allowedToOverride: Bool
+    /// The platforms supported by this package.
+    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
 
     init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
@@ -837,10 +955,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
-            package: package,
-            dependencies: try dependencies.map{ try $0.construct() },
-            targets: try targets.map{ try $0.construct() },
-            products: try products.map{ try  $0.construct() }
+            package: self.package,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms,
+            dependencies: try self.dependencies.map{ try $0.construct() },
+            targets: try self.targets.map{ try $0.construct() },
+            products: try self.products.map{ try $0.construct() }
         )
     }
 }

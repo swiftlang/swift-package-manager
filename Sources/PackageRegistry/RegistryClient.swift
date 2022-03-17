@@ -18,7 +18,7 @@ import TSCBasic
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
-public final class RegistryClient {
+public final class RegistryClient: Cancellable {
     private let apiVersion: APIVersion = .v1
 
     private let configuration: RegistryConfiguration
@@ -48,6 +48,11 @@ public final class RegistryClient {
 
     public var configured: Bool {
         return !self.configuration.isEmpty
+    }
+
+    /// Cancel any outstanding requests
+    public func cancel(deadline: DispatchTime) throws {
+        try self.httpClient.cancel(deadline: deadline)
     }
 
     public func getPackageMetadata(
@@ -160,7 +165,7 @@ public final class RegistryClient {
                     }
 
                     var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
-                    let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
+                    let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
                     result[Manifest.filename] = (toolsVersion: toolsVersion, content: manifestContent)
 
                     let alternativeManifests = try response.headers.parseManifestLinks()

@@ -52,7 +52,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -97,7 +96,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5_3,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -137,7 +135,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5_6,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -177,7 +174,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5_6,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -691,7 +687,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .init("/test"),
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -722,7 +717,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .init("/test"),
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -760,7 +754,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .root,
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -791,7 +784,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .root,
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -830,7 +822,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -875,7 +866,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             packagePath: .root,
             target: target,
             path: .root,
-            defaultLocalization: nil,
             toolsVersion: .v5_5,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -916,7 +906,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .root,
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5_5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -942,7 +931,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 packagePath: .root,
                 target: target,
                 path: .root,
-                defaultLocalization: nil,
                 toolsVersion: .v5_5,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -1025,5 +1013,31 @@ class TargetSourcesBuilderTests: XCTestCase {
         } catch {
             XCTFail(error.localizedDescription, file: file, line: line)
         }
+    }
+}
+
+extension TargetSourcesBuilder {
+    public init(
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packagePath: AbsolutePath,
+        target: TargetDescription,
+        path: AbsolutePath,
+        toolsVersion: ToolsVersion,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.init(
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packagePath: packagePath,
+            target: target,
+            path: path,
+            defaultLocalization: .none,
+            additionalFileRules: [],
+            toolsVersion: toolsVersion,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
     }
 }

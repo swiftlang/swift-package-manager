@@ -36,18 +36,19 @@ extension ManifestParseError: CustomStringConvertible {
     }
 }
 
+// MARK: - ManifestLoaderProtocol
+
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
     ///
     /// - Parameters:
-    ///   - at: The root path of the package.
+    ///   - manifestPath: The root path of the package.
+    ///   - manifestToolsVersion: The version of the tools the manifest supports.
     ///   - packageIdentity: the identity of the package
     ///   - packageKind: The kind of package the manifest is from.
     ///   - packageLocation: The location the package the manifest was loaded from.
-    ///   - version: Optional. The version the manifest is from, if known.
-    ///   - revision: Optional. The revision the manifest is from, if known
-    ///   - toolsVersion: The version of the tools the manifest supports.
+    ///   - packageVersion: Optional. The version and revision of the package.
     ///   - identityResolver: A helper to resolve identities based on configuration
     ///   - fileSystem: File system to load from.
     ///   - observabilityScope: Observability scope to emit diagnostics.
@@ -55,13 +56,12 @@ public protocol ManifestLoaderProtocol {
     ///   - callbackQueue: The dispatch queue to perform completion handler on.
     ///   - completion: The completion handler .
     func load(
-        at path: AbsolutePath,
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
+        packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -85,6 +85,55 @@ public protocol ManifestLoaderDelegate {
     func willLoad(manifest: AbsolutePath)
     func willParse(manifest: AbsolutePath)
 }
+
+// loads a manifest given a package root path
+// this will first find the most appropriate manifest file in the package directory
+// bases on the toolchain's tools-version and proceed to load that manifest
+extension ManifestLoaderProtocol {
+    public func load(
+        packagePath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        currentToolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        do {
+            // find the manifest path and parse it's tools-version
+            let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: currentToolsVersion)
+            let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+            // validate the manifest tools-version against the toolchain tools-version
+            try manifestToolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity, packageVersion: packageVersion?.version?.description ?? packageVersion?.revision)
+
+            self.load(
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        } catch {
+            callbackQueue.async {
+                completion(.failure(error))
+            }
+        }
+    }
+}
+
+// MARK: - ManifestLoader
 
 /// Utility class for loading manifest files.
 ///
@@ -179,17 +228,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
             let loader = ManifestLoader(toolchain: toolchain)
-            let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
             let packageIdentity = try identityResolver.resolveIdentity(for: packageLocation)
+            let manifestPath = try ManifestLoader.findManifest(packagePath: path, fileSystem: fileSystem, currentToolsVersion: .current)
+            let manifestToolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             loader.load(
-                at: path,
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
                 packageKind: .root(packageLocation),
                 packageLocation: packageLocation.pathString,
-                version: nil,
-                revision: nil,
-                toolsVersion: toolsVersion,
+                packageVersion: .none,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics ?? DiagnosticsEngine()).topScope,
@@ -203,52 +252,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     public func load(
-        at path: AbsolutePath,
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-            self.loadFile(
-                at: manifestPath,
-                packageIdentity: packageIdentity,
-                packageKind: packageKind,
-                packageLocation: packageLocation,
-                version: version,
-                revision: revision,
-                toolsVersion: toolsVersion,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        } catch {
-            callbackQueue.async {
-                completion(.failure(error))
-            }
-        }
-    }
-
-    private func loadFile(
-        at path: AbsolutePath,
-        packageIdentity: PackageIdentity,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
+        packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -258,22 +267,22 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) {
         // Inform the delegate.
         delegateQueue.async {
-            self.delegate?.willLoad(manifest: path)
+            self.delegate?.willLoad(manifest: manifestPath)
         }
 
         // Validate that the file exists.
-        guard fileSystem.isFile(path) else {
+        guard fileSystem.isFile(manifestPath) else {
             return callbackQueue.async {
-                completion(.failure(PackageModel.Package.Error.noManifest(at: path, version: version?.description)))
+                completion(.failure(PackageModel.Package.Error.noManifest(at: manifestPath, version: packageVersion?.version)))
             }
         }
 
         self.loadAndCacheManifest(
-            at: path,
+            at: manifestPath,
+            toolsVersion: manifestToolsVersion,
             packageIdentity: packageIdentity,
             packageKind: packageKind,
-            version: version,
-            toolsVersion: toolsVersion,
+            packageVersion: packageVersion?.version,
             identityResolver: identityResolver,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
@@ -288,7 +297,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 var products = parsedManifest.products
                 var targets = parsedManifest.targets
                 if products.isEmpty, targets.isEmpty,
-                   fileSystem.isFile(path.parentDirectory.appending(component: moduleMapFilename)) {
+                   fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
                     try products.append(ProductDescription(
                         name: parsedManifest.name,
                         type: .library(.automatic),
@@ -305,14 +314,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 let manifest = Manifest(
                     displayName: parsedManifest.name,
-                    path: path,
+                    path: manifestPath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,
                     defaultLocalization: parsedManifest.defaultLocalization,
                     platforms: parsedManifest.platforms,
-                    version: version,
-                    revision: revision,
-                    toolsVersion: toolsVersion,
+                    version: packageVersion?.version,
+                    revision: packageVersion?.revision,
+                    toolsVersion: manifestToolsVersion,
                     pkgConfig: parsedManifest.pkgConfig,
                     providers: parsedManifest.providers,
                     cLanguageStandard: parsedManifest.cLanguageStandard,
@@ -323,7 +332,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     targets: targets
                 )
 
-                try self.validate(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
+                try self.validate(manifest, toolsVersion: manifestToolsVersion, observabilityScope: observabilityScope)
 
                 if observabilityScope.errorsReported {
                     throw Diagnostics.fatalError
@@ -567,10 +576,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private func loadAndCacheManifest(
         at path: AbsolutePath,
+        toolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
-        version: Version?,
-        toolsVersion: ToolsVersion,
+        packageVersion: Version?,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -607,7 +616,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 manifestPath: path,
                 toolsVersion: toolsVersion,
                 env: ProcessEnv.vars,
-                swiftpmVersion: SwiftVersion.currentVersion.displayString,
+                swiftpmVersion: SwiftVersion.current.displayString,
                 fileSystem: fileSystem
             )
         } catch {
@@ -619,7 +628,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             // try to get it from the cache
             if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
-                observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(version?.description ?? "unknown") from cache")
+                observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from cache")
                 let parsedManifest = try self.parseManifest(
                     result,
                     packageIdentity: packageIdentity,
@@ -641,7 +650,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let closeAfterWrite = closeAfterRead.delay()
 
         // shells out and compiles the manifest, finally output a JSON
-        observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(version?.description ?? "unknown") ")
+        observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") ")
         self.evaluateManifest(
             packageIdentity: key.packageIdentity,
             manifestPath: key.manifestPath,

@@ -15,6 +15,7 @@ import class Foundation.JSONDecoder
 import class Foundation.NSError
 import class Foundation.OperationQueue
 import struct Foundation.URL
+import struct Foundation.UUID
 import TSCBasic
 
 #if canImport(Glibc)
@@ -35,7 +36,7 @@ public enum HTTPClientError: Error, Equatable {
 
 // MARK: - HTTPClient
 
-public struct HTTPClient {
+public struct HTTPClient: Cancellable {
     public typealias Configuration = HTTPClientConfiguration
     public typealias Request = HTTPClientRequest
     public typealias Response = HTTPClientResponse
@@ -47,9 +48,12 @@ public struct HTTPClient {
     private let underlying: Handler
 
     /// DispatchSemaphore to restrict concurrent operations on manager.
-     private let concurrencySemaphore: DispatchSemaphore
-     /// OperationQueue to park pending requests
-     private let requestsQueue: OperationQueue
+    private let concurrencySemaphore: DispatchSemaphore
+    /// OperationQueue to park pending requests
+    private let requestsQueue: OperationQueue
+
+    // tracks outstanding requests for cancellation
+    private var outstandingRequests = ThreadSafeKeyValueStore<UUID, (url: URL, completion: CompletionHandler, progress: ProgressHandler?, queue: DispatchQueue)>()
 
     // static to share across instances of the http client
     private static var hostsErrorsLock = Lock()
@@ -76,7 +80,12 @@ public struct HTTPClient {
     ///   - observabilityScope: the observability scope to emit diagnostics on
     ///   - progress: A progress handler to handle progress for example for downloads
     ///   - completion: A completion handler to be notified of the completion of the request.
-    public func execute(_ request: Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler? = nil, completion: @escaping CompletionHandler) {
+    public func execute(
+        _ request: Request,
+        observabilityScope: ObservabilityScope? = nil,
+        progress: ProgressHandler? = nil,
+        completion: @escaping CompletionHandler
+    ) {
         // merge configuration
         var request = request
         if request.options.callbackQueue == nil {
@@ -101,13 +110,15 @@ public struct HTTPClient {
             }
         }
         if request.options.addUserAgent, !request.headers.contains("User-Agent") {
-            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.currentVersion.displayString)")
+            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
         }
         if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
             request.headers.add(name: "Authorization", value: authorization)
         }
         // execute
-        let callbackQueue = request.options.callbackQueue ?? self.configuration.callbackQueue
+        guard let callbackQueue = request.options.callbackQueue else {
+            return completion(.failure(InternalError("unknown callback queue")))
+        }
         self._execute(
             request: request,
             requestNumber: 0,
@@ -129,13 +140,42 @@ public struct HTTPClient {
         )
     }
 
-    private func _execute(request: Request, requestNumber: Int, observabilityScope: ObservabilityScope?, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    /// Cancel any outstanding requests
+    public func cancel(deadline: DispatchTime) throws {
+        let outstanding = self.outstandingRequests.clear()
+        for (_, callback, _, queue) in outstanding.values {
+            queue.async {
+                callback(.failure(CancellationError()))
+            }
+        }
+    }
+
+    private func _execute(
+        request: Request,
+        requestNumber: Int,
+        observabilityScope: ObservabilityScope?,
+        progress: ProgressHandler?,
+        completion: @escaping CompletionHandler
+    ) {
+        // records outstanding requests for cancellation purposes
+        guard let callbackQueue = request.options.callbackQueue else {
+            return completion(.failure(InternalError("unknown callback queue")))
+        }
+        let requestKey = UUID()
+        self.outstandingRequests[requestKey] = (url: request.url, completion: completion, progress: progress, queue: callbackQueue)
+
         // wrap completion handler with concurrency control cleanup
         let originalCompletion = completion
         let completion: CompletionHandler = { result in
             // free concurrency control semaphore
             self.concurrencySemaphore.signal()
-            originalCompletion(result)
+            // cancellation support
+            // if the callback is no longer on the pending lists it has been canceled already
+            // read + remove from outstanding requests atomically
+            if let (_, callback, _, queue) = self.outstandingRequests.removeValue(forKey: requestKey) {
+                // call back on the request queue
+                queue.async { callback(result) }
+            }
         }
 
         // we must not block the calling thread (for concurrency control) so nesting this in a queue
@@ -172,9 +212,11 @@ public struct HTTPClient {
                         // handle retry strategy
                         if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
                             observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
-                            // free concurrency control semaphore, since we re-submitting the request with the original completion handler
-                            // using the wrapped completion handler may lead to starving the mac concurrent requests
+                            // free concurrency control semaphore and outstanding request,
+                            // since we re-submitting the request with the original completion handler
+                            // using the wrapped completion handler may lead to starving the max concurrent requests
                             self.concurrencySemaphore.signal()
+                            self.outstandingRequests[requestKey] = nil
                             // TODO: dedicated retry queue?
                             return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
                                 self._execute(request: request, requestNumber: requestNumber + 1, observabilityScope: observabilityScope, progress: progress, completion: originalCompletion)

@@ -89,9 +89,21 @@ public final class PackageGraphResult {
         body: (ResolvedTargetResult) -> Void
     ) {
         guard let target = find(target: name) else {
-            return XCTFail("Module \(name) not found", file: file, line: line)
+            return XCTFail("Target \(name) not found", file: file, line: line)
         }
         body(ResolvedTargetResult(target))
+    }
+
+    public func checkProduct(
+        _ name: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        body: (ResolvedProductResult) -> Void
+    ) {
+        guard let target = find(product: name) else {
+            return XCTFail("Product \(name) not found", file: file, line: line)
+        }
+        body(ResolvedProductResult(target))
     }
 
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
@@ -104,6 +116,10 @@ public final class PackageGraphResult {
 
     public func find(target: String) -> ResolvedTarget? {
         return graph.allTargets.first(where: { $0.name == target })
+    }
+
+    public func find(product: String) -> ResolvedProduct? {
+        return graph.allProducts.first(where: { $0.name == product })
     }
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget> {
@@ -150,6 +166,21 @@ public final class ResolvedTargetResult {
     public func check(type: Target.Kind, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(type, target.type, file: file, line: line)
     }
+
+    public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+        let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.declared.map({ ($0.platform.name, $0.version.versionString) }))
+        XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+    }
+
+    public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+        let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.derived.map({ ($0.platform.name, $0.version.versionString) }))
+        XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+    }
+
+    public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
+        let platform = target.platforms.getDerived(for: platform)
+        XCTAssertEqual(platform?.options, options, file: file, line: line)
+    }
 }
 
 public final class ResolvedTargetDependencyResult {
@@ -169,6 +200,37 @@ public final class ResolvedTargetDependencyResult {
         line: UInt = #line
     ) {
         XCTAssert(!dependency.conditions.allSatisfy({ $0.satisfies(environment) }), file: file, line: line)
+    }
+}
+
+public final class ResolvedProductResult {
+    private let product: ResolvedProduct
+
+    init(_ product: ResolvedProduct) {
+        self.product = product
+    }
+
+    public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(Set(targets), Set(product.targets.map({ $0.name })), file: file, line: line)
+    }
+
+    public func check(type: ProductType, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(type, product.type, file: file, line: line)
+    }
+
+    public func checkDeclaredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+        let targetPlatforms = Dictionary(uniqueKeysWithValues: product.platforms.declared.map({ ($0.platform.name, $0.version.versionString) }))
+        XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+    }
+
+    public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+        let targetPlatforms = Dictionary(uniqueKeysWithValues: product.platforms.derived.map({ ($0.platform.name, $0.version.versionString) }))
+        XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+    }
+
+    public func checkDerivedPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
+        let platform = product.platforms.getDerived(for: platform)
+        XCTAssertEqual(platform?.options, options, file: file, line: line)
     }
 }
 

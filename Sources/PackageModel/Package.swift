@@ -91,7 +91,7 @@ public final class Package: Encodable {
     }
 
     public enum Error: Swift.Error, Equatable {
-        case noManifest(at: AbsolutePath, version: String?)
+        case noManifest(at: AbsolutePath, version: Version?)
     }
 }
 

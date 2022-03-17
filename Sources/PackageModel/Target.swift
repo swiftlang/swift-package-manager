@@ -143,8 +143,6 @@ public class Target: PolymorphicCodableProtocol {
             self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
         }
     }
-    /// The default localization for resources.
-    public let defaultLocalization: String?
 
     /// The dependencies of this target.
     public let dependencies: [Dependency]
@@ -173,14 +171,6 @@ public class Target: PolymorphicCodableProtocol {
     /// Other kinds of files in the target.
     public let others: [AbsolutePath]
 
-    /// The list of platforms that are supported by this target.
-    public let platforms: [SupportedPlatform]
-
-    /// Returns the supported platform instance for the given platform.
-    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
-        return self.platforms.first(where: { $0.platform == platform })
-    }
-
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
 
@@ -190,8 +180,6 @@ public class Target: PolymorphicCodableProtocol {
     fileprivate init(
         name: String,
         bundleName: String? = nil,
-        defaultLocalization: String?,
-        platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
@@ -203,8 +191,6 @@ public class Target: PolymorphicCodableProtocol {
     ) {
         self.name = name
         self.bundleName = bundleName
-        self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
         self.type = type
         self.sources = sources
         self.resources = resources
@@ -227,8 +213,8 @@ public class Target: PolymorphicCodableProtocol {
         // the actual target dependency object.
         try container.encode(name, forKey: .name)
         try container.encode(bundleName, forKey: .bundleName)
-        try container.encode(defaultLocalization, forKey: .defaultLocalization)
-        try container.encode(platforms, forKey: .platforms)
+        //try container.encode(defaultLocalization, forKey: .defaultLocalization)
+        //try container.encode(platforms, forKey: .platforms)
         try container.encode(type, forKey: .type)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
@@ -243,8 +229,6 @@ public class Target: PolymorphicCodableProtocol {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
         self.bundleName = try container.decodeIfPresent(String.self, forKey: .bundleName)
-        self.defaultLocalization = try container.decodeIfPresent(String.self, forKey: .defaultLocalization)
-        self.platforms = try container.decode([SupportedPlatform].self, forKey: .platforms)
         self.type = try container.decode(Kind.self, forKey: .type)
         self.sources = try container.decode(Sources.self, forKey: .sources)
         self.resources = try container.decode([Resource].self, forKey: .resources)
@@ -282,13 +266,11 @@ public final class SwiftTarget: Target {
     /// The file name of test manifest.
     public static let testManifestNames = ["XCTMain.swift", "LinuxMain.swift"]
 
-    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency]) {
+    public init(name: String, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
 
         super.init(
             name: name,
-            defaultLocalization: nil,
-            platforms: [],
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
@@ -303,8 +285,6 @@ public final class SwiftTarget: Target {
     public init(
         name: String,
         bundleName: String? = nil,
-        defaultLocalization: String? = nil,
-        platforms: [SupportedPlatform] = [],
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
@@ -319,8 +299,6 @@ public final class SwiftTarget: Target {
         super.init(
             name: name,
             bundleName: bundleName,
-            defaultLocalization: defaultLocalization,
-            platforms: platforms,
             type: type,
             sources: sources,
             resources: resources,
@@ -333,7 +311,7 @@ public final class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from test manifest file.
-    public init(testManifest: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
+    public init(name: String, dependencies: [Target.Dependency], testManifest: AbsolutePath) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -346,15 +324,11 @@ public final class SwiftTarget: Target {
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
         // do that currently.
-        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
         let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
-
-        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
 
         super.init(
             name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
             type: .executable,
             sources: sources,
             dependencies: dependencies,
@@ -399,7 +373,6 @@ public final class SystemLibraryTarget: Target {
 
     public init(
         name: String,
-        platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
@@ -411,8 +384,6 @@ public final class SystemLibraryTarget: Target {
         self.isImplicit = isImplicit
         super.init(
             name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
             type: .systemModule,
             sources: sources,
             dependencies: [],
@@ -470,8 +441,6 @@ public final class ClangTarget: Target {
     public init(
         name: String,
         bundleName: String? = nil,
-        defaultLocalization: String? = nil,
-        platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
@@ -497,8 +466,6 @@ public final class ClangTarget: Target {
         super.init(
             name: name,
             bundleName: bundleName,
-            defaultLocalization: defaultLocalization,
-            platforms: platforms,
             type: type,
             sources: sources,
             resources: resources,
@@ -552,7 +519,6 @@ public final class BinaryTarget: Target {
     public init(
         name: String,
         kind: Kind,
-        platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
         origin: Origin
     ) {
@@ -561,8 +527,6 @@ public final class BinaryTarget: Target {
         let sources = Sources(paths: [], root: path)
         super.init(
             name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
             type: .binary,
             sources: sources,
             dependencies: [],
@@ -674,7 +638,6 @@ public final class PluginTarget: Target {
 
     public init(
         name: String,
-        platforms: [SupportedPlatform] = [],
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
@@ -684,8 +647,6 @@ public final class PluginTarget: Target {
         self.apiVersion = apiVersion
         super.init(
             name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
             type: .plugin,
             sources: sources,
             dependencies: dependencies,

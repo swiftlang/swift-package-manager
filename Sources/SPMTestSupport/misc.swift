@@ -219,18 +219,19 @@ private func swiftArgs(
 
 public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
-    fs: FileSystem,
+    fileSystem: FileSystem,
     manifests: [Manifest],
-    binaryArtifacts: [BinaryArtifact] = [],
-    explicitProduct: String? = nil,
+    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
+    explicitProduct: String? = .none,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false,
+    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
-        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fs)
+        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
     }
 
     let packages = Array(rootManifests.keys)
@@ -245,7 +246,8 @@ public func loadPackageGraph(
         binaryArtifacts: binaryArtifacts,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
-        fileSystem: fs,
+        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+        fileSystem: fileSystem,
         observabilityScope: observabilityScope
     )
 }

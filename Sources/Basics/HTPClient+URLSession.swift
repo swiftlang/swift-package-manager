@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,25 +18,28 @@ import FoundationNetworking
 #endif
 
 public struct URLSessionHTTPClient {
-    private let dataTasksManager: DataTaskManager
-    private let downloadsTasksManager: DownloadTaskManager
+    private let dataTaskManager: DataTaskManager
+    private let downloadTaskManager: DownloadTaskManager
 
     public init(configuration: URLSessionConfiguration = .default) {
-        self.dataTasksManager = DataTaskManager(configuration: configuration)
-        self.downloadsTasksManager = DownloadTaskManager(configuration: configuration)
+        self.dataTaskManager = DataTaskManager(configuration: configuration)
+        self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
     }
 
     public func execute(_ request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
     }
 
-    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
+    public func execute(_ request: HTTPClient.Request,
+                        observabilityScope: ObservabilityScope? = nil,
+                        progress: HTTPClient.ProgressHandler?,
+                        completion: @escaping HTTPClient.CompletionHandler) {
         switch request.kind {
         case .generic:
-            let task = self.dataTasksManager.makeTask(request: request, progress: progress, completion: completion)
+            let task = self.dataTaskManager.makeTask(request: request, progress: progress, completion: completion)
             task.resume()
         case .download(let fileSystem, let destination):
-            let task = self.downloadsTasksManager.makeTask(request: request, fileSystem: fileSystem, destination: destination, progress: progress, completion: completion)
+            let task = self.downloadTaskManager.makeTask(request: request, fileSystem: fileSystem, destination: destination, progress: progress, completion: completion)
             task.resume()
         }
     }
@@ -57,7 +60,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
 
     func makeTask(request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) -> URLSessionDataTask {
         let task = self.session.dataTask(with: request.urlRequest())
-        self.tasks[task.taskIdentifier] = DataTask(task: task, progressHandler: progress, completionHandler: completion)
+        self.tasks[task.taskIdentifier] = DataTask(task: task, progressHandler: progress, completionHandler: completion, authorizationProvider: request.options.authorizationProvider)
         return task
     }
 
@@ -98,20 +101,44 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
             task.completionHandler(.failure(HTTPClientError.invalidResponse))
         }
     }
+    
+    public func urlSession(_ session: URLSession,
+                           task: URLSessionTask,
+                           willPerformHTTPRedirection response: HTTPURLResponse,
+                           newRequest request: URLRequest,
+                           completionHandler: @escaping (URLRequest?) -> Void) {
+        // Don't remove task from dictionary because we want to resume it later
+        guard let task = self.tasks[task.taskIdentifier] else {
+            return
+        }
+        
+        var request = request
+        // Set `Authorization` header for the redirected request
+        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL), request.value(forHTTPHeaderField: "Authorization") == nil {
+            request.addValue(authorization, forHTTPHeaderField: "Authorization")
+        }
+        
+        completionHandler(request)
+    }
 
     class DataTask {
         let task: URLSessionDataTask
         let completionHandler: HTTPClient.CompletionHandler
         let progressHandler: HTTPClient.ProgressHandler?
+        let authorizationProvider: HTTPClientAuthorizationProvider?
 
         var response: HTTPURLResponse?
         var expectedContentLength: Int64?
         var buffer: Data?
 
-        init(task: URLSessionDataTask, progressHandler: HTTPClient.ProgressHandler?, completionHandler: @escaping HTTPClient.CompletionHandler) {
+        init(task: URLSessionDataTask,
+             progressHandler: HTTPClient.ProgressHandler?,
+             completionHandler: @escaping HTTPClient.CompletionHandler,
+             authorizationProvider: HTTPClientAuthorizationProvider?) {
             self.task = task
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
+            self.authorizationProvider = authorizationProvider
         }
     }
 }

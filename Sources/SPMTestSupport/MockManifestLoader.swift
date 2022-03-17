@@ -47,13 +47,12 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
     }
 
     public func load(
-        at path: TSCBasic.AbsolutePath,
+        manifestPath: AbsolutePath,
+        manifestToolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
+        packageVersion: (version: Version?, revision: String?)?,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -62,7 +61,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         callbackQueue.async {
-            let key = Key(url: packageLocation, version: version)
+            let key = Key(url: packageLocation, version: packageVersion?.version)
             if let result = self.manifests[key] {
                 return completion(.success(result))
             } else {
@@ -77,11 +76,11 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
 
 extension ManifestLoader {
     public func load(
-        at path: TSCBasic.AbsolutePath,
-        packageKind: PackageModel.PackageReference.Kind,
-        toolsVersion: PackageModel.ToolsVersion,
+        manifestPath: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        toolsVersion manifestToolsVersion: ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
-        fileSystem: TSCBasic.FileSystem,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> Manifest{
         let packageIdentity: PackageIdentity
@@ -106,13 +105,61 @@ extension ManifestLoader {
         }
         return try tsc_await {
             self.load(
-                at: path,
+                manifestPath: manifestPath,
+                manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
                 packageKind: packageKind,
                 packageLocation: packageLocation,
-                version: nil,
-                revision: nil,
-                toolsVersion: toolsVersion,
+                packageVersion: nil,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+}
+
+
+extension ManifestLoader {
+    public func load(
+        packagePath: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        currentToolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver = DefaultIdentityResolver(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> Manifest{
+        let packageIdentity: PackageIdentity
+        let packageLocation: String
+        switch packageKind {
+        case .root(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .fileSystem(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .localSourceControl(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .remoteSourceControl(let url):
+            packageIdentity = try identityResolver.resolveIdentity(for: url)
+            packageLocation = url.absoluteString
+        case .registry(let identity):
+            packageIdentity = identity
+            // FIXME: placeholder
+            packageLocation = identity.description
+        }
+        return try tsc_await {
+            self.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: nil,
+                currentToolsVersion: currentToolsVersion,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,

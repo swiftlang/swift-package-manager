@@ -110,7 +110,7 @@ class VersionSpecificTests: XCTestCase {
             }
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "OK v1.1.0")
-            try repo.tag(name: "1.1.0@swift-\(SwiftVersion.currentVersion.major)")
+            try repo.tag(name: "1.1.0@swift-\(SwiftVersion.current.major)")
 
             // The build should work now.
             _ = try SwiftPMProduct.SwiftPackage.execute(["reset"], packagePath: primaryPath)

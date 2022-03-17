@@ -18,7 +18,7 @@ import XCTest
 
 import TSCBasic
 import PackageModel
-import Workspace
+@testable import Workspace
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
 class ToolsVersionSpecificationRewriterTests: XCTestCase {
@@ -118,14 +118,14 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         
         // Test `ManifestAccessError.Kind.isADirectory`
         XCTAssertThrowsError(
-            try rewriteToolsVersionSpecification(
-                toDefaultManifestIn: manifestFilePath.parentDirectory.parentDirectory, // /pkg/
-                specifying: toolsVersion,
+            try ToolsVersionSpecificationWriter.rewriteSpecification(
+                manifestDirectory: manifestFilePath.parentDirectory.parentDirectory, // /pkg/
+                toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
             ),
             "'/pkg/Package.swift' is a directory, and an error should've been thrown"
         ) { error in
-            guard let error = error as? ManifestAccessError else {
+            guard let error = error as? ToolsVersionSpecificationWriter.ManifestAccessError else {
                 XCTFail("a ManifestAccessError should've been thrown")
                 return
             }
@@ -141,14 +141,14 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         
         // Test `ManifestAccessError.Kind.noSuchFileOrDirectory`
         XCTAssertThrowsError(
-            try rewriteToolsVersionSpecification(
-                toDefaultManifestIn: manifestFilePath.parentDirectory, // /pkg/Package.swift/
-                specifying: toolsVersion,
+            try ToolsVersionSpecificationWriter.rewriteSpecification(
+                manifestDirectory: manifestFilePath.parentDirectory, // /pkg/Package.swift/
+                toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
             ),
             "'/pkg/Package.swift' is a directory, and an error should've been thrown"
         ) { error in
-            guard let error = error as? ManifestAccessError else {
+            guard let error = error as? ToolsVersionSpecificationWriter.ManifestAccessError else {
                 XCTFail("a ManifestAccessError should've been thrown")
                 return
             }
@@ -194,9 +194,9 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
             try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
             try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)
 
-            try rewriteToolsVersionSpecification(
-                toDefaultManifestIn: manifestFilePath.parentDirectory,
-                specifying: version,
+            try ToolsVersionSpecificationWriter.rewriteSpecification(
+                manifestDirectory: manifestFilePath.parentDirectory,
+                toolsVersion: version,
                 fileSystem: inMemoryFileSystem
             )
 

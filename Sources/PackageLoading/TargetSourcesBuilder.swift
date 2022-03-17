@@ -62,14 +62,13 @@ public struct TargetSourcesBuilder {
         target: TargetDescription,
         path: AbsolutePath,
         defaultLocalization: String?,
-        additionalFileRules: [FileRuleDescription] = [],
-        toolsVersion: ToolsVersion = .currentToolsVersion,
+        additionalFileRules: [FileRuleDescription],
+        toolsVersion: ToolsVersion,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         self.packageIdentity = packageIdentity
         self.packageKind = packageKind
-        //self.packageLocation = packageLocation
         self.packagePath = packagePath
         self.target = target
         self.defaultLocalization = defaultLocalization
