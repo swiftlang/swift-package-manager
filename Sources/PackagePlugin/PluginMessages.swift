@@ -163,6 +163,7 @@ enum HostToPluginMessage: Codable {
                     enum SourceModuleKind: String, Codable {
                         case generic
                         case executable
+                        case snippet
                         case test
                     }
 
