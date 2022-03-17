@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
@@ -312,7 +314,7 @@ extension Workspace.Configuration {
             case .user:
                 // user .netrc file (most typical)
                 let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
-                
+
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
                     providers.append(userHomeProvider)

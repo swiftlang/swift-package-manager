@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2019 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2019 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 /// A resource to bundle with the Swift package.
 ///
@@ -24,32 +26,32 @@
 /// using the ``process(_:localization:)`` or ``copy(_:)`` rules. Alternatively, exclude resource files from a target
 /// by passing them to the target initializer’s `exclude` parameter.
 public struct Resource: Encodable {
-    
+
     /// Defines the explicit type of localization for resources.
     public enum Localization: String, Encodable {
-        
+
         /// A constant that represents default internationalization.
         case `default`
-        
+
         /// A constant that represents base internationalization.
         case base
     }
-    
+
     /// The rule for the resource.
     private let rule: String
-    
+
     /// The path of the resource.
     private let path: String
-    
+
     /// The explicit type of localization for the resource.
     private let localization: Localization?
-    
+
     private init(rule: String, path: String, localization: Localization?) {
         self.rule = rule
         self.path = path
         self.localization = localization
     }
-    
+
     /// Applies a platform-specific rule to the resource at the given path.
     ///
     /// Use the `process` rule to process resources at the given path
@@ -69,7 +71,7 @@ public struct Resource: Encodable {
     public static func process(_ path: String, localization: Localization? = nil) -> Resource {
         return Resource(rule: "process", path: path, localization: localization)
     }
-    
+
     /// Applies the copy rule to a resource at the given path.
     ///
     /// If possible, use ``process(_:localization:)`` and automatically apply optimizations

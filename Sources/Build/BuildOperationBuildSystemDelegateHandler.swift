@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Dispatch
@@ -129,7 +131,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         for file in outputs {
             if maybeMainFile == nil && isMainFile(file) {
                 maybeMainFile = file
-                continue 
+                continue
             }
 
             // FIXME: This is relying on implementation detail of the output but passing the
@@ -290,7 +292,7 @@ public final class BuildExecutionContext {
 
     /// The package structure delegate.
     let packageStructureDelegate: PackageStructureDelegate
-    
+
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
@@ -522,7 +524,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
         queue.async {
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
-            
+
             if !self.logLevel.isVerbose {
                 let targetName = self.swiftParsers[command.name]?.targetName
                 self.taskTracker.commandFinished(command, result: result, targetName: targetName)
@@ -614,7 +616,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
         return false
     }
-    
+
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
         self.outputStream <<< name <<< "\n"
@@ -732,7 +734,7 @@ fileprivate struct CommandTaskTracker {
             break
         }
     }
-    
+
     mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
         let progressTextValue = progressText(of: command, targetName: targetName)
         self.onTaskProgressUpdateText?(progressTextValue, targetName)
@@ -748,7 +750,7 @@ fileprivate struct CommandTaskTracker {
             break
         }
     }
-    
+
     mutating func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage, targetName: String) {
         switch message.kind {
         case .began(let info):

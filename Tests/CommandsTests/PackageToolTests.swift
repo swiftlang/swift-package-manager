@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 @testable import Commands
@@ -878,7 +880,7 @@ final class PackageToolTests: CommandsTestCase {
             }
             let exec = [fooPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
-            // Build and sanity check.
+            // Build and check.
             _ = try build()
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
@@ -1246,7 +1248,7 @@ final class PackageToolTests: CommandsTestCase {
     func testBuildToolPlugin() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1315,13 +1317,13 @@ final class PackageToolTests: CommandsTestCase {
                     extension String : Error {}
                 """
             }
-            
+
             // Invoke it, and check the results.
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
             let output = try result.utf8Output() + result.utf8stderrOutput()
             XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
             XCTAssert(output.contains("Build complete!"))
-            
+
             // We expect a warning about `library.bar` but not about `library.foo`.
             let stderrOutput = try result.utf8stderrOutput()
             XCTAssertMatch(stderrOutput, .contains("found 1 file(s) which are unhandled"))
@@ -1333,7 +1335,7 @@ final class PackageToolTests: CommandsTestCase {
     func testBuildToolPluginFailure() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1461,11 +1463,11 @@ final class PackageToolTests: CommandsTestCase {
             }
         }
     }
-    
+
     func testCommandPlugin() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1586,7 +1588,7 @@ final class PackageToolTests: CommandsTestCase {
                         print("Looking for sed...")
                         let sed = try context.tool(named: "sed")
                         print("... found it at \\(sed.path)")
-                        
+
                         // Extract the `--target` arguments.
                         var argExtractor = ArgumentExtractor(arguments)
                         let targetNames = argExtractor.extractOption(named: "target")
@@ -1697,7 +1699,7 @@ final class PackageToolTests: CommandsTestCase {
     func testCommandPluginPermissions() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1787,10 +1789,10 @@ final class PackageToolTests: CommandsTestCase {
     func testCommandPluginSymbolGraphCallbacks() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library, and executable, and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1880,7 +1882,7 @@ final class PackageToolTests: CommandsTestCase {
     func testCommandPluginBuildingCallbacks() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library, an executable, and a command plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -2051,7 +2053,7 @@ final class PackageToolTests: CommandsTestCase {
     func testCommandPluginTestingCallbacks() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         // Depending on how the test is running, the `llvm-profdata` and `llvm-cov` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getLLVMProf()) == nil, "skipping test because the `llvm-profdata` tool isn't available")
         try XCTSkipIf((try? UserToolchain.default.getLLVMCov()) == nil, "skipping test because the `llvm-cov` tool isn't available")
@@ -2175,11 +2177,11 @@ final class PackageToolTests: CommandsTestCase {
             // We'll add checks for various error conditions here in a future commit.
         }
     }
-    
+
     func testPluginAPIs() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a plugin to test various parts of the API.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -2240,25 +2242,25 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
             """)
-            
+
             let firstTargetDir = packageDir.appending(components: "Sources", "FirstTarget")
             try localFileSystem.createDirectory(firstTargetDir, recursive: true)
             try localFileSystem.writeFileContents(firstTargetDir.appending(component: "library.swift"), string: """
                 public func FirstFunc() { }
                 """)
-            
+
             let secondTargetDir = packageDir.appending(components: "Sources", "SecondTarget")
             try localFileSystem.createDirectory(secondTargetDir, recursive: true)
             try localFileSystem.writeFileContents(secondTargetDir.appending(component: "library.swift"), string: """
                 public func SecondFunc() { }
                 """)
-            
+
             let thirdTargetDir = packageDir.appending(components: "Sources", "ThirdTarget")
             try localFileSystem.createDirectory(thirdTargetDir, recursive: true)
             try localFileSystem.writeFileContents(thirdTargetDir.appending(component: "library.swift"), string: """
                 public func ThirdFunc() { }
                 """)
-            
+
             let fourthTargetDir = packageDir.appending(components: "Sources", "FourthTarget")
             try localFileSystem.createDirectory(fourthTargetDir, recursive: true)
             try localFileSystem.writeFileContents(fourthTargetDir.appending(component: "library.swift"), string: """
@@ -2299,14 +2301,14 @@ final class PackageToolTests: CommandsTestCase {
                             throw "No target found with the name '\\(targetName)'"
                         }
                         print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
-                
+
                         let execProducts = context.package.products(ofType: ExecutableProduct.self)
                         print("execProducts: \\(execProducts.map{ $0.name })")
                         let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
                         print("swiftTargets: \\(swiftTargets.map{ $0.name })")
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
                         print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
-                        
+
                         if let target = target as? SourceModuleTarget {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
                         }
@@ -2314,7 +2316,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 extension String: Error {}
                 """)
-            
+
             // Create a separate vendored package so that we can test dependencies across products in other packages.
             let helperPackageDir = packageDir.appending(components: "VendoredDependencies", "HelperPackage")
             try localFileSystem.createDirectory(helperPackageDir, recursive: true)
@@ -2391,7 +2393,7 @@ final class PackageToolTests: CommandsTestCase {
     func testPluginCompilationBeforeBuilding() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
-        
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a couple of plugins a other targets and products.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -2473,7 +2475,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 """
             )
-            
+
             // Check that building without options compiles both plugins and that the build proceeds.
             do {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
@@ -2483,7 +2485,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
                 XCTAssertMatch(output, .contains("Building for debugging..."))
             }
-            
+
             // Check that building just one of them just compiles that plugin and doesn't build anything else.
             do {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--target", "MyCommandPlugin"], packagePath: packageDir)
@@ -2493,7 +2495,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
-            
+
             // Deliberately break the command plugin.
             try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin

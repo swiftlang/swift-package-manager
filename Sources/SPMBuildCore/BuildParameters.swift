@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import class Foundation.ProcessInfo
 
@@ -162,10 +164,10 @@ public struct BuildParameters: Encodable {
 
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String]
-        
+
     // Whether building for testability is enabled.
     public var enableTestability: Bool
-    
+
     // What strategy to use to discover tests
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
