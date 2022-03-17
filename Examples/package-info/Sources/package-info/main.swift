@@ -1,6 +1,4 @@
-import Basics
-import TSCBasic
-import Workspace
+import SPMClientUtils
 
 // PREREQUISITES
 // ============
@@ -15,15 +13,20 @@ let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDire
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
 
-let observability = ObservabilitySystem({ print("\($0): \($1)") })
+struct DiagnosticHandler: WorkspaceDiagnosticHandler {
+    func handleDiagnostic(_ diagnostic: String) {
+        print(diagnostic)
+    }
+}
+let observer = DiagnosticObserver(DiagnosticHandler())
 
 let workspace = try Workspace(forRootPackage: packagePath)
 
-let manifest = try tsc_await { workspace.loadRootManifest(at: packagePath, observabilityScope: observability.topScope, completion: $0) }
+let manifest = try tsc_await { workspace.loadRootManifest(at: packagePath, diagnosticObserver: observer, completion: $0) }
 
-let package = try tsc_await { workspace.loadRootPackage(at: packagePath, observabilityScope: observability.topScope, completion: $0) }
+let package = try tsc_await { workspace.loadRootPackage(at: packagePath, diagnosticObserver: observer, completion: $0) }
 
-let graph = try workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
+let graph = try workspace.loadPackageGraph(rootPath: packagePath, diagnosticObserver: observer)
 
 // EXAMPLES
 // ========

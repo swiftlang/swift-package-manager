@@ -24,6 +24,7 @@ though that could break some clients.
 let swiftPMDataModelProduct = (
     name: "SwiftPMDataModel",
     targets: [
+        "SPMClientUtils",
         "PackageCollections",
         "PackageCollectionsModel",
         "PackageGraph",
@@ -539,10 +540,20 @@ let package = Package(
             exclude: ["Inputs/Foo.pc"]
         ),
 
+        // API intended for use by package clients.
+        .target(
+            name: "SPMClientUtils",
+            dependencies: [
+                "Basics",
+                "PackageGraph",
+                "PackageModel",
+                "Workspace",
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
-            dependencies: ["Workspace"],
+            dependencies: ["SPMClientUtils"],
             path: "Examples/package-info/Sources/package-info"
         )
     ],
