@@ -290,8 +290,11 @@ extension SwiftCommand {
 
 /// A safe wrapper of TSCBasic.exec.
 func exec(path: String, args: [String]) throws -> Never {
-    // SwiftTool can't handle signals anymore, so reset the signal handler to SIG_DFL before call TSCBasic.exec()
+    #if !os(Windows)
+    // On platforms other than Windows, signal(SIGINT, SIG_IGN) is used for handling SIGINT by DispatchSourceSignal,
+    // but this process is about to be replaced by exec, so SIG_IGN must be returned to default.
     signal(SIGINT, SIG_DFL)
+    #endif
 
     try TSCBasic.exec(path: path, args: args)
 }
