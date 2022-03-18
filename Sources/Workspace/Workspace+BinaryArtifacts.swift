@@ -295,6 +295,7 @@ extension Workspace {
                             })
                         case .failure(let error):
                             let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                            observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) })
                             observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
                             self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                         }
