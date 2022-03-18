@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2018 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import TSCBasic
 
@@ -24,7 +26,7 @@ public enum BuildSettings {
         public static let HEADER_SEARCH_PATHS: Declaration = .init("HEADER_SEARCH_PATHS")
         public static let OTHER_CFLAGS: Declaration = .init("OTHER_CFLAGS")
         public static let OTHER_CPLUSPLUSFLAGS: Declaration = .init("OTHER_CPLUSPLUSFLAGS")
-    
+
         // Linker.
         public static let OTHER_LDFLAGS: Declaration = .init("OTHER_LDFLAGS")
         public static let LINK_LIBRARIES: Declaration = .init("LINK_LIBRARIES")
@@ -32,7 +34,7 @@ public enum BuildSettings {
 
         /// The declaration name.
         public let name: String
-    
+
         private init(_ name: String) {
             self.name = name
         }
@@ -61,7 +63,7 @@ public enum BuildSettings {
 
         private var _conditions: [PackageConditionWrapper]
 
-        public init() { 
+        public init() {
             self._conditions = []
             self.values = []
         }

@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 extension Version: ExpressibleByStringLiteral {
     /// Initializes a version struct with the provided string literal.
@@ -23,7 +25,7 @@ extension Version: ExpressibleByStringLiteral {
             self.init(0, 0, 0)
         }
     }
-    
+
     /// Initializes a version struct with the provided extended grapheme cluster.
     ///
     /// - Parameters:
@@ -31,7 +33,7 @@ extension Version: ExpressibleByStringLiteral {
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
     }
-    
+
     /// Initializes a version struct with the provided Unicode string.
     ///
     /// - Parameters:
@@ -48,14 +50,14 @@ extension Version: LosslessStringConvertible {
         // SemVer 2.0.0 allows only ASCII alphanumerical characters and "-" in the version string, except for "." and "+" as delimiters. ("-" is used as a delimiter between the version core and pre-release identifiers, but it's allowed within pre-release and metadata identifiers as well.)
         // Alphanumerics check will come later, after each identifier is split out (i.e. after the delimiters are removed).
         guard versionString.allSatisfy(\.isASCII) else { return nil }
-        
+
         let metadataDelimiterIndex = versionString.firstIndex(of: "+")
         // SemVer 2.0.0 requires that pre-release identifiers come before build metadata identifiers
         let prereleaseDelimiterIndex = versionString[..<(metadataDelimiterIndex ?? versionString.endIndex)].firstIndex(of: "-")
-        
+
         let versionCore = versionString[..<(prereleaseDelimiterIndex ?? metadataDelimiterIndex ?? versionString.endIndex)]
         let versionCoreIdentifiers = versionCore.split(separator: ".", omittingEmptySubsequences: false)
-        
+
         guard
             versionCoreIdentifiers.count == 3,
             // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
@@ -64,11 +66,11 @@ extension Version: LosslessStringConvertible {
             let minor = Int(versionCoreIdentifiers[1]),
             let patch = Int(versionCoreIdentifiers[2])
         else { return nil }
-        
+
         self.major = major
         self.minor = minor
         self.patch = patch
-        
+
         if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
             let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
@@ -77,7 +79,7 @@ extension Version: LosslessStringConvertible {
         } else {
             self.prereleaseIdentifiers = []
         }
-        
+
         if let metadataDelimiterIndex = metadataDelimiterIndex {
             let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
             let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)

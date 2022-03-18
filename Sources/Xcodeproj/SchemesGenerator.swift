@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import TSCBasic
 import PackageGraph
@@ -77,7 +79,7 @@ public final class SchemesGenerator {
         }
 
         // Finally, create one master scheme for the entire package.
-        let regularTargets = rootPackage.targets.filter({ 
+        let regularTargets = rootPackage.targets.filter({
             switch $0.type {
             case .test, .systemModule, .binary, .plugin:
                 return false

@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageFingerprint
@@ -819,7 +821,7 @@ final class WorkspaceTests: XCTestCase {
 
         let bPackagePath = workspace.pathToPackage(withName: "B")
         let bRef = PackageReference.localSourceControl(identity: PackageIdentity(path: bPackagePath), path: bPackagePath)
-        
+
         let cPackagePath = workspace.pathToPackage(withName: "C")
         let cRef = PackageReference.localSourceControl(identity: PackageIdentity(path: cPackagePath), path: cPackagePath)
 
@@ -1679,7 +1681,7 @@ final class WorkspaceTests: XCTestCase {
         let buildArtifact = ws.location.scratchDirectory.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
-        // Sanity checks.
+        // Double checks.
         XCTAssert(fs.exists(buildArtifact))
         XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
 
@@ -3811,7 +3813,7 @@ final class WorkspaceTests: XCTestCase {
         // Use the same revision (hash) for "foo" to indicate they are the same
         // package despite having different URLs.
         let fooRevision = String((UUID().uuidString + UUID().uuidString).prefix(40))
-        
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -6970,19 +6972,19 @@ final class WorkspaceTests: XCTestCase {
 
         }
     }
-    
+
     func testArtifactDownloadStripFirstComponent() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        
+
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
             do {
                 guard case .download(let fileSystem, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
-                
+
                 let contents: [UInt8]
                 switch request.url.lastPathComponent {
                 case "flat.zip":
@@ -6994,20 +6996,20 @@ final class WorkspaceTests: XCTestCase {
                 default:
                     throw StringError("unexpected url \(request.url)")
                 }
-                
+
                 try fileSystem.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
                 )
-                
+
                 downloads[request.url] = destination
                 completion(.success(.okay()))
             } catch {
                 completion(.failure(error))
             }
         })
-        
+
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
@@ -7025,13 +7027,13 @@ final class WorkspaceTests: XCTestCase {
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
-                
+
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
             }
         })
-        
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -7066,7 +7068,7 @@ final class WorkspaceTests: XCTestCase {
                 archiver: archiver
             )
         )
-        
+
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
@@ -7090,7 +7092,7 @@ final class WorkspaceTests: XCTestCase {
                 archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
-        
+
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("root"),
                          targetName: "flat",
@@ -9645,7 +9647,7 @@ final class WorkspaceTests: XCTestCase {
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
             }
         }
-        
+
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.5.1")))
             result.check(dependency: "bar", at: .checkout(.version("2.2.0")))

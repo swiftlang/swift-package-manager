@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright 2015 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2015-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
@@ -221,7 +223,7 @@ public final class ClangTargetBuildDescription {
     public var clangTarget: ClangTarget {
         return target.underlyingTarget as! ClangTarget
     }
-    
+
     /// The tools version of the package that declared the target.  This can
     /// can be used to conditionalize semantically significant changes in how
     /// a target is built.
@@ -340,7 +342,7 @@ public final class ClangTargetBuildDescription {
     public func basicArguments(isCXX isCXXOverride: Bool? = .none) throws -> [String] {
         // For now fall back on the hold semantics if the C++ nature isn't specified. This is temporary until clients have been updated.
         let isCXX = isCXXOverride ?? clangTarget.isCXX
-        
+
         var args = [String]()
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
@@ -364,13 +366,13 @@ public final class ClangTargetBuildDescription {
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
             args += buildParameters.indexStoreArguments(for: target)
         }
-        
+
         // Enable Clang module flags, if appropriate. We enable them except in these cases:
         // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
         // 2. on Windows when compiling for any language, because of issues with the Windows SDK
         // 3. on Android when compiling for any language, because of issues with the Android SDK
         let enableModules = !(buildParameters.triple.isDarwin() && isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
-        
+
         if enableModules {
             // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
@@ -536,7 +538,7 @@ public final class SwiftTargetBuildDescription {
     ///
     /// These are the source files generated during the build.
     private var derivedSources: Sources
-    
+
     /// These are the source files derived from plugins.
     private var pluginDerivedSources: Sources
 
@@ -595,7 +597,7 @@ public final class SwiftTargetBuildDescription {
 
     /// True if this is the test discovery target.
     public let isTestDiscoveryTarget: Bool
-    
+
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code (for example because it has a single source file whose name isn't "main.swift").
     /// This deactivates heuristics in the Swift compiler that treats single-file modules and source files
@@ -622,7 +624,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
-    
+
     /// The results of applying any build tool plugins to this target.
     public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
@@ -673,7 +675,7 @@ public final class SwiftTargetBuildDescription {
                 self.pluginDerivedSources.relativePaths.append(relPath)
             }
         }
-        
+
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
         }
@@ -696,8 +698,8 @@ public final class SwiftTargetBuildDescription {
 
         let mainPathSubstitution: String
         if buildParameters.triple.isWASI() {
-            // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this at runtime, 
-            // especially as Bundle support in WASI Foundation is partial. We expect all resource paths to evaluate to 
+            // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this at runtime,
+            // especially as Bundle support in WASI Foundation is partial. We expect all resource paths to evaluate to
             // `/\(resourceBundleName)/\(resourcePath)`, which allows us to pass this path to JS APIs like `fetch` directly, or to
             // `<img src=` HTML attributes. The resources are loaded from the server, and we can't hardcode the host part in the URL.
             // Making URLs relative by starting them with `/\(resourceBundleName)` makes it work in the browser.
@@ -737,7 +739,7 @@ public final class SwiftTargetBuildDescription {
         let path = derivedSources.root.appending(subpath)
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
-    
+
     public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
         do {
             let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
@@ -747,7 +749,7 @@ public final class SwiftTargetBuildDescription {
             return false
         }
     }
-    
+
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
@@ -797,7 +799,7 @@ public final class SwiftTargetBuildDescription {
                 args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
             }
         }
-        
+
         // If the target needs to be parsed without any special semantics involving "main.swift", do so now.
         if self.needsToBeParsedAsLibrary {
             args += ["-parse-as-library"]
@@ -1309,7 +1311,7 @@ public final class ProductBuildDescription {
             }
             args += ["-emit-executable"]
             args += deadStripArguments
-            
+
             // If we're linking an executable whose main module is implemented in Swift,
             // we rename the `_<modulename>_main` entry point symbol to `_main` again.
             // This is because executable modules implemented in Swift are compiled with
@@ -1446,10 +1448,10 @@ public final class ProductBuildDescription {
 /// builds, this information is included in the BuildDescription, and the plugin
 /// targets are compiled directly.
 public final class PluginDescription: Codable {
-    
+
     /// The identity of the package in which the plugin is defined.
     public let package: PackageIdentity
-    
+
     /// The name of the plugin target in that package (this is also the name of
     /// the plugin).
     public let targetName: String
@@ -1461,7 +1463,7 @@ public final class PluginDescription: Codable {
     /// The tools version of the package that declared the target. This affects
     /// the API that is available in the PackagePlugin module.
     public let toolsVersion: ToolsVersion
-    
+
     /// Swift source files that comprise the plugin.
     public let sources: Sources
 
@@ -1518,7 +1520,7 @@ public class BuildPlan {
 
     /// The product build description map.
     public let productMap: [ResolvedProduct: ProductBuildDescription]
-    
+
     /// The plugin descriptions. Plugins are represented in the package graph
     /// as targets, but they are not directly included in the build graph.
     public let pluginDescriptions: [PluginDescription]
@@ -1686,7 +1688,7 @@ public class BuildPlan {
                     }
                 }
             }
-            
+
             // Determine the appropriate tools version to use for the target.
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .v5_5
@@ -1766,7 +1768,7 @@ public class BuildPlan {
         self.productMap = productMap
         self.targetMap = targetMap
         self.pluginDescriptions = pluginDescriptions
-        
+
         // Finally plan these targets.
         try plan()
     }
