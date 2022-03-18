@@ -25,6 +25,7 @@
   - [4.6. Create a package release](#46-create-a-package-release)
     - [4.6.1. Source archive](#461-source-archive)
     - [4.6.2. Package release metadata](#462-package-release-metadata)
+      - [4.6.2.1. Reserved metadata keys](#4621-reserved-metadata-keys)
     - [4.6.3. Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
       - [4.6.3.1. Synchronous publication](#4631-synchronous-publication)
       - [4.6.3.2. Asynchronous publication](#4632-asynchronous-publication)
@@ -98,7 +99,7 @@ like [OAuth 2.0][RFC 6749] is RECOMMENDED.
 
 ### 3.3. Error handling
 
-A server SHOULD communicate any errors to the client
+A server MUST communicate any errors to the client
 using "problem details" objects,
 as described by [RFC 7807].
 For example,
@@ -1030,6 +1031,14 @@ Content-Language: en
    "detail": "invalid JSON provided for release metadata"
 }
 ```
+
+##### 4.6.2.1. Reserved metadata keys
+
+These metadata keys have special meanings to the server and should be included if and only if their value satisifies their intended use:
+
+| Key               | Description                                          | Server Use                             |
+| ----------------- | ---------------------------------------------------- | -------------------------------------- |
+| `repositoryURLs`  | An array of the package's source code repository URLs (e.g., `["https://github.com/mona/LinkedList", "ssh://git@github.com:mona/LinkedList.git"]`). | The mappings between package identifer and repository URL get recorded for the [lookup package identifiers by URL](#endpoint-5) endpoint. | 
 
 #### 4.6.3. Synchronous and asynchronous publication
 
