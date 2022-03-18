@@ -484,7 +484,7 @@ public class SwiftTool {
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
         if options.locations._deprecated_buildPath != nil {
-            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-space-path' instead")
+            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-path' instead")
         }
 
         if options.locations._deprecated_chdir != nil {
