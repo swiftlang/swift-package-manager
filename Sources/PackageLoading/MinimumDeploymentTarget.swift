@@ -45,7 +45,7 @@ public struct MinimumDeploymentTarget {
     static func computeXCTestMinimumDeploymentTarget(with runResult: ProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
         let sdkPath = try AbsolutePath(validating: output)
-        let xcTestPath = sdkPath.appending(RelativePath("Developer/Library/Frameworks/XCTest.framework/XCTest"))
+        let xcTestPath = AbsolutePath("Developer/Library/Frameworks/XCTest.framework/XCTest", relativeTo: sdkPath)
         return try computeMinimumDeploymentTarget(of: xcTestPath, platform: platform)
     }
 

@@ -977,7 +977,7 @@ extension Workspace {
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(self.location.scratchDirectory.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(AbsolutePath(name, relativeTo: self.location.scratchDirectory))
         }
     }
 
