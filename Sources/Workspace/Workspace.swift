@@ -2115,14 +2115,15 @@ extension Workspace {
             ]
 
             if let existingArtifact = existingArtifact {
-                if case .remote(_, let existingChecksum) = existingArtifact.source {
+                if case .remote(let existingURL, let existingChecksum) = existingArtifact.source {
                     // If we already have an artifact with the same checksum, we don't need to download it again.
                     if artifact.checksum == existingChecksum {
                         continue
                     }
 
+                    let urlChanged = artifact.url != URL(string: existingURL)
                     // If the checksum is different but the package wasn't updated, this is a security risk.
-                    if !addedOrUpdatedPackages.contains(artifact.packageRef) {
+                    if !urlChanged && !addedOrUpdatedPackages.contains(artifact.packageRef) {
                         observabilityScope.emit(.artifactChecksumChanged(targetName: artifact.targetName))
                         continue
                     }
