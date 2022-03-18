@@ -77,7 +77,7 @@ public struct TargetSourcesBuilder {
         let actualAdditionalRules = (toolsVersion <= ToolsVersion.v5_4 ? FileRuleDescription.xcbuildFileTypes : additionalFileRules)
         self.rules = FileRuleDescription.builtinRules + actualAdditionalRules
         self.toolsVersion = toolsVersion
-        let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
+        let excludedPaths = target.exclude.map { AbsolutePath($0, relativeTo: path) }
         self.excludedPaths = Set(excludedPaths)
         self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(
             additionalFileRules.reduce(into: Set<String>(), { partial, item in
@@ -92,7 +92,7 @@ public struct TargetSourcesBuilder {
             return metadata
         }
 
-        let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
+        let declaredSources = target.sources?.map { AbsolutePath($0, relativeTo: path) }
         if let declaredSources = declaredSources {
             // Diagnose duplicate entries.
             let duplicates = declaredSources.spm_findDuplicateElements()
@@ -188,7 +188,7 @@ public struct TargetSourcesBuilder {
 
         // First match any resources explicitly declared in the manifest file.
         for declaredResource in target.resources {
-            let resourcePath = self.targetPath.appending(RelativePath(declaredResource.path))
+            let resourcePath = AbsolutePath(declaredResource.path, relativeTo: self.targetPath)
             if path.isDescendantOfOrEqual(to: resourcePath) {
                 if matchedRule != .none {
                     self.observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
@@ -332,7 +332,7 @@ public struct TargetSourcesBuilder {
 
     private func diagnoseInvalidResource(in resources: [TargetDescription.Resource]) {
         resources.forEach { resource in
-            let resourcePath = self.targetPath.appending(RelativePath(resource.path))
+            let resourcePath = AbsolutePath(resource.path, relativeTo: self.targetPath)
             if let message = validTargetPath(at: resourcePath), self.packageKind.emitAuthorWarnings {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
                 self.observabilityScope.emit(warning: warning)
@@ -421,7 +421,7 @@ public struct TargetSourcesBuilder {
 
             // Check if the directory is marked to be copied.
             let directoryMarkedToBeCopied = target.resources.contains{ resource in
-                let resourcePath = self.targetPath.appending(RelativePath(resource.path))
+                let resourcePath = AbsolutePath(resource.path, relativeTo: self.targetPath)
                 if resource.rule == .copy && resourcePath == path {
                     return true
                 }

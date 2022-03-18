@@ -62,7 +62,7 @@ public enum XcodeProject {
     // Determine the path of the .xcodeproj wrapper directory.
     public static func makePath(outputDir: AbsolutePath, projectName: String) -> AbsolutePath {
         let xcodeprojName = "\(projectName).xcodeproj"
-        return outputDir.appending(RelativePath(xcodeprojName))
+        return AbsolutePath(xcodeprojName, relativeTo: outputDir)
     }
 
     /// Generates an Xcode project and all needed support files.  The .xcodeproj
@@ -142,7 +142,7 @@ public enum XcodeProject {
             ///// For framework targets, generate target.c99Name_Info.plist files in the
             ///// directory that Xcode project is generated
             let name = target.infoPlistFileName
-            try open(xcodeprojPath.appending(RelativePath(name))) { print in
+            try open(AbsolutePath(name, relativeTo: xcodeprojPath)) { print in
                 print("""
                     <?xml version="1.0" encoding="UTF-8"?>
                     <plist version="1.0">
@@ -242,7 +242,7 @@ public enum XcodeProject {
             // -Package so its name doesn't collide with any products or target with
             // same name.
             let schemeName = "\(graph.rootPackages[0].manifest.displayName)-Package.xcscheme" // TODO: use identity instead?
-            try open(schemesDir.appending(RelativePath(schemeName))) { stream in
+            try open(AbsolutePath(schemeName, relativeTo: schemesDir)) { stream in
                 legacySchemeGenerator(
                     container: schemeContainer,
                     graph: graph,

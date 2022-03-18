@@ -328,8 +328,8 @@ public final class ClangTargetBuildDescription {
         return sources.flatMap { (root, relativePaths) in
             relativePaths.map { source in
                 let path = root.appending(source)
-                let object = tempsPath.appending(RelativePath("\(source.pathString).o"))
-                let deps = tempsPath.appending(RelativePath("\(source.pathString).d"))
+                let object = AbsolutePath("\(source.pathString).o", relativeTo: tempsPath)
+                let deps = AbsolutePath("\(source.pathString).d", relativeTo: tempsPath)
                 return (source, path, object, deps)
             }
         }
@@ -418,7 +418,7 @@ public final class ClangTargetBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += headerSearchPaths.map({
-            "-I\(target.sources.root.appending(RelativePath($0)).pathString)"
+            "-I\(AbsolutePath($0, relativeTo: target.sources.root).pathString)"
         })
 
         // Other C flags.
@@ -553,7 +553,9 @@ public final class SwiftTargetBuildDescription {
     /// The objects in this target.
     public var objects: [AbsolutePath] {
         let relativePaths = target.sources.relativePaths + derivedSources.relativePaths + pluginDerivedSources.relativePaths
-        return relativePaths.map{ tempsPath.appending(RelativePath("\($0.pathString).o")) }
+        return relativePaths.map  {
+            AbsolutePath("\($0.pathString).o", relativeTo: tempsPath)
+        }
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -1071,7 +1073,7 @@ public final class SwiftTargetBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += headerSearchPaths.flatMap({ path -> [String] in
-            return ["-Xcc", "-I\(target.sources.root.appending(RelativePath(path)).pathString)"]
+            return ["-Xcc", "-I\(AbsolutePath(path, relativeTo: target.sources.root).pathString)"]
         })
 
         // Other C flags.

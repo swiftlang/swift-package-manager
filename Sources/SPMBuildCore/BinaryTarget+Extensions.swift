@@ -51,8 +51,8 @@ extension BinaryTarget {
         }
         // Construct a LibraryInfo for the library.
         let libraryDir = self.artifactPath.appending(component: library.libraryIdentifier)
-        let libraryFile = libraryDir.appending(RelativePath(library.libraryPath))
-        let headersDir = library.headersPath.map{ libraryDir.appending(RelativePath($0)) }
+        let libraryFile = AbsolutePath(library.libraryPath, relativeTo: libraryDir)
+        let headersDir = library.headersPath.map { AbsolutePath($0, relativeTo: libraryDir) }
         return [LibraryInfo(libraryPath: libraryFile, headersPath: headersDir)]
     }
 
@@ -73,7 +73,7 @@ extension BinaryTarget {
                     return tripleStrings.contains(triple.tripleString)
                 }
             }.map{
-                ExecutableInfo(name: entry.key, executablePath: self.artifactPath.appending(RelativePath($0.path)))
+                ExecutableInfo(name: entry.key, executablePath: AbsolutePath($0.path, relativeTo: self.artifactPath))
             }
         }
     }
