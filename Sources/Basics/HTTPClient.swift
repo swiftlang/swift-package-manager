@@ -20,9 +20,7 @@ import TSCBasic
 
 #if canImport(Glibc)
 import Glibc
-#endif
-
-#if os(Windows)
+#elseif canImport(CRT)
 import CRT
 #endif
 
