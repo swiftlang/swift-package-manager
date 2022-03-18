@@ -283,7 +283,7 @@ private struct MockRegistryArchiver: Archiver {
             let rootPath = lines[1]
             for path in lines[2..<lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
-                let targetPath = destinationPath.appending(component: "package").appending(RelativePath(relativePath))
+                let targetPath = AbsolutePath(relativePath, relativeTo: destinationPath.appending(component: "package"))
                 if !self.fileSystem.exists(targetPath.parentDirectory) {
                     try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)
                 }

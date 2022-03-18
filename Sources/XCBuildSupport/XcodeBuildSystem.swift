@@ -75,7 +75,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
-            xcbuildPath = xcodeDirectory.appending(RelativePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild"))
+            xcbuildPath = AbsolutePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild", relativeTo: xcodeDirectory)
         }
 
         guard localFileSystem.exists(xcbuildPath) else {
