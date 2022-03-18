@@ -257,6 +257,8 @@ fileprivate extension ModuleKind {
             self = .generic
         case .executable:
             self = .executable
+        case .snippet:
+            self = .snippet
         case .test:
             self = .test
         }

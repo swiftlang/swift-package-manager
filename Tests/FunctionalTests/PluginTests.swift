@@ -845,4 +845,14 @@ class PluginTests: XCTestCase {
             }
         }
     }
+
+    func testSnippetSupport() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try executeSwiftPackage(path.appending(component: "PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
+            XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
+    }
 }
