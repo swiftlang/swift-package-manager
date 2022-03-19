@@ -446,14 +446,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         let stderrPipe = Pipe()
         let stderrLock = Lock()
         var stderrData = Data()
-        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+        let stderrHandler = { (data: Data) in
             // Pass on any available data to the delegate.
-            stderrLock.withLock {
-                let data = fileHandle.availableData
-                if data.isEmpty { return }
-                stderrData.append(contentsOf: data)
-                callbackQueue.async { delegate.handleOutput(data: data) }
-            }
+            if data.isEmpty { return }
+            stderrData.append(contentsOf: data)
+            callbackQueue.async { delegate.handleOutput(data: data) }
+        }
+        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+            // Read and pass on any available free-form text output from the plugin.
+            // We need the lock since we could run concurrently with the termination handler.
+            stderrLock.withLock { stderrHandler(fileHandle.availableData) }
         }
         process.standardError = stderrPipe
         
@@ -473,7 +475,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             try? outputHandle.close()
 
             // Read and pass on any remaining free-form text output from the plugin.
-            stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
+            // We need the lock since we could run concurrently with the readability handler.
+            stderrLock.withLock {
+                try? stderrPipe.fileHandleForReading.readToEnd().map{ stderrHandler($0) }
+            }
 
             // Read and pass on any remaining messages from the plugin.
             stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
