@@ -2400,6 +2400,7 @@ extension Workspace {
                             observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
+                        observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) })
                         observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
                     }
                 })
