@@ -209,7 +209,7 @@ func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
+            let fixtureDir = AbsolutePath("../../../Fixtures/\(name)", relativeTo: AbsolutePath(#file))
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
@@ -317,7 +317,7 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
             let subpath = inputsPath.appending(component: "SwiftFramework")
             let projectPath = subpath.appending(component: "SwiftFramework.xcodeproj")
             try sh(xcodebuild, "-project", projectPath, "-scheme", "SwiftFramework", "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO")
-            let frameworkPath = tmpDir.appending(RelativePath("Build/Products/Debug/SwiftFramework.framework"))
+            let frameworkPath = AbsolutePath("Build/Products/Debug/SwiftFramework.framework", relativeTo: tmpDir)
             let xcframeworkPath = packagePath.appending(component: "SwiftFramework.xcframework")
             try sh(xcodebuild, "-create-xcframework", "-framework", frameworkPath, "-output", xcframeworkPath)
         }
