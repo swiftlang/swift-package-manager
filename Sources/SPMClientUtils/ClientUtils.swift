@@ -60,7 +60,7 @@ extension Workspace {
 }
 
 public protocol WorkspaceDiagnosticHandler {
-    func handleDiagnostic(_ diagnostic: String)
+    func handle(diagnostic: String, scope: String)
 }
 
 public struct DiagnosticObserver {
@@ -70,7 +70,10 @@ public struct DiagnosticObserver {
     public init(_ handler: WorkspaceDiagnosticHandler) {
         observabilitySystem = ObservabilitySystem(
             { (scope: ObservabilityScope, diagnostic: Basics.Diagnostic) -> Void in
-                handler.handleDiagnostic(String(describing: diagnostic))
+                handler.handle(
+                  diagnostic: String(describing: diagnostic),
+                  scope: String(describing: scope)
+                )
             }
         )
     }
