@@ -14,7 +14,6 @@
 // This way, we cannot accidentally use unavailable types in the API intended for clients.
 @_exported import PackageGraph
 @_exported import PackageModel
-@_exported import func TSCBasic.tsc_await
 @_exported import struct TSCBasic.AbsolutePath
 @_exported import Workspace
 
