@@ -580,7 +580,7 @@ extension Package.Dependency {
     ///   - version: The minimum version requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
         from version: Version
@@ -608,7 +608,8 @@ extension Package.Dependency {
     ///   - version: The minimum version requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.7)
+
     public static func package(
         id: String,
         exact version: Version
@@ -645,7 +646,7 @@ extension Package.Dependency {
     ///   - range: The custom version range requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
         _ range: Range<Version>
@@ -668,7 +669,7 @@ extension Package.Dependency {
     ///   - range: The closed version range requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
         _ range: ClosedRange<Version>
@@ -683,7 +684,7 @@ extension Package.Dependency {
     }
 
     // intentionally private to hide enum detail
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.7)
     private static func package(
         id: String,
         requirement: Package.Dependency.RegistryRequirement
