@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A platform that usually corresponds to an operating system such as
-/// iOS, macOS, or Linux.
+/// A platform that corresponds to an operating system such as iOS,
+/// macOS, or Linux.
 public struct Platform: Encodable, Equatable {
 
     /// The name of the platform.
@@ -21,6 +21,11 @@ public struct Platform: Encodable, Equatable {
         self.name = name
     }
 
+    /// Create a custom platform.
+    ///
+    /// Use this function if none of the predefined platform names match the platform you are working with.
+    /// - Parameter platformName: The name of the platform.
+    /// - Returns: A `Platform` instance.
     @available(_PackageDescription, introduced: 5.6)
     public static func custom(_ platformName: String) -> Platform {
         return Platform(name: platformName)
@@ -66,20 +71,20 @@ public struct Platform: Encodable, Equatable {
 
 /// A platform that the Swift package supports.
 ///
-/// By default, the Swift Package Manager assigns a predefined minimum deployment
-/// version for each supported platforms unless you configure supported platforms using the `platforms`
-/// API. This predefined deployment version is the oldest deployment target
-/// version that the installed SDK supports for a given platform. One exception
-/// to this rule is macOS, for which the minimum deployment target version
-/// starts from 10.10. Packages can choose to configure the minimum deployment
-/// target version for a platform by using the APIs defined in this struct. The
-/// Swift Package Manager emits appropriate errors when an invalid value is
-/// provided for supported platforms, such as an empty array, multiple declarations
-/// for the same platform, or an invalid version specification.
+/// By default, Swift Package Manager assigns a predefined minimum deployment version for each
+/// supported platforms unless you configure supported platforms using the
+/// `platforms` API. This predefined deployment version is the oldest deployment
+/// target version that the installed SDK supports for a given platform. One
+/// exception to this rule is macOS, for which the minimum deployment target
+/// version starts from 10.10. Packages can choose to configure the minimum
+/// deployment target version for a platform by using the APIs defined in this
+/// struct. Swift Package Manager emits appropriate errors when an invalid value is provided for
+/// supported platforms, such as an empty array, multiple declarations for the
+/// same platform, or an invalid version specification.
 ///
-/// The Swift Package Manager emits an error if a dependency isn’t compatible
-/// with the top-level package’s deployment version. The deployment
-/// target of a package's dependencies must be lower than or equal to the top-level package's
+/// Swift Package Manager emits an error if a dependency isn’t compatible with the top-level
+/// package’s deployment version. The deployment target of a package’s
+/// dependencies must be lower than or equal to the top-level package’s
 /// deployment target version for a particular platform.
 public struct SupportedPlatform: Encodable, Equatable {
 
@@ -95,11 +100,12 @@ public struct SupportedPlatform: Encodable, Equatable {
         self.version = version
     }
 
-    /// Configures the minimum deployment target version for the macOS platform.
+    /// Configure the minimum deployment target version for the macOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Parameters:
+    ///   - version: The minimum deployment target that the package supports.
     public static func macOS(_ version: SupportedPlatform.MacOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: version.version)
     }
@@ -107,11 +113,14 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// Configures the minimum deployment target version for the macOS platform
     /// using a version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as `10.10` or `10.10.1`.
+    /// The version string must be a series of two or three dot-separated
+    /// integers, such as `10.10` or `10.10.1`.
     ///
-    /// - Since: First available in PackageDescription 5.0
-    ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `10.10.1`.
+    /// - Parameters:
+    ///   - versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as
+    ///     `10.10.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func macOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(string: versionString).version)
     }
@@ -121,6 +130,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Since: First available in PackageDescription 5.5
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func macCatalyst(_ version: SupportedPlatform.MacCatalystVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macCatalyst, version: version.version)
@@ -134,6 +144,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Since: First available in PackageDescription 5.5
     ///
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `13.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func macCatalyst(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macCatalyst, version: SupportedPlatform.MacCatalystVersion(string: versionString).version)
@@ -141,9 +152,9 @@ public struct SupportedPlatform: Encodable, Equatable {
 
     /// Configures the minimum deployment target version for the iOS platform.
     ///
-    /// - Since: First available in PackageDescription 5.0
-    ///
-    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Parameters:
+    ///   - version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func iOS(_ version: SupportedPlatform.IOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: version.version)
     }
@@ -151,20 +162,22 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// Configures the minimum deployment target version for the iOS platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as `8.0` or `8.0.1`.
+    /// The version string must be a series of two or three dot-separated
+    /// integers, such as `8.0` or `8.0.1`.
     ///
-    /// - Since: First available in PackageDescription 5.0
-    ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `8.0.1`.
+    /// - Parameters:
+    ///   - versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as `8.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func iOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: SupportedPlatform.IOSVersion(string: versionString).version)
     }
 
     /// Configures the minimum deployment target version for the tvOS platform.
     ///
-    /// - Since: First available in PackageDescription 5.0
-    ///
-    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Parameters:
+    ///   - version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func tvOS(_ version: SupportedPlatform.TVOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: version.version)
     }
@@ -172,32 +185,40 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// Configures the minimum deployment target version for the tvOS platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers,such as `9.0` or `9.0.1`.
+    /// The version string must be a series of two or three dot-separated
+    /// integers,such as `9.0` or `9.0.1`.
     ///
-    /// - Since: First available in PackageDescription 5.0
-    ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `9.0.1`.
+    /// - Parameters:
+    ///   - versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as `9.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func tvOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: SupportedPlatform.TVOSVersion(string: versionString).version)
     }
 
-    /// Configures the minimum deployment target version for the watchOS platform.
+    /// Configure the minimum deployment target version for the watchOS
+    /// platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Parameters:
+    ///   - version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: version.version)
     }
-
-    /// Configures the minimum deployment target version for the watchOS platform
-    /// using a custom version string.
+    
+    /// Configure the minimum deployment target version for the watchOS
+    /// platform using a custom version string.
     ///
     /// The version string must be a series of two or three dot-separated integers, such as `2.0` or `2.0.1`.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `2.0.1`.
+    /// - Parameters:
+    ///   - versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as `2.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     public static func watchOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(string: versionString).version)
     }
@@ -213,9 +234,8 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// Configures the minimum deployment target version for the DriverKit platform
     /// using a custom version string.
     ///
-    /// The version string must be a series of two or three dot-separated integers, such as `19.0` or `19.0.1`.
-    ///
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func driverKit(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
@@ -225,7 +245,10 @@ public struct SupportedPlatform: Encodable, Equatable {
     ///
     /// - Since: First available in PackageDescription 5.6
     ///
-    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Parameters:
+    ///   - platformName: The name of the platform.
+    ///   - versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.6)
     public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .custom(platformName), version: versionString)
@@ -248,33 +271,21 @@ extension SupportedPlatform {
         }
 
         /// The value that represents macOS 10.10.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10_10: MacOSVersion = .init(string: "10.10")
 
         /// The value that represents macOS 10.11.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10_11: MacOSVersion = .init(string: "10.11")
 
         /// The value that represents macOS 10.12.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10_12: MacOSVersion = .init(string: "10.12")
 
         /// The value that represents macOS 10.13.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10_13: MacOSVersion = .init(string: "10.13")
 
         /// The value that represents macOS 10.14.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10_14: MacOSVersion = .init(string: "10.14")
 
         /// The value that represents macOS 10.15.
-        ///
-        /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v10_15: MacOSVersion = .init(string: "10.15")
 
@@ -286,8 +297,6 @@ extension SupportedPlatform {
         public static let v10_16: MacOSVersion = .init(string: "11.0")
 
         /// The value that represents macOS 11.0.
-        ///
-        /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v11: MacOSVersion = .init(string: "11.0")
 
@@ -311,34 +320,22 @@ extension SupportedPlatform {
         }
 
         /// The value that represents tvOS 9.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v9: TVOSVersion = .init(string: "9.0")
 
         /// The value that represents tvOS 10.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10: TVOSVersion = .init(string: "10.0")
 
         /// The value that represents tvOS 11.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v11: TVOSVersion = .init(string: "11.0")
 
         /// The value that represents tvOS 12.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v12: TVOSVersion = .init(string: "12.0")
 
         /// The value that represents tvOS 13.0.
-        ///
-        /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: TVOSVersion = .init(string: "13.0")
 
         /// The value that represents tvOS 14.0.
-        ///
-        /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v14: TVOSVersion = .init(string: "14.0")
 
@@ -393,39 +390,25 @@ extension SupportedPlatform {
         }
 
         /// The value that represents iOS 8.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v8: IOSVersion = .init(string: "8.0")
 
         /// The value that represents iOS 9.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v9: IOSVersion = .init(string: "9.0")
 
         /// The value that represents iOS 10.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v10: IOSVersion = .init(string: "10.0")
 
         /// The value that represents iOS 11.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v11: IOSVersion = .init(string: "11.0")
 
         /// The value that represents iOS 12.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v12: IOSVersion = .init(string: "12.0")
 
         /// The value that represents iOS 13.0.
-        ///
-        /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: IOSVersion = .init(string: "13.0")
 
         /// The value that represents iOS 14.0.
-        ///
-        /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v14: IOSVersion = .init(string: "14.0")
 
@@ -449,34 +432,22 @@ extension SupportedPlatform {
         }
 
         /// The value that represents watchOS 2.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v2: WatchOSVersion = .init(string: "2.0")
 
         /// The value that represents watchOS 3.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v3: WatchOSVersion = .init(string: "3.0")
 
         /// The value that represents watchOS 4.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v4: WatchOSVersion = .init(string: "4.0")
 
         /// The value that represents watchOS 5.0.
-        ///
-        /// - Since: First available in PackageDescription 5.0
         public static let v5: WatchOSVersion = .init(string: "5.0")
 
         /// The value that represents watchOS 6.0.
-        ///
-        /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v6: WatchOSVersion = .init(string: "6.0")
 
         /// The value that represents watchOS 7.0.
-        ///
-        /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v7: WatchOSVersion = .init(string: "7.0")
 

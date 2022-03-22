@@ -22,7 +22,7 @@ import Foundation
 
 /// The configuration of a Swift package.
 ///
-/// Pass configuration options as parameters to your package's initializer
+/// Pass configuration options as parameters to your package’s initializer
 /// statement to provide the name of the package, its targets, products,
 /// dependencies, and other configuration options.
 ///
@@ -31,46 +31,56 @@ import Foundation
 /// following package manifest shows the initialization of a simple package
 /// object for the MyLibrary Swift package:
 ///
-///     // swift-tools-version:5.3
-///     import PackageDescription
+/// ```swift
+/// // swift-tools-version:5.3
+/// import PackageDescription
 ///
-///     let package = Package(
-///         name: "MyLibrary",
-///         platforms: [
-///             .macOS(.v10_15),
-///         ],
-///         products: [
-///             .library(name: "MyLibrary", targets: ["MyLibrary"]),
-///         ],
-///         dependencies: [
-///             .package(url: "https://url/of/another/package/named/Utility", from: "1.0.0"),
-///         ],
-///         targets: [
-///             .target(name: "MyLibrary", dependencies: ["Utility"]),
-///             .testTarget(name: "MyLibraryTests", dependencies: ["MyLibrary"]),
-///         ]
-///     )
+/// let package = Package(
+///     name: "MyLibrary",
+///     platforms: [
+///         .macOS(.v10_15),
+///     ],
+///     products: [
+///         .library(name: "MyLibrary", targets: ["MyLibrary"])
+///     ],
+///     dependencies: [
+///         .package(url: "https://url/of/another/package/named/utility", from: "1.0.0")
+///     ],
+///     targets: [
+///         .target(name: "MyLibrary", dependencies: ["Utility"]),
+///         .testTarget(name: "MyLibraryTests", dependencies: ["MyLibrary"])
+///     ]
+/// )
+/// ```
 ///
-/// The package manifest must begin with the string `// swift-tools-version:`,
-/// followed by a version number such as `// swift-tools-version:5.3`.
+/// The package manifest must begin with the string `// swift-tools-version:`
+/// followed by a version number specifier. The following code listing shows a
+/// few examples of valid declarations of the Swift tools version:
 ///
-/// The Swift tools version declares:
+/// ```swift
+/// // swift-tools-version:3.0.2
+/// // swift-tools-version:3.1
+/// // swift-tools-version:4.0
+/// // swift-tools-version:5.3
+/// ```
 ///
-///   - The version of the PackageDescription framework
-///   - The Swift language compatibility version to process the manifest
-///   - The required minimum version of the Swift tools to use the package
-///
-/// Each version of Swift can introduce updates to the PackageDescription
-/// library, but the previous API version is available to packages that declare
-/// a prior tools version. This behavior allows you take advantage of new
-/// releases of Swift, the Swift tools, and the PackageDescription framework,
-/// without having to update your package manifest and without losing access to
-/// existing packages.
+/// The Swift tools version declares the version of the `PackageDescription`
+/// library, the minimum version of the Swift tools and Swift language
+/// compatibility version to process the manifest, and the required minimum
+/// version of the Swift tools to use the Swift package. Each version of Swift
+/// can introduce updates to the PackageDescription framework, but the previous
+/// API version is available to packages which declare a prior tools version.
+/// This behavior lets you take advantage of new releases of Swift, the Swift
+/// tools, and the PackageDescription library, without having to update your
+/// package’s manifest or losing access to existing packages.
 public final class Package {
     /// The name of the Swift package.
+    ///
+    /// If the name of the package is `nil`, Swift Package Manager deduces the name of the
+    /// package using its Git URL.
     public var name: String
 
-    /// The list of supported platforms with a custom deployment target.
+    /// The list of platforms supported by the package.
     @available(_PackageDescription, introduced: 5)
     public var platforms: [SupportedPlatform]? {
         get { return _platforms }
@@ -88,11 +98,11 @@ public final class Package {
 
     /// The name to use for C modules.
     ///
-    /// If present, the Swift Package Manager searches for a `<name>.pc` file
-    /// to get the required additional flags for a system target.
+    /// If present, the Swift Package Manager searches for a `<name>.pc` file to
+    /// get the required additional flags for a system target.
     public var pkgConfig: String?
 
-    /// An array of providers for a system target.
+    /// An array of providers for the system target.
     public var providers: [SystemPackageProvider]?
 
     /// The list of targets that are part of this package.
@@ -116,18 +126,18 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
-    ///     - providers: The package providers for a system package.
-    ///     - products: The list of products that this package vends and that clients can use.
-    ///     - dependencies: The list of package dependencies.
-    ///     - targets: The list of targets that are part of this package.
-    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
-    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
-    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    ///   - providers: The package providers for a system package.
+    ///   - products: The list of products that this package vends and that clients can use.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, obsoleted: 4.2)
     public init(
         name: String,
@@ -155,17 +165,17 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
-    ///     - products: The list of products that this package makes available for clients to use.
-    ///     - dependencies: The list of package dependencies.
-    ///     - targets: The list of targets that are part of this package.
-    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
-    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
-    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    ///   - products: The list of products that this package makes available for clients to use.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 4.2, obsoleted: 5)
     public init(
         name: String,
@@ -193,18 +203,18 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///   - platforms: The list of supported platforms that have a custom deployment target.
+    ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
-    ///     - products: The list of products that this package makes available for clients to use.
-    ///     - dependencies: The list of package dependencies.
-    ///     - targets: The list of targets that are part of this package.
-    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
-    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
-    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    ///   - products: The list of products that this package makes available for clients to use.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 5, obsoleted: 5.3)
     public init(
         name: String,
@@ -234,19 +244,18 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
-    ///           name from the package’s Git URL.
-    ///     - defaultLocalization: The default localization for resources.
-    ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
-    ///           Package Manager searches for a `<name>.pc` file to get the
-    ///           additional flags required for a system target.
-    ///     - products: The list of products that this package vends and that clients can use.
-    ///     - dependencies: The list of package dependencies.
-    ///     - targets: The list of targets that are part of this package.
-    ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
-    ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
-    ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///   - defaultLocalization: The default localization for resources.
+    ///   - platforms: The list of supported platforms with a custom deployment target.
+    ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
+    ///   `<name>.pc` file to get the additional flags required for a system target.
+    ///   - providers: The package providers for a system target.
+    ///   - products: The list of products that this package makes available for clients to use.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 5.3)
     public init(
         name: String,
@@ -309,13 +318,17 @@ public final class Package {
 
 /// A wrapper around an IETF language tag.
 ///
-/// To learn more about the IETF worldwide standard for language tags, see [RFC5646](https://tools.ietf.org/html/rfc5646).
+/// To learn more about the IETF worldwide standard for language tags, see
+/// [RFC5646](https://tools.ietf.org/html/rfc5646).
 public struct LanguageTag: Hashable {
 
     /// An IETF language tag.
     public let tag: String
 
     /// Creates a language tag from its IETF string representation.
+    ///
+    /// - Parameters:
+    ///   - tag: The string representation of an IETF language tag.
     public init(_ tag: String) {
         self.tag = tag
     }
@@ -324,20 +337,39 @@ public struct LanguageTag: Hashable {
 extension LanguageTag: RawRepresentable {
     public var rawValue: String { tag }
 
+    /// Creates a new instance with the specified raw value.
+    ///
+    /// If there’s no value of the type that corresponds with the specified raw
+    /// value, this initializer returns `nil`.
+    ///
+    /// - Parameters:
+    ///   - rawValue: The raw value to use for the new instance.
     public init?(rawValue: String) {
         tag = rawValue
     }
 }
 
+/// ExpressibleByStringLiteral implementation.
 extension LanguageTag: ExpressibleByStringLiteral {
+    
+    /// Creates an instance initialized to the given value.
+    ///
+    /// - Parameters:
+    ///   - value: The value of the new instance.
     public init(stringLiteral value: String) {
         tag = value
     }
 
+    /// Creates an instance initialized to the given value.
+    /// - Parameter value: The value of the new instance.
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
     }
 
+    /// Creates an instance initialized to the given value.
+    ///
+    /// - Parameters:
+    ///   - value: The value of the new instance.
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
     }
@@ -345,15 +377,18 @@ extension LanguageTag: ExpressibleByStringLiteral {
 
 extension LanguageTag: CustomStringConvertible {
 
-    /// A textual description of the language tag.
+    /// A textual representation of the language tag.
     public var description: String { tag }
 }
 
 /// The system package providers used in this Swift package.
 public enum SystemPackageProvider {
 
+    /// Packages installable by the HomeBrew package manager.
     case brewItem([String])
+    /// Packages installable by the apt-get package manager.
     case aptItem([String])
+    /// Packages installable by the yum package manager.
     @available(_PackageDescription, introduced: 5.3)
     case yumItem([String])
 
@@ -361,7 +396,9 @@ public enum SystemPackageProvider {
     /// for users of the HomeBrew package manager on macOS.
     ///
     /// - Parameters:
-    ///     - packages: The list of package names.
+    ///   - packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
         return .brewItem(packages)
     }
@@ -370,16 +407,21 @@ public enum SystemPackageProvider {
     /// for users of the apt-get package manager on Ubuntu Linux.
     ///
     /// - Parameters:
-    ///     - packages: The list of package names.
+    ///   - packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
         return .aptItem(packages)
     }
 
     /// Creates a system package provider with a list of installable packages
-    /// for users of the yum package manager on Red Hat Enterprise Linux or CentOS.
+    /// for users of the yum package manager on Red Hat Enterprise Linux or
+    /// CentOS.
     ///
     /// - Parameters:
-    ///     - packages: The list of package names.
+    ///   - packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
     @available(_PackageDescription, introduced: 5.3)
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return .yumItem(packages)
