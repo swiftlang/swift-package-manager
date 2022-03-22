@@ -12,8 +12,8 @@
 
 import Basics
 @testable import Build
-@testable import PackageLoading
-import PackageModel
+import PackageLoading
+@testable import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver

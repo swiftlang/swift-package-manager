@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
-
 /// A registry for available platforms.
 public final class PlatformRegistry {
 

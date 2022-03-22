@@ -20,11 +20,13 @@ add_library(PackageModel
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
   ManifestSourceGeneration.swift
+  MinimumDeploymentTarget.swift
   ModuleMapType.swift
   Package.swift
   PackageIdentity.swift
   PackageReference.swift
   Platform.swift
+  PlatformRegistry.swift
   Product.swift
   Resource.swift
   Snippets/Model/Snippet.swift

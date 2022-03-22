@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
 import TSCBasic
 
 public struct MinimumDeploymentTarget {

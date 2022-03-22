@@ -28,7 +28,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let cancellator: Cancellator
 
     private static var _hostTriple = ThreadSafeBox<Triple>()
-    private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
     public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
@@ -146,12 +145,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             let execName = sources.root.basename.spm_mangledToC99ExtendedIdentifier()
 
             // Get access to the path containing the PackagePlugin module and library.
-            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
+            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
 
             // We use the toolchain's Swift compiler for compiling the plugin.
             var command = [self.toolchain.swiftCompilerPath.pathString]
 
-            let macOSPackageDescriptionPath: AbsolutePath
             // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             if runtimePath.extension == "framework" {
@@ -160,7 +158,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     "-framework", "PackagePlugin",
                     "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
                 ]
-                macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
             } else {
                 command += [
                     "-L", runtimePath.pathString,
@@ -171,9 +168,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 // so we add runtimePath to PATH when executing the manifest instead
                 command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
                 #endif
-
-                // note: this is not correct for all platforms, but we only actually use it on macOS.
-                macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
             }
 
             #if os(macOS)
@@ -191,9 +185,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
             let triple = self.hostTriple
-            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
-            }
+            let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
             command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
@@ -360,13 +352,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         return sdkRootPath
-    }
-
-    // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
-    static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
-        let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
-        guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
-        return PlatformVersion(versionString)
     }
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
