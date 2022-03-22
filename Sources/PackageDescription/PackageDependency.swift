@@ -609,7 +609,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
-
     public static func package(
         id: String,
         exact version: Version
