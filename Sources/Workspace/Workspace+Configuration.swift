@@ -256,7 +256,7 @@ extension Workspace {
                 return try migrateMirrorsConfiguration(from: resolvedLegacyPath, to: newPath, observabilityScope: observabilityScope)
             } else if localFileSystem.isFile(newPath.parentDirectory) {
                 observabilityScope.emit(warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists.")
-            } else {
+            } else if let content = try? localFileSystem.readFileContents(legacyPath), content.count > 0 {
                 observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
                 if !localFileSystem.exists(newPath, followSymlink: false) {
                     try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)

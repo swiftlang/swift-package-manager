@@ -107,7 +107,7 @@ extension FileSystem {
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
-                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
                     if !self.exists(destination) {
@@ -124,7 +124,7 @@ extension FileSystem {
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
-                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
                     if !self.exists(destination) {
