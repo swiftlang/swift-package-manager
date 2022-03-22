@@ -497,7 +497,7 @@ class MiscellaneousTestCase: XCTestCase {
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "Bar"))
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("Cannot clone from local directory"), "Didn't find expected output: \(output)")
+            XCTAssert(output.contains("cannot clone from local directory"), "Didn't find expected output: \(output)")
         }
     }
 
@@ -507,13 +507,13 @@ class MiscellaneousTestCase: XCTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "InvalidBranch"))
                 XCTAssert(result.exitStatus != .terminated(code: 0))
                 let output = try result.utf8stderrOutput()
-                XCTAssert(output.contains("Invalid branch name: "), "Didn't find expected output: \(output)")
+                XCTAssert(output.contains("invalid branch name: "), "Didn't find expected output: \(output)")
             }
             do {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "InvalidRevision"))
                 XCTAssert(result.exitStatus != .terminated(code: 0))
                 let output = try result.utf8stderrOutput()
-                XCTAssert(output.contains("Invalid revision: "), "Didn't find expected output: \(output)")
+                XCTAssert(output.contains("invalid revision: "), "Didn't find expected output: \(output)")
             }
         }
     }

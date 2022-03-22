@@ -15,7 +15,6 @@ import Foundation
 import PackageModel
 import TSCBasic
 import enum TSCUtility.Diagnostics
-import var TSCUtility.verbosity
 
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest contains invalid format.
@@ -76,10 +75,6 @@ public protocol ManifestLoaderProtocol {
 
     /// Reset any internal cache held by the manifest loader and purge any entries in a shared cache
     func purgeCache() throws
-}
-
-public extension ManifestLoaderProtocol {
-    static var supportedArchiveExtensions: [String] { ["zip"] }
 }
 
 public protocol ManifestLoaderDelegate {
@@ -262,197 +257,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     products: products,
                     targets: targets
                 )
-
-                try self.validate(manifest, toolsVersion: manifestToolsVersion, observabilityScope: observabilityScope)
-
-                if observabilityScope.errorsReported {
-                    throw Diagnostics.fatalError
-                }
-
                 completion(.success(manifest))
             } catch {
                 callbackQueue.async {
                     completion(.failure(error))
-                }
-            }
-        }
-    }
-
-    /// Validate the provided manifest.
-    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion, observabilityScope: ObservabilityScope) throws {
-        try self.validateTargets(manifest, observabilityScope: observabilityScope)
-        try self.validateProducts(manifest, observabilityScope: observabilityScope)
-        try self.validateDependencies(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
-
-        // Checks reserved for tools version 5.2 features
-        if toolsVersion >= .v5_2 {
-            try self.validateTargetDependencyReferences(manifest, observabilityScope: observabilityScope)
-            try self.validateBinaryTargets(manifest, observabilityScope: observabilityScope)
-        }
-    }
-
-    private func validateTargets(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
-        let duplicateTargetNames = manifest.targets.map({ $0.name }).spm_findDuplicates()
-        for name in duplicateTargetNames {
-            observabilityScope.emit(.duplicateTargetName(targetName: name))
-        }
-    }
-
-    private func validateProducts(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
-        for product in manifest.products {
-            // Check that the product contains targets.
-            guard !product.targets.isEmpty else {
-                observabilityScope.emit(.emptyProductTargets(productName: product.name))
-                continue
-            }
-
-            // Check that the product references existing targets.
-            for target in product.targets {
-                if !manifest.targetMap.keys.contains(target) {
-                    observabilityScope.emit(.productTargetNotFound(productName: product.name, targetName: target, validTargets: manifest.targetMap.keys.sorted()))
-                }
-            }
-
-            // Check that products that reference only binary targets don't define a type.
-            let areTargetsBinary = product.targets.allSatisfy { manifest.targetMap[$0]?.type == .binary }
-            if areTargetsBinary && product.type != .library(.automatic) {
-                observabilityScope.emit(.invalidBinaryProductType(productName: product.name))
-            }
-        }
-    }
-
-    private func validateDependencies(
-        _ manifest: Manifest,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws {
-        let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            dependency.identity
-        })
-
-        let duplicateDependencyIdentities = dependenciesByIdentity
-            .lazy
-            .filter({ $0.value.count > 1 })
-            .map({ $0.key })
-
-        for identity in duplicateDependencyIdentities {
-            observabilityScope.emit(.duplicateDependency(dependencyIdentity: identity))
-        }
-
-        if toolsVersion >= .v5_2 {
-            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependency] in
-                guard let dependency = dependenciesByIdentity[identifier] else {
-                    throw InternalError("unknown dependency \(identifier)")
-                }
-                return dependency
-            }
-            let duplicateDependencyNames = manifest.dependencies
-                .lazy
-                .filter({ !duplicateDependencies.contains($0) })
-                .map({ $0.nameForTargetDependencyResolutionOnly })
-                .spm_findDuplicates()
-
-            for name in duplicateDependencyNames {
-                observabilityScope.emit(.duplicateDependencyName(dependencyName: name))
-            }
-        }
-    }
-
-    private func validateBinaryTargets(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
-        // Check that binary targets point to the right file type.
-        for target in manifest.targets where target.type == .binary {
-            if target.isLocal {
-                guard let path = target.path else {
-                    observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
-                    continue
-                }
-
-                guard let path = path.spm_chuzzle(), !path.isEmpty else {
-                    observabilityScope.emit(.invalidLocalBinaryPath(path: path, targetName: target.name))
-                    continue
-                }
-
-                guard let relativePath = try? RelativePath(validating: path) else {
-                    observabilityScope.emit(.invalidLocalBinaryPath(path: path, targetName: target.name))
-                    continue
-                }
-
-                let validExtensions = Self.supportedArchiveExtensions + BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
-                guard let fileExtension = relativePath.extension, validExtensions.contains(fileExtension) else {
-                    observabilityScope.emit(.unsupportedBinaryLocationExtension(
-                        targetName: target.name,
-                        validExtensions: validExtensions
-                    ))
-                    continue
-                }
-            } else if target.isRemote {
-                guard let url = target.url else {
-                    observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
-                    continue
-                }
-
-                guard let url = url.spm_chuzzle(), !url.isEmpty else {
-                    observabilityScope.emit(.invalidBinaryURL(url: url, targetName: target.name))
-                    continue
-                }
-
-                guard let url = URL(string: url) else {
-                    observabilityScope.emit(.invalidBinaryURL(url: url, targetName: target.name))
-                    continue
-                }
-
-                let validSchemes = ["https"]
-                guard url.scheme.map({ validSchemes.contains($0) }) ?? false else {
-                    observabilityScope.emit(.invalidBinaryURLScheme(
-                        targetName: target.name,
-                        validSchemes: validSchemes
-                    ))
-                    continue
-                }
-
-                guard Self.supportedArchiveExtensions.contains(url.pathExtension) else {
-                    observabilityScope.emit(.unsupportedBinaryLocationExtension(
-                        targetName: target.name,
-                        validExtensions: Self.supportedArchiveExtensions
-                    ))
-                    continue
-                }
-
-            } else {
-                observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
-                continue
-            }
-        }
-    }
-
-    /// Validates that product target dependencies reference an existing package.
-    private func validateTargetDependencyReferences(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
-        for target in manifest.targets {
-            for targetDependency in target.dependencies {
-                switch targetDependency {
-                case .target:
-                    // If this is a target dependency, we don't need to check anything.
-                    break
-                case .product(_, let packageName, _, _):
-                    if manifest.packageDependency(referencedBy: targetDependency) == nil {
-                        observabilityScope.emit(.unknownTargetPackageDependency(
-                            packageName: packageName ?? "unknown package name",
-                            targetName: target.name,
-                            validPackages: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
-                        ))
-                    }
-                case .byName(let name, _):
-                    // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
-                    if !manifest.packageKind.isRoot &&
-                       !manifest.targetMap.keys.contains(name) &&
-                       manifest.packageDependency(referencedBy: targetDependency) == nil
-                    {
-                        observabilityScope.emit(.unknownTargetDependency(
-                            dependency: name,
-                            targetName: target.name,
-                            validDependencies: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
-                        ))
-                    }
                 }
             }
         }
@@ -1046,70 +854,4 @@ extension ManifestLoader {
             return next
         }
     }
-}
-
-extension Basics.Diagnostic {
-    static func duplicateTargetName(targetName: String) -> Self {
-        .error("duplicate target named '\(targetName)'")
-    }
-
-    static func emptyProductTargets(productName: String) -> Self {
-        .error("product '\(productName)' doesn't reference any targets")
-    }
-
-    static func productTargetNotFound(productName: String, targetName: String, validTargets: [String]) -> Self {
-        .error("target '\(targetName)' referenced in product '\(productName)' could not be found; valid targets are: '\(validTargets.joined(separator: "', '"))'")
-    }
-
-    static func invalidBinaryProductType(productName: String) -> Self {
-        .error("invalid type for binary product '\(productName)'; products referencing only binary targets must have a type of 'library'")
-    }
-
-    static func duplicateDependency(dependencyIdentity: PackageIdentity) -> Self {
-        .error("duplicate dependency '\(dependencyIdentity)'")
-    }
-
-    static func duplicateDependencyName(dependencyName: String) -> Self {
-        .error("duplicate dependency named '\(dependencyName)'; consider differentiating them using the 'name' argument")
-    }
-
-    static func unknownTargetDependency(dependency: String, targetName: String, validDependencies: [String]) -> Self {
-        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: '\(validDependencies.joined(separator: "', '"))'")
-    }
-
-    static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [String]) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: '\(validPackages.joined(separator: "', '"))'")
-    }
-
-    static func invalidBinaryLocation(targetName: String) -> Self {
-        .error("invalid location for binary target '\(targetName)'")
-    }
-
-    static func invalidBinaryURL(url: String, targetName: String) -> Self {
-        .error("invalid URL '\(url)' for binary target '\(targetName)'")
-    }
-
-    static func invalidLocalBinaryPath(path: String, targetName: String) -> Self {
-        .error("invalid local path '\(path)' for binary target '\(targetName)', path expected to be relative to package root.")
-    }
-
-    static func invalidBinaryURLScheme(targetName: String, validSchemes: [String]) -> Self {
-        .error("invalid URL scheme for binary target '\(targetName)'; valid schemes are: '\(validSchemes.joined(separator: "', '"))'")
-    }
-
-    static func unsupportedBinaryLocationExtension(targetName: String, validExtensions: [String]) -> Self {
-        .error("unsupported extension for binary target '\(targetName)'; valid extensions are: '\(validExtensions.joined(separator: "', '"))'")
-    }
-
-    static func invalidLanguageTag(_ languageTag: String) -> Self {
-        .error("""
-            invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
-            digits separated by hyphens
-            """)
-    }
-}
-
-private extension TargetDescription {
-    var isRemote: Bool { url != nil }
-    var isLocal: Bool { path != nil }
 }

@@ -11,6 +11,7 @@ add_library(PackageLoading
   Diagnostics.swift
   IdentityResolver.swift
   ManifestLoader.swift
+  ManifestLoader+Validation.swift
   ModuleMapGenerator.swift
   PackageBuilder.swift
   ManifestJSONParser.swift
