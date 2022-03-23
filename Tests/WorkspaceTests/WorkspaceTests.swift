@@ -6183,6 +6183,73 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testArtifactDownloadServerError() throws {
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
+
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                // mimics URLSession behavior which write the file even if sends an error message
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: "not found",
+                    atomically: true
+                )
+
+                completion(.success(.notFound()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            customHttpClient: httpClient
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .contains("failed downloading 'https://a.com/a.zip' which is required by binary target 'A1': badResponseStatusCode(404)"), severity: .error)
+            }
+        }
+
+        // make sure artifact downloaded is deleted
+        XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+    }
+
     func testArtifactDownloaderOrArchiverError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
