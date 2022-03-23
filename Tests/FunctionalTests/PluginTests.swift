@@ -112,6 +112,20 @@ class PluginTests: XCTestCase {
             }
         }
     }
+    
+    func testLocalBuildToolPluginUsingRemoteExecutable() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "LibraryWithLocalBuildToolPluginUsingRemoteTool"))
+            XCTAssert(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Generating generated.swift from generated.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling MyLibrary generated.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 
     func testContrivedTestCases() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
