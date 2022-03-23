@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-
 import Workspace
 import XCTest
 
@@ -380,6 +380,86 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }
       #endif
+    }
+
+    func testSwiftRunSIGNINT() throws {
+        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            let mainFilePath = fixturePath.appending(component: "main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(mainFilePath) {
+                """
+                import Foundation
+
+                print("sleeping")
+                fflush(stdout)
+
+                sleep(10)
+                print("done")
+                """
+            }
+
+            let sync = DispatchGroup()
+            let outputHandler = OutputHandler(sync: sync)
+            let process = Process(
+                arguments: [SwiftPMProduct.SwiftRun.path.pathString, "--package-path", fixturePath.pathString],
+                outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
+            )
+
+            sync.enter()
+            try process.launch()
+
+            // wait for the process to start
+            if case .timedOut = sync.wait(timeout: .now() + 60) {
+                return XCTFail("timeout waiting for process to start")
+            }
+
+            // interrupt the process
+            print("interrupting")
+            process.signal(SIGINT)
+
+            // check for interrupt result
+            let result = try process.waitUntilExit()
+            XCTAssertEqual(result.exitStatus, .signalled(signal: 2))
+        }
+
+        class OutputHandler {
+            let sync: DispatchGroup
+            var state = State.idle
+            let lock = Lock()
+
+            init(sync: DispatchGroup) {
+                self.sync = sync
+            }
+
+            func handle(bytes: [UInt8]) {
+                guard let output = String(bytes: bytes, encoding: .utf8) else {
+                    return
+                }
+                self.lock.withLock {
+                    switch self.state {
+                    case .idle:
+                        self.state = .buffering(output)
+                    case .buffering(let buffer):
+                        print(output, terminator: "")
+                        let newBuffer = buffer + output
+                        if newBuffer.contains("sleeping") {
+                            self.state = .done
+                            self.sync.leave()
+                        } else {
+                            self.state = .buffering(newBuffer)
+                        }
+                    case .done:
+                        break //noop
+                    }
+                }
+            }
+
+            enum State {
+                case idle
+                case buffering(String)
+                case done
+            }
+        }
     }
 
     func testReportingErrorFromGitCommand() throws {
