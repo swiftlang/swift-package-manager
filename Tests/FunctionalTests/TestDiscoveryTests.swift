@@ -127,4 +127,17 @@ class TestDiscoveryTests: XCTestCase {
         }
         #endif
     }
+
+    func testSubclassedTestClassTests() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #endif
+        try fixture(name: "Miscellaneous/TestDiscovery/Subclass") { fixturePath in
+            let (stdout, _) = try executeSwiftTest(fixturePath)
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("SubclassTestsBase.test1"))
+            XCTAssertMatch(stdout, .contains("SubclassTestsDerived.test1"))
+            XCTAssertMatch(stdout, .contains("Executed 2 tests"))
+        }
+    }
 }

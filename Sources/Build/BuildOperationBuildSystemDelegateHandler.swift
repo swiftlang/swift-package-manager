@@ -74,7 +74,8 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             stream <<< "\n"
             stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
             stream <<< indent(4) <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
-            stream <<< indent(4) <<< "static let __allTests = [" <<< "\n"
+            // 'className' provides uniqueness for derived class.
+            stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
             for method in testMethods {
                 stream <<< indent(8) <<< method.allTestsEntry <<< ",\n"
             }
@@ -90,7 +91,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
         for iterator in testsByClassNames {
             let className = iterator.key
-            stream <<< indent(8) <<< "testCase(\(className).__allTests),\n"
+            stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
         }
 
         stream <<< """
