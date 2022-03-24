@@ -78,6 +78,9 @@ public final class UserToolchain: Toolchain {
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
+    /// Only use search paths, do not fall back to `xcrun`.
+    let useXcrun: Bool
+
     private var _clangCompiler: AbsolutePath?
 
     /// Returns the runtime library for the given sanitizer.
@@ -114,24 +117,26 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
-    private static func findTool(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
+    private static func findTool(_ name: String, envSearchPaths: [AbsolutePath], useXcrun: Bool) throws -> AbsolutePath {
+        if useXcrun {
 #if os(macOS)
-        let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
-        return try AbsolutePath(validating: foundPath)
-#else
+            let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
+            return try AbsolutePath(validating: foundPath)
+#endif
+        }
+
         for folder in envSearchPaths {
             if let toolPath = try? getTool(name, binDir: folder) {
                 return toolPath
             }
         }
         throw InvalidToolchainDiagnostic("could not find \(name)")
-#endif
     }
 
     // MARK: - public API
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    public static func determineSwiftCompilers(binDir: AbsolutePath) throws -> SwiftCompilers {
+    public static func determineSwiftCompilers(binDir: AbsolutePath, useXcrun: Bool) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -164,7 +169,7 @@ public final class UserToolchain: Toolchain {
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
-            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: envSearchPaths)
+            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: envSearchPaths, useXcrun: useXcrun)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -194,7 +199,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Otherwise, lookup it up on the system.
-        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths)
+        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
         self._clangCompiler = toolPath
         return toolPath
     }
@@ -216,7 +221,7 @@ public final class UserToolchain: Toolchain {
             return lldbPath
         }
         // If that fails, fall back to xcrun, PATH, etc.
-        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths)
+        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
     }
 
     /// Returns the path to llvm-cov tool.
@@ -302,19 +307,31 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - initializer
 
-    public init(destination: Destination, environment: EnvironmentVariables = .process()) throws {
+    public enum SearchStrategy {
+        case `default`
+        case custom(searchPaths: [AbsolutePath], useXcrun: Bool = true)
+    }
+
+    public init(destination: Destination, environment: EnvironmentVariables = .process(), searchStrategy: SearchStrategy = .default) throws {
         self.destination = destination
 
-        // Get the search paths from PATH.
-        self.envSearchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.path,
-            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
-        )
+        switch searchStrategy {
+        case .default:
+            // Get the search paths from PATH.
+            self.envSearchPaths = getEnvSearchPaths(
+                pathString: ProcessEnv.path,
+                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+            )
+            self.useXcrun = true
+        case .custom(let searchPaths, let useXcrun):
+            self.envSearchPaths = searchPaths
+            self.useXcrun = useXcrun
+        }
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun)
         self.swiftCompilerPath = swiftCompilers.compile
         self.archs = destination.archs
 
@@ -374,7 +391,12 @@ public final class UserToolchain: Toolchain {
 
         let swiftPMLibrariesLocation = try Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination)
 
-        let xctestPath = try Self.deriveXCTestPath(triple: triple, environment: environment)
+        let xctestPath: AbsolutePath?
+        if case let .custom(_, useXcrun) = searchStrategy, !useXcrun {
+            xctestPath = nil
+        } else {
+            xctestPath = try Self.deriveXCTestPath(triple: triple, environment: environment)
+        }
 
         self.configuration = .init(
             swiftCompilerPath: swiftCompilers.manifest,
