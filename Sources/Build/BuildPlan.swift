@@ -843,7 +843,7 @@ public final class SwiftTargetBuildDescription {
 
     public func emitCommandLine() throws -> [String] {
         var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
 
         result.append("-module-name")
         result.append(target.c99name)
@@ -884,7 +884,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
 
         result.append("-module-name")
         result.append(target.c99name)
@@ -931,7 +931,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
 
         result.append("-module-name")
         result.append(target.c99name)
@@ -1250,7 +1250,7 @@ public final class ProductBuildDescription {
 
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
-        var args = [buildParameters.toolchain.swiftCompiler.pathString]
+        var args = [buildParameters.toolchain.swiftCompilerPath.pathString]
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 

@@ -68,27 +68,6 @@ public struct ToolchainConfiguration {
         self.sdkRootPath = sdkRootPath
         self.xctestPath = xctestPath
     }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use non-deprecated initializer instead")
-    public init(
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String] = [],
-        swiftCompilerEnvironment: EnvironmentVariables = .process(),
-        libDir: AbsolutePath? = nil,
-        binDir: AbsolutePath? = nil,
-        sdkRoot: AbsolutePath? = nil,
-        xctestLocation: AbsolutePath? = nil
-    ) {
-        self.init(
-            swiftCompilerPath: swiftCompiler,
-            swiftCompilerFlags: swiftCompilerFlags,
-            swiftCompilerEnvironment: swiftCompilerEnvironment,
-            swiftPMLibrariesLocation: libDir.map { .init(root: $0) },
-            sdkRootPath: sdkRoot,
-            xctestPath: xctestLocation
-        )
-    }
 }
 
 extension ToolchainConfiguration {

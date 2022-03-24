@@ -35,35 +35,15 @@ public final class UserToolchain: Toolchain {
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
 
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use swiftCompilerPath instead")
-    public var swiftCompiler: AbsolutePath {
-        get {
-            self.swiftCompilerPath
-        }
-    }
-
     public var extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]
 
     public var extraCPPFlags: [String]
 
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use configuration instead")
-    public var manifestResources: ToolchainConfiguration {
-        return self.configuration
-    }
-
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
         return self.swiftCompilerPath.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
-    }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use swiftInterpreterPath instead")
-    public var swiftInterpreter: AbsolutePath {
-        return self.swiftInterpreterPath
     }
 
     /// The compilation destination object.

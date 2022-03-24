@@ -33,7 +33,7 @@ let hostTriple = UserToolchain.default.triple
 #endif
 
 private struct MockToolchain: SPMBuildCore.Toolchain {
-    let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
