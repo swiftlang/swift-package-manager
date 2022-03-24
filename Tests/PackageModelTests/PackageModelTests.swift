@@ -66,7 +66,7 @@ class PackageModelTests: XCTestCase {
             binDir: toolchainPath.appending(components: "usr", "bin")
         )
 
-        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
+        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination, environment: .process()), [
             // Needed when cross‐compiling for Android. 2020‐03‐01
             "-sdk", sdk.pathString,
         ])
