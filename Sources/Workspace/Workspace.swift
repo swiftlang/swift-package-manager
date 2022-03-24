@@ -1189,6 +1189,7 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
 
@@ -1225,6 +1226,7 @@ extension Workspace {
             binaryArtifacts: binaryArtifacts,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
+            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
