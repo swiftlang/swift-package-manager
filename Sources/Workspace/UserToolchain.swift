@@ -452,16 +452,16 @@ public final class UserToolchain: Toolchain {
         let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
         if localFileSystem.exists(manifestFrameworksPath) && localFileSystem.exists(pluginFrameworksPath) {
             return .init(
-                manifestAPI: manifestFrameworksPath,
-                pluginAPI: pluginFrameworksPath
+                manifestLibraryPath: manifestFrameworksPath,
+                pluginLibraryPath: pluginFrameworksPath
             )
         }
 
         // this tests if we are debugging / testing SwiftPM with SwiftPM
         if localFileSystem.exists(applicationPath.appending(component: "swift-package")) {
             return .init(
-                manifestAPI: applicationPath,
-                pluginAPI: applicationPath
+                manifestLibraryPath: applicationPath,
+                pluginLibraryPath: applicationPath
             )
         }
 
