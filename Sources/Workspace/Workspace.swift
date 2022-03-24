@@ -515,92 +515,6 @@ public class Workspace {
         )
     }
 
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use non-deprecated initializer instead")
-    public convenience init(
-        dataPath: AbsolutePath,
-        editablesPath: AbsolutePath,
-        pinsFile: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil,
-        currentToolsVersion: ToolsVersion? = nil,
-        toolsVersionLoader: ToolsVersionLoaderProtocol? = nil,
-        delegate: Delegate? = nil,
-        config: Workspace.Configuration? = nil,
-        fileSystem: FileSystem? = nil,
-        repositoryProvider: RepositoryProvider? = nil,
-        identityResolver: IdentityResolver? = nil,
-        httpClient: HTTPClient? = nil,
-        netrcFilePath: AbsolutePath? = nil,
-        archiver: Archiver? = nil,
-        checksumAlgorithm: HashAlgorithm? = nil,
-        additionalFileRules: [FileRuleDescription]? = nil,
-        isResolverPrefetchingEnabled: Bool? = nil,
-        enablePubgrubResolver: Bool? = nil,
-        skipUpdate: Bool? = nil,
-        enableResolverTrace: Bool? = nil,
-        cachePath: AbsolutePath? = nil
-    ) {
-        // try! safe in this case since the new initializer will only throw when creating a manifest loader
-        // which is passed explicitly in this case. this initializer will go away soon in any case.
-        let fileSystem = fileSystem ?? localFileSystem
-        try! self.init(
-            fileSystem: fileSystem,
-            location: .init(
-                workingDirectory: dataPath,
-                editsDirectory: editablesPath,
-                resolvedVersionsFile: pinsFile,
-                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: dataPath.parentDirectory), // legacy deprecated API
-                sharedConfigurationDirectory: .none, // legacy deprecated API
-                sharedSecurityDirectory: .none, // legacy deprecated API,
-                sharedCacheDirectory: cachePath
-            ),
-            mirrors: config?.mirrors,
-            authorizationProvider: netrcFilePath.map {
-                try NetrcAuthorizationProvider(path: $0, fileSystem: fileSystem)
-            },
-            customToolsVersion: currentToolsVersion,
-            customManifestLoader: manifestLoader,
-            customRepositoryManager: repositoryManager,
-            customRepositoryProvider: repositoryProvider,
-            customIdentityResolver: identityResolver,
-            customHTTPClient: httpClient,
-            customArchiver: archiver,
-            customChecksumAlgorithm: checksumAlgorithm,
-            additionalFileRules: additionalFileRules,
-            resolverUpdateEnabled: skipUpdate.map{ !$0 },
-            resolverPrefetchingEnabled: isResolverPrefetchingEnabled
-        )
-    }
-
-    /// A convenience method for creating a workspace for the given root
-    /// package path.
-    ///
-    /// The root package path is used to compute the build directory and other
-    /// default paths.
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use initializer instead")
-    public static func create(
-        forRootPackage packagePath: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil,
-        delegate: Delegate? = nil,
-        identityResolver: IdentityResolver? = nil
-    ) -> Workspace {
-        let workspace = try! Workspace(
-            forRootPackage: packagePath,
-            customManifestLoader: manifestLoader,
-            delegate: delegate
-        )
-        if let repositoryManager = repositoryManager {
-            workspace.repositoryManager = repositoryManager
-        }
-        if let identityResolver = identityResolver {
-            workspace.identityResolver = identityResolver
-        }
-        return workspace
-    }
-
     /// Initializer for testing purposes only. Use non underscored initializers instead.
     // this initializer is only public because of cross module visibility (eg MockWorkspace)
     // as such it is by design an exact mirror of the private initializer below
@@ -1143,43 +1057,6 @@ extension Workspace {
         )
 
         return nil
-    }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use workspace instance API instead")
-    public static func loadRootGraph(
-        at packagePath: AbsolutePath,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        identityResolver: IdentityResolver? = nil,
-        diagnostics: DiagnosticsEngine
-    ) throws -> PackageGraph {
-        let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = ManifestLoader(toolchain: toolchain)
-        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
-        return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
-    }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use observability system APIs instead")
-    @discardableResult
-    public func loadPackageGraph(
-        rootInput root: PackageGraphRootInput,
-        explicitProduct: String? = nil,
-        createMultipleTestProducts: Bool = false,
-        createREPLProduct: Bool = false,
-        forceResolvedVersions: Bool = false,
-        diagnostics: DiagnosticsEngine,
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
-    ) throws -> PackageGraph {
-        try self.loadPackageGraph(
-            rootInput: root,
-            explicitProduct: explicitProduct,
-            createMultipleTestProducts: createMultipleTestProducts,
-            createREPLProduct: createREPLProduct,
-            forceResolvedVersions: forceResolvedVersions,
-            observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
-        )
     }
 
     @discardableResult
@@ -2445,13 +2322,6 @@ extension Workspace {
 // MARK: - Dependency Management
 
 extension Workspace {
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "renamed to resolveBasedOnResolvedVersionsFile")
-    public func resolveToResolvedVersion(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
-        try self.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
-    }
-
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
     ///
     /// This method bypasses the dependency resolution and resolves dependencies
