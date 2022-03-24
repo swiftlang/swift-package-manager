@@ -12,9 +12,6 @@
 
 import Basics
 import Foundation
-import PackageLoading
-import PackageModel
-import SPMBuildCore
 import TSCBasic
 
 import struct TSCUtility.Triple
@@ -29,8 +26,8 @@ private let hostExecutableSuffix = ""
 public final class UserToolchain: Toolchain {
     public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
 
-    /// The manifest resource provider.
-    public let configuration: ToolchainConfiguration
+    /// The toolchain configuration.
+    private let configuration: ToolchainConfiguration
 
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
@@ -474,5 +471,25 @@ public final class UserToolchain: Toolchain {
             }
         }
         return .none
+    }
+
+    public var sdkRootPath: AbsolutePath? {
+        return configuration.sdkRootPath
+    }
+
+    public var swiftCompilerEnvironment: EnvironmentVariables {
+        return configuration.swiftCompilerEnvironment
+    }
+
+    public var swiftCompilerFlags: [String] {
+        return configuration.swiftCompilerFlags
+    }
+
+    public var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation {
+        return configuration.swiftPMLibrariesLocation
+    }
+
+    public var xctestPath: AbsolutePath? {
+        return configuration.xctestPath
     }
 }

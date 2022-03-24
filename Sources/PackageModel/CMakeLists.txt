@@ -10,6 +10,7 @@ add_library(PackageModel
   BuildConfiguration.swift
   BuildEnvironment.swift
   BuildSettings.swift
+  Destination.swift
   Diagnostics.swift
   Manifest.swift
   Manifest/PackageConditionDescription.swift
@@ -29,6 +30,7 @@ add_library(PackageModel
   PlatformRegistry.swift
   Product.swift
   Resource.swift
+  Sanitizers.swift
   Snippets/Model/Snippet.swift
   Snippets/Model/SnippetGroup.swift
   Snippets/Parsing/PlainTextSnippetExtractor.swift
@@ -36,9 +38,12 @@ add_library(PackageModel
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   Target.swift
+  Toolchain.swift
   ToolchainConfiguration.swift
   ToolsVersion.swift
-  ToolsVersionSpecificationGeneration.swift)
+  ToolsVersionSpecificationGeneration.swift
+  UserToolchain.swift
+  WindowsToolchainInfo.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
   TSCUtility

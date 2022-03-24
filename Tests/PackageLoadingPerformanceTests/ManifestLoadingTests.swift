@@ -18,7 +18,7 @@ import TSCBasic
 import XCTest
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
-    let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+    let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
         try testWithTemporaryDirectory { tmpdir in

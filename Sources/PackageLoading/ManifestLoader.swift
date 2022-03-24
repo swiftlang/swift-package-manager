@@ -14,7 +14,6 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import struct TSCUtility.Triple
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
 
@@ -145,9 +144,7 @@ extension ManifestLoaderProtocol {
 /// serialized form of the manifest (as implemented by `PackageDescription`'s
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
-    private static var _hostTriple = ThreadSafeBox<Triple>()
-
-    private let toolchain: ToolchainConfiguration
+    private let toolchain: UserToolchain
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
     private let delegate: ManifestLoaderDelegate?
@@ -163,7 +160,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let evaluationQueue: OperationQueue
 
     public init(
-        toolchain: ToolchainConfiguration,
+        toolchain: UserToolchain,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
@@ -729,12 +726,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
 #if os(macOS)
-        let triple = Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
-        }
-
         let version = self.toolchain.swiftPMLibrariesLocation.manifestLibraryMinimumDeploymentTarget.versionString
-        cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+        cmd += ["-target", "\(self.toolchain.triple.tripleString(forPlatformVersion: version))"]
 #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
