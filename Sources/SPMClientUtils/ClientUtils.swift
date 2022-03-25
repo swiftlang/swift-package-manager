@@ -108,6 +108,8 @@ public struct DiagnosticObserver {
 
     /// Creates a diagnostic observer.
     ///
+    /// Diagnostics may be produced from any thread and multiple closure executions may overlap. Be aware of the concurrency ramifications for any context captured by the closure.
+    ///
     /// - Parameters:
     ///     - handler: A closure that will be executed each time a diagnostic is emitted.
     ///     - scope: The label of the scope where the diagnostic was emmitted.
