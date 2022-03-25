@@ -25,9 +25,11 @@ class ModuleAliasingTests: XCTestCase {
         try XCTSkipIf(true, "Module aliasing is only supported on swift 5.6+")
         #endif
 
+        try XCTSkipIf(true, "rdar://88722540")
+
         try fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { fixturePath in
             let app = fixturePath.appending(components: "AppPkg")
-            XCTAssertBuilds(app, extraArgs: ["--vv"])
+            XCTAssertBuilds(app)
             XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
             XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "App"))
             XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
