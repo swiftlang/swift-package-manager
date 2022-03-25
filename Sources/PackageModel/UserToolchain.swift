@@ -15,7 +15,6 @@ import Foundation
 import TSCBasic
 
 import struct TSCUtility.Triple
-
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -291,7 +290,7 @@ public final class UserToolchain: Toolchain {
         case custom(searchPaths: [AbsolutePath], useXcrun: Bool = true)
     }
 
-    public init(destination: Destination, environment: EnvironmentVariables = .process(), searchStrategy: SearchStrategy = .default) throws {
+    public init(destination: Destination, environment: EnvironmentVariables = .process(), searchStrategy: SearchStrategy = .default, customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil) throws {
         self.destination = destination
         self.environment = environment
 
@@ -369,7 +368,7 @@ public final class UserToolchain: Toolchain {
             }
         }
 
-        let swiftPMLibrariesLocation = try Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination, environment: environment)
+        let swiftPMLibrariesLocation = try customLibrariesLocation ?? Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination, environment: environment)
 
         let xctestPath: AbsolutePath?
         if case let .custom(_, useXcrun) = searchStrategy, !useXcrun {
