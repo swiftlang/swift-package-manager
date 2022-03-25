@@ -265,7 +265,7 @@ class PluginInvocationTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -295,7 +295,7 @@ class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: UserToolchain.default
+                toolchain: ToolchainConfiguration.default
             )
 
             // Try to compile the broken plugin script.

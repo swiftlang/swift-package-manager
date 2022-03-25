@@ -49,14 +49,4 @@ extension EnvironmentVariables {
         #endif
         self[key] = values.joined(separator: delimiter)
     }
-
-    /// `PATH` variable in the process's environment (`Path` under Windows).
-    public var path: String? {
-#if os(Windows)
-        let pathArg = "Path"
-#else
-        let pathArg = "PATH"
-#endif
-        return self[pathArg]
-    }
 }

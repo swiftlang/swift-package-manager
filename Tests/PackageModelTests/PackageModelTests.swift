@@ -10,11 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-@testable import PackageModel
-import TSCBasic
-import TSCUtility
 import XCTest
+import Basics
+import TSCBasic
+import PackageModel
 
 class PackageModelTests: XCTestCase {
     func testProductTypeCodable() throws {
@@ -53,22 +52,5 @@ class PackageModelTests: XCTestCase {
             let decoded = try JSONDecoder().decode(ProductFilter.self, from: data)
             XCTAssertEqual(decoded, ProductFilter.specific(["Foo", "Bar"]))
         }()
-    }
-
-    func testAndroidCompilerFlags() throws {
-        let target = try Triple("x86_64-unknown-linux-android")
-        let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
-        let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
-
-        let destination = Destination(
-            target: target,
-            sdk: sdk,
-            binDir: toolchainPath.appending(components: "usr", "bin")
-        )
-
-        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination, environment: .process()), [
-            // Needed when cross‐compiling for Android. 2020‐03‐01
-            "-sdk", sdk.pathString,
-        ])
     }
 }

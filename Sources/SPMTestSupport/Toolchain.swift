@@ -32,7 +32,17 @@ private func resolveBinDir() -> AbsolutePath {
 #endif
 }
 
-extension UserToolchain {
+extension ToolchainConfiguration {
+    public static var `default`: Self {
+        get {
+            let toolchain = UserToolchain.default
+            return .init(
+                swiftCompilerPath: toolchain.configuration.swiftCompilerPath,
+                swiftCompilerFlags: [],
+                swiftPMLibrariesLocation: toolchain.configuration.swiftPMLibrariesLocation
+            )
+        }
+    }
 
 #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
@@ -42,19 +52,11 @@ extension UserToolchain {
 
 }
 
-extension Destination {
-    public static var `default`: Self {
-        get {
-            let binDir = resolveBinDir()
-            return try! Destination.hostDestination(binDir)
-        }
-    }
-}
-
 extension UserToolchain {
     public static var `default`: Self {
         get {
-            return try! .init(destination: Destination.default)
+            let binDir = resolveBinDir()
+            return try! .init(destination: Destination.hostDestination(binDir))
         }
     }
 }

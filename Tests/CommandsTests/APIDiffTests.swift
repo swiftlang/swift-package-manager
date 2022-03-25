@@ -14,7 +14,6 @@ import Basics
 import Build
 import Commands
 import Foundation
-import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic

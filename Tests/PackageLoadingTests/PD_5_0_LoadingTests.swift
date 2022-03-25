@@ -361,7 +361,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let manifestPath = path.appending(components: "pkg", "Package.swift")
 
             let loader = ManifestLoader(
-                toolchain: UserToolchain.default,
+                toolchain: ToolchainConfiguration.default,
                 serializedDiagnostics: true,
                 cacheDir: path)
 
@@ -598,9 +598,8 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let moduleTraceFilePath = path.appending(component: "swift-module-trace")
-            var env = EnvironmentVariables.process()
-            env["SWIFT_LOADED_MODULE_TRACE_FILE"] = moduleTraceFilePath.pathString
-            let toolchain = try UserToolchain(destination: Destination.default, environment: env)
+            var toolchain = ToolchainConfiguration.default
+            toolchain.swiftCompilerEnvironment["SWIFT_LOADED_MODULE_TRACE_FILE"] = moduleTraceFilePath.pathString
             let manifestLoader = ManifestLoader(
                 toolchain: toolchain,
                 serializedDiagnostics: true,

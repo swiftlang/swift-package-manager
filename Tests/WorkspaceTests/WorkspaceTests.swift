@@ -138,7 +138,7 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
+                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
 
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
@@ -200,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
@@ -7943,6 +7943,23 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testAndroidCompilerFlags() throws {
+        let target = try Triple("x86_64-unknown-linux-android")
+        let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
+        let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
+
+        let destination = Destination(
+            target: target,
+            sdk: sdk,
+            binDir: toolchainPath.appending(components: "usr", "bin")
+        )
+
+        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
+            // Needed when cross‐compiling for Android. 2020‐03‐01
+            "-sdk", sdk.pathString,
+        ])
+    }
+
     func testDuplicateDependencyIdentityWithNameAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -9494,7 +9511,7 @@ final class WorkspaceTests: XCTestCase {
                     """
             }
 
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
+            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
             let sandbox = path.appending(component: "ws")
             let workspace = try Workspace(
                 fileSystem: fs,

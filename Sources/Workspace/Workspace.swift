@@ -435,7 +435,7 @@ public class Workspace {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
-            toolchain: customHostToolchain,
+            toolchain: customHostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
         try self.init(
@@ -601,7 +601,7 @@ public class Workspace {
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
-            toolchain: hostToolchain,
+            toolchain: hostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
 

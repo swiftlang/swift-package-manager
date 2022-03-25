@@ -19,6 +19,8 @@ add_library(SPMBuildCore
   PluginMessages.swift
   PluginScriptRunner.swift
   PrebuildCommandResult.swift
+  Sanitizers.swift
+  Toolchain.swift
   XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES

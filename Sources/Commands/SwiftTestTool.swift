@@ -15,7 +15,6 @@ import Basics
 import Build
 import class Foundation.ProcessInfo
 import PackageGraph
-import PackageModel
 import SPMBuildCore
 import TSCBasic
 import func TSCLibc.exit
@@ -189,7 +188,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // validate XCTest available on darwin based systems
             let toolchain = try swiftTool.getToolchain()
-            if toolchain.triple.isDarwin() && toolchain.xctestPath == nil {
+            if toolchain.triple.isDarwin() && toolchain.configuration.xctestPath == nil {
                 throw TestError.xctestNotAvailable
             }
         } catch {
@@ -589,7 +588,7 @@ final class TestRunner {
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
         #if os(macOS)
-        guard let xctestPath = self.toolchain.xctestPath else {
+        guard let xctestPath = self.toolchain.configuration.xctestPath else {
             throw TestError.xctestNotAvailable
         }
         args = [xctestPath.pathString]

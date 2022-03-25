@@ -32,7 +32,7 @@ let hostTriple = UserToolchain.default.triple
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-private struct MockToolchain: PackageModel.Toolchain {
+private struct MockToolchain: SPMBuildCore.Toolchain {
     let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
@@ -65,7 +65,7 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
-        toolchain: PackageModel.Toolchain = MockToolchain(),
+        toolchain: SPMBuildCore.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
@@ -4169,7 +4169,7 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: SPMBuildCore.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",
