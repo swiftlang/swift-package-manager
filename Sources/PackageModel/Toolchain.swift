@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import PackageModel
 
 public protocol Toolchain {
     /// Path of the `swiftc` compiler.

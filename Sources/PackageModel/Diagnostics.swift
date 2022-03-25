@@ -89,3 +89,15 @@ public struct UnsupportedToolsVersion: Error, CustomStringConvertible {
         return text
     }
 }
+
+public struct InvalidToolchainDiagnostic: Error, CustomStringConvertible {
+    public let error: String
+
+    public init(_ error: String) {
+        self.error = error
+    }
+
+    public var description: String {
+        "toolchain is invalid: \(error)"
+    }
+}

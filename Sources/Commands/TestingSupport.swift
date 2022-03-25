@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMBuildCore
 import TSCBasic
 import Workspace

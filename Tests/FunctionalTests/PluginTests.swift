@@ -324,7 +324,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -412,7 +412,7 @@ class PluginTests: XCTestCase {
                 let scriptRunner = DefaultPluginScriptRunner(
                     fileSystem: localFileSystem,
                     cacheDir: pluginDir.appending(component: "cache"),
-                    toolchain: ToolchainConfiguration.default
+                    toolchain: UserToolchain.default
                 )
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
@@ -547,7 +547,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -623,7 +623,7 @@ class PluginTests: XCTestCase {
             let scriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginDir.appending(component: "cache"),
-                toolchain: ToolchainConfiguration.default
+                toolchain: UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
@@ -819,7 +819,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
 

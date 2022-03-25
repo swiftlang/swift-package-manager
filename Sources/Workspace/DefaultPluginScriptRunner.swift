@@ -23,14 +23,13 @@ import struct TSCUtility.Triple
 public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let fileSystem: FileSystem
     private let cacheDir: AbsolutePath
-    private let toolchain: ToolchainConfiguration
+    private let toolchain: UserToolchain
     private let enableSandbox: Bool
     private let cancellator: Cancellator
 
-    private static var _hostTriple = ThreadSafeBox<Triple>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
@@ -124,11 +123,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     }
 
     public var hostTriple: Triple {
-        return Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
-        }
+        return self.toolchain.triple
     }
-    
+
     /// Helper function that starts compiling a plugin script asynchronously and when done, calls the completion handler with the compilation results (including the path of the compiled plugin executable and with any emitted diagnostics, etc). This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
     fileprivate func compile(
         sources: Sources,
@@ -184,9 +181,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
-            let triple = self.hostTriple
             let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
-            command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+            command += ["-target", "\(self.hostTriple.tripleString(forPlatformVersion: version))"]
             #endif
 
             // Add any extra flags required as indicated by the ManifestLoader.
