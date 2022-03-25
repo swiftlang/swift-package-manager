@@ -14,12 +14,9 @@ let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDire
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
 
-struct DiagnosticHandler: WorkspaceDiagnosticHandler {
-    func handle(diagnostic: String, scope: String) {
-        print("\(scope): \(diagnostic)")
-    }
-}
-let observer = DiagnosticObserver(DiagnosticHandler())
+let observer = DiagnosticObserver({ (scope: String, diagnostic: String) in
+  print("\(scope): \(diagnostic)")
+})
 
 let workspace = try Workspace(forRootPackage: packagePath)
 

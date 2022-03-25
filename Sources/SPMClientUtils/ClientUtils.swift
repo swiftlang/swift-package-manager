@@ -59,20 +59,16 @@ extension Workspace {
     }
 }
 
-public protocol WorkspaceDiagnosticHandler {
-    func handle(diagnostic: String, scope: String)
-}
-
 public struct DiagnosticObserver {
 
     fileprivate let observabilitySystem: ObservabilitySystem
 
-    public init(_ handler: WorkspaceDiagnosticHandler) {
+    public init(_ handler: @escaping (_ scope: String, _ diagnostic: String) -> Void) {
         observabilitySystem = ObservabilitySystem(
             { (scope: ObservabilityScope, diagnostic: Basics.Diagnostic) -> Void in
-                handler.handle(
-                  diagnostic: String(describing: diagnostic),
-                  scope: String(describing: scope)
+                handler(
+                  String(describing: scope),
+                  String(describing: diagnostic)
                 )
             }
         )
