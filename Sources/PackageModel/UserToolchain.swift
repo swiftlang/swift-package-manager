@@ -27,7 +27,7 @@ public final class UserToolchain: Toolchain {
     public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
 
     /// The toolchain configuration.
-    private let configuration: ToolchainConfiguration
+    public let configuration: ToolchainConfiguration
 
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath

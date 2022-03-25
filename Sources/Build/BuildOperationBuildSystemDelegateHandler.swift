@@ -335,7 +335,7 @@ public final class BuildExecutionContext {
             // library is currently installed as `libIndexStore.dll` rather than
             // `IndexStore.dll`.  In the future, this may require a fallback
             // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
-            let indexStoreLib = buildParameters.toolchain.swiftCompiler
+            let indexStoreLib = buildParameters.toolchain.swiftCompilerPath
                                     .parentDirectory
                                     .appending(component: "libIndexStore.dll")
 #else
