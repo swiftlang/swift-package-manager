@@ -156,8 +156,8 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            XCTAssertDirectoryExists(AbsolutePath(repo.storagePath(), relativeTo: cachePath))
+            XCTAssertDirectoryExists(AbsolutePath(repo.storagePath(), relativeTo: repositoriesPath))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[0].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
@@ -171,7 +171,7 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            XCTAssertDirectoryExists(AbsolutePath(repo.storagePath(), relativeTo: repositoriesPath))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[1].details,
                            RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
@@ -186,8 +186,8 @@ class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
-            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            XCTAssertDirectoryExists(AbsolutePath(repo.storagePath(), relativeTo: cachePath))
+            XCTAssertDirectoryExists(AbsolutePath(repo.storagePath(), relativeTo: repositoriesPath))
             try delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[2].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
@@ -305,7 +305,7 @@ class RepositoryManagerTests: XCTestCase {
                     provider: provider,
                     delegate: delegate
                 )
-                try! fs.removeFileTree(path.appending(dummyRepo.storagePath()))
+                try! fs.removeFileTree(AbsolutePath(dummyRepo.storagePath(), relativeTo: path))
                 manager = RepositoryManager(
                     fileSystem: fs,
                     path: path,

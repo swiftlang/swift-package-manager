@@ -191,7 +191,7 @@ public class RepositoryManager: Cancellable {
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
         let relativePath = repository.storagePath()
-        let repositoryPath = self.path.appending(relativePath)
+        let repositoryPath = AbsolutePath(relativePath, relativeTo: self.path)
         let handle = RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
 
         // check if a repository already exists
@@ -219,7 +219,7 @@ public class RepositoryManager: Cancellable {
 
         // inform delegate that we are starting to fetch
         // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-        let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
+        let isCached = self.cachePath.map{ self.fileSystem.exists(AbsolutePath(handle.subpath, relativeTo: $0)) } ?? false
         delegateQueue.async {
             let details = FetchDetails(fromCache: isCached, updatedCache: false)
             self.delegate?.willFetch(package: package, repository: handle.repository, details: details)
@@ -301,7 +301,7 @@ public class RepositoryManager: Cancellable {
         let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
         if let cachePath = self.cachePath, !(handle.repository.isLocal && !shouldCacheLocalPackages) {
-            let cachedRepositoryPath = cachePath.appending(handle.repository.storagePath())
+            let cachedRepositoryPath = AbsolutePath(handle.repository.storagePath(), relativeTo: cachePath)
             do {
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
                 try self.fileSystem.withLock(on: cachePath, type: .shared) {
@@ -349,7 +349,7 @@ public class RepositoryManager: Cancellable {
     private func open(_ handle: RepositoryHandle) throws -> Repository {
         try self.provider.open(
             repository: handle.repository,
-            at: self.path.appending(handle.subpath)
+            at: AbsolutePath(handle.subpath, relativeTo: self.path)
         )
     }
 
@@ -361,7 +361,7 @@ public class RepositoryManager: Cancellable {
     ) throws -> WorkingCheckout {
         try self.provider.createWorkingCopy(
             repository: handle.repository,
-            sourcePath: self.path.appending(handle.subpath),
+            sourcePath: AbsolutePath(handle.subpath, relativeTo: self.path),
             at: destinationPath,
             editable: editable)
     }
@@ -369,7 +369,7 @@ public class RepositoryManager: Cancellable {
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
         let relativePath = repository.storagePath()
-        let repositoryPath = self.path.appending(relativePath)
+        let repositoryPath = AbsolutePath(relativePath, relativeTo: self.path)
         try self.fileSystem.removeFileTree(repositoryPath)
     }
 

@@ -62,7 +62,7 @@ public class RegistryDownloadsManager: Cancellable {
 
         do {
             packageRelativePath = try package.downloadPath(version: version)
-            packagePath = self.path.appending(packageRelativePath)
+            packagePath = AbsolutePath(packageRelativePath, relativeTo: self.path)
 
             // TODO: we can do some finger-print checking to improve the validation
             // already exists and valid, we can exit early
@@ -99,7 +99,7 @@ public class RegistryDownloadsManager: Cancellable {
 
             // inform delegate that we are starting to fetch
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-            let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
+            let isCached = self.cachePath.map{ self.fileSystem.exists(AbsolutePath(packageRelativePath, relativeTo: $0)) } ?? false
             delegateQueue.async {
                 let details = FetchDetails(fromCache: isCached, updatedCache: false)
                 self.delegate?.willFetch(package: package, version: version, fetchDetails: details)
@@ -150,7 +150,7 @@ public class RegistryDownloadsManager: Cancellable {
         if let cachePath = self.cachePath {
             do {
                 let relativePath = try package.downloadPath(version: version)
-                let cachedPackagePath = cachePath.appending(relativePath)
+                let cachedPackagePath = AbsolutePath(relativePath, relativeTo: cachePath)
 
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
                 try self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
@@ -243,7 +243,7 @@ public class RegistryDownloadsManager: Cancellable {
 
     public func remove(package: PackageIdentity) throws {
         let relativePath = try package.downloadPath()
-        let packagesPath = self.path.appending(relativePath)
+        let packagesPath = AbsolutePath(relativePath, relativeTo: self.path)
         try self.fileSystem.removeFileTree(packagesPath)
     }
 

@@ -1250,10 +1250,10 @@ extension Workspace {
                 // note this does not actually download remote artifacts and as such does not have the artifact's type or path
                 let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.reduce(into: [String: BinaryArtifact]()) { partial, target in
                     if let path = target.path {
-                        let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
+                        let absolutePath = try AbsolutePath(RelativePath(validating: path), relativeTo: manifest.path.parentDirectory)
                         partial[target.name] = try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
-                        let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
+                        let fakePath = try AbsolutePath(RelativePath(validating: url.lastPathComponent), relativeTo: manifest.path.parentDirectory.appending(components: "remote", "archive"))
                         partial[target.name] = BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
                     } else {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
@@ -3619,17 +3619,17 @@ extension Workspace {
 extension Workspace.Location {
     /// Returns the path to the dependency's repository checkout directory.
     fileprivate func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+        AbsolutePath(dependency.subpath, relativeTo: self.repositoriesCheckoutsDirectory)
     }
 
     /// Returns the path to the  dependency's download directory.
     fileprivate func registryDownloadSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        self.registryDownloadDirectory.appending(dependency.subpath)
+        AbsolutePath(dependency.subpath, relativeTo: self.registryDownloadDirectory)
     }
 
     /// Returns the path to the dependency's edit directory.
     fileprivate func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        self.editsDirectory.appending(dependency.subpath)
+        AbsolutePath(dependency.subpath, relativeTo: self.editsDirectory)
     }
 }
 

@@ -57,7 +57,7 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(#file)).appending(fixtureSubpath)
+            let fixtureDir = AbsolutePath(fixtureSubpath, relativeTo: AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(#file)))
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {

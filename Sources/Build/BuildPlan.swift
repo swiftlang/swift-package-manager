@@ -329,7 +329,7 @@ public final class ClangTargetBuildDescription {
 
         return sources.flatMap { (root, relativePaths) in
             relativePaths.map { source in
-                let path = root.appending(source)
+                let path = AbsolutePath(source, relativeTo: root)
                 let object = AbsolutePath("\(source.pathString).o", relativeTo: tempsPath)
                 let deps = AbsolutePath("\(source.pathString).d", relativeTo: tempsPath)
                 return (source, path, object, deps)
@@ -487,7 +487,7 @@ public final class ClangTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         try fileSystem.writeIfChanged(
-            path: derivedSources.root.appending(implFileSubpath),
+            path: AbsolutePath(implFileSubpath, relativeTo: derivedSources.root),
             bytes: implFileStream.bytes
         )
 
@@ -738,7 +738,7 @@ public final class SwiftTargetBuildDescription {
 
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
-        let path = derivedSources.root.appending(subpath)
+        let path = AbsolutePath(subpath, relativeTo: derivedSources.root)
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
