@@ -226,12 +226,12 @@ public final class UserToolchain: Toolchain {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
-                if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+                if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
                     var runtime: [String] = []
                     var xctest: [String] = []
                     var extraSwiftCFlags: [String] = []
 
-                    if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
+                    if let settings = WindowsSDKSettings(reading: sdkroot.appending(component: "SDKSettings.plist"),
                                                          diagnostics: nil, filesystem: localFileSystem) {
                         switch settings.defaults.runtime {
                         case .multithreadedDebugDLL:
@@ -245,43 +245,44 @@ public final class UserToolchain: Toolchain {
                         }
                     }
 
-                    if let DEVELOPER_DIR = environment["DEVELOPER_DIR"],
-                       let root = try? AbsolutePath(validating: DEVELOPER_DIR)
-                        .appending(component: "Platforms")
-                        .appending(component: "Windows.platform") {
-                        if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
-                                                          diagnostics: nil, filesystem: localFileSystem) {
-                            let path: AbsolutePath =
-                            root.appending(component: "Developer")
-                                .appending(component: "Library")
-                                .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                    // The layout of the SDK is as follows:
+                    //
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+                    //
+                    // SDKROOT points to [PLATFORM].sdk
+                    let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
 
-                            xctest = [
-                                "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: path).pathString,
-                                "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: path).pathString,
-                            ]
+                    if let info = WindowsPlatformInfo(reading: platform.appending(component: "Info.plist"),
+                                                      diagnostics: nil, filesystem: localFileSystem) {
+                        let installation: AbsolutePath =
+                                platform.appending(component: "Developer")
+                                        .appending(component: "Library")
+                                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
 
-                            // Migration Path
-                            //
-                            // In order to support multiple parallel
-                            // installations of an SDK, we need to ensure that
-                            // we can have all the architecture variant
-                            // libraries available.  Prior to this getting
-                            // enabled (~5.7), we always had a singular
-                            // installed SDK.  Prefer the new variant which has
-                            // an architecture subdirectory in `bin` if
-                            // available.
-                            let implib: AbsolutePath =
-                                AbsolutePath("usr/lib/swift/windows/XCTest.lib", relativeTo: path)
-                            if localFileSystem.exists(implib) {
-                                xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
-                            }
+                        xctest = [
+                            "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                            "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                        ]
 
-                            extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
+                        // Migration Path
+                        //
+                        // In order to support multiple parallel installations
+                        // of an SDK, we need to ensure that we can have all the
+                        // architecture variant libraries available.  Prior to
+                        // this getting enabled (~5.7), we always had a singular
+                        // installed SDK.  Prefer the new variant which has an
+                        // architecture subdirectory in `bin` if available.
+                        let implib: AbsolutePath =
+                            AbsolutePath("usr/lib/swift/windows/XCTest.lib", relativeTo: installation)
+                        if localFileSystem.exists(implib) {
+                            xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
+
+                        extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
                     }
 
-                    return [ "-sdk", root.pathString, ] + runtime + xctest + extraSwiftCFlags
+                    return [ "-sdk", sdkroot.pathString, ] + runtime + xctest + extraSwiftCFlags
                 }
             }
 
@@ -385,7 +386,7 @@ public final class UserToolchain: Toolchain {
         if case let .custom(_, useXcrun) = searchStrategy, !useXcrun {
             xctestPath = nil
         } else {
-            xctestPath = try Self.deriveXCTestPath(triple: triple, environment: environment)
+            xctestPath = try Self.deriveXCTestPath(destination: self.destination, triple: triple, environment: environment)
         }
 
         self.configuration = .init(
@@ -462,7 +463,7 @@ public final class UserToolchain: Toolchain {
     }
 
     // TODO: We should have some general utility to find tools.
-    private static func deriveXCTestPath(triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
+    private static func deriveXCTestPath(destination: Destination, triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
         if triple.isDarwin() {
             // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
@@ -470,71 +471,82 @@ public final class UserToolchain: Toolchain {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {
-            if let DEVELOPER_DIR = environment["DEVELOPER_DIR"],
-               let root = try? AbsolutePath(validating: DEVELOPER_DIR)
-                .appending(component: "Platforms")
-                .appending(component: "Windows.platform") {
-                if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
-                                                  diagnostics: nil,
-                                                  filesystem: localFileSystem) {
+            let sdkroot: AbsolutePath
 
-                    let installation: AbsolutePath =
-                        root.appending(component: "Developer")
-                            .appending(component: "Library")
-                            .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+            if let sdk = destination.sdk {
+                sdkroot = sdk
+            } else if let SDKROOT = environment["SDKROOT"], let sdk = try? AbsolutePath(validating: SDKROOT) {
+                sdkroot = sdk
+            } else {
+                return .none
+            }
 
-                    // Migration Path
-                    //
-                    // In order to support multiple parallel installations of an
-                    // SDK, we need to ensure that we can have all the
-                    // architecture variant libraries available.  Prior to this
-                    // getting enabled (~5.7), we always had a singular
-                    // installed SDK.  Prefer the new variant which has an
-                    // architecture subdirectory in `bin` if available.
-                    switch triple.arch {
-                    case .x86_64, .x86_64h:
-                        let path: AbsolutePath =
-                            installation.appending(component: "usr")
-                                        .appending(component: "bin64")
-                        if localFileSystem.exists(path) {
-                            return path
-                        }
+            // The layout of the SDK is as follows:
+            //
+            // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+            // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+            //
+            // SDKROOT points to [PLATFORM].sdk
+            let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
 
-                    case .i686:
-                        let path: AbsolutePath =
-                            installation.appending(component: "usr")
-                                        .appending(component: "bin32")
-                        if localFileSystem.exists(path) {
-                            return path
-                        }
+            if let info = WindowsPlatformInfo(reading: platform.appending(component: "Info.plist"),
+                                              diagnostics: nil, filesystem: localFileSystem) {
+                let xctest: AbsolutePath =
+                        platform.appending(component: "Developer")
+                                .appending(component: "Library")
+                                .appending(component: "XCTest-\(info.defaults.xctestVersion)")
 
-                    case .armv7:
-                        let path: AbsolutePath =
-                            installation.appending(component: "usr")
-                                        .appending(component: "bin32a")
-                        if localFileSystem.exists(path) {
-                            return path
-                        }
-
-                    case .arm64:
-                        let path: AbsolutePath =
-                            installation.appending(component: "usr")
-                                        .appending(component: "bin64a")
-                        if localFileSystem.exists(path) {
-                            return path
-                        }
-
-                    default:
-                        // Fallback to the old-style layout.  We should really
-                        // report an error in this case - this architecture is
-                        // unavailable.
-                        break
+                // Migration Path
+                //
+                // In order to support multiple parallel installations of an
+                // SDK, we need to ensure that we can have all the architecture
+                // variant libraries available.  Prior to this getting enabled
+                // (~5.7), we always had a singular installed SDK.  Prefer the
+                // new variant which has an architecture subdirectory in `bin`
+                // if available.
+                switch triple.arch {
+                case .x86_64, .x86_64h:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin64")
+                    if localFileSystem.exists(path) {
+                        return path
                     }
 
-                    // Assume that we are in the old-style layout.
-                    return installation.appending(component: "usr")
-                                       .appending(component: "bin")
+                case .i686:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin32")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                case .armv7:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin32a")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                case .arm64:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin64a")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                default:
+                    // Fallback to the old-style layout.  We should really
+                    // report an error in this case - this architecture is
+                    // unavailable.
+                    break
                 }
+
+                // Assume that we are in the old-style layout.
+                return xctest.appending(component: "usr")
+                             .appending(component: "bin")
             }
         }
         return .none
