@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import Build
+import struct Foundation.Date
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
@@ -651,6 +652,7 @@ final class ParallelTestRunner {
         var unitTest: UnitTest
         var output: String
         var success: Bool
+        var time: Double
     }
 
     /// Path to XCTest binaries.
@@ -767,11 +769,18 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
+                    let start = Date()
                     let success = testRunner.test(outputHandler: { output += $0 })
+                    let end = Date()
                     if !success {
                         self.ranSuccessfully = false
                     }
-                    self.finishedTests.enqueue(TestResult(unitTest: test, output: output, success: success))
+                    self.finishedTests.enqueue(TestResult(
+                        unitTest: test,
+                        output: output,
+                        success: success,
+                        time: end.timeIntervalSince(start)
+                    ))
                 }
             }
             thread.start()
@@ -971,12 +980,11 @@ final class XUnitGenerator {
 
         // Get the failure count.
         let failures = results.filter({ !$0.success }).count
+        let time = results.map({ $0.time }).reduce(0.0, +)
 
-        // FIXME: This should contain the right elapsed time.
-        //
         // We need better output reporting from XCTest.
         stream <<< """
-            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="0.0">
+            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(time)">
 
             """
 
@@ -986,7 +994,7 @@ final class XUnitGenerator {
         for result in results {
             let test = result.unitTest
             stream <<< """
-                <testcase classname="\(test.testCase)" name="\(test.name)" time="0.0">
+                <testcase classname="\(test.testCase)" name="\(test.name)" time="\(result.time)">
 
                 """
 
