@@ -261,10 +261,27 @@ public final class UserToolchain: Toolchain {
                             root.appending(component: "Developer")
                                 .appending(component: "Library")
                                 .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+
                             xctest = [
                                 "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: path).pathString,
-                                "-L", AbsolutePath("usr/lib/swift/windows", relativeTo: path).pathString,
+                                "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: path).pathString,
                             ]
+
+                            // Migration Path
+                            //
+                            // In order to support multiple parallel
+                            // installations of an SDK, we need to ensure that
+                            // we can have all the architecture variant
+                            // libraries available.  Prior to this getting
+                            // enabled (~5.7), we always had a singular
+                            // installed SDK.  Prefer the new variant which has
+                            // an architecture subdirectory in `bin` if
+                            // available.
+                            let implib: AbsolutePath =
+                                AbsolutePath("usr/lib/swift/windows/XCTest.lib", relativeTo: path)
+                            if localFileSystem.exists(implib) {
+                                xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
+                            }
 
                             extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
                         }
@@ -466,11 +483,63 @@ public final class UserToolchain: Toolchain {
                 if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
                                                   diagnostics: nil,
                                                   filesystem: localFileSystem) {
-                    return root.appending(component: "Developer")
-                        .appending(component: "Library")
-                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
-                        .appending(component: "usr")
-                        .appending(component: "bin")
+
+                    let installation: AbsolutePath =
+                        root.appending(component: "Developer")
+                            .appending(component: "Library")
+                            .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+
+                    // Migration Path
+                    //
+                    // In order to support multiple parallel installations of an
+                    // SDK, we need to ensure that we can have all the
+                    // architecture variant libraries available.  Prior to this
+                    // getting enabled (~5.7), we always had a singular
+                    // installed SDK.  Prefer the new variant which has an
+                    // architecture subdirectory in `bin` if available.
+                    switch triple.arch {
+                    case .x86_64, .x86_64h:
+                        let path: AbsolutePath =
+                            installation.appending(component: "usr")
+                                        .appending(component: "bin64")
+                        if localFileSystem.exists(path) {
+                            return path
+                        }
+
+                    case .i686:
+                        let path: AbsolutePath =
+                            installation.appending(component: "usr")
+                                        .appending(component: "bin32")
+                        if localFileSystem.exists(path) {
+                            return path
+                        }
+
+                    case .armv7:
+                        let path: AbsolutePath =
+                            installation.appending(component: "usr")
+                                        .appending(component: "bin32a")
+                        if localFileSystem.exists(path) {
+                            return path
+                        }
+
+                    case .arm64:
+                        let path: AbsolutePath =
+                            installation.appending(component: "usr")
+                                        .appending(component: "bin64a")
+                        if localFileSystem.exists(path) {
+                            return path
+                        }
+
+                    default:
+                        // Fallback to the old-style layout.  We should really
+                        // report an error in this case - this architecture is
+                        // unavailable.
+                        break
+                    }
+
+                    // Assume that we are in the old-style layout.
+                    return installation.appending(component: "usr")
+                                       .appending(component: "bin")
                 }
             }
         }
