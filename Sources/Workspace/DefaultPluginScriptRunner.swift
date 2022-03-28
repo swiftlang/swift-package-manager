@@ -145,7 +145,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
 
             // We use the toolchain's Swift compiler for compiling the plugin.
-            var command = [self.toolchain.swiftCompilerPath.pathString]
+            var command = [self.toolchain.swiftCompilerPathForManifests.pathString]
 
             // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
@@ -174,7 +174,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
             else {
                 // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
-                let swiftSupportLibPath = self.toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+                let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
                 command += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
             }
             #endif
