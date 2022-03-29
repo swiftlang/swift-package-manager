@@ -412,12 +412,10 @@ extension Package.Dependency {
 
     /// Adds a package dependency that uses the exact version requirement.
     ///
-    /// This is the recommended way to specify a remote package dependency.
-    /// It allows you to specify the minimum version you require, allows updates that include bug fixes
-    /// and backward-compatible feature updates, but requires you to explicitly update to a new major version of the dependency.
-    /// This approach provides the maximum flexibility on which version to use,
-    /// while making sure you don't update to a version with breaking changes,
-    /// and helps to prevent conflicts in your dependency graph.
+    /// Specifying exact version requirements are not recommended as
+    /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
+    /// As Swift packages follow the semantic versioning convention,
+    /// think about specifying a version range instead.
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
@@ -425,7 +423,7 @@ extension Package.Dependency {
     ///
     /// - Parameters:
     ///     - url: The valid Git URL of the package.
-    ///     - version: The minimum version requirement.
+    ///     - version: The exact version of the dependency for this requirement.
     @available(_PackageDescription, introduced: 5.6)
     public static func package(
         url: String,
@@ -505,12 +503,10 @@ extension Package.Dependency {
 
     /// Adds a package dependency that uses the exact version requirement.
     ///
-    /// This is the recommended way to specify a remote package dependency.
-    /// It allows you to specify the minimum version you require, allows updates that include bug fixes
-    /// and backward-compatible feature updates, but requires you to explicitly update to a new major version of the dependency.
-    /// This approach provides the maximum flexibility on which version to use,
-    /// while making sure you don't update to a version with breaking changes,
-    /// and helps to prevent conflicts in your dependency graph.
+    /// Specifying exact version requirements are not recommended as
+    /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
+    /// As Swift packages follow the semantic versioning convention,
+    /// think about specifying a version range instead.
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
@@ -518,7 +514,7 @@ extension Package.Dependency {
     ///
     /// - Parameters:
     ///     - id: The identity of the package.
-    ///     - version: The minimum version requirement.
+    ///     - version: The exact version of the dependency for this requirement.
     @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
