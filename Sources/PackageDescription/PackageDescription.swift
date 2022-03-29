@@ -22,7 +22,7 @@ import Foundation
 
 /// The configuration of a Swift package.
 ///
-/// Pass configuration options as parameters to your package’s initializer
+/// Pass configuration options as parameters to your package's initializer
 /// statement to provide the name of the package, its targets, products,
 /// dependencies, and other configuration options.
 ///

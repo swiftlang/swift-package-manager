@@ -85,6 +85,10 @@ public enum CLanguageStandard: String, Encodable {
 
 /// The supported C++ language standard to use for compiling C++ sources in the
 /// package.
+///
+/// Aliases are available for some C++ language standards. For example,
+/// use `cxx98` or `cxx03` for the "ISO C++ 1998 with amendments" standard.
+/// To learn more, see [C++ Support in Clang](https://clang.llvm.org/cxx_status.html).
 public enum CXXLanguageStandard: String, Encodable {
 
     /// The identifier for the C++98 language standard.

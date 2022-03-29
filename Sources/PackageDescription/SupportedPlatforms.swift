@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A platform that corresponds to an operating system such as iOS,
-/// macOS, or Linux.
+/// A platform supported by Swift Package Manager.
 public struct Platform: Encodable, Equatable {
 
     /// The name of the platform.
@@ -100,7 +99,7 @@ public struct SupportedPlatform: Encodable, Equatable {
         self.version = version
     }
 
-    /// Configure the minimum deployment target version for the macOS platform.
+    /// Configures the minimum deployment target version for the macOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///

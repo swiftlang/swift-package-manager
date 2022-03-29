@@ -16,9 +16,7 @@
 /// that your package behaves in a predictable manner once developers update their
 /// package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 /// requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
-/// [Semantic Versioning 2.0.0](www.semver.org).
-///
-/// **The Major Version**
+/// [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 ///
 /// - term The major version: The first digit of a version, or _major version_,
 /// signifies breaking changes to the API that require updates to existing
@@ -57,7 +55,7 @@ public struct Version {
     /// Initializes a version struct with the provided components of a semantic version.
     ///
     /// - Parameters:
-    ///   - major: The major version numner.
+    ///   - major: The major version number.
     ///   - minor: The minor version number.
     ///   - patch: The patch version number.
     ///   - prereleaseIdentifiers: The pre-release identifier.
@@ -119,6 +117,16 @@ extension Version: Comparable {
     /// This function is the only requirement of the `Comparable` protocol. The
     /// remainder of the relational operator functions are implemented by the
     /// standard library for any type that conforms to `Comparable`.
+    ///
+    /// The function determines if the inputs have any items in their
+    /// ``Version/prereleaseIdentifiers`` collections.
+    /// If only one side has prerelease identifiers, then that side will be considered
+    /// to have the lower version number. If they both have prerelease identifiers,
+    /// then the numeric prerelease identifier is considered to be lower version.
+    /// If both prerelease identifiers are numeric, then a numeric comparison is made.
+    ///
+    /// If neither of the parameters have prerelease identifiers, then the <doc://com.apple.documentation/documentation/swift/array/2853083-lexicographicallyprecedes>
+    /// function is used to perform the comparison.
     ///
     /// - Parameters:
     ///   - lhs: A value to compare.

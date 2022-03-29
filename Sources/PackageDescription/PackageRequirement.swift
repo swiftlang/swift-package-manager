@@ -25,7 +25,7 @@ extension Package.Dependency {
     ///
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard, visit the
-    /// [Semantic Versioning 2.0.0](https://semver.org) website.
+    /// [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
     ///
     /// Selecting the version requirement is the recommended way to add a
     /// package dependency. It allows you to create a balance between
@@ -151,7 +151,7 @@ extension Package.Dependency {
     /// versions, and may require you to modify your code when they update.
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard,
-    /// see the [Semantic Versioning 2.0.0](https://semver.org) website.
+    /// see the [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
     ///
     /// Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
     ///
@@ -205,10 +205,10 @@ extension Package.Dependency {
     /// versions, and may require you to modify your code when they update.
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard,
-    /// visit the [Semantic Versioning 2.0.0](https://semver.org) website.
+    /// visit the [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
     @available(_PackageDescription, introduced: 999)
     public enum RegistryRequirement {
-        /// A version based requirement.
+        /// A requirement based on an exact version.
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
@@ -238,21 +238,27 @@ extension Range {
 
 @available(_PackageDescription, deprecated: 5.6)
 extension Package.Dependency.Requirement {
+    /// A source control requirement bounded to the given version's major version number.
+    ///
     /// Returns a requirement for a version range, starting at the given minimum
     /// version and going up to but not including the next major version. This is the recommended
     /// version requirement.
     ///
-    /// - Parameters:
-    ///   - version: The minimum version for the version range.
+    /// - Parameter version: The minimum version for the version range.
+    ///
+    /// - Returns: A source control requirement instance.
     @_disfavoredOverload
     public static func upToNextMajor(from version: Version) -> Self {
         return .rangeItem(.upToNextMajor(from: version))
     }
+    /// A source control requirement bounded to the given version's minor version number.
+    ///
     /// Returns a requirement for a version range, starting at the given minimum
     /// version and going up to but not including the next minor version.
     ///
-    /// - Parameters:
-    ///   - version: The minimum version for the version range.
+    /// - Parameter version: The minimum version for the version range.
+    ///
+    /// - Returns: A source control requirement instance.
     @_disfavoredOverload
     public static func upToNextMinor(from version: Version) -> Self {
         return .rangeItem(.upToNextMinor(from: version))
