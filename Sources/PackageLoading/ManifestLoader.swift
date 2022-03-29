@@ -702,7 +702,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
         var cmd: [String] = []
-        cmd += [self.toolchain.swiftCompilerPath.pathString]
+        cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.

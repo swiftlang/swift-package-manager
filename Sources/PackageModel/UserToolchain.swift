@@ -114,7 +114,7 @@ public final class UserToolchain: Toolchain {
     // MARK: - public API
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    public static func determineSwiftCompilers(binDir: AbsolutePath, useXcrun: Bool, environment: EnvironmentVariables) throws -> SwiftCompilers {
+    public static func determineSwiftCompilers(binDir: AbsolutePath, useXcrun: Bool, environment: EnvironmentVariables, searchPaths: [AbsolutePath]) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -122,13 +122,7 @@ public final class UserToolchain: Toolchain {
             }
         }
 
-        // Get the search paths from PATH.
-        let envSearchPaths = getEnvSearchPaths(
-            pathString: environment.path,
-            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
-        )
-
-        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: envSearchPaths, environment: environment) }
+        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: searchPaths, environment: environment) }
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
@@ -147,7 +141,7 @@ public final class UserToolchain: Toolchain {
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
-            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: envSearchPaths, useXcrun: useXcrun)
+            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: searchPaths, useXcrun: useXcrun)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -310,7 +304,7 @@ public final class UserToolchain: Toolchain {
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun, environment: environment)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
         self.swiftCompilerPath = swiftCompilers.compile
         self.archs = destination.archs
 
@@ -487,6 +481,10 @@ public final class UserToolchain: Toolchain {
 
     public var swiftCompilerFlags: [String] {
         return configuration.swiftCompilerFlags
+    }
+
+    public var swiftCompilerPathForManifests: AbsolutePath {
+        return configuration.swiftCompilerPath
     }
 
     public var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation {
