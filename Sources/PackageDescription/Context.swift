@@ -10,13 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The context a Swift package is running in. This encapsulates states that are known at build-time.
-/// For example where in the file system the current package resides.
+/// The context information for a Swift package.
+///
+/// The context encapsulates states that are known when Swift Package Manager interprets the package manifest,
+/// such as where in the file system the current package resides.
 @available(_PackageDescription, introduced: 5.6)
 public struct Context {
     private static let model = try! ContextModel.decode()
 
-    /// The directory containing Package.swift.
+    /// The directory containing `Package.swift`.
     public static var packageDirectory : String {
         model.packageDirectory
     }
