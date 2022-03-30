@@ -11,11 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import PackageModel
 
 public protocol Toolchain {
     /// Path of the `swiftc` compiler.
-    var swiftCompiler: AbsolutePath { get }
+    var swiftCompilerPath: AbsolutePath { get }
 
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get }
@@ -44,11 +43,11 @@ extension Toolchain {
     }
 
     public var macosSwiftStdlib: AbsolutePath { 
-        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+        return AbsolutePath("../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 
     public var toolchainLibDir: AbsolutePath {
         // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib"))
+        return AbsolutePath("../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 }

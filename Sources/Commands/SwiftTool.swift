@@ -685,7 +685,7 @@ public class SwiftTool {
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
-            toolchain: self.getHostToolchain().configuration,
+            toolchain: self.getHostToolchain(),
             enableSandbox: !self.options.security.shouldDisableSandbox
         )
         // register the plugin runner system with the cancellation handler
@@ -923,7 +923,7 @@ public class SwiftTool {
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                toolchain: self.getHostToolchain().configuration,
+                toolchain: self.getHostToolchain(),
                 isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags

@@ -13,7 +13,7 @@
 import TSCBasic
 import XCTest
 
-@testable import PackageLoading
+@testable import PackageModel
 
 class MinimumDeploymentTargetTests: XCTestCase {
     func testDoesNotAssertWithNoOutput() throws {

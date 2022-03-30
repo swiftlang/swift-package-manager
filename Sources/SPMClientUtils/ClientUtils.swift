@@ -24,61 +24,33 @@ extension Workspace {
 
     /// Loads a manifest as the root manifest of the workspace.
     ///
-    /// This method is most easily used with `tsc_await` from the `TSCBasic` module in the `swift-tools-support-core` package:
-    ///
-    /// ```swift
-    /// let manifest = try tsc_await { completion in
-    ///     someWorkspace.loadRootManifest(
-    ///         at: somePath,
-    ///         diagnosticObserver: someObserver,
-    ///         completion: completion
-    ///     )
-    /// }
-    /// ```
-    ///
     /// - Parameters:
     ///     - path: The path to the package’s root directory.
     ///     - diagnosticObserver: An observer to handle diagnostics.
-    ///     - completion: A closure that will be executed when the loading is complete (or has failed).
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     public func loadRootManifest(
         at path: AbsolutePath,
-        diagnosticObserver: DiagnosticObserver,
-        completion: @escaping(Result<Manifest, Error>) -> Void
-    ) {
-        return loadRootManifest(
+        diagnosticObserver: DiagnosticObserver
+    ) async throws -> Manifest {
+        return try await loadRootManifest(
             at: path,
-            observabilityScope: diagnosticObserver.observabilitySystem.topScope,
-            completion: completion
+            observabilityScope: diagnosticObserver.observabilitySystem.topScope
         )
     }
 
     /// Loads a package as the root package of the workspace.
     ///
-    /// This method is most easily used with `tsc_await` from the `TSCBasic` module in the `swift-tools-support-core` package:
-    ///
-    /// ```swift
-    /// let package = try tsc_await { completion in
-    ///     someWorkspace.loadRootPackage(
-    ///         at: somePath,
-    ///         diagnosticObserver: someObserver,
-    ///         completion: completion
-    ///     )
-    /// }
-    /// ```
-    ///
     /// - Parameters:
     ///     - path: The path to the package’s root directory.
     ///     - diagnosticObserver: An observer to handle diagnostics.
-    ///     - completion: A closure that will be executed when the loading is complete (or has failed).
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     public func loadRootPackage(
         at path: AbsolutePath,
-        diagnosticObserver: DiagnosticObserver,
-        completion: @escaping(Result<Package, Error>) -> Void
-    ) {
-        return loadRootPackage(
+        diagnosticObserver: DiagnosticObserver
+    ) async throws -> Package {
+        return try await loadRootPackage(
             at: path,
-            observabilityScope: diagnosticObserver.observabilitySystem.topScope,
-            completion: completion
+            observabilityScope: diagnosticObserver.observabilitySystem.topScope
         )
     }
 

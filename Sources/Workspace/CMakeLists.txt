@@ -9,7 +9,6 @@
 add_library(Workspace
   CheckoutState.swift
   DefaultPluginScriptRunner.swift
-  Destination.swift
   Diagnostics.swift
   FileSystemPackageContainer.swift
   InitPackage.swift
@@ -20,12 +19,10 @@ add_library(Workspace
   ResolverPrecomputationProvider.swift
   SourceControlPackageContainer.swift
   ToolsVersionSpecificationRewriter.swift
-  UserToolchain.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
-  Workspace+State.swift
-  WindowsToolchainInfo.swift)
+  Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility

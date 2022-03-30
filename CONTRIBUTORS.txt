@@ -1,0 +1,383 @@
+For the purpose of tracking copyright, this is the list of individuals and
+organizations who have contributed to Swift Package Manager.
+
+For employees of an organization/company where the copyright of work done
+by employees of that company is held by the company itself, only the company
+needs to be listed here.
+
+## COPYRIGHT HOLDERS
+
+- Apple Inc. (all contributors with '@apple.com')
+
+### Contributors
+
+- 3405691582 <dsk@google.com>
+- A Koufatzis <akoufa@gmail.com>
+- AG <acgarland@apple.com>
+- Aaron Crespo <aaroncrespo@users.noreply.github.com>
+- Abdulhakim Ajetunmobi <abdulrapidz@live.com>
+- Adam Cox <extreme.boredom@gmail.com>
+- Adam Thayer <user@biticus.net>
+- Adam Yanalunas <adamyanalunas@users.noreply.github.com>
+- Alastair Houghton <ahoughton@apple.com>
+- Aleksey Mashanov <a.mashanov@corp.mail.ru>
+- Aleph Retamal <retamal.ph@gmail.com>
+- Alex Blewitt <alblue@apple.com>
+- Alex Hoppen <ahoppen@apple.com>
+- Alex Migicovsky <migi@apple.com>
+- Alexis Laferrière <alaf@apple.com>
+- Anders Bertelrud <anders@apple.com>
+- Andreas Koslowski <andreas@dock13.com>
+- Andrew Bennett <cacoyi@gmail.com>
+- Andrew Carter <acarter@flipboard.com>
+- Andrew Clark <acdlite@me.com>
+- Angelo Villegas <gelo.web@gmail.com>
+- Anh Pham <thuanhsone99@gmail.com>
+- Ankit Aggarwal <ankit_aggarwal@apple.com>
+- Anton <antonmes@users.noreply.github.com>
+- Anton Pogonets <apogonets@readdle.com>
+- Antonio Mayorga <amayorga95@outlook.com>
+- Argyrios Kyrtzidis <kyrtzidis@apple.com>
+- Ariel Elkin <1756909+arielelkin@users.noreply.github.com>
+- Aris Sarris <78614622+a-sarris@users.noreply.github.com>
+- Arjun Nayini <aanayini@gmail.com>
+- Arnold Schwaighofer <aschwaighofer@apple.com>
+- Artem Chikin <achikin@apple.com>
+- Artemiy Sobolev <avriy@me.com>
+- Arthur Ariel Sabintsev <arthur@sabintsev.com>
+- Atul Sowani <asowani@users.noreply.github.com>
+- Aura Lily Vulcano <millenomi@apple.com>
+- BJ Homer <bjhomer@gmail.com>
+- Bastian Rinsche <bastian.rinsche@gmail.com>
+- Ben Chatelain <ben@octop.ad>
+- Ben Cohen <ben_cohen@apple.com>
+- Ben Kennedy <ben-github@zygoat.ca>
+- Ben Langmuir <blangmuir@apple.com>
+- Ben Rimmington <me@benrimmington.com>
+- Ben Waldie <benwaldie@apple.com>
+- BenedictSt <52418145+BenedictSt@users.noreply.github.com>
+- Benedikt Terhechte <terhechte@gmail.com>
+- Benjamin Herzog <benjamin_herzog@apple.com>
+- Benjamin Scholtysik <bscholtysik@apple.com>
+- Bhargav <bhargav.grlnk@gmail.com>
+- Bhargav Gurlanka <bhargav.grlnk@gmail.com>
+- Bob Flanagan <89808793+bflanagan-apple@users.noreply.github.com>
+- Bob Wilson <bob.wilson@apple.com>
+- Boris Bielik <h3sperian@gmail.com>
+- Boris Buegling <bbuegling@apple.com>
+- Bouke Haarsma <bouke@haarsma.eu>
+- Braden Scothern <BradenScothern@gmail.com>
+- Brandon Titus <bjtitus@gmail.com>
+- Brent Royal-Gordon <brentdax@apple.com>
+- Brian Croom <bcroom@apple.com>
+- Brian Gesiak <modocache@gmail.com>
+- Brian Pratt <brian@8thlight.com>
+- Calvin Hill <mr_j.c.h@hotmail.com>
+- Chris Lattner <clattner@apple.com>
+- Chris Willmore <cwillmore@apple.com>
+- Chris Zielinski <chrisz@berkeley.edu>
+- Christian Rishøj <christian@rishoj.net>
+- Christopher Goulet <christophergoulet@outlook.com>
+- Colin Cornaby <colin.cornaby@mac.com>
+- Conrad Kramer <conrad@kramerapps.com>
+- Cory Benfield <lukasa@apple.com>
+- Dadoum <24679280+Dadoum@users.noreply.github.com>
+- Damiaan Dufaux <damiaan@dpro.be>
+- Dan Liew <dliew@apple.com>
+- Dan Zheng <danielzheng@google.com>
+- Daniel Duan <danmarner@gmail.com>
+- Daniel Dunbar <daniel_dunbar@apple.com>
+- Daniel Firsht <dfirsht@us.ibm.com>
+- Dario Rexin <drexin@apple.com>
+- Dave Abrahams <dabrahams@apple.com>
+- David Bryson <dmbryson@apple.com>
+- David Farler <dfarler@apple.com>
+- David Hart <david@hartbit.com>
+- David M. Bryson <dmbryson@apple.com>
+- David Ungar <dungar@apple.com>
+- Denis Morozov <dmorozkn@gmail.com>
+- Derik Ramirez <rderik@gmail.com>
+- Dima Hutsuliak <doberq@gmail.com>
+- Ding Ye <dingobye@gmail.com>
+- Dmitri Gribenko <gribozavr@gmail.com>
+- Dmitriy Borovikov <dmitry@borovikov.name>
+- Dmytro Mishchenko <narmdv5@gmail.com>
+- Doug Gregor <dgregor@apple.com>
+- Drew Crawford <drew@sealedabstract.com>
+- Ed Arenberg <arenberg@epage.com>
+- Edan Lichtenstein <edan@bricksimple.com>
+- Edward Huynh <edward@edwardhuynh.com>
+- Edward Valentini <edward@interlook.com>
+- Egor Zhdan <egor.zhdan@gmail.com>
+- Eli Geller <elitree@gmail.com>
+- Ellie Shin <ellie_shin@apple.com>
+- Eric Dudiak <dudiak@apple.com>
+- Eric Jensen <jensen39@gmail.com>
+- Eric Miotto <1094986+edymtt@users.noreply.github.com>
+- Erik Eckstein <eeckstein@apple.com>
+- Erwin Mazariegos <erwinmaza@gmail.com>
+- Etan1 <Etan1@users.noreply.github.com>
+- Eugene Tulushev <eugene@tulushev.com>
+- Example Example <example@example.com>
+- Federico Bucchi <b.federico@gmail.com>
+- Federico Zanetello <zntfdr@gmail.com>
+- Florian Friedrich <ffried@me.com>
+- Florian Reinhart <florian.reinhart@gmail.com>
+- Gaushik M.R <gaushik126@gmail.com>
+- Gavin Eadie <gavin@umich.edu>
+- George <unknown>
+- George Barnett <gbarnett@apple.com>
+- Glenn 'devalias' Grant <glenn@ensquared.net>
+- Grzegorz Miłoś <gmilos@apple.com>
+- Guillermo Ignacio Enriquez Gutierrez <nacho4d@mac.com>
+- Gwen Mittertreiner <gwen.mittertreiner@gmail.com>
+- Harlan Haskins <harlan@apple.com>
+- Hayden McCabe <hayden@haydenmccabe.com>
+- Helge Hess <me@helgehess.eu>
+- Honza Dvorsky <honza@apple.com>
+- Husein Kareem <huseinkareem@gmail.com>
+- Ian Partridge <i.partridge@uk.ibm.com>
+- Ilya Kulakov <kulakov.ilya@gmail.com>
+- Ismael Vilas Boas <ismael.vb@gmail.com>
+- Itai Ferber <iferber@apple.com>
+- J. Cheyo Jimenez <cheyo@masters3d.com>
+- J.D. Healy <jdhealy@gmail.com>
+- JP Simard <jp@jpsim.com>
+- JPMartha <jpmartha.jp@gmail.com>
+- Jacob Bandes-Storch <jacob@bandes-stor.ch>
+- Jacopo Andrea Giola <jacopo@giola.org>
+- Jader Feijo <jader@gojimo.co.uk>
+- Jake Heiser <jake@quizlet.com>
+- Jake Petroules <jake.petroules@apple.com>
+- Jane Manchun Wong <wongmjane@users.noreply.github.com>
+- Jason Choi <jasonnoahchoi@gmail.com>
+- Jason R Tibbetts <708510+jrtibbetts@users.noreply.github.com>
+- Jason Wray <friedbunny@users.noreply.github.com>
+- Jeff Kelley <SlaunchaMan@gmail.com>
+- Jeff Lett <2142301+jeffctown@users.noreply.github.com>
+- Jeremiah Njoroge <jnjoroge@gmail.com>
+- Jeremy David Giesbrecht <jeremy.g@sasktel.net>
+- Jhonny Bill <jhonnybillm@gmail.com>
+- Jimmy Arts <arts.jimmy@gmail.com>
+- Jobins John <jobins666@gmail.com>
+- Joe Groff <jgroff@apple.com>
+- Joe Heck <heckj@mac.com>
+- Joe Smith <yasumoto7@gmail.com>
+- Joe Susnick <joesusnick@gmail.com>
+- Johannes Plunien <johannes@plunien.de>
+- Johannes Weiss <johannesweiss@apple.com>
+- John Holdsworth <github@johnholdsworth.com>
+- John McCall <rjmccall@apple.com>
+- Jonas Schwartz <jonas@josc.io>
+- Jordan Rose <jordan_rose@apple.com>
+- Jose Marcelino <jmarcelino@users.noreply.github.com>
+- Josh Parnham <joshparnham@gmail.com>
+- Joshua Emmons <joshua@reverb.com>
+- Joshua Peek <josh@joshpeek.com>
+- Julian Grosshauser <julian@juliangrosshauser.com>
+- Justas Brazauskas <brazauskasjustas@gmail.com>
+- Justin Jia <justin.jia.developer@gmail.com>
+- Justin Oroz <Juice805@users.noreply.github.com>
+- Justus Kandzi <justus.kandzi@kitchenstories.de>
+- Kaan Dedeoglu <kaandedeoglu@me.com>
+- Karl <5254025+karwa@users.noreply.github.com>
+- Karoy Lorentey <klorentey@apple.com>
+- Kazumasa Wakamori <k.wakamori.shizuoka@gmail.com>
+- Keith Smiley <keithbsmiley@gmail.com>
+- Kenta Kubo <601636+kkk669@users.noreply.github.com>
+- Kilian Koeltzsch <kiliank@apple.com>
+- Kit Langton <kitlangton@gmail.com>
+- Kohki Miki <giginet.net@gmail.com>
+- Kostiantyn Koval <konstantin.koval1@gmail.com>
+- Kyle <43724855+Kyle-Ye@users.noreply.github.com>
+- Kyle Jessup <kyle@perfect.org>
+- Kyle Rokita <kyle.rokita@gmail.com>
+- Lei Zhang <lzhang@ca.ibm.com>
+- Lev Walkin <lwalkin@apple.com>
+- Lily Vulcano <millenomi@apple.com>
+- Ling Wang <an00na@gmail.com>
+- Lukas Stabe <lukas@stabe.de>
+- Luke Lau <luke_lau@icloud.com>
+- MIZUNO Hiroki <mzpppp@gmail.com>
+- Marcin Iwanicki <iwan@icode.pl>
+- Marcin Krzyzanowski <marcin@krzyzanowskim.com>
+- Mark Brownsword <markbrownsword@gmail.com>
+- Mark Lacey <mark.lacey@apple.com>
+- Martin Waitz <tali@admingilde.org>
+- Matt Diephouse <matt@diephouse.com>
+- Matthew Seaman <mattsdeveloper@gmail.com>
+- Matthias Bartelmeß <mba@fourplusone.de>
+- Mattt Thompson <mattt@me.com>
+- Max Desiatov <max@desiatov.com>
+- Max Howell <max.howell@apple.com>
+- Max Liberman <max.y.liberman@gmail.com>
+- Max Moiseev <moiseev@apple.com>
+- Michael Gottesman <mgottesman@apple.com>
+- Michael Henson <mikehenson@gmail.com>
+- Michael Ilseman <milseman@apple.com>
+- Michael McGuire <Michael.McGuire@gmail.com>
+- Michael Munday <mike.munday@ibm.com>
+- Michael Vendivel <mvendivel@us.ibm.com>
+- Miguel A. Perez Ojito <54909066+miggs597@users.noreply.github.com>
+- Miguel Salinas <mikeys@me.com>
+- Mike Ash <mikeash@apple.com>
+- Mike Ferris <mferris@apple.com>
+- Mishal Awadah <mawadah@apple.com>
+- Mishal Shah <mishal_shah@apple.com>
+- Morten Bjerg Gregersen <morten@mogee.dk>
+- Muhammed Yavuz Nuzumlali <manuyavuz@gmail.com>
+- Nate Cook <natecook@apple.com>
+- Nathan Hawes <nhawes@apple.com>
+- Nathan Lanza <nathan@lanza.io>
+- Neil Jones <futurejones@users.noreply.github.com>
+- Nicholas Maccharoli <nmaccharoli@gmail.com>
+- Nikola Lajic <n.lajic@gmail.com>
+- Noah Gilmore <noah.w.gilmore@gmail.com>
+- NobodyNada <jkeller234@icloud.com>
+- Norio Nomura <norio.nomura@gmail.com>
+- Noé Froidevaux <noe@noefroidevaux.com>
+- Oliver Chick <orac@apple.com>
+- Orta <orta.therox+github@gmail.com>
+- Ostap Taran <github@austinate.me>
+- Owen Voorhees <owen@squibner.com>
+- P W <patrick@subzero.eu>
+- Patrick Balestra <me@patrickbalestra.com>
+- Patrick Metcalfe <git@patrickmetcalfe.com>
+- Paul Nettle <nettlep@users.noreply.github.com>
+- Paulo Faria <paulo.faria.rl@gmail.com>
+- Pavel Yaskevich <pyaskevich@apple.com>
+- Pedro José Pereira Vieito <pvieito@gmail.com>
+- Peteous <erik.peterman@und.edu>
+- Peter Adams <pp_adams@apple.com>
+- Peter Matta <pet3r.matta@gmail.com>
+- Philippe Hausler <phausler@apple.com>
+- Prachi <prachi.pai@gmail.com>
+- Pritesh Nandgaonkar <pncooldude91@gmail.com>
+- Quinn McHenry <quinn@jqm.us>
+- Rahul Malik <rmalik@pinterest.com>
+- Randy Becker <81446220+randy-becker@users.noreply.github.com>
+- Renzo Crisóstomo <renzo.crisostomo@xing.com>
+- Rich Ellis <rich@richellis.net>
+- Rick Ballard <rballard@apple.com>
+- Rintaro Ishizaki <rishizaki@apple.com>
+- Ritwik Gupta <RitwikGupta@users.noreply.github.com>
+- Robert Widmann <devteam.codafi@gmail.com>
+- Roman Levenstein <rlevenstein@apple.com>
+- Ron Baker <ronbak@protonmail.com>
+- Ron Olson <tachoknight@gmail.com>
+- Runar <runhum@gmail.com>
+- Runar Hummelsund <runhum@users.noreply.github.com>
+- Ryan Lovelett <ryan@lovelett.me>
+- Ryan Wilson <wilsonryan@google.com>
+- Ryosuke Hayashi <hayashikun@hayashikun.com>
+- Saleem Abdulrasool <compnerd@compnerd.org>
+- Samuel Giddins <segiddins@segiddins.me>
+- Sebastian Grail <sgrail@gmail.com>
+- Sergio Campamá <scampama@apple.com>
+- Slava Pestov <spestov@apple.com>
+- Stan Stadelman <sstadelman@gmail.com>
+- Stephen Brown <steveybrown@gmail.com>
+- Stephen Celis <stephen@stephencelis.com>
+- Steve Barron <sdbarron@users.noreply.github.com>
+- Steve Moser <contact@stevemoser.org>
+- Steven Sherry <steven.r.sherry@gmail.com>
+- Stuart Montgomery <smontgomery@apple.com>
+- Sven A. Schmidt <sas@finestructure.co>
+- Swiftfuchs <github@t-no.de>
+- TaborKelly <taborkelly+github@gmail.com>
+- Ted Kremenek <kremenek@apple.com>
+- Thi <t@thi.im>
+- Thiago Holanda <unnamedd@gmail.com>
+- Thomas Grapperon <35562418+tgrapperon@users.noreply.github.com>
+- Thomas Roughton <t.roughton@me.com>
+- Thomas Van Lenten <thomasvl@google.com>
+- Tiago Martinho <martinho@thoughtworks.com>
+- Tianyu Wang <i@cee.moe>
+- Tim Condon <0xTim@users.noreply.github.com>
+- Tim Gymnich <tgymnich@icloud.com>
+- Tobias Landsberg <TobiLandsberg@gmail.com>
+- Tom Doron <tomer@apple.com>
+- Tomasz Bąk <me@tomaszbak.engineer>
+- Tomoya Kose <tomoya@mitsuse.jp>
+- Toni Suter <tonisuter@users.noreply.github.com>
+- Tony Arnold <tony@thecocoabots.com>
+- Tony Parker <anthony.parker@apple.com>
+- TornjV <tornjanski.veljko@gmail.com>
+- Trevör Anne Denise <trevor.annedenise@icloud.com>
+- Tyler Stromberg <tylers@mac.com>
+- Török Zsolt <torokzsolt91@gmail.com>
+- Vadim Eisenberg <vadime@il.ibm.com>
+- Vadim Smal <vvsmal@avito.ru>
+- Valeriy Van <valeriy.van@enote.com>
+- Vasilica Costescu <vasilica.costescu@gmail.com>
+- Vatsal Manot <vatsal.manot@yahoo.com>
+- Viktor Szilárd Simkó <aqviktor@gmail.com>
+- Vincent Esche <regexident@gmail.com>
+- Vivian Kong <vivkong@ca.ibm.com>
+- Vladislav Alekseev <beefon@users.noreply.github.com>
+- WFT <will.a.ft@gmail.com>
+- Wang Binbin <hellomsg_noreply@163.com>
+- William Dillon <william@housedillon.com>
+- William Entriken <github.com@phor.net>
+- Wojtek Czekalski <me@wczekalski.com>
+- Wowbagger & his liquid lunch <55120045+WowbaggersLiquidLunch@users.noreply.github.com>
+- Xavier Matos <matos.xav@gmail.com>
+- Xiaodi Wu <xiaodi.wu@gmail.com>
+- Xing He <17washabi@gmail.com>
+- YOCKOW <YOCKOW@users.noreply.github.com>
+- YR Chen <stevapple@icloud.com>
+- Yan Li <eyeplum@gmail.com>
+- Yannick Heinrich <yannick.heinrich@gmail.com>
+- Yim Lee <yim_lee@apple.com>
+- Yonas Kolb <yonaskolb@gmail.com>
+- Yu Ao <YuAo@users.noreply.github.com>
+- Yu Su <ssuuyyuu@gmail.com>
+- YuAo <me@imyuao.com>
+- Yuta Koshizawa <koher@koherent.org>
+- Yuta Saito <kateinoigakukun@gmail.com>
+- adamnemecek <adamnemecek@gmail.com>
+- aemino <aeminodev@gmail.com>
+- aniket sharma <aniket965.as@gmail.com>
+- badim <goloveychuk@mail.ru>
+- buttaface <butta@fastem.com>
+- dudiak <dudiak@mac.com>
+- eeckstein <eeckstein@apple.com>
+- elsh <ellie_shin@apple.com>
+- emlai <emil.laine@cs.helsinki.fi>
+- freak4pc <freak4pc@gmail.com>
+- futbalguy <kyle.rokita@gmail.com>
+- futurejones <futurejones@users.noreply.github.com>
+- gibachan <childhoodend.tk@gmail.com>
+- giginet <giginet.net@gmail.com>
+- givip <pataridzegivi@gmail.com>
+- goloveychuk <goloveychuk@users.noreply.github.com>
+- hotchemi <hot.chemistry21@gmail.com>
+- jhonnybillm <jhonnybillm@gmail.com>
+- jp_pancake <jpmartha@users.noreply.github.com>
+- linqingmo <mariopteris@foxmail.com>
+- naru <tus.naru@gmail.com>
+- nathan spindel <nathans@gmail.com>
+- nonsensery <ajohnson@quickleft.com>
+- onevcat <onevcat@gmail.com>
+- pcbeard <pcbeard@mac.com>
+- prachipai <prachi.pai@gmail.com>
+- samding01 <samding@ca.ibm.com>
+- sarveshtamba <sarvesh.tamba@ibm.com>
+- seabaylea <baileyc@uk.ibm.com>
+- sora0077 <t.hayashi0077+github@gmail.com>
+- swift-ci <swift-ci@users.noreply.github.com>
+- swiftix <swiftix@users.noreply.github.com>
+- t_hayashi <t.hayashi0077+github@gmail.com>
+- thecb4 <cavelle@thecb4.io>
+- therealbnut <andrew.charles.bennett@gmail.com>
+- twobitunicorn <joseph.ruskiewicz@gmail.com>
+- uhooi <the_uhooi@yahoo.co.jp>
+- yonihemi <jonathan@hemi.dev>
+- Łukasz Mróz <lukasz.mroz@droidsonroids.pl>
+- Šimon Javora <s.javora@me.com>
+- ✪ vi4m Marcin Kliks <vi4m@users.noreply.github.com>
+- 冀卓疌 <55120045+WowbaggersLiquidLunch@users.noreply.github.com>
+
+**Updating this list**
+
+Please do not edit this file manually. It is generated using `./Utilities/generate_contributors_list.sh`. If a name is misspelled or appearing multiple times: add an entry in `./.mailmap`

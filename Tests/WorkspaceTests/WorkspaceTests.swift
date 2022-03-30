@@ -138,7 +138,7 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+                let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
 
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
@@ -200,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
@@ -6122,6 +6122,62 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testArtifactDownloadServerError() throws {
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
+
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                // mimics URLSession behavior which write the file even if sends an error message
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: "not found",
+                    atomically: true
+                )
+
+                completion(.success(.notFound()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .contains("failed downloading 'https://a.com/a.zip' which is required by binary target 'A1': badResponseStatusCode(404)"), severity: .error)
+            }
+        }
+
+        // make sure artifact downloaded is deleted
+        XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+    }
+
     func testArtifactDownloaderOrArchiverError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -7887,23 +7943,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testAndroidCompilerFlags() throws {
-        let target = try Triple("x86_64-unknown-linux-android")
-        let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
-        let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
-
-        let destination = Destination(
-            target: target,
-            sdk: sdk,
-            binDir: toolchainPath.appending(components: "usr", "bin")
-        )
-
-        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
-            // Needed when cross‐compiling for Android. 2020‐03‐01
-            "-sdk", sdk.pathString,
-        ])
-    }
-
     func testDuplicateDependencyIdentityWithNameAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -9455,7 +9494,7 @@ final class WorkspaceTests: XCTestCase {
                     """
             }
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
             let sandbox = path.appending(component: "ws")
             let workspace = try Workspace(
                 fileSystem: fs,

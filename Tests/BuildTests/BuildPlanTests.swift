@@ -12,8 +12,8 @@
 
 import Basics
 @testable import Build
-@testable import PackageLoading
-import PackageModel
+import PackageLoading
+@testable import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
@@ -32,8 +32,8 @@ let hostTriple = UserToolchain.default.triple
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-private struct MockToolchain: SPMBuildCore.Toolchain {
-    let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
+private struct MockToolchain: PackageModel.Toolchain {
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
@@ -65,7 +65,7 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
-        toolchain: SPMBuildCore.Toolchain = MockToolchain(),
+        toolchain: PackageModel.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
@@ -4169,7 +4169,7 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    private func sanitizerTest(_ sanitizer: SPMBuildCore.Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",

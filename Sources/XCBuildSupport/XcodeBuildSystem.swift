@@ -80,7 +80,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
-            xcbuildPath = xcodeDirectory.appending(RelativePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild"))
+            xcbuildPath = AbsolutePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild", relativeTo: xcodeDirectory)
         }
 
         guard fileSystem.exists(xcbuildPath) else {
@@ -174,7 +174,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // An error with determining the override should not be fatal here.
         settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
-        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
