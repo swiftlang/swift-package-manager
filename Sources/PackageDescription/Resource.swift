@@ -22,13 +22,13 @@
 /// reside at `Sources/MyLibrary/Resources`.
 ///
 /// By default, Swift Package Manager handles common resources types for Apple platforms
-/// automatically. For example, you don’t need to declare XIB files,
+/// automatically. For example, you don't need to declare XIB files,
 /// storyboards, Core Data file types, and asset catalogs as resources in your
 /// package manifest. However, you must explicitly declare other file types—for
 /// example, image files—as resources using the
 /// ``Resource/process(_:localization:)`` or ``Resource/copy(_:)`` rules.
 /// Alternatively, exclude resource files from a target by passing them to the
-/// target initializer’s ``Target/exclude`` parameter.
+/// target initializer's ``Target/exclude`` parameter.
 ///
 /// To learn more about package resources, see
 /// <doc:bundling-resources-with-a-swift-package>.
@@ -87,7 +87,7 @@ public struct Resource: Encodable {
     ///
     /// If your resources must remain untouched or must retain a specific folder
     /// structure, use the `copy` rule. It copies resources at the given `path`,
-    /// as is, to the top level in the package’s resource bundle. If the given
+    /// as is, to the top level in the package's resource bundle. If the given
     /// path represents a directory, Swift Package Manager preserves its structure.
     ///
     /// - Parameters:

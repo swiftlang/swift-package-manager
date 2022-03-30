@@ -169,6 +169,6 @@ public enum SwiftVersion {
 
     /// A user-defined value for the Swift version.
     ///
-    /// The value is passed as-is to the Swift compiler’s `-swift-version` flag.
+    /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
 }

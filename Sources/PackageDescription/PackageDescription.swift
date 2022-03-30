@@ -27,7 +27,7 @@ import Foundation
 /// dependencies, and other configuration options.
 ///
 /// By convention, you need to define the properties of a package in a single
-/// nested initializer statement. Don’t modify it after initialization. The
+/// nested initializer statement. Don't modify it after initialization. The
 /// following package manifest shows the initialization of a simple package
 /// object for the MyLibrary Swift package:
 ///
@@ -72,7 +72,7 @@ import Foundation
 /// API version is available to packages which declare a prior tools version.
 /// This behavior lets you take advantage of new releases of Swift, the Swift
 /// tools, and the PackageDescription library, without having to update your
-/// package’s manifest or losing access to existing packages.
+/// package's manifest or losing access to existing packages.
 public final class Package {
     /// The name of the Swift package.
     ///
@@ -127,7 +127,7 @@ public final class Package {
     ///
     /// - Parameters:
     ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
-    ///           name from the package’s Git URL.
+    ///           name from the package's Git URL.
     ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
@@ -166,7 +166,7 @@ public final class Package {
     ///
     /// - Parameters:
     ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
-    ///           name from the package’s Git URL.
+    ///           name from the package's Git URL.
     ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
@@ -204,7 +204,7 @@ public final class Package {
     ///
     /// - Parameters:
     ///   - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
-    ///           name from the package’s Git URL.
+    ///           name from the package's Git URL.
     ///   - platforms: The list of supported platforms that have a custom deployment target.
     ///   - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
@@ -244,7 +244,7 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from the package's Git URL.
     ///   - defaultLocalization: The default localization for resources.
     ///   - platforms: The list of supported platforms with a custom deployment target.
     ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
@@ -339,7 +339,7 @@ extension LanguageTag: RawRepresentable {
 
     /// Creates a new instance with the specified raw value.
     ///
-    /// If there’s no value of the type that corresponds with the specified raw
+    /// If there's no value of the type that corresponds with the specified raw
     /// value, this initializer returns `nil`.
     ///
     /// - Parameters:

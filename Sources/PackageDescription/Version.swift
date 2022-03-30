@@ -21,7 +21,7 @@
 /// - term The major version: The first digit of a version, or _major version_,
 /// signifies breaking changes to the API that require updates to existing
 /// clients. For example, the semantic versioning specification considers
-/// renaming an existing type, removing a method, or changing a method’s
+/// renaming an existing type, removing a method, or changing a method's
 /// signature breaking changes. This also includes any backward-incompatible bug
 /// fixes or behavioral changes of the existing API.
 ///
@@ -32,7 +32,7 @@
 /// changing any other API to be backward-compatible.
 ///
 /// - term The patch version:
-/// Increase the third digit of a version, or _patch version_, if you’re making
+/// Increase the third digit of a version, or _patch version_, if you're making
 /// a backward-compatible bug fix. This allows clients to benefit from bugfixes
 /// to your package without incurring any maintenance burden.
 public struct Version {

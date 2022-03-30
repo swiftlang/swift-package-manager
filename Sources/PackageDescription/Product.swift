@@ -12,13 +12,13 @@
 
 /// The object that defines a package product.
 ///
-/// A package product defines an externally visible build artifact that’s
+/// A package product defines an externally visible build artifact that's
 /// available to clients of a package. Swift Package Manager assembles the product from the
-/// build artifacts of one or more of the package’s targets. A package product
+/// build artifacts of one or more of the package's targets. A package product
 /// can be one of three types:
 ///
 /// - term Library: Use a _library product_ to vend library targets. This makes
-/// a target’s public APIs available to clients that integrate the Swift
+/// a target's public APIs available to clients that integrate the Swift
 /// package.
 /// - term Executable: Use an _executable product_ to vend an
 /// executable target. Use this only if you want to make the executable
@@ -89,7 +89,7 @@ public class Product: Encodable {
         /// Encodes this executable product type into the given encoder.
         ///
         /// This function throws an error if any values are invalid for the
-        /// given encoder’s format.
+        /// given encoder's format.
         ///
         /// - Note: Do not call this function directly. It is public to satisfy conformance to Codable, but it is only for use by internal Swift Package Manager processes.
         ///
@@ -125,7 +125,7 @@ public class Product: Encodable {
         /// The type of the library.
         ///
         /// If the type is unspecified, the Swift Package Manager automatically chooses a type
-        /// based on the client’s preference.
+        /// based on the client's preference.
         public let type: LibraryType?
 
         init(name: String, type: LibraryType? = nil, targets: [String]) {
@@ -140,7 +140,7 @@ public class Product: Encodable {
         /// empty keyed container in its place.
         ///
         /// This function throws an error if any values are invalid for the
-        /// given encoder’s format.
+        /// given encoder's format.
         ///
         /// - Parameters:
         ///   - encoder: The encoder to write data to.
@@ -178,19 +178,19 @@ public class Product: Encodable {
     }
 
     /// Creates a library product to allow clients that declare a dependency on
-    /// this package to use the package’s functionality.
+    /// this package to use the package's functionality.
     ///
-    /// A library’s product can either be statically or dynamically linked. If
-    /// possible, don’t declare the type of library explicitly to let Swift Package Manager
+    /// A library's product can either be statically or dynamically linked. If
+    /// possible, don't declare the type of library explicitly to let Swift Package Manager
     /// choose between static or dynamic linking based on the preference of the
-    /// package’s consumer.
+    /// package's consumer.
     ///
     /// - Parameters:
     ///   - name: The name of the library product.
-    ///   - type: The optional type of the library that’s used to determine how to
+    ///   - type: The optional type of the library that's used to determine how to
     ///     link to the library. Leave this parameter unspecified to let to let
     ///     Swift Package Manager choose between static or dynamic linking (recommended). If you
-    ///     don’t support both linkage types, use
+    ///     don't support both linkage types, use
     ///     ``Product/Library/LibraryType/static`` or
     ///     ``Product/Library/LibraryType/dynamic`` for this parameter.
     ///
@@ -243,7 +243,7 @@ public static func executable(
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.

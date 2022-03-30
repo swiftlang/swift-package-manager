@@ -55,7 +55,7 @@ extension Package {
 
         /// The name of the dependency.
         ///
-        /// If the `name` is `nil`, Swift Package Manager deduces the dependency’s name from its
+        /// If the `name` is `nil`, Swift Package Manager deduces the dependency's name from its
         /// package identity or Git URL.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var name: String? {
@@ -176,7 +176,7 @@ extension Package.Dependency {
 
     /// Adds a package dependency to a local package on the filesystem.
     ///
-    /// Swift Package Manager uses the package dependency as-is and doesn’t perform any source
+    /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during
     /// development of a new package or when working on multiple tightly coupled
     /// packages.
@@ -235,7 +235,7 @@ extension Package.Dependency {
     /// that include bug fixes and backward-compatible feature updates, but
     /// requires you to explicitly update to a new major version of the
     /// dependency. This approach provides the maximum flexibility on which
-    /// version to use, while making sure you don’t update to a version with
+    /// version to use, while making sure you don't update to a version with
     /// breaking changes, and helps to prevent conflicts in your dependency
     /// graph.
     ///
@@ -248,7 +248,7 @@ extension Package.Dependency {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from  the package’s Git URL.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from  the package's Git URL.
     ///   - url: The valid Git URL of the package.
     ///   - version: The minimum version requirement.
     ///
@@ -529,7 +529,7 @@ extension Package.Dependency {
     /// Adds a remote package dependency with a given version requirement.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from the package's Git URL.
     ///   - url: The valid Git URL of the package.
     ///   - requirement: A dependency requirement. See static methods on
     ///     ``Package/Dependency/Requirement-swift.enum`` for available options.

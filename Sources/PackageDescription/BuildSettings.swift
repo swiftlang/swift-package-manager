@@ -30,7 +30,7 @@ public struct BuildConfiguration: Encodable {
 /// By default, build settings are applicable for all platforms and build
 /// configurations. Use the `.when` modifier to define a build setting for a
 /// specific condition. Invalid usage of `.when` emits an error during manifest
-/// parsing. For example, it’s invalid to specify a `.when` condition with both
+/// parsing. For example, it's invalid to specify a `.when` condition with both
 /// parameters as `nil`.
 ///
 /// The following example shows how to use build setting conditions with various
@@ -122,16 +122,16 @@ public struct CSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Provides a header search path relative to the target’s directory.
+    /// Provides a header search path relative to the target's directory.
     ///
     /// Use this setting to add a search path for headers within your target.
-    /// You can’t use absolute paths and you can’t use this setting to provide
+    /// You can't use absolute paths and you can't use this setting to provide
     /// headers that are visible to other targets.
     ///
     /// The path must be a directory inside the package.
     ///
     /// - Parameters:
-    ///   - path: The path of the directory that contains the headers. The path is relative to the target’s directory.
+    ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
@@ -139,7 +139,7 @@ public struct CSetting: Encodable {
 
     /// Defines a value for a macro.
     ///
-    /// If you don’t specify a value, the macro’s default value is 1.
+    /// If you don't specify a value, the macro's default value is 1.
     ///
     /// - Parameters:
     ///   - name: The name of the macro.
@@ -157,7 +157,7 @@ public struct CSetting: Encodable {
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
-    /// As the usage of the word “unsafe” implies, Swift Package Manager can’t safely determine
+    /// As the usage of the word “unsafe” implies, Swift Package Manager can't safely determine
     /// if the build flags have any negative side effect on the build since
     /// certain flags can change the behavior of how it performs a build.
     ///
@@ -182,10 +182,10 @@ public struct CXXSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
   
-    /// Provides a header search path relative to the target’s directory.
+    /// Provides a header search path relative to the target's directory.
     ///
     /// Use this setting to add a search path for headers within your target.
-    /// You can’t use absolute paths and you can’t use this setting to provide
+    /// You can't use absolute paths and you can't use this setting to provide
     /// headers that are visible to other targets.
     ///
     /// The path must be a directory inside the package.
@@ -199,7 +199,7 @@ public struct CXXSetting: Encodable {
 
     /// Defines a value for a macro.
     ///
-    /// If you don’t specify a value, the macro’s default value is 1.
+    /// If you don't specify a value, the macro's default value is 1.
     ///
     /// - Parameters:
     ///   - name: The name of the macro.
@@ -217,7 +217,7 @@ public struct CXXSetting: Encodable {
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
-    /// As the usage of the word “unsafe” implies, Swift Package Manager can’t safely determine
+    /// As the usage of the word “unsafe” implies, Swift Package Manager can't safely determine
     /// if the build flags have any negative side effect on the build since
     /// certain flags can change the behavior of how it performs a build.
     ///
@@ -253,7 +253,7 @@ public struct SwiftSetting: Encodable {
     /// #endif
     /// ```
     ///
-    /// Unlike macros in C/C++, compilation conditions don’t have an associated
+    /// Unlike macros in C/C++, compilation conditions don't have an associated
     /// value.
     ///
     /// - Parameters:
@@ -267,7 +267,7 @@ public struct SwiftSetting: Encodable {
     /// Set unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
-    /// As the usage of the word “unsafe” implies, Swift Package Manager can’t safely determine
+    /// As the usage of the word “unsafe” implies, Swift Package Manager can't safely determine
     /// if the build flags have any negative side effect on the build since
     /// certain flags can change the behavior of how it performs a build.
     ///
@@ -294,7 +294,7 @@ public struct LinkerSetting: Encodable {
 
     /// Declares linkage to a system library.
     ///
-    /// This setting is most useful when the library can’t be linked
+    /// This setting is most useful when the library can't be linked
     /// automatically, such as C++ based libraries and non-modular libraries.
     ///
     /// - Parameters:
@@ -307,7 +307,7 @@ public struct LinkerSetting: Encodable {
     
     /// Declares linkage to a system framework.
     ///
-    /// This setting is most useful when the framework can’t be linked
+    /// This setting is most useful when the framework can't be linked
     /// automatically, such as C++ based frameworks and non-modular frameworks.
     ///
     /// - Parameters:
@@ -321,7 +321,7 @@ public struct LinkerSetting: Encodable {
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
-    /// As the usage of the word “unsafe” implies, Swift Package Manager can’t safely determine
+    /// As the usage of the word “unsafe” implies, Swift Package Manager can't safely determine
     /// if the build flags have any negative side effect on the build since
     /// certain flags can change the behavior of how it performs a build.
     ///

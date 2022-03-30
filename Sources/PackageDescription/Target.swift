@@ -19,16 +19,16 @@ import Foundation
 /// that include the targets.
 ///
 /// A target may depend on other targets within the same package and on products
-/// vended by the package’s dependencies.
+/// vended by the package's dependencies.
 public final class Target {
 
     /// The different types of a target.
     public enum TargetType: String, Encodable {
-        /// A target that contains code for the Swift package’s functionality.
+        /// A target that contains code for the Swift package's functionality.
         case regular
         /// A target that contains code for an executable's main module.
         case executable
-        /// A target that contains tests for the Swift package’s other targets.
+        /// A target that contains tests for the Swift package's other targets.
         case test
         /// A target that adapts a library on the system to work with Swift
         /// packages.
@@ -70,8 +70,8 @@ public final class Target {
 
     /// The path of the target, relative to the package root.
     ///
-    /// If the path is `nil`, Swift Package Manager looks for a target’s source files at
-    /// predefined search paths and in a subdirectory with the target’s name.
+    /// If the path is `nil`, Swift Package Manager looks for a target's source files at
+    /// predefined search paths and in a subdirectory with the target's name.
     ///
     /// The predefined search paths are the following directories under the
     /// package root:
@@ -82,7 +82,7 @@ public final class Target {
     /// For example, Swift Package Manager looks for source files inside the
     /// `[PackageRoot]/Sources/[TargetName]` directory.
     ///
-    /// Don’t escape the package root; that is, values like `../Foo` or `/Foo`
+    /// Don't escape the package root; that is, values like `../Foo` or `/Foo`
     /// are invalid.
     public var path: String?
 
@@ -102,7 +102,7 @@ public final class Target {
     /// The source files in this target.
     ///
     /// If this property is `nil`, Swift Package Manager includes all valid source files in the
-    /// target’s path and treats specified paths as relative to the target’s
+    /// target's path and treats specified paths as relative to the target's
     /// path.
     ///
     /// A path can be a path to a directory or an individual source file. In
@@ -118,7 +118,7 @@ public final class Target {
     }
     private var _resources: [Resource]?
 
-    /// The paths to source and resource files you don’t want to include in the target.
+    /// The paths to source and resource files you don't want to include in the target.
     ///
     /// Excluded paths are relative to the target path. This property has
     /// precedence over the `sources` and `resources` properties.
@@ -827,7 +827,7 @@ public final class Target {
     /// work with Swift packages. Such libraries are generally installed by
     /// system package managers (such as Homebrew and apt-get) and exposed to
     /// Swift packages by providing a `modulemap` file along with other metadata
-    /// such as the library’s `pkgConfig` name.
+    /// such as the library's `pkgConfig` name.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
@@ -1100,7 +1100,7 @@ extension Target.Dependency {
     }
 }
 
-/// A condition that limits the application of a target’s dependency.
+/// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition: Encodable {
     private let platforms: [Platform]?
 

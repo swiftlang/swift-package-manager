@@ -81,9 +81,9 @@ public struct Platform: Encodable, Equatable {
 /// supported platforms, such as an empty array, multiple declarations for the
 /// same platform, or an invalid version specification.
 ///
-/// Swift Package Manager emits an error if a dependency isn’t compatible with the top-level
-/// package’s deployment version. The deployment target of a package’s
-/// dependencies must be lower than or equal to the top-level package’s
+/// Swift Package Manager emits an error if a dependency isn't compatible with the top-level
+/// package's deployment version. The deployment target of a package's
+/// dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
 public struct SupportedPlatform: Encodable, Equatable {
 

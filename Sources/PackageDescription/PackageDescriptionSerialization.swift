@@ -43,7 +43,7 @@ extension Package: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
@@ -92,7 +92,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     ///  - Note: This documentation comment was inherited from `Encodable`.
     ///
@@ -236,7 +236,7 @@ extension SystemPackageProvider: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
@@ -346,7 +346,7 @@ extension Target.Dependency: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
@@ -399,7 +399,7 @@ extension Target: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
@@ -469,7 +469,7 @@ extension SwiftVersion: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
@@ -501,7 +501,7 @@ extension Version: Encodable {
     /// keyed container in its place.
     ///
     /// This function throws an error if any values are invalid for the given
-    /// encoder’s format.
+    /// encoder's format.
     ///
     /// - Parameters:
     ///   - encoder: The encoder to write data to.
