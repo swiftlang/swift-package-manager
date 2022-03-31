@@ -382,7 +382,10 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
-    func testSwiftRunSIGNINT() throws {
+    func testSwiftRunSIGINT() throws {
+        #if true
+        throw XCTSkip("skipping intermittently failing test (rdar://91024625)")
+        #else
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending(component: "main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
@@ -460,6 +463,7 @@ class MiscellaneousTestCase: XCTestCase {
                 case done
             }
         }
+        #endif
     }
 
     func testReportingErrorFromGitCommand() throws {
