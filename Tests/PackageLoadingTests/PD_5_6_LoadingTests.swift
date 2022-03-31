@@ -12,7 +12,6 @@
 
 import Basics
 import PackageModel
-import PackageLoading
 import SPMTestSupport
 import TSCBasic
 import XCTest
