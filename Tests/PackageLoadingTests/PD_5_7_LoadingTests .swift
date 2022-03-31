@@ -99,4 +99,31 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testTargetDeprecatedDependencyCase() throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                dependencies: [
+                   .package(url: "http://localhost/BarPkg", from: "1.1.1"),
+                ],
+                targets: [
+                    .target(name: "Foo",
+                            dependencies: [
+                                .productItem(name: "Bar", package: "BarPkg", condition: nil),
+                            ]),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope)) { error in
+            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                XCTAssertMatch(message, .contains("error: 'productItem(name:package:condition:)' is unavailable: use .product(name:package:condition) instead."))
+            } else {
+                XCTFail("unexpected error: \(error)")
+            }
+        }
+    }
 }
