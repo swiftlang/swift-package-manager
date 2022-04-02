@@ -752,6 +752,11 @@ public final class SwiftTargetBuildDescription {
         }
     }
 
+    // True if the active Swift compiler supports the `-enable-regex-literals` flag.
+    public static var compilerSupportsRegexLiterals: Bool {
+        return self.checkSupportedFrontendFlags(flags: ["enable-regex-literals"], fileSystem: localFileSystem)
+    }
+
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
@@ -1062,6 +1067,11 @@ public final class SwiftTargetBuildDescription {
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         flags += swiftDefines.map({ "-D" + $0 })
+        
+        // Add arguments to enable regular expression literals if the package is new enough and the compiler supports them.
+        if toolsVersion >= .v5_7 && SwiftTargetBuildDescription.compilerSupportsRegexLiterals {
+            flags += ["-enable-regex-literals"]
+         }
 
         // Other Swift flags.
         flags += scope.evaluate(.OTHER_SWIFT_FLAGS)

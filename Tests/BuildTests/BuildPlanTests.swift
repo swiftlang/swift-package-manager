@@ -3041,6 +3041,72 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testEnablingRegexLiterals() throws {
+        // Skip the test if the compiler doens't support `-enable-regex-literals`.
+        try XCTSkipUnless(SwiftTargetBuildDescription.checkSupportedFrontendFlags(
+            flags: ["enable-regex-literals"], fileSystem: localFileSystem
+        ))
+
+        // Construct a test fixture that has a target that sets `SWIFT_ENABLE_REGEX_LITERALS` and another that doesn't.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/NewPkg/Sources/exe/main.swift",
+            "/OldPkg/Sources/lib/code.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "NewPkg",
+                    path: .init("/NewPkg"),
+                    toolsVersion: .v5_7,
+                    targets: [
+                        .init(
+                            name: "exe",
+                            dependencies: [
+                                .product(name: "lib", package: "OldPkg")
+                            ],
+                            type: .executable),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "OldPkg",
+                    path: .init("/OldPkg"),
+                    toolsVersion: .v5_6,
+                    products: [
+                        .init(
+                            name: "lib",
+                            type: .library(.automatic),
+                            targets: ["lib"])
+                    ],
+                    targets: [
+                        .init(
+                            name: "lib",
+                            type: .regular
+                        )
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        // Check that targets with tools version 5.7 or later get the flag and others don't.
+        let triples: [TSCUtility.Triple] = [.x86_64Linux, .macOS, .wasi, .windows]
+        for triple in triples {
+            let result = try BuildPlanResult(plan: BuildPlan(
+                buildParameters: mockBuildParameters(destinationTriple: triple),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope))
+            
+            // Check that the target that specifies tools version 5.7 does get regex literals.
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, ["-enable-regex-literals"])
+
+            // Check that the target that specifies tools version 5.6 doesn't get regex literals.
+            let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+            XCTAssertNoMatch(lib, ["-enable-regex-literals"])
+        }
+    }
+
     func testIndexStore() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
