@@ -83,7 +83,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## License
 
-Copyright 2015 - 2020 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2022 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 
