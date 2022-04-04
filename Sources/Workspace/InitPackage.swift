@@ -287,7 +287,7 @@ public final class InitPackage {
         try makeDirectories(moduleDir)
         
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
-        let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
+        let sourceFile = AbsolutePath(sourceFileName, relativeTo: moduleDir)
 
         let content: String
         switch packageType {
@@ -429,11 +429,11 @@ public final class InitPackage {
     }
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
+        let testModule = AbsolutePath(pkgname + Target.testModuleNameSuffix, relativeTo: testsPath)
         progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
         try makeDirectories(testModule)
 
-        let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
+        let testClassFile = AbsolutePath("\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
         case .systemModule, .empty, .manifest, .`extension`: break
         case .library:

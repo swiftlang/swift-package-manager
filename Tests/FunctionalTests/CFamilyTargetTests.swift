@@ -98,4 +98,11 @@ class CFamilyTargetTestCase: XCTestCase {
         }
       #endif
     }
+    
+    func testCanBuildRelativeHeaderSearchPaths() throws {
+        try fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HeaderInclude.swiftmodule")
+        }
+    }
 }

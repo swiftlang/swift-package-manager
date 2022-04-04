@@ -230,7 +230,7 @@ enum ManifestJSONParser {
 
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
-            return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
+            return AbsolutePath(String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
         } else if dependencyLocation.hasPrefix(filePrefix) {
             // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
             // strip that. We need to design a Location data structure for SwiftPM.

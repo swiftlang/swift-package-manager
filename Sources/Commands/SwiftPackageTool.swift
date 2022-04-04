@@ -1830,7 +1830,7 @@ extension SwiftPackageTool {
             }
 
             let files = try localFileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
+                .map { AbsolutePath($0, relativeTo: directory) }
                 .filter { localFileSystem.isFile($0) }
 
             guard let fileExtension = fileExtension else {
@@ -1845,7 +1845,7 @@ extension SwiftPackageTool {
                 return []
             }
             return try localFileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
+                .map { AbsolutePath($0, relativeTo: directory) }
                 .filter { localFileSystem.isDirectory($0) }
         }
 

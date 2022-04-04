@@ -98,7 +98,7 @@ public final class MockWorkspace {
     }
 
     public func pathToPackage(withName name: String) -> AbsolutePath {
-        return self.packagesDir.appending(RelativePath(name))
+        return AbsolutePath(name, relativeTo: self.packagesDir)
     }
 
     private func create() throws {
@@ -272,7 +272,7 @@ public final class MockWorkspace {
     }
 
     public func rootPaths(for packages: [String]) -> [AbsolutePath] {
-        return packages.map { rootsDir.appending(RelativePath($0)) }
+        return packages.map { AbsolutePath($0, relativeTo: rootsDir) }
     }
 
     public func checkEdit(

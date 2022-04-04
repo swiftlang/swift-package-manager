@@ -861,7 +861,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             for assignment in assignments {
                 var value = assignment.value
                 if setting == .HEADER_SEARCH_PATHS {
-                    value = value.map { target.sources.root.appending(RelativePath($0)).pathString }
+                    value = value.map { AbsolutePath($0, relativeTo: target.sources.root).pathString }
                 }
 
                 if let platforms = assignment.platforms {

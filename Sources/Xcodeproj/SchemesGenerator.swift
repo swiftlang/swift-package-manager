@@ -204,12 +204,12 @@ public final class SchemesGenerator {
 
             """
 
-        let file = schemesDir.appending(RelativePath(scheme.filename))
+        let file = AbsolutePath(scheme.filename, relativeTo: schemesDir)
         try fs.writeFileContents(file, bytes: stream.bytes)
     }
 
     private func disableSchemeAutoCreation() throws {
-        let workspacePath = schemesDir.appending(RelativePath("../../project.xcworkspace"))
+        let workspacePath = AbsolutePath("../../project.xcworkspace", relativeTo: schemesDir)
 
         // Write the settings file to disable automatic scheme creation.
         var stream = BufferedOutputByteStream()
@@ -223,12 +223,12 @@ public final class SchemesGenerator {
             </dict>
             </plist>
             """
-        let settingsPlist = workspacePath.appending(RelativePath("xcshareddata/WorkspaceSettings.xcsettings"))
+        let settingsPlist = AbsolutePath("xcshareddata/WorkspaceSettings.xcsettings", relativeTo: workspacePath)
         try fs.createDirectory(settingsPlist.parentDirectory, recursive: true)
         try fs.writeFileContents(settingsPlist, bytes: stream.bytes)
 
         // Write workspace contents file.
-        let contentsFile = workspacePath.appending(RelativePath("contents.xcworkspacedata"))
+        let contentsFile = AbsolutePath("contents.xcworkspacedata", relativeTo: workspacePath)
         stream = BufferedOutputByteStream()
         stream <<< """
             <?xml version="1.0" encoding="UTF-8"?>

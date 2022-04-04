@@ -281,8 +281,8 @@ public final class UserToolchain: Toolchain {
                                 .appending(component: "Library")
                                 .appending(component: "XCTest-\(info.defaults.xctestVersion)")
                             xctest = [
-                                "-I", path.appending(RelativePath("usr/lib/swift/windows/\(triple.arch)")).pathString,
-                                "-L", path.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                                "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: path).pathString,
+                                "-L", AbsolutePath("usr/lib/swift/windows", relativeTo: path).pathString,
                             ]
 
                             extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
