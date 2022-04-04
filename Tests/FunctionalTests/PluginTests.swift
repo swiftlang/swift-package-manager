@@ -855,4 +855,27 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
     }
+
+    func testSandboxViolatingBuildToolPluginCommands() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "sandboxing tests are only supported on macOS")
+        #endif
+        
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Check that the build fails with a sandbox violation by default.
+        try fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+            XCTAssertThrowsError(try executeSwiftBuild(path.appending(component: "MyLibrary"), configuration: .Debug)) { error in
+                XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            }
+        }
+
+        // Check that the build succeeds if we disable the sandbox.
+        try fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+            let (stdout, stderr) = try executeSwiftBuild(path.appending(component: "MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"])
+            XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
+        }
+
+    }
 }
