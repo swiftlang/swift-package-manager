@@ -754,6 +754,7 @@ public class SwiftTool {
             packageGraphLoader: customPackageGraphLoader ?? graphLoader,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
+            disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
             outputStream: customOutputStream ?? self.outputStream,
             logLevel: customLogLevel ?? self.logLevel,
             fileSystem: self.fileSystem,
