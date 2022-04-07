@@ -73,7 +73,7 @@ The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild)
 If you have any trouble with the package manager, help is available. We recommend:
 
 * The [Swift Forums](https://forums.swift.org/c/development/swiftpm/),
-* Swift's [bug tracker](http://bugs.swift.org)
+* Swift's [bug tracker](https://bugs.swift.org)
 
 When reporting an issue please follow the bug reporting guidelines, they can be found in [contribution guide](./CONTRIBUTING.md#reporting-issues).
 
@@ -83,7 +83,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## License
 
-Copyright 2015 - 2020 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2022 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 

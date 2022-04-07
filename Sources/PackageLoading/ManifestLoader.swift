@@ -14,7 +14,6 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import struct TSCUtility.Triple
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
 
@@ -145,10 +144,7 @@ extension ManifestLoaderProtocol {
 /// serialized form of the manifest (as implemented by `PackageDescription`'s
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
-    private static var _hostTriple = ThreadSafeBox<Triple>()
-    private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
-
-    private let toolchain: ToolchainConfiguration
+    private let toolchain: UserToolchain
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
     private let delegate: ManifestLoaderDelegate?
@@ -164,7 +160,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let evaluationQueue: OperationQueue
 
     public init(
-        toolchain: ToolchainConfiguration,
+        toolchain: UserToolchain,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
@@ -184,73 +180,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.evaluationQueue.name = "org.swift.swiftpm.manifest-loader"
         self.evaluationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
         self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
-    }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use non-deprecated constructor instead")
-    public convenience init(
-        manifestResources: ToolchainConfiguration,
-        serializedDiagnostics: Bool = false,
-        isManifestSandboxEnabled: Bool = true,
-        cacheDir: AbsolutePath? = nil,
-        delegate: ManifestLoaderDelegate? = nil,
-        extraManifestFlags: [String] = []
-    ) {
-        self.init(
-            toolchain: manifestResources,
-            serializedDiagnostics: serializedDiagnostics,
-            isManifestSandboxEnabled: isManifestSandboxEnabled,
-            cacheDir: cacheDir,
-            delegate: delegate,
-            extraManifestFlags: extraManifestFlags
-        )
-    }
-
-    /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///   - at: The absolute path of the package root.
-    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
-    ///   - identityResolver: A helper to resolve identities based on configuration
-    ///   - diagnostics: Optional.  The diagnostics engine.
-    ///   - on: The dispatch queue to perform asynchronous operations on.
-    ///   - completion: The completion handler .
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use workspace API instead")
-    public static func loadRootManifest(
-        at path: AbsolutePath,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine? = nil,
-        fileSystem: FileSystem = localFileSystem,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-            let loader = ManifestLoader(toolchain: toolchain)
-            let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
-            let packageIdentity = try identityResolver.resolveIdentity(for: packageLocation)
-            let manifestPath = try ManifestLoader.findManifest(packagePath: path, fileSystem: fileSystem, currentToolsVersion: .current)
-            let manifestToolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
-            loader.load(
-                manifestPath: manifestPath,
-                manifestToolsVersion: manifestToolsVersion,
-                packageIdentity: packageIdentity,
-                packageKind: .root(packageLocation),
-                packageLocation: packageLocation.pathString,
-                packageVersion: .none,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics ?? DiagnosticsEngine()).topScope,
-                delegateQueue: queue,
-                callbackQueue: queue,
-                completion: completion
-            )
-        } catch {
-            return completion(.failure(error))
-        }
     }
 
     public func load(
@@ -766,16 +695,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // and validates it.
 
         // Compute the path to runtime we need to load.
-        let runtimePath = self.runtimePath(for: toolsVersion)
+        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
         let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
         var cmd: [String] = []
-        cmd += [self.toolchain.swiftCompilerPath.pathString]
+        cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
 
-        let macOSPackageDescriptionPath: AbsolutePath
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if runtimePath.extension == "framework" {
@@ -784,8 +712,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 "-framework", "PackageDescription",
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
-
-            macOSPackageDescriptionPath = runtimePath.appending(component: "PackageDescription")
         } else {
             cmd += [
                 "-L", runtimePath.pathString,
@@ -796,27 +722,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // so we add runtimePath to PATH when executing the manifest instead
             cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
 #endif
-
-            // note: this is not correct for all platforms, but we only actually use it on macOS.
-            macOSPackageDescriptionPath = runtimePath.appending(component: "libPackageDescription.dylib")
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
 #if os(macOS)
-        let triple = Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
-        }
-
-        do {
-            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath, platform: .macOS))?.versionString ?? "10.15"
-            }
-            cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
-        } catch {
-            return callbackQueue.async {
-                completion(.failure(error))
-            }
-        }
+        let version = self.toolchain.swiftPMLibrariesLocation.manifestLibraryMinimumDeploymentTarget.versionString
+        cmd += ["-target", "\(self.toolchain.triple.tripleString(forPlatformVersion: version))"]
 #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
@@ -996,7 +907,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         for toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.runtimePath(for: toolsVersion)
+        let runtimePath = self.toolchain.swiftPMLibrariesLocation.manifestLibraryPath
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
@@ -1012,18 +923,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
       #endif
         cmd += ["-package-description-version", toolsVersion.description]
         return cmd
-    }
-
-    /// Returns the runtime path given the manifest version and path to libDir.
-    private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
-        let manifestAPIDir = self.toolchain.swiftPMLibrariesLocation.manifestAPI
-        if localFileSystem.exists(manifestAPIDir) {
-            return manifestAPIDir
-        }
-
-        // FIXME: how do we test this?
-        // Fall back on the old location (this would indicate that we're using an old toolchain).
-        return self.toolchain.swiftPMLibrariesLocation.manifestAPI.parentDirectory.appending(version.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.
