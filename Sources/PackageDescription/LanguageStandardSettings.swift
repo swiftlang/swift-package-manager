@@ -91,23 +91,23 @@ public enum CLanguageStandard: String, Encodable {
 /// To learn more, see [C++ Support in Clang](https://clang.llvm.org/cxx_status.html).
 public enum CXXLanguageStandard: String, Encodable {
 
-    /// The identifier for the C++98 language standard.
+    /// The identifier for the ISO C++ 1998 language standard with amendments.
     case cxx98 = "c++98"
 
-    /// The identifier for the C++03 language standard.
+    /// The identifier for the ISO C++ 1998 language standard with amendments.
     case cxx03 = "c++03"
 
-    /// The identifier for the C++11 language standard.
+    /// The identifier for the ISO C++ 2011 language standard with amendments.
     case cxx11 = "c++11"
 
-    /// The identifier for the C++14 language standard.
+    /// The identifier for the ISO C++ 2014 language standard with amendments.
     case cxx14 = "c++14"
 
-    /// The identifier for the ISO C++ 2017 (with amendments) language standard..
+    /// The identifier for the ISO C++ 2017 language standard with amendments.
     @available(_PackageDescription, introduced: 5.4)
     case cxx17 = "c++17"
 
-    /// The identifier for the C++1z language standard.
+    /// The identifier for the ISO C++ 2017 language standard with amendments.
     @available(_PackageDescription, introduced: 4, deprecated: 5.4, renamed: "cxx17")
     case cxx1z = "c++1z"
 
@@ -119,31 +119,31 @@ public enum CXXLanguageStandard: String, Encodable {
     @available(_PackageDescription, introduced: 5.6)
     case cxx2b = "c++2b"
 
-    /// The identifier for the GNU++98 language standard.
+    /// The identifier for the ISO C++ 1998 language standard with amendments and GNU extensions.
     case gnucxx98 = "gnu++98"
 
-    /// The identifier for the GNU++03 language standard.
+    /// The identifier for the ISO C++ 1998 language standard with amendments and GNU extensions.
     case gnucxx03 = "gnu++03"
 
-    /// The identifier for the GNU++11 language standard.
+    /// The identifier for the ISO C++ 2011 language standard with amendments and GNU extensions.
     case gnucxx11 = "gnu++11"
 
-    /// The identifier for the GNU++14 language standard.
+    /// The identifier for the ISO C++ 2014 language standard with amendments and GNU extensions.
     case gnucxx14 = "gnu++14"
 
-    /// The identifier for the GNU++17 language standard.
+    /// The identifier for the ISO C++ 2017 language standard with amendments and GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnucxx17 = "gnu++17"
 
-    /// The identifier for the GNU++1z language standard.
+    /// The identifier for the ISO C++ 2017 language standard with amendments and GNU extensions.
     @available(_PackageDescription, introduced: 4, deprecated: 5.4, renamed: "gnucxx17")
     case gnucxx1z = "gnu++1z"
 
-    /// The identifier for the CNU++20 language standard.
+    /// The identifier for the ISO C++ 2020 language standard with GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnucxx20 = "gnu++20"
 
-    /// The identifier for the GNU++2b draft language standard.
+    /// The identifier for the ISO C++ 2023 draft language standard with GNU extensions.
     @available(_PackageDescription, introduced: 5.6)
     case gnucxx2b = "gnu++2b"
 }
