@@ -103,8 +103,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameters:
-    ///   - version: The minimum deployment target that the package supports.
+    /// - Parameter version: The minimum deployment target that the package supports.
     public static func macOS(_ version: SupportedPlatform.MacOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: version.version)
     }
@@ -115,8 +114,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated
     /// integers, such as `10.10` or `10.10.1`.
     ///
-    /// - Parameters:
-    ///   - versionString: The minimum deployment target as a string
+    /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as
     ///     `10.10.1`.
     /// - Returns: A `SupportedPlatform` instance.
@@ -164,8 +162,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated
     /// integers, such as `8.0` or `8.0.1`.
     ///
-    /// - Parameters:
-    ///   - versionString: The minimum deployment target as a string
+    /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `8.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     public static func iOS(_ versionString: String) -> SupportedPlatform {
@@ -174,8 +171,7 @@ public struct SupportedPlatform: Encodable, Equatable {
 
     /// Configures the minimum deployment target version for the tvOS platform.
     ///
-    /// - Parameters:
-    ///   - version: The minimum deployment target that the package supports.
+    /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
     public static func tvOS(_ version: SupportedPlatform.TVOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: version.version)
@@ -187,8 +183,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated
     /// integers,such as `9.0` or `9.0.1`.
     ///
-    /// - Parameters:
-    ///   - versionString: The minimum deployment target as a string
+    /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `9.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     public static func tvOS(_ versionString: String) -> SupportedPlatform {
@@ -200,8 +195,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameters:
-    ///   - version: The minimum deployment target that the package supports.
+    /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: version.version)
@@ -214,8 +208,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
-    /// - Parameters:
-    ///   - versionString: The minimum deployment target as a string
+    /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `2.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     public static func watchOS(_ versionString: String) -> SupportedPlatform {

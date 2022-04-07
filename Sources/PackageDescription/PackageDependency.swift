@@ -31,7 +31,7 @@ extension Package {
         /// The kind of dependency.
         @available(_PackageDescription, introduced: 5.6)
         public enum Kind {
-            /// A dependency based on a file system path.
+            /// A dependency located at the given path.
             /// - Parameters:
             ///    - name: The name of the dependency.
             ///    - path: The path to the dependency.
@@ -158,7 +158,7 @@ extension Package {
 // MARK: - file system
 
 extension Package.Dependency {
-    /// Adds a package dependency to a local package on the filesystem.
+    /// Adds a dependency to a package located at the given path.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
@@ -174,7 +174,7 @@ extension Package.Dependency {
         return .init(name: nil, path: path)
     }
 
-    /// Adds a package dependency to a local package on the filesystem.
+    /// Adds a dependency to a package located at the given path on the filesystem.
     ///
     /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during

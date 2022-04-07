@@ -27,7 +27,7 @@ import Foundation
 /// dependencies, and other configuration options.
 ///
 /// By convention, you need to define the properties of a package in a single
-/// nested initializer statement. Don't modify it after initialization. The
+/// nested initializer statement. Don''t modify it after initialization. The
 /// following package manifest shows the initialization of a simple package
 /// object for the MyLibrary Swift package:
 ///
@@ -53,15 +53,16 @@ import Foundation
 /// )
 /// ```
 ///
-/// The package manifest must begin with the string `// swift-tools-version:`
-/// followed by a version number specifier. The following code listing shows a
-/// few examples of valid declarations of the Swift tools version:
+/// On versions before 5.4, the package manifest must begin with the string `// swift-tools-version:`
+/// followed by a version number specifier. Version 5.4 and later has relaxed the whitespace requirements.
+/// The following code listing shows a few examples of valid declarations of the Swift tools version:
 ///
 /// ```swift
 /// // swift-tools-version:3.0.2
 /// // swift-tools-version:3.1
 /// // swift-tools-version:4.0
 /// // swift-tools-version:5.3
+/// // swift-tools-version: 5.6
 /// ```
 ///
 /// The Swift tools version declares the version of the `PackageDescription`
@@ -102,7 +103,7 @@ public final class Package {
     /// get the required additional flags for a system target.
     public var pkgConfig: String?
 
-    /// An array of providers for the system target.
+    /// An array of providers for a system target.
     public var providers: [SystemPackageProvider]?
 
     /// The list of targets that are part of this package.
@@ -327,8 +328,7 @@ public struct LanguageTag: Hashable {
 
     /// Creates a language tag from its IETF string representation.
     ///
-    /// - Parameters:
-    ///   - tag: The string representation of an IETF language tag.
+    /// - Parameter tag: The string representation of an IETF language tag.
     public init(_ tag: String) {
         self.tag = tag
     }
@@ -342,8 +342,7 @@ extension LanguageTag: RawRepresentable {
     /// If there's no value of the type that corresponds with the specified raw
     /// value, this initializer returns `nil`.
     ///
-    /// - Parameters:
-    ///   - rawValue: The raw value to use for the new instance.
+    /// - Parameter rawValue: The raw value to use for the new instance.
     public init?(rawValue: String) {
         tag = rawValue
     }
@@ -354,8 +353,7 @@ extension LanguageTag: ExpressibleByStringLiteral {
     
     /// Creates an instance initialized to the given value.
     ///
-    /// - Parameters:
-    ///   - value: The value of the new instance.
+    /// - Parameter value: The value of the new instance.
     public init(stringLiteral value: String) {
         tag = value
     }
@@ -368,8 +366,7 @@ extension LanguageTag: ExpressibleByStringLiteral {
 
     /// Creates an instance initialized to the given value.
     ///
-    /// - Parameters:
-    ///   - value: The value of the new instance.
+    /// - Parameter value: The value of the new instance.
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
     }
@@ -395,8 +392,7 @@ public enum SystemPackageProvider {
     /// Creates a system package provider with a list of installable packages
     /// for users of the HomeBrew package manager on macOS.
     ///
-    /// - Parameters:
-    ///   - packages: The list of package names.
+    /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
@@ -406,8 +402,7 @@ public enum SystemPackageProvider {
     /// Creates a system package provider with a list of installable packages
     /// for users of the apt-get package manager on Ubuntu Linux.
     ///
-    /// - Parameters:
-    ///   - packages: The list of package names.
+    /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
@@ -418,8 +413,7 @@ public enum SystemPackageProvider {
     /// for users of the yum package manager on Red Hat Enterprise Linux or
     /// CentOS.
     ///
-    /// - Parameters:
-    ///   - packages: The list of package names.
+    /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
     @available(_PackageDescription, introduced: 5.3)

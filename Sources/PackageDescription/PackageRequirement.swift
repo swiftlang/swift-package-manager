@@ -84,8 +84,7 @@ extension Package.Dependency.Requirement {
     /// .exact(“1.2.3”)
     /// ```
     ///
-    /// - Parameters:
-    ///   - version: The exact version of the dependency for this requirement.
+    /// - Parameter version: The exact version of the dependency for this requirement.
     @available(_PackageDescription, deprecated: 5.6)
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
         return .exactItem(version)
@@ -106,8 +105,7 @@ extension Package.Dependency.Requirement {
     /// .revision(“e74b07278b926c9ec6f9643455ea00d1ce04a021”)
     /// ```
     ///
-    /// - Parameters:
-    ///   - ref: The Git revision, usually a commit hash.
+    /// - Parameter ref: The Git revision, usually a commit hash.
     @available(_PackageDescription, deprecated: 5.6)
     public static func revision(_ ref: String) -> Package.Dependency.Requirement {
         return .revisionItem(ref)
@@ -127,8 +125,7 @@ extension Package.Dependency.Requirement {
     /// .branch(“develop”)
     /// ```
     ///
-    /// - Parameters:
-    ///   - name: The name of the branch.
+    /// - Parameter name: The name of the branch.
     @available(_PackageDescription, deprecated: 5.6)
     public static func branch(_ name: String) -> Package.Dependency.Requirement {
         return .branchItem(name)
@@ -219,8 +216,7 @@ extension Range {
     /// Returns a requirement for a version range, starting at the given minimum
     /// version and going up to the next major version. This is the recommended version requirement.
     ///
-    /// - Parameters:
-    ///   - version: The minimum version for the version range.
+    /// - Parameter version: The minimum version for the version range.
     public static func upToNextMajor(from version: Version) -> Range<Bound> where Bound == Version {
         return version ..< Version(version.major + 1, 0, 0)
     }
@@ -229,8 +225,7 @@ extension Range {
     /// Returns a requirement for a version range, starting at the given minimum
     /// version and going up to the next minor version.
     ///
-    /// - Parameters:
-    ///   - version: The minimum version for the version range.
+    /// - Parameter version: The minimum version for the version range.
     public static func upToNextMinor(from version: Version) -> Range<Bound> where Bound == Version {
         return version ..< Version(version.major, version.minor + 1, 0)
     }
