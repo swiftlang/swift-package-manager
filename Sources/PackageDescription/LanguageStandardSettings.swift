@@ -14,71 +14,71 @@
 /// package.
 public enum CLanguageStandard: String, Encodable {
 
-    /// The identifier for the C89 language standard.
+    /// The identifier for the ISO C 1990 language standard.
     case c89
 
-    /// The identifier for the C90 language standard.
+    /// The identifier for the ISO C 1990 language standard.
     case c90
 
-    /// The identifier for the C99 language standard.
+    /// The identifier for the ISO C 1999 language standard.
     case c99
 
-    /// The identifier for the C11 language standard.
+    /// The identifier for the ISO C 2011 language standard.
     case c11
 
-    /// The identifier for the C17 language stadard.
+    /// The identifier for the ISO C 2017 language stadard.
     @available(_PackageDescription, introduced: 5.4)
     case c17
 
-    /// The identifier for the C18 language standard.
+    /// The identifier for the ISO C 2017 language standard.
     @available(_PackageDescription, introduced: 5.4)
     case c18
 
-    /// The identifier for the C2x draft language standard.
+    /// The identifier for the ISO C2x draft language standard.
     @available(_PackageDescription, introduced: 5.4)
     case c2x
 
-    /// The identifier for the GNU89 language standard.
+    /// The identifier for the ISO C 1990 language standard with GNU extensions.
     case gnu89
 
-    /// The identifier for the GNU90 language standard.
+    /// The identifier for the ISO C 1990 language standard with GNU extensions.
     case gnu90
 
-    /// The identifier for the GNU99 language standard.
+    /// The identifier for the ISO C 1999 language standard with GNU extensions.
     case gnu99
 
-    /// The identifier for the GNU11 language standard.
+    /// The identifier for the ISO C 2011 language standard with GNU extensions.
     case gnu11
 
-    /// The identifier for the GNU17 language standard.
+    /// The identifier for the ISO C 2017 language standard with GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnu17
 
-    /// The identifier for the GNU18 language standard.
+    /// The identifier for the ISO C 2017 language standard with GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnu18
 
-    /// The identifier for the GNU2x draft language standard.
+    /// The identifier for the ISO C2x draft language standard with GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnu2x
 
-    /// The identifier for the ISO9899-1990 language standard.
+    /// The identifier for the ISO C 1990 language standard.
     case iso9899_1990 = "iso9899:1990"
 
-    /// The identifier for the ISO9899-199409 language standard.
+    /// The identifier for the ISO C 1990 language standard with amendment 1.
     case iso9899_199409 = "iso9899:199409"
 
-    /// The identifier for the ISO9899-1999 language standard.
+    /// The identifier for the ISO C 1999 language standard.
     case iso9899_1999 = "iso9899:1999"
 
-    /// The identifier for the ISO9899-2011 language standard.
+    /// The identifier for the ISO C 2011 language standard.
     case iso9899_2011 = "iso9899:2011"
 
-    /// The identifier for the ISO9899-2017 language standard.
+    /// The identifier for the ISO C 2017 language standard.
     @available(_PackageDescription, introduced: 5.4)
     case iso9899_2017 = "iso9899:2017"
 
-    /// The identifier for the ISO9899-2018 language standard.
+    /// The identifier for the ISO C 2017 language standard.
     @available(_PackageDescription, introduced: 5.4)
     case iso9899_2018 = "iso9899:2018"
 }
