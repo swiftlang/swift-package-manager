@@ -20,9 +20,9 @@ public struct Platform: Encodable, Equatable {
         self.name = name
     }
 
-    /// Create a custom platform.
+    /// Creates a custom platform.
     ///
-    /// Use this function if none of the predefined platform names match the platform you are working with.
+    /// Use this function if none of the predefined platform names match the platform you are targeting.
     /// - Parameter platformName: The name of the platform.
     /// - Returns: A `Platform` instance.
     @available(_PackageDescription, introduced: 5.6)
@@ -114,6 +114,8 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated
     /// integers, such as `10.10` or `10.10.1`.
     ///
+    /// - Since: First available in PackageDescription 5.0.
+    ///
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as
     ///     `10.10.1`.
@@ -149,8 +151,9 @@ public struct SupportedPlatform: Encodable, Equatable {
 
     /// Configures the minimum deployment target version for the iOS platform.
     ///
-    /// - Parameters:
-    ///   - version: The minimum deployment target that the package supports.
+    /// - Since: First available in PackageDescription 5.0.
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
     public static func iOS(_ version: SupportedPlatform.IOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: version.version)
@@ -162,6 +165,8 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated
     /// integers, such as `8.0` or `8.0.1`.
     ///
+    /// - Since: First available in PackageDescription 5.0
+    ///
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `8.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
@@ -170,6 +175,8 @@ public struct SupportedPlatform: Encodable, Equatable {
     }
 
     /// Configures the minimum deployment target version for the tvOS platform.
+    ///
+    /// - Since: First available in PackageDescription 5.0
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
@@ -182,6 +189,8 @@ public struct SupportedPlatform: Encodable, Equatable {
     ///
     /// The version string must be a series of two or three dot-separated
     /// integers,such as `9.0` or `9.0.1`.
+    ///
+    /// - Since: First available in PackageDescription 5.0
     ///
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `9.0.1`.
@@ -263,28 +272,38 @@ extension SupportedPlatform {
         }
 
         /// The value that represents macOS 10.10.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10_10: MacOSVersion = .init(string: "10.10")
 
         /// The value that represents macOS 10.11.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10_11: MacOSVersion = .init(string: "10.11")
 
         /// The value that represents macOS 10.12.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10_12: MacOSVersion = .init(string: "10.12")
 
         /// The value that represents macOS 10.13.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10_13: MacOSVersion = .init(string: "10.13")
 
         /// The value that represents macOS 10.14.
         public static let v10_14: MacOSVersion = .init(string: "10.14")
 
         /// The value that represents macOS 10.15.
+        ///
+        /// - Since: First available in PackageDescription 5.1.
         @available(_PackageDescription, introduced: 5.1)
         public static let v10_15: MacOSVersion = .init(string: "10.15")
 
         /// The value that represents macOS 10.16, which has been
         /// replaced by the value for macOS 11.0.
         ///
-        /// - Since: First available in PackageDescription 5.3
+        /// - Since: First available in PackageDescription 5.3.
         @available(*, unavailable, renamed: "v11")
         public static let v10_16: MacOSVersion = .init(string: "11.0")
 
@@ -294,7 +313,7 @@ extension SupportedPlatform {
 
         /// The value that represents macOS 12.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v12: MacOSVersion = .init(string: "12.0")
     }
@@ -312,28 +331,40 @@ extension SupportedPlatform {
         }
 
         /// The value that represents tvOS 9.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v9: TVOSVersion = .init(string: "9.0")
 
         /// The value that represents tvOS 10.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10: TVOSVersion = .init(string: "10.0")
 
         /// The value that represents tvOS 11.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v11: TVOSVersion = .init(string: "11.0")
 
         /// The value that represents tvOS 12.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v12: TVOSVersion = .init(string: "12.0")
 
         /// The value that represents tvOS 13.0.
+        ///
+        /// - Since: First available in PackageDescription 5.1.
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: TVOSVersion = .init(string: "13.0")
 
         /// The value that represents tvOS 14.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3.
         @available(_PackageDescription, introduced: 5.3)
         public static let v14: TVOSVersion = .init(string: "14.0")
 
         /// The value that represents tvOS 15.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: TVOSVersion = .init(string: "15.0")
     }
@@ -352,19 +383,19 @@ extension SupportedPlatform {
 
         /// The value that represents Mac Catalyst 13.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v13: MacCatalystVersion = .init(string: "13.0")
 
         /// The value that represents Mac Catalyst 14.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v14: MacCatalystVersion = .init(string: "14.0")
 
         /// The value that represents Mac Catalyst 15.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: MacCatalystVersion = .init(string: "15.0")
     }
@@ -382,31 +413,45 @@ extension SupportedPlatform {
         }
 
         /// The value that represents iOS 8.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v8: IOSVersion = .init(string: "8.0")
 
         /// The value that represents iOS 9.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v9: IOSVersion = .init(string: "9.0")
 
         /// The value that represents iOS 10.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v10: IOSVersion = .init(string: "10.0")
 
         /// The value that represents iOS 11.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v11: IOSVersion = .init(string: "11.0")
 
         /// The value that represents iOS 12.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v12: IOSVersion = .init(string: "12.0")
 
         /// The value that represents iOS 13.0.
+        ///
+        /// - Since: First available in PackageDescription 5.1.
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: IOSVersion = .init(string: "13.0")
 
         /// The value that represents iOS 14.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3.
         @available(_PackageDescription, introduced: 5.3)
         public static let v14: IOSVersion = .init(string: "14.0")
 
         /// The value that represents iOS 15.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: IOSVersion = .init(string: "15.0")
     }
@@ -424,28 +469,40 @@ extension SupportedPlatform {
         }
 
         /// The value that represents watchOS 2.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v2: WatchOSVersion = .init(string: "2.0")
 
         /// The value that represents watchOS 3.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v3: WatchOSVersion = .init(string: "3.0")
 
         /// The value that represents watchOS 4.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v4: WatchOSVersion = .init(string: "4.0")
 
         /// The value that represents watchOS 5.0.
+        ///
+        /// - Since: First available in PackageDescription 5.0.
         public static let v5: WatchOSVersion = .init(string: "5.0")
 
         /// The value that represents watchOS 6.0.
+        ///
+        /// - Since: First available in PackageDescription 5.1.
         @available(_PackageDescription, introduced: 5.1)
         public static let v6: WatchOSVersion = .init(string: "6.0")
 
         /// The value that represents watchOS 7.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3.
         @available(_PackageDescription, introduced: 5.3)
         public static let v7: WatchOSVersion = .init(string: "7.0")
 
         /// The value that represents watchOS 8.0.
         ///
-        /// - Since: First available in PackageDescription 5.5
+        /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v8: WatchOSVersion = .init(string: "8.0")
     }

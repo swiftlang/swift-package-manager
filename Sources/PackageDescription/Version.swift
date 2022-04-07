@@ -100,12 +100,11 @@ extension Version: Comparable {
     /// Equality is the inverse of inequality. For any values `a` and `b`, `a ==
     /// b` implies that `a != b` is `false`.
     ///
-    /// This is the default implementation of the equal-to operator (`==`) for
-    /// any type that conforms to `Equatable`.
-    ///
     /// - Parameters:
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
+    ///
+    /// - Returns: A boolean value indicating the result of the equality test.
     @inlinable
     public static func == (lhs: Version, rhs: Version) -> Bool {
         !(lhs < rhs) && !(lhs > rhs)
@@ -114,19 +113,7 @@ extension Version: Comparable {
     /// Returns a Boolean value indicating whether the value of the first
     /// argument is less than that of the second argument.
     ///
-    /// This function is the only requirement of the `Comparable` protocol. The
-    /// remainder of the relational operator functions are implemented by the
-    /// standard library for any type that conforms to `Comparable`.
-    ///
-    /// The function determines if the inputs have any items in their
-    /// ``Version/prereleaseIdentifiers`` collections.
-    /// If only one side has prerelease identifiers, then that side will be considered
-    /// to have the lower version number. If they both have prerelease identifiers,
-    /// then the numeric prerelease identifier is considered to be lower version.
-    /// If both prerelease identifiers are numeric, then a numeric comparison is made.
-    ///
-    /// If neither of the parameters have prerelease identifiers, then the <doc://com.apple.documentation/documentation/swift/array/2853083-lexicographicallyprecedes>
-    /// function is used to perform the comparison.
+    /// The precedence is determined according to rules described at the [Semantic Versioning 2.0.0](https://semver.org/#spec-item-11) website.
     ///
     /// - Parameters:
     ///   - lhs: A value to compare.

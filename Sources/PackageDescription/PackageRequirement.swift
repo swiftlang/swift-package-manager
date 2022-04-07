@@ -179,7 +179,7 @@ extension Package.Dependency {
     /// requirements before publishing a version of your package.
     @available(_PackageDescription, introduced: 5.6)
     public enum SourceControlRequirement {
-        /// A version based requirement.
+        /// An exact version based requirement.
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
