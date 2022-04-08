@@ -74,7 +74,6 @@ public struct Resource: Encodable {
     /// - Parameters:
     ///   - path: The path for a resource.
     ///   - localization: The explicit localization type for the resource.
-    ///
     /// - Returns: A `Resource` instance.
     public static func process(_ path: String, localization: Localization? = nil) -> Resource {
         return Resource(rule: "process", path: path, localization: localization)
@@ -90,8 +89,7 @@ public struct Resource: Encodable {
     /// as is, to the top level in the package's resource bundle. If the given
     /// path represents a directory, Swift Package Manager preserves its structure.
     ///
-    /// - Parameters:
-    ///   - path: The path for a resource.
+    /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
 public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)

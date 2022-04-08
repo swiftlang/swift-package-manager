@@ -93,8 +93,7 @@ public class Product: Encodable {
         ///
         /// - Note: Do not call this function directly. It is public to satisfy conformance to Codable, but it is only for use by internal Swift Package Manager processes.
         ///
-        /// - Parameters:
-        ///   - encoder: The encoder to write data to.
+        /// - Parameter encoder: The encoder to write data to.
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
@@ -142,8 +141,7 @@ public class Product: Encodable {
         /// This function throws an error if any values are invalid for the
         /// given encoder's format.
         ///
-        /// - Parameters:
-        ///   - encoder: The encoder to write data to.
+        /// - Parameter encoder: The encoder to write data to.
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
@@ -245,8 +243,7 @@ public static func executable(
     /// This function throws an error if any values are invalid for the given
     /// encoder's format.
     ///
-    /// - Parameters:
-    ///   - encoder: The encoder to write data to.
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: ProductCodingKeys.self)
         try container.encode(name, forKey: .name)

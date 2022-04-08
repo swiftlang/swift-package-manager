@@ -979,8 +979,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a target in the same package.
     ///
-    /// - Parameters:
-    ///   - name: The name of the target.
+    /// - Parameter name: The name of the target.
     /// - Returns: A `Target.Dependency` instance.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
@@ -1012,11 +1011,9 @@ extension Target.Dependency {
 
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
-    /// - Parameters:
-    ///   - name: The name of the dependency, either a target or a product.
-    ///
-    /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
+    /// - Parameter name: The name of the dependency, either a target or a product.
     /// - Returns: A `Target.Dependency` instance.
+    /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
 @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
         return .byNameItem(name: name, condition: nil)
@@ -1115,8 +1112,7 @@ public struct TargetDependencyCondition: Encodable {
 
     /// Creates a target dependency condition.
     ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
+    /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @_disfavoredOverload
     @available(_PackageDescription, obsoleted: 5.7, message: "using .when with nil platforms is obsolete")
     public static func when(
@@ -1129,8 +1125,7 @@ public struct TargetDependencyCondition: Encodable {
 
     /// Creates a target dependency condition.
     ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
+    /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(
         platforms: [Platform]
@@ -1239,8 +1234,7 @@ public extension PluginPermission {
     /// The command plugin wants permission to modify the files under the package
     /// directory. The `reason` string is shown to the user at the time of request
     /// for approval, explaining why the plugin is requesting this access.
-    ///   - Parameters:
-    ///     - reason: A reason why the permission is needed. This will be shown to the user.
+    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
     ///   - Returns: A `PluginPermission` instance.
     static func writeToPackageDirectory(reason: String) -> PluginPermission {
         return _writeToPackageDirectory(reason: reason)
@@ -1250,8 +1244,7 @@ public extension PluginPermission {
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
-    /// - Parameters:
-    ///   - name: The name of the plugin target.
+    /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(name: String) -> Target.PluginUsage {
@@ -1279,8 +1272,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 
     /// Creates a target dependency instance with the given value.
     ///
-    /// - Parameters:
-    ///   - value: A string literal.
+    /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
         self = .byNameItem(name: value, condition: nil)
     }
@@ -1292,8 +1284,7 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
 
     /// Specifies use of a plugin target in the same package.
     ///
-    /// - parameters:
-    ///   - value: A string literal.
+    /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
         self = ._pluginItem(name: value, package: nil)
     }
