@@ -12,7 +12,6 @@
 
 import Basics
 import Foundation
-import SPMBuildCore
 import TSCBasic
 
 import struct TSCUtility.Triple

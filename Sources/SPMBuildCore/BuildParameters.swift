@@ -207,12 +207,12 @@ public struct BuildParameters: Encodable {
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false
     ) {
-        let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
-        self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
         self.archs = archs
         self.flags = flags
@@ -341,13 +341,13 @@ private struct _Toolchain: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
+        try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
         try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
 
         try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
         try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
         try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
-        try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
+        try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
     }
 }
 

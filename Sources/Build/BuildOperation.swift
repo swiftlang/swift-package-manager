@@ -281,7 +281,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             outputDir: self.pluginWorkDirectory.appending(component: "outputs"),
             builtToolsDir: self.buildParameters.buildPath,
             buildEnvironment: self.buildParameters.buildEnvironment,
-            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompiler.parentDirectory],
+            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
             pluginScriptRunner: self.pluginScriptRunner,
             observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem

@@ -59,6 +59,8 @@ extension BinaryTarget {
     }
 
     public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+        // The host triple might contain a version which we don't want to take into account here.
+        let versionLessTriple = try triple.withoutVersion()
         // We return at most a single variant of each artifact.
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         // Currently we filter out everything except executables.
@@ -68,15 +70,21 @@ extension BinaryTarget {
         return executables.flatMap { entry in
             // FIXME: this filter needs to become more sophisticated
             entry.value.variants.filter {
-                let tripleStrings = $0.supportedTriples.map { $0.tripleString }
-                if triple.isDarwin() {
-                    return tripleStrings.contains(triple.tripleString(forPlatformVersion: ""))
-                } else {
-                    return tripleStrings.contains(triple.tripleString)
-                }
+                return $0.supportedTriples.contains(versionLessTriple)
             }.map{
                 ExecutableInfo(name: entry.key, executablePath: AbsolutePath($0.path, relativeTo: self.artifactPath))
             }
+        }
+    }
+}
+
+fileprivate extension Triple {
+    func withoutVersion() throws -> Triple {
+        if isDarwin() {
+            let stringWithoutVersion = tripleString(forPlatformVersion: "")
+            return try Triple(stringWithoutVersion)
+        } else {
+            return self
         }
     }
 }

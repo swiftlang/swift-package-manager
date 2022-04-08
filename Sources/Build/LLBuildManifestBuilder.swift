@@ -228,7 +228,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try target.emitCommandLine();
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        commandLine.append(buildParameters.toolchain.swiftCompilerPath.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: target.fileSystem)
@@ -418,7 +418,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try targetDescription.emitCommandLine();
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        commandLine.append(buildParameters.toolchain.swiftCompilerPath.pathString)
         commandLine.append("-experimental-explicit-module-build")
         let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
@@ -513,7 +513,7 @@ extension LLBuildManifestBuilder {
             name: cmdName,
             inputs: inputs,
             outputs: cmdOutputs,
-            executable: buildParameters.toolchain.swiftCompiler,
+            executable: buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
@@ -660,7 +660,7 @@ extension LLBuildManifestBuilder {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
-            target.buildParameters.toolchain.swiftCompiler.pathString,
+            target.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString
         ]

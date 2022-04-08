@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMBuildCore
 import TSCBasic
 import Workspace
@@ -128,7 +129,7 @@ enum TestingSupport {
         }
         #if !os(macOS)
         #if os(Windows)
-        if let location = toolchain.configuration.xctestPath {
+        if let location = toolchain.xctestPath {
             env.prependPath("Path", value: location.pathString)
         }
         #endif

@@ -972,6 +972,11 @@ public final class Target {
 }
 
 extension Target.Dependency {
+    @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
+    public static func productItem(name: String, package: String? = nil, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
+    }
+
     /// Creates a dependency on a target in the same package.
     ///
     /// - Parameters:

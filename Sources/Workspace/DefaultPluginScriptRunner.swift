@@ -23,15 +23,13 @@ import struct TSCUtility.Triple
 public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let fileSystem: FileSystem
     private let cacheDir: AbsolutePath
-    private let toolchain: ToolchainConfiguration
+    private let toolchain: UserToolchain
     private let enableSandbox: Bool
     private let cancellator: Cancellator
 
-    private static var _hostTriple = ThreadSafeBox<Triple>()
-    private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
@@ -125,11 +123,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     }
 
     public var hostTriple: Triple {
-        return Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
-        }
+        return self.toolchain.triple
     }
-    
+
     /// Helper function that starts compiling a plugin script asynchronously and when done, calls the completion handler with the compilation results (including the path of the compiled plugin executable and with any emitted diagnostics, etc). This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
     fileprivate func compile(
         sources: Sources,
@@ -146,12 +142,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             let execName = sources.root.basename.spm_mangledToC99ExtendedIdentifier()
 
             // Get access to the path containing the PackagePlugin module and library.
-            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
+            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
 
             // We use the toolchain's Swift compiler for compiling the plugin.
-            var command = [self.toolchain.swiftCompilerPath.pathString]
+            var command = [self.toolchain.swiftCompilerPathForManifests.pathString]
 
-            let macOSPackageDescriptionPath: AbsolutePath
             // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             if runtimePath.extension == "framework" {
@@ -160,7 +155,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     "-framework", "PackagePlugin",
                     "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
                 ]
-                macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
             } else {
                 command += [
                     "-L", runtimePath.pathString,
@@ -171,9 +165,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 // so we add runtimePath to PATH when executing the manifest instead
                 command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
                 #endif
-
-                // note: this is not correct for all platforms, but we only actually use it on macOS.
-                macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
             }
 
             #if os(macOS)
@@ -183,18 +174,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
             else {
                 // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
-                let swiftSupportLibPath = self.toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+                let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
                 command += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
             }
             #endif
 
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
-            let triple = self.hostTriple
-            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
-            }
-            command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+            let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
+            command += ["-target", "\(self.hostTriple.tripleString(forPlatformVersion: version))"]
             #endif
 
             // Add any extra flags required as indicated by the ManifestLoader.
@@ -360,13 +348,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
 
         return sdkRootPath
-    }
-
-    // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
-    static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
-        let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
-        guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
-        return PlatformVersion(versionString)
     }
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.

@@ -13,8 +13,8 @@
 import Basics
 import Foundation
 import PackageGraph
-import PackageModel
-@testable import PackageLoading
+@testable import PackageModel
+import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic

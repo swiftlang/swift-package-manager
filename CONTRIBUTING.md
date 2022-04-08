@@ -307,7 +307,7 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 9. Make a PR from your fork / branch to `apple: main`
 10. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
 11. Reviewers are going to be automatically added to your PR
-12. Merge pull request when you received approval from the reviewers (one or more)
+12. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
 
 By submitting a pull request, you represent that you have the right to license
 your contribution to Apple and the community, and agree by submitting the patch
