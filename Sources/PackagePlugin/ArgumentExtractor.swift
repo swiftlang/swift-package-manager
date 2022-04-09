@@ -38,6 +38,7 @@ public struct ArgumentExtractor {
             else if arg.starts(with: "--\(name)=") {
                 arg.removeFirst(2 + name.count + 1)
                 values.append(arg)
+                args.remove(at: idx)
             }
             else {
                 idx += 1
