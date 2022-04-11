@@ -236,13 +236,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let preparationStepName = "Compiling plugin \(plugin.targetName)..."
         self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
         let result = try self.pluginScriptRunner.compilePluginScript(
-            sources: plugin.sources,
+            sourceFiles: plugin.sources.paths,
+            pluginName: plugin.targetName,
             toolsVersion: plugin.toolsVersion,
             observabilityScope: self.observabilityScope)
         if !result.description.isEmpty {
             self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
         }
-        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.wasCached ? .skipped : (result.succeeded ? .succeeded : .failed))
+        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.cached ? .skipped : (result.succeeded ? .succeeded : .failed))
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
