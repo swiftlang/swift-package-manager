@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Dispatch
@@ -589,7 +591,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -649,7 +651,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -697,7 +699,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            let noCacheLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, delegate: delegate)
+            let noCacheLoader = ManifestLoader(toolchain: UserToolchain.default, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
@@ -724,7 +726,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader) throws {
                 let fs = InMemoryFileSystem()
@@ -814,7 +816,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             // warm up caches
@@ -888,7 +890,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let total = 1000
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             let sync = DispatchGroup()

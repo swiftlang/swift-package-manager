@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import OrderedCollections
@@ -269,8 +271,8 @@ private func createResolvedPackages(
     }
 
     // Gather and resolve module aliases specified for targets in all dependent packages
-    let packageAliases = resolveModuleAliases(with: packageBuilders,
-                                               onError: observabilityScope)
+    let packageAliases = resolveModuleAliases(packageBuilders: packageBuilders,
+                                              observabilityScope: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -618,19 +620,21 @@ private func computePlatforms(
 }
 
 // Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder],
-                                  onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: [ModuleAliasModel]]]? {
+private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
+                                  observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: [ModuleAliasModel]]]? {
 
-    // If there are no aliases, return early
-    let depsWithAliases = packageBuilders.map { $0.package.targets.map { $0.dependencies.filter { dep in
-        if case let .product(prodRef, _) = dep {
-            return prodRef.moduleAliases != nil
+    // If there are no module aliases specified, return early
+    let hasAliases = packageBuilders.contains { $0.package.targets.contains {
+            $0.dependencies.contains { dep in
+                if case let .product(prodRef, _) = dep {
+                    return prodRef.moduleAliases != nil
+                }
+                return false
+            }
         }
-        return false
-    }}}.flatMap{$0}.flatMap{$0}
+    }
 
-    guard !depsWithAliases.isEmpty else { return nil }
-    
+    guard hasAliases else { return nil }
     let aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         for target in packageBuilder.package.targets {
@@ -643,17 +647,17 @@ private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder]
                     
                     if let aliasList = prodRef.moduleAliases {
                         for (depName, depAlias) in aliasList {
-                            if let existingAlias = aliasTracker.alias(of: depName, in: prodPkgID) {
+                            if let existingAlias = aliasTracker.alias(target: depName, originPackage: prodPkgID) {
                                 // Error if there are multiple aliases specified for this product dependency
                                 observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
                                 return nil
                             }
                             // Track aliases for this product
                             aliasTracker.addAlias(depAlias,
-                                                  of: depName,
-                                                  for: prodRef.name,
-                                                  from: PackageIdentity.plain(prodPkg),
-                                                  in: packageBuilder.package.identity)
+                                                  target: depName,
+                                                  product: prodRef.name,
+                                                  originPackage: PackageIdentity.plain(prodPkg),
+                                                  consumingPackage: packageBuilder.package.identity)
                         }
                     }
                 }
@@ -663,10 +667,10 @@ private func resolveModuleAliases(with packageBuilders: [ResolvedPackageBuilder]
 
     // Track targets that need module aliases for each package
     for packageBuilder in packageBuilders {
-        for prod in packageBuilder.package.products {
-            var list = prod.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target?.name}
-            list.append(contentsOf: prod.targets.map{$0.name})
-            aliasTracker.addAliasesForTargets(list, for: prod.name, in: packageBuilder.package.identity)
+        for produdct in packageBuilder.package.products {
+            var list = produdct.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target?.name}
+            list.append(contentsOf: produdct.targets.map{$0.name})
+            aliasTracker.addAliasesForTargets(list, product: produdct.name, package: packageBuilder.package.identity)
         }
     }
 
@@ -687,11 +691,11 @@ private class ModuleAliasTracker {
     init() {}
 
     func addAlias(_ alias: String,
-                  of targetName: String,
-                  for product: String,
-                  from originPackage: PackageIdentity,
-                  in parentPackage: PackageIdentity) {
-        let model = ModuleAliasModel(name: targetName, alias: alias, originPackage: originPackage, parentPackage: parentPackage)
+                  target: String,
+                  product: String,
+                  originPackage: PackageIdentity,
+                  consumingPackage: PackageIdentity) {
+        let model = ModuleAliasModel(name: target, alias: alias, originPackage: originPackage, consumingPackage: consumingPackage)
         aliasMap[originPackage, default: [:]][product, default: []].append(model)
     }
 
@@ -707,8 +711,8 @@ private class ModuleAliasTracker {
     }
 
     func addAliasesForTargets(_ targets: [String],
-                              for product: String,
-                              in package: PackageIdentity) {
+                              product: String,
+                              package: PackageIdentity) {
         
         let aliases = aliasMap[package]?[product]
         for targetName in targets {
@@ -722,10 +726,10 @@ private class ModuleAliasTracker {
         }
     }
 
-    func alias(of targetName: String,
-               in originPackage: PackageIdentity) -> String? {
+    func alias(target: String,
+               originPackage: PackageIdentity) -> String? {
         if let aliasDict = aliasMap[originPackage] {
-            let models = aliasDict.values.flatMap{$0}.filter { $0.name == targetName }
+            let models = aliasDict.values.flatMap{$0}.filter { $0.name == target }
             // this func only checks if there's any existing alias so
             // just return the first alias value
             return models.first?.alias
@@ -752,7 +756,7 @@ private class ModuleAliasTracker {
         for child in children {
             if let parentMap = idTargetToAliases[cur],
                let childMap = idTargetToAliases[child] {
-                for (parentTarget, parentAliases) in parentMap {
+                for (_, parentAliases) in parentMap {
                     for parentModel in parentAliases {
                         for (childTarget, childAliases) in childMap {
                             if !parentMap.keys.contains(childTarget),
@@ -779,13 +783,13 @@ private class ModuleAliasModel {
     let name: String
     var alias: String
     let originPackage: PackageIdentity
-    let parentPackage: PackageIdentity
+    let consumingPackage: PackageIdentity
 
-    init(name: String, alias: String, originPackage: PackageIdentity, parentPackage: PackageIdentity) {
+    init(name: String, alias: String, originPackage: PackageIdentity, consumingPackage: PackageIdentity) {
         self.name = name
         self.alias = alias
         self.originPackage = originPackage
-        self.parentPackage = parentPackage
+        self.consumingPackage = consumingPackage
     }
 }
 
@@ -881,9 +885,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
         // Diagnose if any target in this product uses an unsafe flag.
         for target in try product.recursiveTargetDependencies() {
-            let declarations = target.underlyingTarget.buildSettings.assignments.keys
-            for decl in declarations {
-                if BuildSettings.Declaration.unsafeSettings.contains(decl) {
+            for (decl, assignments) in target.underlyingTarget.buildSettings.assignments {
+                let flags = assignments.flatMap(\.values)
+                if BuildSettings.Declaration.unsafeSettings.contains(decl) && !flags.isEmpty {
                     self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }

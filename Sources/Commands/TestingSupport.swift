@@ -1,14 +1,17 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
+import PackageModel
 import SPMBuildCore
 import TSCBasic
 import Workspace
@@ -126,7 +129,7 @@ enum TestingSupport {
         }
         #if !os(macOS)
         #if os(Windows)
-        if let location = toolchain.configuration.xctestPath {
+        if let location = toolchain.xctestPath {
             env.prependPath("Path", value: location.pathString)
         }
         #endif

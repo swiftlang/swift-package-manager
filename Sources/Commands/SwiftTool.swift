@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import ArgumentParser
 import Basics
@@ -23,11 +25,11 @@ import TSCBasic
 import Workspace
 import XCBuildSupport
 
-#if os(Windows)
+#if canImport(WinSDK)
 import WinSDK
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
 #endif
 
@@ -286,6 +288,17 @@ extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 }
 
+/// A safe wrapper of TSCBasic.exec.
+func exec(path: String, args: [String]) throws -> Never {
+    #if !os(Windows)
+    // On platforms other than Windows, signal(SIGINT, SIG_IGN) is used for handling SIGINT by DispatchSourceSignal,
+    // but this process is about to be replaced by exec, so SIG_IGN must be returned to default.
+    signal(SIGINT, SIG_DFL)
+    #endif
+
+    try TSCBasic.exec(path: path, args: args)
+}
+
 public class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
@@ -403,7 +416,6 @@ public class SwiftTool {
             SwiftTool.cancellator = cancellator
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 try? SwiftTool.cancellator?.cancel(deadline: .now() + .seconds(30))
 
                 // Reset the handler.
@@ -423,7 +435,6 @@ public class SwiftTool {
                 interruptSignalSource.cancel()
 
                 // Terminate all processes on receiving an interrupt signal.
-                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 try? cancellator.cancel(deadline: .now() + .seconds(30))
 
                 #if os(macOS) || os(OpenBSD)
@@ -476,7 +487,7 @@ public class SwiftTool {
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
         if options.locations._deprecated_buildPath != nil {
-            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-space-path' instead")
+            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-path' instead")
         }
 
         if options.locations._deprecated_chdir != nil {
@@ -668,15 +679,17 @@ public class SwiftTool {
         }
     }
     
-    func getPluginScriptRunner() throws -> PluginScriptRunner {
-        let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
+    func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
+        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
-            toolchain: self.getHostToolchain().configuration,
+            toolchain: self.getHostToolchain(),
             enableSandbox: !self.options.security.shouldDisableSandbox
         )
+        // register the plugin runner system with the cancellation handler
+        self.cancellator.register(name: "plugin runner", handler: pluginScriptRunner)
         return pluginScriptRunner
     }
 
@@ -741,6 +754,7 @@ public class SwiftTool {
             packageGraphLoader: customPackageGraphLoader ?? graphLoader,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
+            disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
             outputStream: customOutputStream ?? self.outputStream,
             logLevel: customLogLevel ?? self.logLevel,
             fileSystem: self.fileSystem,
@@ -766,19 +780,13 @@ public class SwiftTool {
         let buildSystem: BuildSystem
         switch options.build.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-
-            buildSystem = try BuildOperation(
-                buildParameters: customBuildParameters ?? self.buildParameters(),
-                cacheBuildManifest: self.canUseCachedBuildManifest(),
-                packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                pluginScriptRunner: self.getPluginScriptRunner(),
-                pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
-                outputStream: customOutputStream ?? self.outputStream,
-                logLevel: self.logLevel,
-                fileSystem: self.fileSystem,
-                observabilityScope: customObservabilityScope ?? self.observabilityScope
+            buildSystem = try self.createBuildOperation(
+                explicitProduct: explicitProduct,
+                cacheBuildManifest: true,
+                customBuildParameters: customBuildParameters,
+                customPackageGraphLoader: customPackageGraphLoader,
+                customOutputStream: customOutputStream,
+                customObservabilityScope: customObservabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
@@ -916,7 +924,7 @@ public class SwiftTool {
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                toolchain: self.getHostToolchain().configuration,
+                toolchain: self.getHostToolchain(),
                 isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags

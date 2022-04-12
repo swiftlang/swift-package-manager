@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Dispatch
 import struct Foundation.Data
@@ -325,78 +327,23 @@ private struct BoringSSLOCSPClient {
 
             group.enter()
             httpClient.post(url, body: requestData, headers: headers, options: options) { result in
-                defer { group.leave() }
-
                 switch result {
-                case .failure(let error):
-                    results.append(.failure(error))
-                case .success(let response):
-                    guard let responseData = response.body else {
-                        results.append(.failure(OCSPError.emptyResponseBody))
-                        return
-                    }
-
-                    let bytes = responseData.copyBytes()
-
-                    // Convert response to bio then OCSP response
-                    let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
-                    defer { CCryptoBoringSSL_BIO_free(bio) }
-                    guard CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0 else {
-                        results.append(.failure(OCSPError.responseConversionFailure))
-                        return
-                    }
-
-                    let response = d2i_OCSP_RESPONSE_bio(bio, nil)
-                    defer { OCSP_RESPONSE_free(response) }
-                    
-                    guard let response = response else {
-                        results.append(.failure(OCSPError.responseConversionFailure))
-                        return
-                    }
-                    
-                    let basicResp = OCSP_response_get1_basic(response)
-                    defer { OCSP_BASICRESP_free(basicResp) }
-                    
-                    guard let basicResp = basicResp else {
-                        results.append(.failure(OCSPError.responseConversionFailure))
-                        return
-                    }
-
-                    // This is just the OCSP response status, not the certificate's status
-                    guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
-                        CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic else {
-                        results.append(.failure(OCSPError.badResponse))
-                        return
-                    }
-
-                    let x509Store = CCryptoBoringSSL_X509_STORE_new()
-                    defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
-
-                    anchorCerts?.forEach { anchorCert in
-                        _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
-                    }
-
-                    // Verify the OCSP response to make sure we can trust it
-                    guard OCSP_basic_verify(basicResp, nil, x509Store, 0) > 0 else {
-                        results.append(.failure(OCSPError.responseVerificationFailure))
-                        return
-                    }
-
-                    // Inspect the OCSP response
-                    let basicRespData = basicResp.pointee.tbsResponseData.pointee
-                    for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
-                        guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
-                            let certStatus = singleResp.pointee.certStatus else {
-                            results.append(.failure(OCSPError.badResponse))
-                            return
+                case .failure:
+                    // Try GET in case POST fails - the URL is OCSP URL + base64 encoded request
+                    let encodedRequest = requestData.base64EncodedString()
+                    httpClient.get(url.appendingPathComponent(encodedRequest)) { getResult in
+                        defer { group.leave() }
+                        
+                        switch getResult {
+                        case .failure(let error):
+                            results.append(.failure(error))
+                        case .success(let response):
+                            processResponse(response, cacheKey: cacheKey)
                         }
-
-                        // Is the certificate in good status?
-                        let isCertGood = certStatus.pointee.type == V_OCSP_CERTSTATUS_GOOD
-                        results.append(.success(isCertGood))
-                        self.resultCache[cacheKey] = CacheValue(isCertGood: isCertGood, timestamp: DispatchTime.now())
-                        break
                     }
+                case .success(let response):
+                    defer { group.leave() }
+                    processResponse(response, cacheKey: cacheKey)
                 }
             }
         }
@@ -408,6 +355,75 @@ private struct BoringSSLOCSPClient {
                 return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
             }
             wrappedCallback(.success(()))
+        }
+                    
+        func processResponse(_ response: HTTPClient.Response, cacheKey: CacheKey) {
+            guard let responseData = response.body else {
+                results.append(.failure(OCSPError.emptyResponseBody))
+                return
+            }
+
+            let bytes = responseData.copyBytes()
+                        
+            // Convert response to bio then OCSP response
+            let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
+            defer { CCryptoBoringSSL_BIO_free(bio) }
+            guard CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0 else {
+                results.append(.failure(OCSPError.responseConversionFailure))
+                return
+            }
+
+            let response = d2i_OCSP_RESPONSE_bio(bio, nil)
+            defer { OCSP_RESPONSE_free(response) }
+            
+            guard let response = response else {
+                results.append(.failure(OCSPError.responseConversionFailure))
+                return
+            }
+            
+            let basicResp = OCSP_response_get1_basic(response)
+            defer { OCSP_BASICRESP_free(basicResp) }
+            
+            guard let basicResp = basicResp else {
+                results.append(.failure(OCSPError.responseConversionFailure))
+                return
+            }
+
+            // This is just the OCSP response status, not the certificate's status
+            guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
+                CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic else {
+                results.append(.failure(OCSPError.badResponse))
+                return
+            }
+
+            let x509Store = CCryptoBoringSSL_X509_STORE_new()
+            defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
+
+            anchorCerts?.forEach { anchorCert in
+                _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
+            }
+
+            // Verify the OCSP response to make sure we can trust it
+            guard OCSP_basic_verify(basicResp, nil, x509Store, 0) > 0 else {
+                results.append(.failure(OCSPError.responseVerificationFailure))
+                return
+            }
+
+            // Inspect the OCSP response
+            let basicRespData = basicResp.pointee.tbsResponseData.pointee
+            for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
+                guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
+                    let certStatus = singleResp.pointee.certStatus else {
+                    results.append(.failure(OCSPError.badResponse))
+                    return
+                }
+
+                // Is the certificate in good status?
+                let isCertGood = certStatus.pointee.type == V_OCSP_CERTSTATUS_GOOD
+                results.append(.success(isCertGood))
+                self.resultCache[cacheKey] = CacheValue(isCertGood: isCertGood, timestamp: DispatchTime.now())
+                break
+            }
         }
     }
 

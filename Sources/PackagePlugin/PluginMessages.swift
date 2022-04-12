@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 /// A message that the host can send to the plugin, including definitions of the corresponding serializable data structures.
 enum HostToPluginMessage: Codable {
@@ -163,6 +165,7 @@ enum HostToPluginMessage: Codable {
                     enum SourceModuleKind: String, Codable {
                         case generic
                         case executable
+                        case snippet
                         case test
                     }
 

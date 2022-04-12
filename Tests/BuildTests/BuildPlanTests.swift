@@ -1,17 +1,19 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 @testable import Build
-@testable import PackageLoading
-import PackageModel
+import PackageLoading
+@testable import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
@@ -30,8 +32,8 @@ let hostTriple = UserToolchain.default.triple
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-private struct MockToolchain: SPMBuildCore.Toolchain {
-    let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
+private struct MockToolchain: PackageModel.Toolchain {
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
@@ -63,7 +65,7 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
-        toolchain: SPMBuildCore.Toolchain = MockToolchain(),
+        toolchain: PackageModel.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
@@ -1682,6 +1684,96 @@ final class BuildPlanTests: XCTestCase {
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
+        }
+    }
+
+    func testModuleAliasingEmptyAlias() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": ""]
+                                                                 ),
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("empty or invalid module alias; ['Logging': '']"), severity: .error)
+        }
+    }
+
+    func testModuleAliasingInvalidIdentifierAlias() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "P$0%^#@"]
+                                                                 ),
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("empty or invalid module alias; ['Logging': 'P$0%^#@']"), severity: .error)
         }
     }
 
@@ -4077,7 +4169,7 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    private func sanitizerTest(_ sanitizer: SPMBuildCore.Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",

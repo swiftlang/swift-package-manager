@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageFingerprint
@@ -136,7 +138,7 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+                let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
 
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
@@ -198,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
@@ -819,7 +821,7 @@ final class WorkspaceTests: XCTestCase {
 
         let bPackagePath = workspace.pathToPackage(withName: "B")
         let bRef = PackageReference.localSourceControl(identity: PackageIdentity(path: bPackagePath), path: bPackagePath)
-        
+
         let cPackagePath = workspace.pathToPackage(withName: "C")
         let cRef = PackageReference.localSourceControl(identity: PackageIdentity(path: cPackagePath), path: cPackagePath)
 
@@ -1679,7 +1681,7 @@ final class WorkspaceTests: XCTestCase {
         let buildArtifact = ws.location.scratchDirectory.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
-        // Sanity checks.
+        // Double checks.
         XCTAssert(fs.exists(buildArtifact))
         XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
 
@@ -3811,7 +3813,7 @@ final class WorkspaceTests: XCTestCase {
         // Use the same revision (hash) for "foo" to indicate they are the same
         // package despite having different URLs.
         let fooRevision = String((UUID().uuidString + UUID().uuidString).prefix(40))
-        
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -6120,6 +6122,62 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testArtifactDownloadServerError() throws {
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
+
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                // mimics URLSession behavior which write the file even if sends an error message
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: "not found",
+                    atomically: true
+                )
+
+                completion(.success(.notFound()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .contains("failed downloading 'https://a.com/a.zip' which is required by binary target 'A1': badResponseStatusCode(404)"), severity: .error)
+            }
+        }
+
+        // make sure artifact downloaded is deleted
+        XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+    }
+
     func testArtifactDownloaderOrArchiverError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -6393,6 +6451,97 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), severity: .error)
             }
+        }
+    }
+
+    func testArtifactChecksumChangeURLChange() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a.zip":
+                    contents = [0xA1]
+                case "b.zip":
+                    contents = [0xB1]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a.zip":
+                    name = "A.xcframework"
+                case "b.zip":
+                    name = "A.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/b.zip",
+                                   checksum: "b1"),
+                    ]
+                )
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        let rootPath = workspace.pathToRoot(withName: "Root")
+        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+
+        try workspace.set(
+            managedArtifacts: [
+                .init(
+                    packageRef: rootRef,
+                    targetName: "A",
+                    source: .remote(
+                        url: "https://a.com/a.zip",
+                        checksum: "a1"
+                    ),
+                    path: workspace.artifactsDir.appending(components: "Root", "A.xcframework")
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -6879,19 +7028,19 @@ final class WorkspaceTests: XCTestCase {
 
         }
     }
-    
+
     func testArtifactDownloadStripFirstComponent() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        
+
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
             do {
                 guard case .download(let fileSystem, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
-                
+
                 let contents: [UInt8]
                 switch request.url.lastPathComponent {
                 case "flat.zip":
@@ -6903,20 +7052,20 @@ final class WorkspaceTests: XCTestCase {
                 default:
                     throw StringError("unexpected url \(request.url)")
                 }
-                
+
                 try fileSystem.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
                 )
-                
+
                 downloads[request.url] = destination
                 completion(.success(.okay()))
             } catch {
                 completion(.failure(error))
             }
         })
-        
+
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
@@ -6934,13 +7083,13 @@ final class WorkspaceTests: XCTestCase {
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
-                
+
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
             }
         })
-        
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -6975,7 +7124,7 @@ final class WorkspaceTests: XCTestCase {
                 archiver: archiver
             )
         )
-        
+
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
@@ -6999,7 +7148,7 @@ final class WorkspaceTests: XCTestCase {
                 archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
-        
+
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("root"),
                          targetName: "flat",
@@ -7792,23 +7941,6 @@ final class WorkspaceTests: XCTestCase {
                 result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), severity: .error)
             }
         }
-    }
-
-    func testAndroidCompilerFlags() throws {
-        let target = try Triple("x86_64-unknown-linux-android")
-        let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
-        let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
-
-        let destination = Destination(
-            target: target,
-            sdk: sdk,
-            binDir: toolchainPath.appending(components: "usr", "bin")
-        )
-
-        XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
-            // Needed when cross‐compiling for Android. 2020‐03‐01
-            "-sdk", sdk.pathString,
-        ])
     }
 
     func testDuplicateDependencyIdentityWithNameAtRoot() throws {
@@ -9362,7 +9494,7 @@ final class WorkspaceTests: XCTestCase {
                     """
             }
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
             let sandbox = path.appending(component: "ws")
             let workspace = try Workspace(
                 fileSystem: fs,
@@ -9554,7 +9686,7 @@ final class WorkspaceTests: XCTestCase {
                 result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
             }
         }
-        
+
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.5.1")))
             result.check(dependency: "bar", at: .checkout(.version("2.2.0")))

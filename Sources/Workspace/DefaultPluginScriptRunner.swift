@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
@@ -18,21 +20,21 @@ import TSCBasic
 import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
-public struct DefaultPluginScriptRunner: PluginScriptRunner {
-    let fileSystem: FileSystem
-    let cacheDir: AbsolutePath
-    let toolchain: ToolchainConfiguration
-    let enableSandbox: Bool
+public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
+    private let fileSystem: FileSystem
+    private let cacheDir: AbsolutePath
+    private let toolchain: UserToolchain
+    private let enableSandbox: Bool
+    private let cancellator: Cancellator
 
-    private static var _hostTriple = ThreadSafeBox<Triple>()
-    private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
+        self.cancellator = Cancellator(observabilityScope: .none)
     }
     
     /// Public protocol function that starts compiling the plugin script to an executable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
@@ -121,11 +123,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 
     public var hostTriple: Triple {
-        return Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
-        }
+        return self.toolchain.triple
     }
-    
+
     /// Helper function that starts compiling a plugin script asynchronously and when done, calls the completion handler with the compilation results (including the path of the compiled plugin executable and with any emitted diagnostics, etc). This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
     fileprivate func compile(
         sources: Sources,
@@ -142,12 +142,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             let execName = sources.root.basename.spm_mangledToC99ExtendedIdentifier()
 
             // Get access to the path containing the PackagePlugin module and library.
-            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
+            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
 
             // We use the toolchain's Swift compiler for compiling the plugin.
-            var command = [self.toolchain.swiftCompilerPath.pathString]
+            var command = [self.toolchain.swiftCompilerPathForManifests.pathString]
 
-            let macOSPackageDescriptionPath: AbsolutePath
             // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             if runtimePath.extension == "framework" {
@@ -156,7 +155,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     "-framework", "PackagePlugin",
                     "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
                 ]
-                macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
             } else {
                 command += [
                     "-L", runtimePath.pathString,
@@ -167,9 +165,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 // so we add runtimePath to PATH when executing the manifest instead
                 command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
                 #endif
-
-                // note: this is not correct for all platforms, but we only actually use it on macOS.
-                macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
             }
 
             #if os(macOS)
@@ -179,18 +174,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             }
             else {
                 // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
-                let swiftSupportLibPath = self.toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+                let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
                 command += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
             }
             #endif
 
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
-            let triple = self.hostTriple
-            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
-            }
-            command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+            let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
+            command += ["-target", "\(self.hostTriple.tripleString(forPlatformVersion: version))"]
             #endif
 
             // Add any extra flags required as indicated by the ManifestLoader.
@@ -357,13 +349,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
         return sdkRootPath
     }
-
-    // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
-    static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
-        let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
-        guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
-        return PlatformVersion(versionString)
-    }
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
@@ -442,34 +427,39 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let stderrPipe = Pipe()
         let stderrLock = Lock()
         var stderrData = Data()
-        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+        let stderrHandler = { (data: Data) in
             // Pass on any available data to the delegate.
-            stderrLock.withLock {
-                let data = fileHandle.availableData
-                if data.isEmpty { return }
-                stderrData.append(contentsOf: data)
-                callbackQueue.async { delegate.handleOutput(data: data) }
-            }
+            if data.isEmpty { return }
+            stderrData.append(contentsOf: data)
+            callbackQueue.async { delegate.handleOutput(data: data) }
+        }
+        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+            // Read and pass on any available free-form text output from the plugin.
+            // We need the lock since we could run concurrently with the termination handler.
+            stderrLock.withLock { stderrHandler(fileHandle.availableData) }
         }
         process.standardError = stderrPipe
         
         // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
-        DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
-            _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.insert(process)
+        guard let cancellationKey = self.cancellator.register(process) else {
+            return callbackQueue.async {
+                completion(.failure(CancellationError()))
+            }
         }
 
         // Set up a handler to deal with the exit of the plugin process.
         process.terminationHandler = { process in
             // Remove the process from the list of currently running ones.
-            DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
-                _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.remove(process)
-            }
+            self.cancellator.deregister(cancellationKey)
 
             // Close the output handle through which we talked to the plugin.
             try? outputHandle.close()
 
             // Read and pass on any remaining free-form text output from the plugin.
-            stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
+            // We need the lock since we could run concurrently with the readability handler.
+            stderrLock.withLock {
+                try? stderrPipe.fileHandleForReading.readToEnd().map{ stderrHandler($0) }
+            }
 
             // Read and pass on any remaining messages from the plugin.
             stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
@@ -506,22 +496,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
 #endif
     }
-    
-    /// Cancels all currently running plugins, resulting in an error code indicating that they were interrupted. This is intended for use when the host process is interrupted.
-    public static func cancelAllRunningPlugins() {
-#if !os(iOS) && !os(watchOS) && !os(tvOS)
-        currentlyRunningPlugins.lock.withLock {
-            currentlyRunningPlugins.processes.forEach{
-                $0.terminate()
-            }
-            currentlyRunningPlugins.processes = []
-        }
-#endif
+
+    public func cancel(deadline: DispatchTime) throws {
+        try self.cancellator.cancel(deadline: deadline)
     }
-    /// Private list of currently running plugin processes and the lock that protects the list.
-#if !os(iOS) && !os(watchOS) && !os(tvOS)
-    private static var currentlyRunningPlugins: (processes: Set<Foundation.Process>, lock: Lock) = (.init(), .init())
-#endif
 }
 
 /// An error encountered by the default plugin runner.

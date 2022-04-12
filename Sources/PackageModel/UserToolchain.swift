@@ -1,22 +1,20 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
-import PackageLoading
-import PackageModel
-import SPMBuildCore
 import TSCBasic
 
 import struct TSCUtility.Triple
-
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -27,19 +25,11 @@ private let hostExecutableSuffix = ""
 public final class UserToolchain: Toolchain {
     public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
 
-    /// The manifest resource provider.
-    public let configuration: ToolchainConfiguration
+    /// The toolchain configuration.
+    private let configuration: ToolchainConfiguration
 
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use swiftCompilerPath instead")
-    public var swiftCompiler: AbsolutePath {
-        get {
-            self.swiftCompilerPath
-        }
-    }
 
     public var extraCCFlags: [String]
 
@@ -47,21 +37,9 @@ public final class UserToolchain: Toolchain {
 
     public var extraCPPFlags: [String]
 
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use configuration instead")
-    public var manifestResources: ToolchainConfiguration {
-        return self.configuration
-    }
-
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
         return self.swiftCompilerPath.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
-    }
-
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use swiftInterpreterPath instead")
-    public var swiftInterpreter: AbsolutePath {
-        return self.swiftInterpreterPath
     }
 
     /// The compilation destination object.
@@ -76,7 +54,12 @@ public final class UserToolchain: Toolchain {
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
+    /// Only use search paths, do not fall back to `xcrun`.
+    let useXcrun: Bool
+
     private var _clangCompiler: AbsolutePath?
+
+    private let environment: EnvironmentVariables
 
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
@@ -99,8 +82,8 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - private utilities
 
-    private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
-        return lookupExecutablePath(filename: ProcessEnv.vars[variable], searchPaths: searchPaths)
+    private static func lookup(variable: String, searchPaths: [AbsolutePath], environment: EnvironmentVariables) -> AbsolutePath? {
+        return lookupExecutablePath(filename: environment[variable], searchPaths: searchPaths)
     }
 
     private static func getTool(_ name: String, binDir: AbsolutePath) throws -> AbsolutePath {
@@ -112,24 +95,26 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
-    private static func findTool(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
+    private static func findTool(_ name: String, envSearchPaths: [AbsolutePath], useXcrun: Bool) throws -> AbsolutePath {
+        if useXcrun {
 #if os(macOS)
-        let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
-        return try AbsolutePath(validating: foundPath)
-#else
+            let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
+            return try AbsolutePath(validating: foundPath)
+#endif
+        }
+
         for folder in envSearchPaths {
             if let toolPath = try? getTool(name, binDir: folder) {
                 return toolPath
             }
         }
         throw InvalidToolchainDiagnostic("could not find \(name)")
-#endif
     }
 
     // MARK: - public API
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    public static func determineSwiftCompilers(binDir: AbsolutePath) throws -> SwiftCompilers {
+    public static func determineSwiftCompilers(binDir: AbsolutePath, useXcrun: Bool, environment: EnvironmentVariables, searchPaths: [AbsolutePath]) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -137,13 +122,7 @@ public final class UserToolchain: Toolchain {
             }
         }
 
-        // Get the search paths from PATH.
-        let envSearchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.path,
-            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
-        )
-
-        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: envSearchPaths) }
+        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: searchPaths, environment: environment) }
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
@@ -162,7 +141,7 @@ public final class UserToolchain: Toolchain {
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
-            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: envSearchPaths)
+            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: searchPaths, useXcrun: useXcrun)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -178,7 +157,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Check in the environment variable first.
-        if let toolPath = UserToolchain.lookup(variable: "CC", searchPaths: self.envSearchPaths) {
+        if let toolPath = UserToolchain.lookup(variable: "CC", searchPaths: self.envSearchPaths, environment: environment) {
             self._clangCompiler = toolPath
             return toolPath
         }
@@ -192,7 +171,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Otherwise, lookup it up on the system.
-        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths)
+        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
         self._clangCompiler = toolPath
         return toolPath
     }
@@ -214,7 +193,7 @@ public final class UserToolchain: Toolchain {
             return lldbPath
         }
         // If that fails, fall back to xcrun, PATH, etc.
-        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths)
+        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
     }
 
     /// Returns the path to llvm-cov tool.
@@ -228,31 +207,31 @@ public final class UserToolchain: Toolchain {
     }
 
     public func getSwiftAPIDigester() throws -> AbsolutePath {
-        if let envValue = UserToolchain.lookup(variable: "SWIFT_API_DIGESTER", searchPaths: self.envSearchPaths) {
+        if let envValue = UserToolchain.lookup(variable: "SWIFT_API_DIGESTER", searchPaths: self.envSearchPaths, environment: environment) {
             return envValue
         }
         return try UserToolchain.getTool("swift-api-digester", binDir: self.swiftCompilerPath.parentDirectory)
     }
 
     public func getSymbolGraphExtract() throws -> AbsolutePath {
-        if let envValue = UserToolchain.lookup(variable: "SWIFT_SYMBOLGRAPH_EXTRACT", searchPaths: self.envSearchPaths) {
+        if let envValue = UserToolchain.lookup(variable: "SWIFT_SYMBOLGRAPH_EXTRACT", searchPaths: self.envSearchPaths, environment: environment) {
             return envValue
         }
         return try UserToolchain.getTool("swift-symbolgraph-extract", binDir: self.swiftCompilerPath.parentDirectory)
     }
 
-    internal static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
+    internal static func deriveSwiftCFlags(triple: Triple, destination: Destination, environment: EnvironmentVariables) -> [String] {
         guard let sdk = destination.sdk else {
             if triple.isWindows() {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
-                if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+                if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
                     var runtime: [String] = []
                     var xctest: [String] = []
                     var extraSwiftCFlags: [String] = []
 
-                    if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
+                    if let settings = WindowsSDKSettings(reading: sdkroot.appending(component: "SDKSettings.plist"),
                                                          diagnostics: nil, filesystem: localFileSystem) {
                         switch settings.defaults.runtime {
                         case .multithreadedDebugDLL:
@@ -266,33 +245,51 @@ public final class UserToolchain: Toolchain {
                         }
                     }
 
-                    if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
-                       let root = try? AbsolutePath(validating: DEVELOPER_DIR)
-                        .appending(component: "Platforms")
-                        .appending(component: "Windows.platform") {
-                        if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
-                                                          diagnostics: nil, filesystem: localFileSystem) {
-                            let path: AbsolutePath =
-                            root.appending(component: "Developer")
-                                .appending(component: "Library")
-                                .appending(component: "XCTest-\(info.defaults.xctestVersion)")
-                            xctest = [
-                                "-I", path.appending(RelativePath("usr/lib/swift/windows/\(triple.arch)")).pathString,
-                                "-L", path.appending(RelativePath("usr/lib/swift/windows")).pathString,
-                            ]
+                    // The layout of the SDK is as follows:
+                    //
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+                    // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+                    //
+                    // SDKROOT points to [PLATFORM].sdk
+                    let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
 
-                            extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
+                    if let info = WindowsPlatformInfo(reading: platform.appending(component: "Info.plist"),
+                                                      diagnostics: nil, filesystem: localFileSystem) {
+                        let installation: AbsolutePath =
+                                platform.appending(component: "Developer")
+                                        .appending(component: "Library")
+                                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+
+                        xctest = [
+                            "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                            "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                        ]
+
+                        // Migration Path
+                        //
+                        // In order to support multiple parallel installations
+                        // of an SDK, we need to ensure that we can have all the
+                        // architecture variant libraries available.  Prior to
+                        // this getting enabled (~5.7), we always had a singular
+                        // installed SDK.  Prefer the new variant which has an
+                        // architecture subdirectory in `bin` if available.
+                        let implib: AbsolutePath =
+                            AbsolutePath("usr/lib/swift/windows/XCTest.lib", relativeTo: installation)
+                        if localFileSystem.exists(implib) {
+                            xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
+
+                        extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
                     }
 
-                    return [ "-sdk", root.pathString, ] + runtime + xctest + extraSwiftCFlags
+                    return [ "-sdk", sdkroot.pathString, ] + runtime + xctest + extraSwiftCFlags
                 }
             }
 
             return destination.extraSwiftCFlags
         }
 
-        return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
+        return (triple.isDarwin() || triple.isAndroid() || triple.isWASI() || triple.isWindows()
                 ? ["-sdk", sdk.pathString]
                 : [])
         + destination.extraSwiftCFlags
@@ -300,19 +297,32 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - initializer
 
-    public init(destination: Destination, environment: EnvironmentVariables = .process()) throws {
-        self.destination = destination
+    public enum SearchStrategy {
+        case `default`
+        case custom(searchPaths: [AbsolutePath], useXcrun: Bool = true)
+    }
 
-        // Get the search paths from PATH.
-        self.envSearchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.path,
-            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
-        )
+    public init(destination: Destination, environment: EnvironmentVariables = .process(), searchStrategy: SearchStrategy = .default, customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil) throws {
+        self.destination = destination
+        self.environment = environment
+
+        switch searchStrategy {
+        case .default:
+            // Get the search paths from PATH.
+            self.envSearchPaths = getEnvSearchPaths(
+                pathString: environment.path,
+                currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+            )
+            self.useXcrun = true
+        case .custom(let searchPaths, let useXcrun):
+            self.envSearchPaths = searchPaths
+            self.useXcrun = useXcrun
+        }
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
         self.swiftCompilerPath = swiftCompilers.compile
         self.archs = destination.archs
 
@@ -328,7 +338,7 @@ public final class UserToolchain: Toolchain {
 
         self.triple = triple
 
-        self.extraSwiftCFlags = Self.deriveSwiftCFlags(triple: triple, destination: destination)
+        self.extraSwiftCFlags = Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
 
         if let sdk = destination.sdk {
             self.extraCCFlags = [
@@ -342,7 +352,7 @@ public final class UserToolchain: Toolchain {
         }
 
         if triple.isWindows() {
-            if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+            if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
                                                      diagnostics: nil, filesystem: localFileSystem) {
                     switch settings.defaults.runtime {
@@ -370,13 +380,19 @@ public final class UserToolchain: Toolchain {
             }
         }
 
-        let swiftPMLibrariesLocation = try Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination)
+        let swiftPMLibrariesLocation = try customLibrariesLocation ?? Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination, environment: environment)
 
-        let xctestPath = try Self.deriveXCTestPath(triple: triple, environment: environment)
+        let xctestPath: AbsolutePath?
+        if case let .custom(_, useXcrun) = searchStrategy, !useXcrun {
+            xctestPath = nil
+        } else {
+            xctestPath = try Self.deriveXCTestPath(destination: self.destination, triple: triple, environment: environment)
+        }
 
         self.configuration = .init(
             swiftCompilerPath: swiftCompilers.manifest,
             swiftCompilerFlags: self.extraSwiftCFlags,
+            swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.destination.sdk,
             xctestPath: xctestPath
@@ -385,11 +401,12 @@ public final class UserToolchain: Toolchain {
 
     private static func deriveSwiftPMLibrariesLocation(
         swiftCompilerPath: AbsolutePath,
-        destination: Destination
+        destination: Destination,
+        environment: EnvironmentVariables
     ) throws -> ToolchainConfiguration.SwiftPMLibrariesLocation? {
         // Look for an override in the env.
-        if let pathEnvVariable = ProcessEnv.vars["SWIFTPM_CUSTOM_LIBS_DIR"] ?? ProcessEnv.vars["SWIFTPM_PD_LIBS"] {
-            if ProcessEnv.vars["SWIFTPM_PD_LIBS"] != nil {
+        if let pathEnvVariable = environment["SWIFTPM_CUSTOM_LIBS_DIR"] ?? environment["SWIFTPM_PD_LIBS"] {
+            if environment["SWIFTPM_PD_LIBS"] != nil {
                 print("SWIFTPM_PD_LIBS was deprecated in favor of SWIFTPM_CUSTOM_LIBS_DIR")
             }
             // We pick the first path which exists in an environment variable
@@ -428,16 +445,16 @@ public final class UserToolchain: Toolchain {
         let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
         if localFileSystem.exists(manifestFrameworksPath) && localFileSystem.exists(pluginFrameworksPath) {
             return .init(
-                manifestAPI: manifestFrameworksPath,
-                pluginAPI: pluginFrameworksPath
+                manifestLibraryPath: manifestFrameworksPath,
+                pluginLibraryPath: pluginFrameworksPath
             )
         }
 
         // this tests if we are debugging / testing SwiftPM with SwiftPM
         if localFileSystem.exists(applicationPath.appending(component: "swift-package")) {
             return .init(
-                manifestAPI: applicationPath,
-                pluginAPI: applicationPath
+                manifestLibraryPath: applicationPath,
+                pluginLibraryPath: applicationPath
             )
         }
 
@@ -446,7 +463,7 @@ public final class UserToolchain: Toolchain {
     }
 
     // TODO: We should have some general utility to find tools.
-    private static func deriveXCTestPath(triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
+    private static func deriveXCTestPath(destination: Destination, triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
         if triple.isDarwin() {
             // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
@@ -454,21 +471,108 @@ public final class UserToolchain: Toolchain {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {
-            if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
-               let root = try? AbsolutePath(validating: DEVELOPER_DIR)
-                .appending(component: "Platforms")
-                .appending(component: "Windows.platform") {
-                if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
-                                                  diagnostics: nil,
-                                                  filesystem: localFileSystem) {
-                    return root.appending(component: "Developer")
-                        .appending(component: "Library")
-                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
-                        .appending(component: "usr")
-                        .appending(component: "bin")
+            let sdkroot: AbsolutePath
+
+            if let sdk = destination.sdk {
+                sdkroot = sdk
+            } else if let SDKROOT = environment["SDKROOT"], let sdk = try? AbsolutePath(validating: SDKROOT) {
+                sdkroot = sdk
+            } else {
+                return .none
+            }
+
+            // The layout of the SDK is as follows:
+            //
+            // Library/Developer/Platforms/[PLATFORM].platform/Developer/Library/XCTest-[VERSION]/...
+            // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
+            //
+            // SDKROOT points to [PLATFORM].sdk
+            let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
+
+            if let info = WindowsPlatformInfo(reading: platform.appending(component: "Info.plist"),
+                                              diagnostics: nil, filesystem: localFileSystem) {
+                let xctest: AbsolutePath =
+                        platform.appending(component: "Developer")
+                                .appending(component: "Library")
+                                .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+
+                // Migration Path
+                //
+                // In order to support multiple parallel installations of an
+                // SDK, we need to ensure that we can have all the architecture
+                // variant libraries available.  Prior to this getting enabled
+                // (~5.7), we always had a singular installed SDK.  Prefer the
+                // new variant which has an architecture subdirectory in `bin`
+                // if available.
+                switch triple.arch {
+                case .x86_64, .x86_64h:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin64")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                case .i686:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin32")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                case .armv7:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin32a")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                case .arm64:
+                    let path: AbsolutePath =
+                        xctest.appending(component: "usr")
+                              .appending(component: "bin64a")
+                    if localFileSystem.exists(path) {
+                        return path
+                    }
+
+                default:
+                    // Fallback to the old-style layout.  We should really
+                    // report an error in this case - this architecture is
+                    // unavailable.
+                    break
                 }
+
+                // Assume that we are in the old-style layout.
+                return xctest.appending(component: "usr")
+                             .appending(component: "bin")
             }
         }
         return .none
+    }
+
+    public var sdkRootPath: AbsolutePath? {
+        return configuration.sdkRootPath
+    }
+
+    public var swiftCompilerEnvironment: EnvironmentVariables {
+        return configuration.swiftCompilerEnvironment
+    }
+
+    public var swiftCompilerFlags: [String] {
+        return configuration.swiftCompilerFlags
+    }
+
+    public var swiftCompilerPathForManifests: AbsolutePath {
+        return configuration.swiftCompilerPath
+    }
+
+    public var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation {
+        return configuration.swiftPMLibrariesLocation
+    }
+
+    public var xctestPath: AbsolutePath? {
+        return configuration.xctestPath
     }
 }

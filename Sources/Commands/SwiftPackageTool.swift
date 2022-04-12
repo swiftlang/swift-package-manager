@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import ArgumentParser
 import Basics
@@ -1010,11 +1012,9 @@ extension SwiftPackageTool {
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory.appending(component: plugin.name)
 
             // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
-            let pluginScriptRunner = DefaultPluginScriptRunner(
-                fileSystem: swiftTool.fileSystem,
-                cacheDir: pluginsDir.appending(component: "cache"),
-                toolchain: try swiftTool.getToolchain().configuration,
-                enableSandbox: !swiftTool.options.security.shouldDisableSandbox)
+            let pluginScriptRunner = try swiftTool.getPluginScriptRunner(
+                customPluginsDir: pluginsDir
+            )
 
             // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
             let outputDir = pluginsDir.appending(component: "outputs")

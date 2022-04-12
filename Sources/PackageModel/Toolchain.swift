@@ -1,19 +1,20 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import TSCBasic
-import PackageModel
 
 public protocol Toolchain {
     /// Path of the `swiftc` compiler.
-    var swiftCompiler: AbsolutePath { get }
+    var swiftCompilerPath: AbsolutePath { get }
 
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get }
@@ -42,11 +43,11 @@ extension Toolchain {
     }
 
     public var macosSwiftStdlib: AbsolutePath { 
-        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib/swift/macosx"))
+        return AbsolutePath("../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 
     public var toolchainLibDir: AbsolutePath {
         // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-        return resolveSymlinks(swiftCompiler).appending(RelativePath("../../lib"))
+        return AbsolutePath("../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
     }
 }

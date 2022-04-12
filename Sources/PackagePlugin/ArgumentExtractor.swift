@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 /// A rudimentary helper for extracting options and flags from a string list representing command line arguments. The idea is to extract all known options and flags, leaving just the positional arguments. This does not handle well the case in which positional arguments (or option argument values) happen to have the same name as an option or a flag. It only handles the long `--<name>` form of options, but it does respect `--` as an indication that all remaining arguments are positional.
 public struct ArgumentExtractor {
@@ -38,6 +40,7 @@ public struct ArgumentExtractor {
             else if arg.starts(with: "--\(name)=") {
                 arg.removeFirst(2 + name.count + 1)
                 values.append(arg)
+                args.remove(at: idx)
             }
             else {
                 idx += 1

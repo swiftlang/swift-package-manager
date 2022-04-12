@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 /// A version according to the semantic versioning specification.
 ///
@@ -15,7 +17,7 @@
 /// package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 /// requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
 /// [semver.org](www.semver.org).
-/// 
+///
 /// **The Major Version**
 ///
 /// The first digit of a version, or  *major version*, signifies breaking changes to the API that require
@@ -36,22 +38,22 @@
 /// This allows clients to benefit from bugfixes to your package without incurring
 /// any maintenance burden.
 public struct Version {
-    
+
     /// The major version according to the semantic versioning standard.
     public let major: Int
-    
+
     /// The minor version according to the semantic versioning standard.
     public let minor: Int
-    
+
     /// The patch version according to the semantic versioning standard.
     public let patch: Int
-    
+
     /// The pre-release identifier according to the semantic versioning standard, such as `-beta.1`.
     public let prereleaseIdentifiers: [String]
-    
+
     /// The build metadata of this version according to the semantic versioning standard, such as a commit hash.
     public let buildMetadataIdentifiers: [String]
-    
+
     /// Initializes a version struct with the provided components of a semantic version.
     ///
     /// - Parameters:
@@ -98,32 +100,32 @@ extension Version: Comparable {
     public static func == (lhs: Version, rhs: Version) -> Bool {
         !(lhs < rhs) && !(lhs > rhs)
     }
-    
+
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
-        
+
         if lhsComparators != rhsComparators {
             return lhsComparators.lexicographicallyPrecedes(rhsComparators)
         }
-        
+
         guard lhs.prereleaseIdentifiers.count > 0 else {
             return false // Non-prerelease lhs >= potentially prerelease rhs
         }
-        
+
         guard rhs.prereleaseIdentifiers.count > 0 else {
-            return true // Prerelease lhs < non-prerelease rhs 
+            return true // Prerelease lhs < non-prerelease rhs
         }
-        
+
         for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
             if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
                 continue
             }
-            
+
             // Check if either of the 2 pre-release identifiers is numeric.
             let lhsNumericPrereleaseIdentifier = Int(lhsPrereleaseIdentifier)
             let rhsNumericPrereleaseIdentifier = Int(rhsPrereleaseIdentifier)
-            
+
             if let lhsNumericPrereleaseIdentifier = lhsNumericPrereleaseIdentifier,
                let rhsNumericPrereleaseIdentifier = rhsNumericPrereleaseIdentifier {
                 return lhsNumericPrereleaseIdentifier < rhsNumericPrereleaseIdentifier
@@ -135,7 +137,7 @@ extension Version: Comparable {
                 return lhsPrereleaseIdentifier < rhsPrereleaseIdentifier
             }
         }
-        
+
         return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
 }

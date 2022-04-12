@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageGraph
@@ -263,7 +265,7 @@ class PluginInvocationTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -293,7 +295,7 @@ class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: ToolchainConfiguration.default
+                toolchain: UserToolchain.default
             )
 
             // Try to compile the broken plugin script.

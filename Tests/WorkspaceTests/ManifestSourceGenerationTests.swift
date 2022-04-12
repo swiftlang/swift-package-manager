@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2020 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageGraph
@@ -34,7 +36,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             let manifestPath = packageDir.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, string: manifestContents)
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(
@@ -435,7 +437,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "thisPkg",
             path: .init("/thisPkg"),
-            toolsVersion: .vNext,
+            toolsVersion: .v5_7,
             dependencies: [
                 .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                 .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),

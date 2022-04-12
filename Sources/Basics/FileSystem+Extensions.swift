@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import class Foundation.FileManager
 import struct Foundation.Data
@@ -105,7 +107,7 @@ extension FileSystem {
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
-                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
                     if !self.exists(destination) {
@@ -122,7 +124,7 @@ extension FileSystem {
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
-                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
                     if !self.exists(destination) {

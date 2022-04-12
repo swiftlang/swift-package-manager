@@ -1,4 +1,4 @@
-# This source file is part of the Swift.org open source project
+# This source file is part of the Swift open source project
 #
 # Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
@@ -9,7 +9,6 @@
 add_library(Workspace
   CheckoutState.swift
   DefaultPluginScriptRunner.swift
-  Destination.swift
   Diagnostics.swift
   FileSystemPackageContainer.swift
   InitPackage.swift
@@ -20,12 +19,10 @@ add_library(Workspace
   ResolverPrecomputationProvider.swift
   SourceControlPackageContainer.swift
   ToolsVersionSpecificationRewriter.swift
-  UserToolchain.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
   Workspace+Configuration.swift
-  Workspace+State.swift
-  WindowsToolchainInfo.swift)
+  Workspace+State.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility

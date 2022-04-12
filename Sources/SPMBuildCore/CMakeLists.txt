@@ -1,4 +1,4 @@
-# This source file is part of the Swift.org open source project
+# This source file is part of the Swift open source project
 #
 # Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
@@ -19,8 +19,6 @@ add_library(SPMBuildCore
   PluginMessages.swift
   PluginScriptRunner.swift
   PrebuildCommandResult.swift
-  Sanitizers.swift
-  Toolchain.swift
   XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES

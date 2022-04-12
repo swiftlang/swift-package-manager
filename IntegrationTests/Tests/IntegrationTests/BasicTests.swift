@@ -28,7 +28,7 @@ final class BasicTests: XCTestCase {
             XCTAssertMatch(build1Output, .contains("Build complete"))
 
             // Verify that the app works.
-            let dealerOutput = try sh(packagePath.appending(RelativePath(".build/debug/dealer")), "10").stdout
+            let dealerOutput = try sh(AbsolutePath(".build/debug/dealer", relativeTo: packagePath), "10").stdout
             XCTAssertEqual(dealerOutput.filter(\.isPlayingCardSuit).count, 10)
 
             // Verify that the 'git status' is clean after a build.

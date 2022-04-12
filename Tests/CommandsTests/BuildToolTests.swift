@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 @testable import Commands
 import PackageGraph
@@ -315,14 +317,14 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
             let defaultOutput = try execute(["-c", "debug", "--vv"], packagePath: fixturePath).stdout
-            XCTAssertMatch(defaultOutput, .contains(ToolchainConfiguration.default.swiftCompilerPath.pathString))
+            XCTAssertMatch(defaultOutput, .contains(UserToolchain.default.swiftCompilerPath.pathString))
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
             XCTAssertThrowsCommandExecutionError(
                 try execute(
                     ["-c", "debug", "--vv"],
-                    environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString],
+                    environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": UserToolchain.default.swiftCompilerPath.pathString],
                     packagePath: fixturePath
                 )
             ) { error in

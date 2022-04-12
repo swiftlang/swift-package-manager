@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 /// Represents a single package in the graph (either the root or a dependency).
 public struct Package {
@@ -216,6 +218,9 @@ public enum ModuleKind {
     case generic
     /// A module that contains code for an executable's main module.
     case executable
+    /// A module that contains code for a snippet.
+    @available(_PackageDescription, introduced: 999.0)
+    case snippet
     /// A module that contains unit tests.
     case test
 }

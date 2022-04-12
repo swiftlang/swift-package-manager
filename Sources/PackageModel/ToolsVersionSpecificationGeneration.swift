@@ -1,13 +1,15 @@
-// PackageModel/ToolsVersionSpecificationGeneration.swift
+//===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
+//===----------------------------------------------------------------------===//
+
 // -----------------------------------------------------------------------------
 ///
 /// This file contains an extension to `ToolsVersion` that implements the generation of a Swift tools version specification from a `ToolsVersion` instance.
@@ -32,7 +34,7 @@ extension ToolsVersion {
         }
         return "// swift-tools-version:\(self < .v5_4 ? "" : " ")\(versionSpecifier)"
     }
-    
+
     /// The least significant version to round to.
     public enum LeastSignificantVersion {
         /// The patch version is the least significant if and only if it's not zero. Otherwise, the minor version is the least significant.

@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Dispatch
 import Foundation
@@ -51,6 +53,12 @@ public class Cancellator: Cancellable {
     public func register(_ process: TSCBasic.Process) -> RegistrationKey? {
         self.register(name: "\(process.arguments.joined(separator: " "))", handler:  process.terminate)
     }
+
+    #if !os(iOS) && !os(watchOS) && !os(tvOS)
+    public func register(_ process: Foundation.Process) -> RegistrationKey? {
+        self.register(name: "\(process.description)", handler: process.terminate(timeout:))
+    }
+    #endif
 
     public func deregister(_ key: RegistrationKey) {
         self.registry[key] = nil
@@ -133,3 +141,26 @@ extension TSCBasic.Process {
         forceKillThread.join()
     }
 }
+
+#if !os(iOS) && !os(watchOS) && !os(tvOS)
+extension Foundation.Process {
+    fileprivate func terminate(timeout: DispatchTime) {
+        // send graceful shutdown signal (SIGINT)
+        self.interrupt()
+
+        // start a thread to see if we need to terminate more forcibly
+        let forceKillSemaphore = DispatchSemaphore(value: 0)
+        let forceKillThread = TSCBasic.Thread {
+            if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
+                // force kill (SIGTERM)
+                self.terminate()
+            }
+        }
+        forceKillThread.start()
+        self.waitUntilExit()
+        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
+        // join the force-kill thread thread so we don't exit before everything terminates
+        forceKillThread.join()
+    }
+}
+#endif

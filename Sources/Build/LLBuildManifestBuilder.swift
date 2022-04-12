@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright 2015 - 2016 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2015-2016 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageGraph
@@ -116,7 +118,7 @@ extension LLBuildManifestBuilder {
                 derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
             }
             inputs.append(contentsOf: derivedSourceDirPaths.sorted().map{ Node.directoryStructure($0) })
-            
+
             // FIXME: Need to handle version-specific manifests.
             inputs.append(file: package.manifest.path)
 
@@ -226,7 +228,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try target.emitCommandLine();
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        commandLine.append(buildParameters.toolchain.swiftCompilerPath.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: target.fileSystem)
@@ -416,7 +418,7 @@ extension LLBuildManifestBuilder {
         // jobs needed to build this Swift target.
         var commandLine = try targetDescription.emitCommandLine();
         commandLine.append("-driver-use-frontend-path")
-        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        commandLine.append(buildParameters.toolchain.swiftCompilerPath.pathString)
         commandLine.append("-experimental-explicit-module-build")
         let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
@@ -511,7 +513,7 @@ extension LLBuildManifestBuilder {
             name: cmdName,
             inputs: inputs,
             outputs: cmdOutputs,
-            executable: buildParameters.toolchain.swiftCompiler,
+            executable: buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
@@ -658,7 +660,7 @@ extension LLBuildManifestBuilder {
         // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
-            target.buildParameters.toolchain.swiftCompiler.pathString,
+            target.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString
         ]
