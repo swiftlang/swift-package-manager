@@ -233,6 +233,8 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertFileExists(xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
+                XCTAssertNoMatch(contents, .contains("time=\"0.0\""))
             }
         }
     }
