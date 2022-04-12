@@ -57,7 +57,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -102,7 +102,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -128,7 +128,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -189,7 +189,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
             XCTAssertTrue(fs.isDirectory(cachePath.appending(components: package.scopeAndName!.scope.description, package.scopeAndName!.name.description, packageVersion.description)))
 
@@ -212,7 +212,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -235,7 +235,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -308,7 +308,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
             XCTAssertEqual(results.count, concurrency)
             for packageVersion in packageVersions {
-                let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
+                let expectedPath = try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath)
                 XCTAssertEqual(try results[packageVersion]?.get(), expectedPath)
             }
         }
@@ -352,7 +352,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
             XCTAssertEqual(results.count, concurrency / repeatRatio)
             for packageVersion in packageVersions {
-                let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
+                let expectedPath = try AbsolutePath(package.downloadPath(version: packageVersion).pathString, relativeTo: downloadsPath)
                 XCTAssertEqual(try results[packageVersion]?.get(), expectedPath)
             }
         }
