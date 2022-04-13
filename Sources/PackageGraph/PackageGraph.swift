@@ -44,6 +44,12 @@ enum PackageGraphError: Swift.Error {
                                product: String,
                                package: String,
                                aliases: [String])
+
+    /// Invalid sources found (only Swift files allowed) for aliasing a module
+    /// specified by a given target/product/package.
+    case invalidSourcesForModuleAliasing(target: String,
+                                         product: String,
+                                         package: String)
 }
 
 /// A collection of packages.
@@ -227,6 +233,8 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
+        case .invalidSourcesForModuleAliasing(let target, let product, let package):
+            return "invalid sources for module aliasing; to enable it, target '\(target)' in product '\(product)' from package '\(package)' should only contain Swift source files"
         }
     }
 }
