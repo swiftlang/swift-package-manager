@@ -295,7 +295,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Check if we already have a compiled executable and a persisted state (we only recompile if things have changed).
-        let stateFilePath = self.cacheDir.appending(component: execName + ".state")
+        let stateFilePath = self.cacheDir.appending(component: execName + "-state" + ".json")
         var compilationState: PersistedCompilationState? = .none
         if fileSystem.exists(execFilePath) && fileSystem.exists(stateFilePath) {
             do {
