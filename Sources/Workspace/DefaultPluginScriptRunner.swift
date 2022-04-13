@@ -237,7 +237,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // First try to create the output directory.
         do {
-            observabilityScope.emit(debug: "... plugin compilation output directory '\(execFilePath.parentDirectory)'")
+            observabilityScope.emit(debug: "Plugin compilation output directory '\(execFilePath.parentDirectory)'")
             try FileManager.default.createDirectory(at: execFilePath.parentDirectory.asURL, withIntermediateDirectories: true, attributes: nil)
         }
         catch {
@@ -264,7 +264,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         catch {
             // We couldn't compute the hash. We warn about it but proceed with the compilation (a cache miss).
-            observabilityScope.emit(debug: "... couldn't compute hash of plugin compilation inputs (\(error))")
+            observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs (\(error))")
             compilerInputHash = .none
         }
         
@@ -312,7 +312,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
             catch {
                 // We couldn't read the compilation state file even though it existed. We warn about it but proceed with recompiling.
-                observabilityScope.emit(debug: "... couldn't read previous compilation state (\(error))")
+                observabilityScope.emit(debug: "Couldn't read previous compilation state (\(error))")
             }
         }
         
@@ -338,7 +338,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             try fileSystem.removeFileTree(stateFilePath)
         }
         catch {
-            observabilityScope.emit(debug: "... couldn't clean up before invoking compiler (\(error))")
+            observabilityScope.emit(debug: "Couldn't clean up before invoking compiler (\(error))")
         }
         
         // Now invoke the compiler asynchronously.
@@ -362,7 +362,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 }
                 catch {
                     // We couldn't write out the `.state` file. We warn about it but proceed.
-                    observabilityScope.emit(debug: "... couldn't save plugin compilation state (\(error))")
+                    observabilityScope.emit(debug: "Couldn't save plugin compilation state (\(error))")
                 }
 
                 // Return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
