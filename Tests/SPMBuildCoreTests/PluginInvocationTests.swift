@@ -94,8 +94,17 @@ class PluginInvocationTests: XCTestCase {
                 return UserToolchain.default.triple
             }
             
-            func compilePluginScript(sourceFiles: [AbsolutePath], pluginName: String, toolsVersion: ToolsVersion, observabilityScope: ObservabilityScope) throws -> PluginCompilationResult {
-                throw StringError("unimplemented")
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+            ) {
+                callbackQueue.sync {
+                    completion(.failure(StringError("unimplemented")))
+                }
             }
             
             func runPluginScript(
@@ -300,11 +309,15 @@ class PluginInvocationTests: XCTestCase {
 
             // Try to compile the broken plugin script.
             do {
-                let result = try pluginScriptRunner.compilePluginScript(
-                    sourceFiles: buildToolPlugin.sources.paths,
-                    pluginName: buildToolPlugin.name,
-                    toolsVersion: buildToolPlugin.apiVersion,
-                    observabilityScope: observability.topScope)
+                let result = try tsc_await {
+                    pluginScriptRunner.compilePluginScript(
+                        sourceFiles: buildToolPlugin.sources.paths,
+                        pluginName: buildToolPlugin.name,
+                        toolsVersion: buildToolPlugin.apiVersion,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: DispatchQueue.sharedConcurrent,
+                        completion: $0)
+                }
 
                 // This should invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)
@@ -342,11 +355,15 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the fixed plugin.
             let firstExecModTime: Date
             do {
-                let result = try pluginScriptRunner.compilePluginScript(
-                    sourceFiles: buildToolPlugin.sources.paths,
-                    pluginName: buildToolPlugin.name,
-                    toolsVersion: buildToolPlugin.apiVersion,
-                    observabilityScope: observability.topScope)
+                let result = try tsc_await {
+                    pluginScriptRunner.compilePluginScript(
+                        sourceFiles: buildToolPlugin.sources.paths,
+                        pluginName: buildToolPlugin.name,
+                        toolsVersion: buildToolPlugin.apiVersion,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: DispatchQueue.sharedConcurrent,
+                        completion: $0)
+                }
 
                 // This should invoke the compiler and this time should succeed.
                 XCTAssert(result.succeeded == true)
@@ -373,11 +390,15 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the command plugin again without changing its source code.
             let secondExecModTime: Date
             do {
-                let result = try pluginScriptRunner.compilePluginScript(
-                    sourceFiles: buildToolPlugin.sources.paths,
-                    pluginName: buildToolPlugin.name,
-                    toolsVersion: buildToolPlugin.apiVersion,
-                    observabilityScope: observability.topScope)
+                let result = try tsc_await {
+                    pluginScriptRunner.compilePluginScript(
+                        sourceFiles: buildToolPlugin.sources.paths,
+                        pluginName: buildToolPlugin.name,
+                        toolsVersion: buildToolPlugin.apiVersion,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: DispatchQueue.sharedConcurrent,
+                        completion: $0)
+                }
 
                 // This should not invoke the compiler (just reuse the cached executable).
                 XCTAssert(result.succeeded == true)
@@ -418,11 +439,15 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
-                let result = try pluginScriptRunner.compilePluginScript(
-                    sourceFiles: buildToolPlugin.sources.paths,
-                    pluginName: buildToolPlugin.name,
-                    toolsVersion: buildToolPlugin.apiVersion,
-                    observabilityScope: observability.topScope)
+                let result = try tsc_await {
+                    pluginScriptRunner.compilePluginScript(
+                        sourceFiles: buildToolPlugin.sources.paths,
+                        pluginName: buildToolPlugin.name,
+                        toolsVersion: buildToolPlugin.apiVersion,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: DispatchQueue.sharedConcurrent,
+                        completion: $0)
+                }
 
                 // This should invoke the compiler and not use the cache.
                 XCTAssert(result.succeeded == true)
@@ -461,11 +486,15 @@ class PluginInvocationTests: XCTestCase {
 
             // Recompile the plugin again.
             do {
-                let result = try pluginScriptRunner.compilePluginScript(
-                    sourceFiles: buildToolPlugin.sources.paths,
-                    pluginName: buildToolPlugin.name,
-                    toolsVersion: buildToolPlugin.apiVersion,
-                    observabilityScope: observability.topScope)
+                let result = try tsc_await {
+                    pluginScriptRunner.compilePluginScript(
+                        sourceFiles: buildToolPlugin.sources.paths,
+                        pluginName: buildToolPlugin.name,
+                        toolsVersion: buildToolPlugin.apiVersion,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: DispatchQueue.sharedConcurrent,
+                        completion: $0)
+                }
 
                 // This should again invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)

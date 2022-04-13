@@ -26,8 +26,10 @@ public protocol PluginScriptRunner {
         sourceFiles: [AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws -> PluginCompilationResult
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    )
 
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.

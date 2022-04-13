@@ -37,43 +37,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         self.cancellator = Cancellator(observabilityScope: .none)
     }
     
-    /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue after compilation ends.
-    public func compilePluginScript(
-        sourceFiles: [AbsolutePath],
-        pluginName: String,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-    ) {
-        self.compile(
-            sourceFiles: sourceFiles,
-            pluginName: pluginName,
-            toolsVersion: toolsVersion,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion)
-    }
-
-    /// A synchronous version of `compilePluginScript()`.
-    public func compilePluginScript(
-        sourceFiles: [AbsolutePath],
-        pluginName: String,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws -> PluginCompilationResult {
-        // Call the asynchronous version. In our case we don't care which queue the callback occurs on.
-        return try tsc_await { self.compilePluginScript(
-            sourceFiles: sourceFiles,
-            pluginName: pluginName,
-            toolsVersion: toolsVersion,
-            observabilityScope: observabilityScope,
-            callbackQueue: DispatchQueue.sharedConcurrent,
-            completion: $0)
-        }
-    }
-
-    /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
+    /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
         sourceFiles: [AbsolutePath],
         pluginName: String,
@@ -89,7 +53,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         completion: @escaping (Result<Int32, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
-        self.compile(
+        self.compilePluginScript(
             sourceFiles: sourceFiles,
             pluginName: pluginName,
             toolsVersion: toolsVersion,
@@ -129,7 +93,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     }
     
     /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
-    public func compile(
+    public func compilePluginScript(
         sourceFiles: [AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
