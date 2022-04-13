@@ -752,9 +752,9 @@ public final class SwiftTargetBuildDescription {
         }
     }
 
-    // True if the active Swift compiler supports the `-enable-regex-literals` flag.
+    // True if the active Swift compiler supports the `-enable-bare-slash-regex` flag.
     public static var compilerSupportsRegexLiterals: Bool {
-        return self.checkSupportedFrontendFlags(flags: ["enable-regex-literals"], fileSystem: localFileSystem)
+        return self.checkSupportedFrontendFlags(flags: ["enable-bare-slash-regex"], fileSystem: localFileSystem)
     }
 
     /// The arguments needed to compile this target.
@@ -1070,7 +1070,7 @@ public final class SwiftTargetBuildDescription {
         
         // Add arguments to enable regular expression literals if the package is new enough and the compiler supports them.
         if toolsVersion >= .v5_7 && SwiftTargetBuildDescription.compilerSupportsRegexLiterals {
-            flags += ["-enable-regex-literals"]
+            flags += ["-enable-bare-slash-regex"]
          }
 
         // Other Swift flags.

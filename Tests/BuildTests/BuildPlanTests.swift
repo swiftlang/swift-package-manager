@@ -3042,9 +3042,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testEnablingRegexLiterals() throws {
-        // Skip the test if the compiler doens't support `-enable-regex-literals`.
+        // Skip the test if the compiler doens't support `-enable-bare-slash-regex`.
         try XCTSkipUnless(SwiftTargetBuildDescription.checkSupportedFrontendFlags(
-            flags: ["enable-regex-literals"], fileSystem: localFileSystem
+            flags: ["enable-bare-slash-regex"], fileSystem: localFileSystem
         ))
 
         // Construct a test fixture that has a target that sets `SWIFT_ENABLE_REGEX_LITERALS` and another that doesn't.
@@ -3099,11 +3099,11 @@ final class BuildPlanTests: XCTestCase {
             
             // Check that the target that specifies tools version 5.7 does get regex literals.
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, ["-enable-regex-literals"])
+            XCTAssertMatch(exe, ["-enable-bare-slash-regex"])
 
             // Check that the target that specifies tools version 5.6 doesn't get regex literals.
             let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-            XCTAssertNoMatch(lib, ["-enable-regex-literals"])
+            XCTAssertNoMatch(lib, ["-enable-bare-slash-regex"])
         }
     }
 
