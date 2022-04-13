@@ -273,7 +273,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             var commandLine: [String]
             var environment: [String:String]
             var inputHash: String?
-            var duration: Double
             var output: String
             var result: Result
             enum Result: Equatable, Codable {
@@ -343,7 +342,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        let startTime = DispatchTime.now()
         Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -357,7 +355,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     commandLine: commandLine,
                     environment: toolchain.swiftCompilerEnvironment,
                     inputHash: compilerInputHash,
-                    duration: Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0,
                     output: compilerOutput,
                     result: .init(process.exitStatus))
                 do {
