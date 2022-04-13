@@ -366,14 +366,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 }
 
                 // Return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
-                let result = PluginCompilationResult(
+                return PluginCompilationResult(
                     succeeded: compilationState.succeeded,
                     commandLine: commandLine,
                     executableFile: execFilePath,
                     diagnosticsFile: diagFilePath,
                     compilerOutput: compilerOutput,
                     cached: false)
-                return result
             })
         }
     }
