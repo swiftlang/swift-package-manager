@@ -747,7 +747,7 @@ private class ModuleAliasTracker {
                          product: String,
                          package: PackageIdentity) throws {
         for t in targets {
-            if let x = idTargetToAliases[package]?[t.name], !x.isEmpty {
+            if let aliases = idTargetToAliases[package]?[t.name], !aliases.isEmpty {
                 let hasNonSwiftFiles = t.sources.containsNonSwiftFiles
                 if hasNonSwiftFiles {
                     throw PackageGraphError.invalidSourcesForModuleAliasing(target: t.name, product: product, package: package.description)
