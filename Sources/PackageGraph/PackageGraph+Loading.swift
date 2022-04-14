@@ -732,13 +732,13 @@ private class ModuleAliasTracker {
                               product: String,
                               package: PackageIdentity) {
         let aliases = aliasMap[package]?[product]
-        for t in targets {
-            if idTargetToAliases[package]?[t.name] == nil {
-                idTargetToAliases[package, default: [:]][t.name] = []
+        for target in targets {
+            if idTargetToAliases[package]?[target.name] == nil {
+                idTargetToAliases[package, default: [:]][target.name] = []
             }
 
             if let aliases = aliases {
-                idTargetToAliases[package]?[t.name]?.append(contentsOf: aliases)
+                idTargetToAliases[package]?[target.name]?.append(contentsOf: aliases)
             }
         }
     }
@@ -746,11 +746,11 @@ private class ModuleAliasTracker {
     func validateSources(_ targets: [Target],
                          product: String,
                          package: PackageIdentity) throws {
-        for t in targets {
-            if let aliases = idTargetToAliases[package]?[t.name], !aliases.isEmpty {
-                let hasNonSwiftFiles = t.sources.containsNonSwiftFiles
+        for target in targets {
+            if let aliases = idTargetToAliases[package]?[target.name], !aliases.isEmpty {
+                let hasNonSwiftFiles = target.sources.containsNonSwiftFiles
                 if hasNonSwiftFiles {
-                    throw PackageGraphError.invalidSourcesForModuleAliasing(target: t.name, product: product, package: package.description)
+                    throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product, package: package.description)
                 }
             }
         }

@@ -1946,7 +1946,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1979,11 +1979,14 @@ final class BuildPlanTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )
-
-        XCTAssertTrue(observability.diagnostics.contains(where: {
-            $0.message.contains("multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'")
-        }), "expected multiple aliases diagnostics")
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+                    realError.description == "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
+        }
     }
 
     func testModuleAliasingInvalidSourcesUpstream() throws {
