@@ -385,9 +385,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        #if true
-        throw XCTSkip("skipping intermittently failing test (rdar://91024625)")
-        #else
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending(component: "main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
@@ -440,21 +437,25 @@ class MiscellaneousTestCase: XCTestCase {
                 guard let output = String(bytes: bytes, encoding: .utf8) else {
                     return
                 }
+                print(output, terminator: "")
                 self.lock.withLock {
                     switch self.state {
                     case .idle:
-                        self.state = .buffering(output)
+                        self.state = processOutput(output)
                     case .buffering(let buffer):
-                        print(output, terminator: "")
                         let newBuffer = buffer + output
-                        if newBuffer.contains("sleeping") {
-                            self.state = .done
-                            self.sync.leave()
-                        } else {
-                            self.state = .buffering(newBuffer)
-                        }
+                        self.state = processOutput(newBuffer)
                     case .done:
                         break //noop
+                    }
+                }
+
+                func processOutput(_ output: String) -> State {
+                    if output.contains("sleeping") {
+                        self.sync.leave()
+                        return .done
+                    } else {
+                        return .buffering(output)
                     }
                 }
             }
@@ -465,7 +466,6 @@ class MiscellaneousTestCase: XCTestCase {
                 case done
             }
         }
-        #endif
     }
 
     func testReportingErrorFromGitCommand() throws {
