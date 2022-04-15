@@ -235,14 +235,19 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Compile the plugin, getting back a PluginCompilationResult.
         let preparationStepName = "Compiling plugin \(plugin.targetName)..."
         self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
-        let result = try self.pluginScriptRunner.compilePluginScript(
-            sources: plugin.sources,
-            toolsVersion: plugin.toolsVersion,
-            observabilityScope: self.observabilityScope)
+        let result = try tsc_await {
+            self.pluginScriptRunner.compilePluginScript(
+                sourceFiles: plugin.sources.paths,
+                pluginName: plugin.targetName,
+                toolsVersion: plugin.toolsVersion,
+                observabilityScope: self.observabilityScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                completion: $0)
+        }
         if !result.description.isEmpty {
             self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
         }
-        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.wasCached ? .skipped : (result.succeeded ? .succeeded : .failed))
+        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.cached ? .skipped : (result.succeeded ? .succeeded : .failed))
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
