@@ -581,7 +581,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let closeAfterWrite = closeAfterRead.delay()
 
         // shells out and compiles the manifest, finally output a JSON
-        observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") ")
+        observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown")")
         self.evaluateManifest(
             packageIdentity: key.packageIdentity,
             manifestPath: key.manifestPath,
