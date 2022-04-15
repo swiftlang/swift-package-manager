@@ -234,7 +234,7 @@ extension PackageGraphError: CustomStringConvertible {
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .invalidSourcesForModuleAliasing(let target, let product, let package):
-            return "invalid sources for module aliasing; to enable it, target '\(target)' in product '\(product)' from package '\(package)' should only contain Swift source files"
+            return "module aliasing can only be used for Swift based targets; non-Swift sources found in target '\(target)' for product '\(product)' from package '\(package)'"
         }
     }
 }

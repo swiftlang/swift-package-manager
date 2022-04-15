@@ -272,7 +272,7 @@ private func createResolvedPackages(
 
     // Gather and resolve module aliases specified for targets in all dependent packages
     let packageAliases = try resolveModuleAliases(packageBuilders: packageBuilders,
-                                              observabilityScope: observabilityScope)
+                                                  observabilityScope: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -748,8 +748,7 @@ private class ModuleAliasTracker {
                          package: PackageIdentity) throws {
         for target in targets {
             if let aliases = idTargetToAliases[package]?[target.name], !aliases.isEmpty {
-                let hasNonSwiftFiles = target.sources.containsNonSwiftFiles
-                if hasNonSwiftFiles {
+                if target.sources.containsNonSwiftFiles {
                     throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product, package: package.description)
                 }
             }

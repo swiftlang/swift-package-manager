@@ -2031,7 +2031,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             var diagnosed = false
             if let realError = error as? PackageGraphError,
-                    realError.description == "invalid sources for module aliasing; to enable it, target 'Logging' in product 'Utils' from package 'foopkg' should only contain Swift source files" {
+                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Utils' from package 'foopkg'" {
                 diagnosed = true
             }
             XCTAssertTrue(diagnosed)
@@ -2093,7 +2093,7 @@ final class BuildPlanTests: XCTestCase {
         )) { error in
             var diagnosed = false
             if let realError = error as? PackageGraphError,
-                    realError.description == "invalid sources for module aliasing; to enable it, target 'Logging' in product 'Logging' from package 'barpkg' should only contain Swift source files" {
+                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Logging' from package 'barpkg'" {
                 diagnosed = true
             }
             XCTAssertTrue(diagnosed)
