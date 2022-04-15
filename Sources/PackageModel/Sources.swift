@@ -50,4 +50,13 @@ public struct Sources: Codable {
             return ext == SupportedLanguageExtension.m.rawValue || ext == SupportedLanguageExtension.mm.rawValue
         })
     }
+
+    public var containsNonSwiftFiles: Bool {
+        return paths.contains(where: {
+            guard let ext = $0.extension else {
+                return false
+            }
+            return !SupportedLanguageExtension.swiftExtensions.contains(ext)
+        })
+    }
 }
