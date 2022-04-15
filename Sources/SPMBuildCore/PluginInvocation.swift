@@ -236,8 +236,7 @@ extension PluginTarget {
         
         // Call the plugin script runner to actually invoke the plugin.
         scriptRunner.runPluginScript(
-            sourceFiles: sources.paths,
-            pluginName: self.name,
+            sources: sources,
             initialMessage: initialMessage,
             toolsVersion: self.apiVersion,
             workingDirectory: workingDirectory,

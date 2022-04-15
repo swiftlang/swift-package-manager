@@ -89,27 +89,17 @@ class PluginInvocationTests: XCTestCase {
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
-
+            
             var hostTriple: Triple {
                 return UserToolchain.default.triple
             }
             
-            func compilePluginScript(
-                sourceFiles: [AbsolutePath],
-                pluginName: String,
-                toolsVersion: ToolsVersion,
-                observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.sync {
-                    completion(.failure(StringError("unimplemented")))
-                }
+            func compilePluginScript(sources: Sources, toolsVersion: ToolsVersion, observabilityScope: ObservabilityScope) throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
             }
             
             func runPluginScript(
-                sourceFiles: [AbsolutePath],
-                pluginName: String,
+                sources: Sources,
                 initialMessage: Data,
                 toolsVersion: ToolsVersion,
                 workingDirectory: AbsolutePath,
@@ -122,7 +112,8 @@ class PluginInvocationTests: XCTestCase {
                 completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
-                XCTAssertEqual(sourceFiles, [AbsolutePath("/Foo/Plugins/FooPlugin/source.swift")])
+                XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
+                XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
 
                 do {
                     // Pretend the plugin emitted some output.
@@ -309,22 +300,16 @@ class PluginInvocationTests: XCTestCase {
 
             // Try to compile the broken plugin script.
             do {
-                let result = try tsc_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        completion: $0)
-                }
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
 
                 // This should invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)
-                XCTAssert(result.cached == false)
-                XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
-                XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
-                XCTAssert(result.compilerOutput.contains("error: missing return"), "\(result.compilerOutput)")
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
                 // Check the serialized diagnostics. We should have an error.
@@ -335,7 +320,7 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertTrue(errorDiagnostic.text.hasPrefix("missing return"), "\(errorDiagnostic)")
 
                 // Check that the executable file doesn't exist.
-                XCTAssertFalse(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
+                XCTAssertFalse(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
             }
 
             // Now replace the plugin script source with syntactically valid contents that still produces a warning.
@@ -355,22 +340,16 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the fixed plugin.
             let firstExecModTime: Date
             do {
-                let result = try tsc_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        completion: $0)
-                }
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
 
                 // This should invoke the compiler and this time should succeed.
                 XCTAssert(result.succeeded == true)
-                XCTAssert(result.cached == false)
-                XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
-                XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
-                XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
                 // Check the serialized diagnostics. We should no longer have an error but now have a warning.
@@ -381,31 +360,25 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
 
                 // Check that the executable file exists.
-                XCTAssertTrue(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
 
                 // Capture the timestamp of the executable so we can compare it later.
-                firstExecModTime = try localFileSystem.getFileInfo(result.executableFile).modTime
+                firstExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
             }
 
             // Recompile the command plugin again without changing its source code.
             let secondExecModTime: Date
             do {
-                let result = try tsc_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        completion: $0)
-                }
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
 
                 // This should not invoke the compiler (just reuse the cached executable).
                 XCTAssert(result.succeeded == true)
-                XCTAssert(result.cached == true)
-                XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
-                XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
-                XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
+                XCTAssert(result.wasCached == true)
+                XCTAssert(result.compilerResult == nil, "\(String(describing: result.compilerResult))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
                 // Check that the diagnostics still have the same warning as before.
@@ -416,10 +389,10 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
 
                 // Check that the executable file exists.
-                XCTAssertTrue(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
 
                 // Check that the timestamp hasn't changed (at least a mild indication that it wasn't recompiled).
-                secondExecModTime = try localFileSystem.getFileInfo(result.executableFile).modTime
+                secondExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
                 XCTAssert(secondExecModTime == firstExecModTime, "firstExecModTime: \(firstExecModTime), secondExecModTime: \(secondExecModTime)")
             }
 
@@ -439,22 +412,16 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
-                let result = try tsc_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        completion: $0)
-                }
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
 
                 // This should invoke the compiler and not use the cache.
                 XCTAssert(result.succeeded == true)
-                XCTAssert(result.cached == false)
-                XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
-                XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
-                XCTAssert(!result.compilerOutput.contains("warning:"), "\(result.compilerOutput)")
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
                 // Check that the diagnostics no longer have a warning.
@@ -463,10 +430,10 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(diagnosticsSet.diagnostics.count, 0)
 
                 // Check that the executable file exists.
-                XCTAssertTrue(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
 
                 // Check that the timestamp has changed (at least a mild indication that it was recompiled).
-                thirdExecModTime = try localFileSystem.getFileInfo(result.executableFile).modTime
+                thirdExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
                 XCTAssert(thirdExecModTime != firstExecModTime, "thirdExecModTime: \(thirdExecModTime), firstExecModTime: \(firstExecModTime)")
                 XCTAssert(thirdExecModTime != secondExecModTime, "thirdExecModTime: \(thirdExecModTime), secondExecModTime: \(secondExecModTime)")
             }
@@ -486,22 +453,16 @@ class PluginInvocationTests: XCTestCase {
 
             // Recompile the plugin again.
             do {
-                let result = try tsc_await {
-                    pluginScriptRunner.compilePluginScript(
-                        sourceFiles: buildToolPlugin.sources.paths,
-                        pluginName: buildToolPlugin.name,
-                        toolsVersion: buildToolPlugin.apiVersion,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: DispatchQueue.sharedConcurrent,
-                        completion: $0)
-                }
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
 
                 // This should again invoke the compiler but should fail.
                 XCTAssert(result.succeeded == false)
-                XCTAssert(result.cached == false)
-                XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
-                XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
-                XCTAssert(result.compilerOutput.contains("error: 'nil' is incompatible with return type"), "\(result.compilerOutput)")
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
                 // Check that the diagnostics. We should have a different error than the original one.
@@ -512,7 +473,7 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertTrue(errorDiagnostic.text.hasPrefix("'nil' is incompatible with return type"), "\(errorDiagnostic)")
 
                 // Check that the executable file no longer exists.
-                XCTAssertFalse(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
+                XCTAssertFalse(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
             }
         }
     }
