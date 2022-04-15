@@ -662,11 +662,11 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
 
     // Track targets that need module aliases for each package
     for packageBuilder in packageBuilders {
-        for produdct in packageBuilder.package.products {
-            var allTargets = produdct.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target}
-            allTargets.append(contentsOf: produdct.targets)
+        for product in packageBuilder.package.products {
+            var allTargets = product.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target}
+            allTargets.append(contentsOf: product.targets)
             aliasTracker.addAliasesForTargets(allTargets,
-                                              product: produdct.name,
+                                              product: product.name,
                                               package: packageBuilder.package.identity)
         }
     }
@@ -678,11 +678,11 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     // Needs to be done after `propagateAliases` since aliases defined
     // upstream can be overriden.
     for packageBuilder in packageBuilders {
-        for produdct in packageBuilder.package.products {
-            var allTargets = produdct.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target}
-            allTargets.append(contentsOf: produdct.targets)
+        for product in packageBuilder.package.products {
+            var allTargets = product.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.target}
+            allTargets.append(contentsOf: product.targets)
             try aliasTracker.validateSources(allTargets,
-                                             product: produdct.name,
+                                             product: product.name,
                                              package: packageBuilder.package.identity)
         }
     }
