@@ -241,14 +241,20 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             var result: Result
             enum Result: Equatable, Codable {
                 case exit(code: Int32)
+                case abnormal(exception: UInt32)
                 case signal(number: Int32)
                 
                 init(_ processExitStatus: ProcessResult.ExitStatus) {
                     switch processExitStatus {
                     case .terminated(let code):
                         self = .exit(code: code)
+                    #if os(Windows)
+                    case .abnormal(let exception):
+                        self = .abnormal(exception: exception)
+                    #else
                     case .signalled(let signal):
                         self = .signal(number: signal)
+                    #endif
                     }
                 }
             }
