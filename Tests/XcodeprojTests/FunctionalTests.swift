@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageModel
@@ -25,7 +27,7 @@ class FunctionalTests: XCTestCase {
             let pbx = fixturePath.appending(component: "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
+            let build = AbsolutePath("build/Build/Products/Debug", relativeTo: fixturePath)
             XCTAssertDirectoryExists(build.appending(component: "Library.framework"))
         }
     }
@@ -43,7 +45,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(pbx.appending(component: "SeaLib_Info.plist"))
 
             XCTAssertXcodeBuild(project: pbx)
-            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
+            let build = AbsolutePath("build/Build/Products/Debug", relativeTo: fixturePath)
             XCTAssertDirectoryExists(build.appending(component: "SeaLib.framework"))
             XCTAssertFileExists(build.appending(component: "SeaExec"))
             XCTAssertFileExists(build.appending(component: "CExec"))
@@ -82,7 +84,7 @@ class FunctionalTests: XCTestCase {
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = moduleUser.appending(RelativePath("build/Build/Products/Debug"))
+            let build = AbsolutePath("build/Build/Products/Debug", relativeTo: moduleUser)
             XCTAssertFileExists(build.appending(components: "SystemModuleUser"))
         }
     }
@@ -96,7 +98,7 @@ class FunctionalTests: XCTestCase {
             let pbx = fixturePath.appending(component: "PackageWithNonc99NameModules.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
+            let build = AbsolutePath("build/Build/Products/Debug", relativeTo: fixturePath)
             XCTAssertDirectoryExists(build.appending(component: "A_B.framework"))
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
@@ -143,7 +145,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
             env["TOOLCHAINS"] = "default"
         }
         let xcconfig = project.appending(component: "overrides.xcconfig")
-        let swiftCompilerPath = ToolchainConfiguration.default.swiftCompilerPath
+        let swiftCompilerPath = UserToolchain.default.swiftCompilerPath
 
         // Override path to the Swift compiler.
         let stream = BufferedOutputByteStream()

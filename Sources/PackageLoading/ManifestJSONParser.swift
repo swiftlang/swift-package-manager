@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
@@ -213,7 +215,7 @@ enum ManifestJSONParser {
     private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
-            return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
+            return AbsolutePath(String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
         } else if dependencyLocation.hasPrefix(filePrefix) {
             // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
             // strip that. We need to design a Location data structure for SwiftPM.

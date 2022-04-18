@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import TSCBasic
@@ -292,12 +294,12 @@ public final class InitPackage {
         if packageType == .empty {
             return
         }
-        
+
         let moduleDir = sources.appending(component: "\(pkgname)")
         try makeDirectories(moduleDir)
-        
+
         let sourceFileName = "\(typeName).swift"
-        let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
+        let sourceFile = AbsolutePath(sourceFileName, relativeTo: moduleDir)
 
         let content: String
         switch packageType {
@@ -410,11 +412,11 @@ public final class InitPackage {
     }
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname + Target.testModuleNameSuffix))
+        let testModule = AbsolutePath(pkgname + Target.testModuleNameSuffix, relativeTo: testsPath)
         progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
         try makeDirectories(testModule)
 
-        let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
+        let testClassFile = AbsolutePath("\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
         case .systemModule, .empty, .manifest, .`extension`: break
         case .library:

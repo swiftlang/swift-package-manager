@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Foundation
 import PackageModel
@@ -30,17 +32,7 @@ private func resolveBinDir() -> AbsolutePath {
 #endif
 }
 
-extension ToolchainConfiguration {
-    public static var `default`: Self {
-        get {
-            let toolchain = UserToolchain.default
-            return .init(
-                swiftCompilerPath: toolchain.configuration.swiftCompilerPath,
-                swiftCompilerFlags: [],
-                swiftPMLibrariesLocation: toolchain.configuration.swiftPMLibrariesLocation
-            )
-        }
-    }
+extension UserToolchain {
 
 #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
@@ -50,11 +42,19 @@ extension ToolchainConfiguration {
 
 }
 
-extension UserToolchain {
+extension Destination {
     public static var `default`: Self {
         get {
             let binDir = resolveBinDir()
-            return try! .init(destination: Destination.hostDestination(binDir))
+            return try! Destination.hostDestination(binDir)
+        }
+    }
+}
+
+extension UserToolchain {
+    public static var `default`: Self {
+        get {
+            return try! .init(destination: Destination.default)
         }
     }
 }

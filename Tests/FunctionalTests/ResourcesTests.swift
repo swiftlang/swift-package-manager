@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import XCTest
 import SPMTestSupport
@@ -35,7 +37,7 @@ class ResourcesTests: XCTestCase {
         try fixture(name: "Resources/Localized") { fixturePath in
             try executeSwiftBuild(fixturePath)
 
-            let exec = fixturePath.appending(RelativePath(".build/debug/exe"))
+            let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try Process.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
             XCTAssertEqual(output, """

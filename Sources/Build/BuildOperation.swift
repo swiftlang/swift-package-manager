@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright 2015 - 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2015-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import LLBuildManifest
@@ -32,13 +34,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
-    
+
     /// Entity responsible for compiling and running plugin scripts.
     let pluginScriptRunner: PluginScriptRunner
-    
+
     /// Directory where plugin intermediate files are stored.
     let pluginWorkDirectory: AbsolutePath
-    
+
     /// Whether to sandbox commands from build tool plugins.
     public let disableSandboxForPluginCommands: Bool
 
@@ -109,7 +111,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             try self.packageGraphLoader()
         }
     }
-    
+
     /// Compute and return the latest build description.
     ///
     /// This will try skip build planning if build manifest caching is enabled
@@ -147,7 +149,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         let buildStartTime = DispatchTime.now()
-        
+
         // Get the build description (either a cached one or newly created).
         let buildDescription = try self.getBuildDescription()
 
@@ -193,7 +195,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             self.observabilityScope.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
         }
     }
-    
+
     /// Compiles any plugins specified or implied by the build subset, returning
     /// true if the build should proceed. Throws an error in case of failure. A
     /// reason why the build might not proceed even on success is if only plugins
@@ -226,21 +228,26 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // build, based on the subset.
         return continueBuilding
     }
-    
+
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
     func compilePlugin(_ plugin: PluginDescription) throws {
         // Compile the plugin, getting back a PluginCompilationResult.
         let preparationStepName = "Compiling plugin \(plugin.targetName)..."
         self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
-        let result = try self.pluginScriptRunner.compilePluginScript(
-            sources: plugin.sources,
-            toolsVersion: plugin.toolsVersion,
-            observabilityScope: self.observabilityScope)
+        let result = try tsc_await {
+            self.pluginScriptRunner.compilePluginScript(
+                sourceFiles: plugin.sources.paths,
+                pluginName: plugin.targetName,
+                toolsVersion: plugin.toolsVersion,
+                observabilityScope: self.observabilityScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                completion: $0)
+        }
         if !result.description.isEmpty {
             self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
         }
-        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.wasCached ? .skipped : (result.succeeded ? .succeeded : .failed))
+        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.cached ? .skipped : (result.succeeded ? .succeeded : .failed))
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
@@ -273,13 +280,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private func plan() throws -> BuildDescription {
         // Load the package graph.
         let graph = try getPackageGraph()
-        
+
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         let buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
             outputDir: self.pluginWorkDirectory.appending(component: "outputs"),
             builtToolsDir: self.buildParameters.buildPath,
             buildEnvironment: self.buildParameters.buildEnvironment,
-            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompiler.parentDirectory],
+            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
             pluginScriptRunner: self.pluginScriptRunner,
             observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem
@@ -316,14 +323,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // Get the set of unhandled files in targets.
                 var unhandledFiles = Set(target.underlyingTarget.others)
                 if unhandledFiles.isEmpty { continue }
-                
+
                 // Subtract out any that were inputs to any commands generated by plugins.
                 if let result = buildToolPluginInvocationResults[target] {
                     let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
                     unhandledFiles.subtract(handledFiles)
                 }
                 if unhandledFiles.isEmpty { continue }
-                
+
                 // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
                 let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
                     var metadata = ObservabilityMetadata()
@@ -339,7 +346,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 diagnosticsEmitter.emit(warning: warning)
             }
         }
-        
+
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
             buildParameters: buildParameters,
@@ -367,7 +374,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             serializer.writeDOT(to: self.outputStream)
             self.outputStream.flush()
         }
-        
+
         // Finally create the llbuild manifest from the plan.
         return buildDescription
     }
@@ -420,7 +427,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             schedulerLanes: buildParameters.jobs
         )
 
-        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain 
+        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain
         buildSystemDelegate.commandFailureHandler = {
             buildSystem.cancel()
             self.delegate?.buildSystemDidCancel(self)
@@ -467,22 +474,22 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return PrebuildCommandResult(derivedSourceFiles: derivedSourceFiles, outputDirectories: prebuildOutputDirs)
         }
     }
-    
+
     public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
         // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
         guard let _ = self.buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
-        
+
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
             // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
-            
+
             // Look for a target with the same module name as the one that's being imported.
             if let importedTarget = self.buildPlan?.targets.first(where: { $0.target.c99name == importedModule }) {
                 // For the moment we just check for executables that other targets try to import.
                 if importedTarget.target.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
                 }
-                
+
                 // Here we can add more checks in the future.
             }
         }

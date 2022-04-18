@@ -1,4 +1,4 @@
-# This source file is part of the Swift.org open source project
+# This source file is part of the Swift open source project
 #
 # Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
@@ -10,6 +10,7 @@ add_library(PackageModel
   BuildConfiguration.swift
   BuildEnvironment.swift
   BuildSettings.swift
+  Destination.swift
   Diagnostics.swift
   Manifest.swift
   Manifest/PackageConditionDescription.swift
@@ -20,13 +21,16 @@ add_library(PackageModel
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
   ManifestSourceGeneration.swift
+  MinimumDeploymentTarget.swift
   ModuleMapType.swift
   Package.swift
   PackageIdentity.swift
   PackageReference.swift
   Platform.swift
+  PlatformRegistry.swift
   Product.swift
   Resource.swift
+  Sanitizers.swift
   Snippets/Model/Snippet.swift
   Snippets/Model/SnippetGroup.swift
   Snippets/Parsing/PlainTextSnippetExtractor.swift
@@ -34,9 +38,12 @@ add_library(PackageModel
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   Target.swift
+  Toolchain.swift
   ToolchainConfiguration.swift
   ToolsVersion.swift
-  ToolsVersionSpecificationGeneration.swift)
+  ToolsVersionSpecificationGeneration.swift
+  UserToolchain.swift
+  WindowsToolchainInfo.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
   TSCUtility

@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Dispatch
@@ -303,50 +305,6 @@ public final class PackageBuilder {
             metadata: .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
         )
         self.fileSystem = fileSystem
-    }
-
-    /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///   - at: The absolute path of the package root.
-    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
-    ///   - identityResolver: A helper to resolve identities based on configuration
-    ///   - diagnostics: Optional.  The diagnostics engine.
-    ///   - on: The dispatch queue to perform asynchronous operations on.
-    ///   - completion: The completion handler .
-    // deprecated 8/2021
-    @available(*, deprecated, message: "use workspace API instead")
-    public static func loadRootPackage(
-        at path: AbsolutePath,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        ManifestLoader.loadRootManifest(at: path,
-                                        swiftCompiler: swiftCompiler,
-                                        swiftCompilerFlags: swiftCompilerFlags,
-                                        identityResolver: identityResolver,
-                                        diagnostics: diagnostics,
-                                        on: queue) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    additionalFileRules: [],
-                    binaryArtifacts: [:], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
-                    fileSystem: localFileSystem,
-                    observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
-                )
-                return try builder.construct()
-            }
-            completion(result)
-        }
     }
 
     /// Build a new package following the conventions.

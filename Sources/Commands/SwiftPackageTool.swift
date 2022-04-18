@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import ArgumentParser
 import Basics
@@ -1871,7 +1873,7 @@ extension SwiftPackageTool {
             }
 
             let files = try fileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
+                .map { AbsolutePath($0, relativeTo: directory) }
                 .filter { fileSystem.isFile($0) }
 
             guard let fileExtension = fileExtension else {
@@ -1886,7 +1888,7 @@ extension SwiftPackageTool {
                 return []
             }
             return try fileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
+                .map { AbsolutePath($0, relativeTo: directory) }
                 .filter { fileSystem.isDirectory($0) }
         }
 

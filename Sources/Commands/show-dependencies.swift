@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import TSCBasic
 import PackageModel
@@ -75,7 +77,7 @@ final class DotDumper: DependenciesDumper {
             stream <<< #""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
             nodesAlreadyPrinted.insert(url)
         }
-        
+
         struct DependencyURLs: Hashable {
             var root: String
             var dependency: String
@@ -88,7 +90,7 @@ final class DotDumper: DependenciesDumper {
                 let dependencyURL = dependency.manifest.packageLocation
                 let urlPair = DependencyURLs(root: rootURL, dependency: dependencyURL)
                 if dependenciesAlreadyPrinted.contains(urlPair) { continue }
-                
+
                 printNode(dependency)
                 stream <<< #""\#(rootURL)" -> "\#(dependencyURL)""# <<< "\n"
                 dependenciesAlreadyPrinted.insert(urlPair)

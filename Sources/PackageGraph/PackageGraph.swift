@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
- 
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import PackageModel
 import TSCBasic
@@ -42,6 +44,12 @@ enum PackageGraphError: Swift.Error {
                                product: String,
                                package: String,
                                aliases: [String])
+
+    /// Invalid sources found (only Swift files allowed) for aliasing a module
+    /// specified by a given target/product/package.
+    case invalidSourcesForModuleAliasing(target: String,
+                                         product: String,
+                                         package: String)
 }
 
 /// A collection of packages.
@@ -108,7 +116,7 @@ public struct PackageGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
-        
+
         // Create a mapping from targets to the packages that define them.  Here
         // we include all targets, including tests in non-root packages, since
         // this is intended for lookup and not traversal.
@@ -225,6 +233,8 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
+        case .invalidSourcesForModuleAliasing(let target, let product, let package):
+            return "module aliasing can only be used for Swift based targets; non-Swift sources found in target '\(target)' for product '\(product)' from package '\(package)'"
         }
     }
 }

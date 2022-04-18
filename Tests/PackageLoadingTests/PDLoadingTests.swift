@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageLoading
@@ -16,7 +18,7 @@ import TSCBasic
 import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
-    lazy var manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, delegate: self)
+    lazy var manifestLoader = ManifestLoader(toolchain: UserToolchain.default, delegate: self)
     var parsedManifest = ThreadSafeBox<AbsolutePath>()
     
     public func willLoad(manifest: AbsolutePath) {

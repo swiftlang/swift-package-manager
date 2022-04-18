@@ -1,18 +1,20 @@
-/*
- This source file is part of the Swift.org open source project
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-
+import Basics
 import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-
 import Workspace
 import XCTest
 
@@ -231,6 +233,8 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertFileExists(xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
+                XCTAssertNoMatch(contents, .contains("time=\"0.0\""))
             }
         }
     }
@@ -378,6 +382,90 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }
       #endif
+    }
+
+    func testSwiftRunSIGINT() throws {
+        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            let mainFilePath = fixturePath.appending(component: "main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(mainFilePath) {
+                """
+                import Foundation
+
+                print("sleeping")
+                fflush(stdout)
+
+                sleep(10)
+                print("done")
+                """
+            }
+
+            let sync = DispatchGroup()
+            let outputHandler = OutputHandler(sync: sync)
+            let process = Process(
+                arguments: [SwiftPMProduct.SwiftRun.path.pathString, "--package-path", fixturePath.pathString],
+                outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
+            )
+
+            sync.enter()
+            try process.launch()
+
+            // wait for the process to start
+            if case .timedOut = sync.wait(timeout: .now() + 60) {
+                return XCTFail("timeout waiting for process to start")
+            }
+
+            // interrupt the process
+            print("interrupting")
+            process.signal(SIGINT)
+
+            // check for interrupt result
+            let result = try process.waitUntilExit()
+            XCTAssertEqual(result.exitStatus, .signalled(signal: 2))
+        }
+
+        class OutputHandler {
+            let sync: DispatchGroup
+            var state = State.idle
+            let lock = Lock()
+
+            init(sync: DispatchGroup) {
+                self.sync = sync
+            }
+
+            func handle(bytes: [UInt8]) {
+                guard let output = String(bytes: bytes, encoding: .utf8) else {
+                    return
+                }
+                print(output, terminator: "")
+                self.lock.withLock {
+                    switch self.state {
+                    case .idle:
+                        self.state = processOutput(output)
+                    case .buffering(let buffer):
+                        let newBuffer = buffer + output
+                        self.state = processOutput(newBuffer)
+                    case .done:
+                        break //noop
+                    }
+                }
+
+                func processOutput(_ output: String) -> State {
+                    if output.contains("sleeping") {
+                        self.sync.leave()
+                        return .done
+                    } else {
+                        return .buffering(output)
+                    }
+                }
+            }
+
+            enum State {
+                case idle
+                case buffering(String)
+                case done
+            }
+        }
     }
 
     func testReportingErrorFromGitCommand() throws {

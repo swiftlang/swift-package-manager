@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Foundation
@@ -19,12 +21,15 @@ import struct TSCUtility.Triple
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {
     
-    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    /// Public protocol function that starts compiling the plugin script to an exectutable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
     func compilePluginScript(
-        sources: Sources,
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
         toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws -> PluginCompilationResult
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    )
 
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
@@ -37,7 +42,8 @@ public protocol PluginScriptRunner {
     ///
     /// Every concrete implementation should cache any intermediates as necessary to avoid redundant work.
     func runPluginScript(
-        sources: Sources,
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
         initialMessage: Data,
         toolsVersion: ToolsVersion,
         workingDirectory: AbsolutePath,
@@ -67,36 +73,44 @@ public protocol PluginScriptRunnerDelegate {
 
 /// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
 public struct PluginCompilationResult {
-    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
-    public var compilerResult: ProcessResult?
+    /// Whether compilation succeeded.
+    public var succeeded: Bool
     
-    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
-    public var diagnosticsFile: AbsolutePath
+    /// Complete compiler command line.
+    public var commandLine: [String]
     
     /// Path of the compiled executable.
-    public var compiledExecutable: AbsolutePath
+    public var executableFile: AbsolutePath
 
-    /// Whether the compilation result was cached.
-    public var wasCached: Bool
-
-    public init(compilerResult: ProcessResult?, diagnosticsFile: AbsolutePath, compiledExecutable: AbsolutePath, wasCached: Bool) {
-        self.compilerResult = compilerResult
-        self.diagnosticsFile = diagnosticsFile
-        self.compiledExecutable = compiledExecutable
-        self.wasCached = wasCached
-    }
+    /// Path of the libClang diagnostics file emitted by the compiler.
+    public var diagnosticsFile: AbsolutePath
     
-    /// Returns true if and only if the compilation succeeded or was cached
-    public var succeeded: Bool {
-        return self.wasCached || self.compilerResult?.exitStatus == .terminated(code: 0)
+    /// Any output emitted by the compiler (stdout and stderr combined).
+    public var compilerOutput: String
+    
+    /// Whether the compilation result came from the cache (false means that the compiler did run).
+    public var cached: Bool
+    
+    public init(
+        succeeded: Bool,
+        commandLine: [String],
+        executableFile: AbsolutePath,
+        diagnosticsFile: AbsolutePath,
+        compilerOutput: String,
+        cached: Bool
+    ) {
+        self.succeeded = succeeded
+        self.commandLine = commandLine
+        self.executableFile = executableFile
+        self.diagnosticsFile = diagnosticsFile
+        self.compilerOutput = compilerOutput
+        self.cached = cached
     }
 }
 
 extension PluginCompilationResult: CustomStringConvertible {
     public var description: String {
-        let stdout = (try? compilerResult?.utf8Output()) ?? ""
-        let stderr = (try? compilerResult?.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp()
+        let output = compilerOutput.spm_chomp()
         return output + (output.isEmpty || output.hasSuffix("\n") ? "" : "\n")
     }
 }
@@ -105,10 +119,11 @@ extension PluginCompilationResult: CustomDebugStringConvertible {
     public var debugDescription: String {
         return """
             <PluginCompilationResult(
-                exitStatus: \(compilerResult.map{ "\($0.exitStatus)" } ?? "-"),
-                stdout: \((try? compilerResult?.utf8Output()) ?? ""),
-                stderr: \((try? compilerResult?.utf8stderrOutput()) ?? ""),
-                executable: \(compiledExecutable.prettyPath())
+                succeeded: \(succeeded),
+                commandLine: \(commandLine.map{ $0.spm_shellEscaped() }.joined(separator: " ")),
+                executable: \(executableFile.prettyPath())
+                diagnostics: \(diagnosticsFile.prettyPath())
+                compilerOutput: \(compilerOutput.spm_shellEscaped())
             )>
             """
     }

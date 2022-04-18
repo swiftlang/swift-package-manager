@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import PackageGraph
@@ -322,7 +324,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -410,7 +412,7 @@ class PluginTests: XCTestCase {
                 let scriptRunner = DefaultPluginScriptRunner(
                     fileSystem: localFileSystem,
                     cacheDir: pluginDir.appending(component: "cache"),
-                    toolchain: ToolchainConfiguration.default
+                    toolchain: UserToolchain.default
                 )
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
@@ -545,7 +547,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -621,7 +623,7 @@ class PluginTests: XCTestCase {
             let scriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginDir.appending(component: "cache"),
-                toolchain: ToolchainConfiguration.default
+                toolchain: UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
@@ -817,7 +819,7 @@ class PluginTests: XCTestCase {
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -842,5 +844,38 @@ class PluginTests: XCTestCase {
                 result.checkUnordered(diagnostic: .contains("dependency 'unusedbuildtoolpluginpackage' is not used by any target"), severity: .warning)
             }
         }
+    }
+
+    func testSnippetSupport() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try executeSwiftPackage(path.appending(component: "PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
+            XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
+    }
+
+    func testSandboxViolatingBuildToolPluginCommands() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "sandboxing tests are only supported on macOS")
+        #endif
+        
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        // Check that the build fails with a sandbox violation by default.
+        try fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+            XCTAssertThrowsError(try executeSwiftBuild(path.appending(component: "MyLibrary"), configuration: .Debug)) { error in
+                XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            }
+        }
+
+        // Check that the build succeeds if we disable the sandbox.
+        try fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+            let (stdout, stderr) = try executeSwiftBuild(path.appending(component: "MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"])
+            XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
+        }
+
     }
 }

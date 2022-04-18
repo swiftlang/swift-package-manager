@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Commands
 import PackageGraph
@@ -96,6 +98,13 @@ class CFamilyTargetTestCase: XCTestCase {
             XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HelloWorldExample.m.o")
             // Run swift-test on package.
             XCTAssertSwiftTest(fixturePath)
+        }
+    }
+    
+    func testCanBuildRelativeHeaderSearchPaths() throws {
+        try fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HeaderInclude.swiftmodule")
         }
     }
 }

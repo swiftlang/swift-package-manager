@@ -1,17 +1,20 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 @testable import Build
-@testable import PackageLoading
-import PackageModel
+import PackageLoading
+@testable import PackageGraph
+@testable import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
@@ -30,8 +33,8 @@ let hostTriple = UserToolchain.default.triple
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-private struct MockToolchain: SPMBuildCore.Toolchain {
-    let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
+private struct MockToolchain: PackageModel.Toolchain {
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
@@ -63,7 +66,7 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
-        toolchain: SPMBuildCore.Toolchain = MockToolchain(),
+        toolchain: PackageModel.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
@@ -1943,7 +1946,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -1976,11 +1979,230 @@ final class BuildPlanTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+                    realError.description == "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
+        }
+    }
+
+    func testModuleAliasingInvalidSourcesUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/Logging/file.swift",
+                                    "/fooPkg/Sources/Utils/fileUtils.swift",
+                                    "/fooPkg/Sources/Logging/fileLogging.m",
+                                    "/fooPkg/Sources/Logging/include/fileLogging.h"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"])
+                                          ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Utils' from package 'foopkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
+        }
+    }
+
+    func testModuleAliasingInvalidSourcesNestedUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/Logging/file.swift",
+                                    "/fooPkg/Sources/Utils/fileUtils.swift",
+                                    "/barPkg/Sources/Logging/fileLogging.m",
+                                    "/barPkg/Sources/Logging/include/fileLogging.h"
         )
 
-        XCTAssertTrue(observability.diagnostics.contains(where: {
-            $0.message.contains("multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'")
-        }), "expected multiple aliases diagnostics")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "barPkg",
+                    path: .init("/barPkg"),
+                    products: [
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils",
+                                          dependencies: [.product(name: "Logging", package: "barPkg")]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"])
+                                          ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Logging' from package 'barpkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
+        }
+    }
+
+    func testModuleAliasingInvalidSourcesInNonAliasedModulesUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/Logging/file.swift",
+                                    "/fooPkg/Sources/Utils/fileUtils.swift",
+                                    "/fooPkg/Sources/Logging/fileLogging.swift",
+                                    "/fooPkg/Sources/Logging/guidelines.txt",
+                                    "/fooPkg/Sources/Perf/filePerf.m",
+                                    "/fooPkg/Sources/Perf/include/filePerf.h"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertNoThrow(try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Perf", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"])
+                                          ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        ))
+    }
+
+    func testModuleAliasingInvalidSourcesInNonAliasedModulesNestedUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/Logging/file.swift",
+                                    "/fooPkg/Sources/Utils/fileUtils.swift",
+                                    "/barPkg/Sources/Logging/fileLogging.swift",
+                                    "/barPkg/Sources/Logging/readme.md",
+                                    "/barPkg/Sources/Perf/filePerf.m",
+                                    "/barPkg/Sources/Perf/include/filePerf.h"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertNoThrow(try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "barPkg",
+                    path: .init("/barPkg"),
+                    products: [
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Perf", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils",
+                                          dependencies: [.product(name: "Logging", package: "barPkg")]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"])
+                                          ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        ))
     }
 
     func testModuleAliasingDuplicateTargetNameInNestedUpstream() throws {
@@ -1990,7 +2212,6 @@ final class BuildPlanTests: XCTestCase {
                                     "/fooPkg/Sources/Utils/fileUtils.swift",
                                     "/barPkg/Sources/Logging/fileLogging.swift"
         )
-        
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fileSystem: fs,
@@ -4167,7 +4388,7 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    private func sanitizerTest(_ sanitizer: SPMBuildCore.Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",

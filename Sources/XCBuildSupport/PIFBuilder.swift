@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Foundation
 
@@ -862,7 +864,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             for assignment in assignments {
                 var value = assignment.value
                 if setting == .HEADER_SEARCH_PATHS {
-                    value = value.map { target.sources.root.appending(RelativePath($0)).pathString }
+                    value = value.map { AbsolutePath($0, relativeTo: target.sources.root).pathString }
                 }
 
                 if let platforms = assignment.platforms {

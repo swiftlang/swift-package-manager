@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2022 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import PackagePlugin
 import XCTest
@@ -19,6 +21,15 @@ class ArgumentExtractorAPITests: XCTestCase {
         XCTAssertEqual(extractor.extractFlag(named: "flag"), 1)
         XCTAssertEqual(extractor.extractFlag(named: "verbose"), 2)
         XCTAssertEqual(extractor.extractFlag(named: "nothing"), 0)
+        XCTAssertEqual(extractor.unextractedOptionsOrFlags, [])
+        XCTAssertEqual(extractor.remainingArguments, ["Positional1", "Positional2"])
+    }
+
+    func testExtractOption() throws {
+        var extractor = ArgumentExtractor(["--output", "Dir1", "--target=Target1", "Positional1", "--flag", "--target", "Target2", "Positional2", "--output=Dir2"])
+        XCTAssertEqual(extractor.extractOption(named: "target"), ["Target1", "Target2"])
+        XCTAssertEqual(extractor.extractOption(named: "output"), ["Dir1", "Dir2"])
+        XCTAssertEqual(extractor.extractFlag(named: "flag"), 1)
         XCTAssertEqual(extractor.unextractedOptionsOrFlags, [])
         XCTAssertEqual(extractor.remainingArguments, ["Positional1", "Positional2"])
     }
