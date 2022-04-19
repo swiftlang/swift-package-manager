@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -372,7 +372,7 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration,
                                                 httpClient: httpClient,
                                                 fingerprintStorage: fingerprintStorage,
-                                                fingerprintCheckingMode: .strict)
+                                                fingerprintCheckingMode: .strict) // intended for this test; don't change
 
         XCTAssertThrowsError(try registryClient.fetchSourceArchiveChecksum(package: identity, version: version)) { error in
             guard case RegistryError.checksumChanged = error else {
@@ -441,7 +441,7 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration,
                                                 httpClient: httpClient,
                                                 fingerprintStorage: fingerprintStorage,
-                                                fingerprintCheckingMode: .warn)
+                                                fingerprintCheckingMode: .warn) // intended for this test; don't change
 
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -594,7 +594,7 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = RegistryClient(
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .strict,
+            fingerprintCheckingMode: .strict, // intended for this test; don't change
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -677,7 +677,7 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = RegistryClient(
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .warn,
+            fingerprintCheckingMode: .warn, // intended for this test; don't change
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
