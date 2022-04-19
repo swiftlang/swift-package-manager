@@ -123,3 +123,10 @@ extension JSONDecoder {
         return try self.decode(kind, from: data)
     }
 }
+
+extension JSONEncoder {
+    public func encode<T: Encodable>(path: AbsolutePath, fileSystem: FileSystem, _ value: T) throws {
+        let data = try self.encode(value)
+        try fileSystem.writeFileContents(path, data: data)
+    }
+}
