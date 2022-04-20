@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import Build
+import Dispatch
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
@@ -651,6 +652,7 @@ final class ParallelTestRunner {
         var unitTest: UnitTest
         var output: String
         var success: Bool
+        var duration: DispatchTimeInterval
     }
 
     /// Path to XCTest binaries.
@@ -767,11 +769,18 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
+                    let start = DispatchTime.now()
                     let success = testRunner.test(outputHandler: { output += $0 })
+                    let duration = start.distance(to: .now())
                     if !success {
                         self.ranSuccessfully = false
                     }
-                    self.finishedTests.enqueue(TestResult(unitTest: test, output: output, success: success))
+                    self.finishedTests.enqueue(TestResult(
+                        unitTest: test,
+                        output: output,
+                        success: success,
+                        duration: duration
+                    ))
                 }
             }
             thread.start()
@@ -971,12 +980,11 @@ final class XUnitGenerator {
 
         // Get the failure count.
         let failures = results.filter({ !$0.success }).count
+        let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
 
-        // FIXME: This should contain the right elapsed time.
-        //
         // We need better output reporting from XCTest.
         stream <<< """
-            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="0.0">
+            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
 
             """
 
@@ -985,8 +993,9 @@ final class XUnitGenerator {
         // FIXME: This is very minimal right now. We should allow including test output etc.
         for result in results {
             let test = result.unitTest
+            let duration = result.duration.timeInterval() ?? 0.0
             stream <<< """
-                <testcase classname="\(test.testCase)" name="\(test.name)" time="0.0">
+                <testcase classname="\(test.testCase)" name="\(test.name)" time="\(duration)">
 
                 """
 

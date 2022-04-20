@@ -25,6 +25,15 @@ class ArgumentExtractorAPITests: XCTestCase {
         XCTAssertEqual(extractor.remainingArguments, ["Positional1", "Positional2"])
     }
 
+    func testExtractOption() throws {
+        var extractor = ArgumentExtractor(["--output", "Dir1", "--target=Target1", "Positional1", "--flag", "--target", "Target2", "Positional2", "--output=Dir2"])
+        XCTAssertEqual(extractor.extractOption(named: "target"), ["Target1", "Target2"])
+        XCTAssertEqual(extractor.extractOption(named: "output"), ["Dir1", "Dir2"])
+        XCTAssertEqual(extractor.extractFlag(named: "flag"), 1)
+        XCTAssertEqual(extractor.unextractedOptionsOrFlags, [])
+        XCTAssertEqual(extractor.remainingArguments, ["Positional1", "Positional2"])
+    }
+
     func testDashDashTerminal() throws {
         var extractor = ArgumentExtractor(["--verbose", "--", "--target", "Target1", "Positional", "--verbose"])
         XCTAssertEqual(extractor.extractOption(named: "target"), [])
