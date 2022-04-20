@@ -39,14 +39,20 @@ public final class WorkspaceState {
         self.storagePath = storageDirectory.appending(component: "workspace-state.json")
         self.storage = WorkspaceStateStorage(path: self.storagePath, fileSystem: fileSystem)
 
-        // Load the state from disk, if possible.
-        //
-        // If the disk operation here fails, we ignore the error here.
-        // This means if managed dependencies data is corrupted or out of date,
-        // clients will not see the old data and managed dependencies will be
-        // reset.  However there could be other errors, like permission issues,
-        // these errors will also be ignored but will surface when clients try
-        // to save the state.
+        self.dependencies = Workspace.ManagedDependencies()
+        self.artifacts = Workspace.ManagedArtifacts()
+        load(warningHandler: initializationWarningHandler)
+    }
+
+    /// Load the state from disk, if possible.
+    ///
+    /// If the disk operation here fails, we ignore the error here.
+    /// This means if managed dependencies data is corrupted or out of date,
+    /// clients will not see the old data and managed dependencies will be
+    /// reset.  However there could be other errors, like permission issues,
+    /// these errors will also be ignored but will surface when clients try
+    /// to save the state.
+    func load(warningHandler: (String) -> Void) {
         do {
             let storedState = try self.storage.load()
             self.dependencies = storedState.dependencies
@@ -55,7 +61,7 @@ public final class WorkspaceState {
             self.dependencies = Workspace.ManagedDependencies()
             self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
-            initializationWarningHandler("unable to restore workspace state: \(error)")
+            warningHandler("unable to restore workspace state: \(error)")
         }
     }
 
