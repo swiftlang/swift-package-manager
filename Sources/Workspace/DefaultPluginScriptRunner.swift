@@ -37,43 +37,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         self.cancellator = Cancellator(observabilityScope: .none)
     }
     
-    /// Public protocol function that starts compiling the plugin script to an executable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
-    public func compilePluginScript(
-        sources: Sources,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-    ) {
-        self.compile(
-            sources: sources,
-            toolsVersion: toolsVersion,
-            cacheDir: self.cacheDir,
-            fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion)
-    }
-
-    /// A synchronous version of `compilePluginScript()`.
-    public func compilePluginScript(
-        sources: Sources,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws -> PluginCompilationResult {
-        // Call the asynchronous version. In our case we don't care which queue the callback occurs on.
-        return try tsc_await { self.compilePluginScript(
-            sources: sources,
-            toolsVersion: toolsVersion,
-            observabilityScope: observabilityScope,
-            callbackQueue: DispatchQueue.sharedConcurrent,
-            completion: $0)
-        }
-    }
-
-    /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
+    /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
-        sources: Sources,
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
         initialMessage: Data,
         toolsVersion: ToolsVersion,
         workingDirectory: AbsolutePath,
@@ -86,11 +53,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         completion: @escaping (Result<Int32, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
-        self.compile(
-            sources: sources,
+        self.compilePluginScript(
+            sourceFiles: sourceFiles,
+            pluginName: pluginName,
             toolsVersion: toolsVersion,
-            cacheDir: self.cacheDir,
-            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             completion: {
@@ -100,7 +66,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     if result.succeeded {
                         // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
                         self.invoke(
-                            compiledExec: result.compiledExecutable,
+                            compiledExec: result.executableFile,
                             workingDirectory: workingDirectory,
                             writableDirectories: writableDirectories,
                             readOnlyDirectories: readOnlyDirectories,
@@ -125,204 +91,259 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     public var hostTriple: Triple {
         return self.toolchain.triple
     }
-
-    /// Helper function that starts compiling a plugin script asynchronously and when done, calls the completion handler with the compilation results (including the path of the compiled plugin executable and with any emitted diagnostics, etc). This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
-    fileprivate func compile(
-        sources: Sources,
+    
+    /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
+    public func compilePluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
         toolsVersion: ToolsVersion,
-        cacheDir: AbsolutePath,
-        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
+        // Determine the path of the executable and other produced files.
+        let execName = pluginName.spm_mangledToC99ExtendedIdentifier()
+        #if os(Windows)
+        let execSuffix = ".exe"
+        #else
+        let execSuffix = ""
+        #endif
+        let execFilePath = self.cacheDir.appending(component: execName + execSuffix)
+        let diagFilePath = self.cacheDir.appending(component: execName + ".dia")
+        observabilityScope.emit(debug: "Compiling plugin to executable at \(execFilePath)")
+
+        // Construct the command line for compiling the plugin script(s).
         // FIXME: Much of this is similar to what the ManifestLoader is doing. This should be consolidated.
+
+        // We use the toolchain's Swift compiler for compiling the plugin.
+        var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
+
+        // Get access to the path containing the PackagePlugin module and library.
+        let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
+
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if pluginLibraryPath.extension == "framework" {
+            commandLine += [
+                "-F", pluginLibraryPath.parentDirectory.pathString,
+                "-framework", "PackagePlugin",
+                "-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.parentDirectory.pathString,
+            ]
+        } else {
+            commandLine += [
+                "-L", pluginLibraryPath.pathString,
+                "-lPackagePlugin",
+            ]
+            #if !os(Windows)
+            // -rpath argument is not supported on Windows,
+            // so we add runtimePath to PATH when executing the manifest instead
+            commandLine += ["-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.pathString]
+            #endif
+        }
+
+        #if os(macOS)
+        // On macOS earlier than 12, add an rpath to the directory that contains the concurrency fallback library.
+        if #available(macOS 12.0, *) {
+            // Nothing is needed; the system has everything we need.
+        }
+        else {
+            // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
+            let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+            commandLine += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
+        }
+        #endif
+
+        // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+        #if os(macOS)
+        let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
+        commandLine += ["-target", self.hostTriple.tripleString(forPlatformVersion: version)]
+        #endif
+
+        // Add any extra flags required as indicated by the ManifestLoader.
+        commandLine += self.toolchain.swiftCompilerFlags
+
+        // Add the Swift language version implied by the package tools version.
+        commandLine += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
+
+        // Add the PackageDescription version specified by the package tools version, which controls what PackagePlugin API is seen.
+        commandLine += ["-package-description-version", toolsVersion.description]
+
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if pluginLibraryPath.extension == "framework" {
+            commandLine += ["-I", pluginLibraryPath.parentDirectory.parentDirectory.pathString]
+        } else {
+            commandLine += ["-I", pluginLibraryPath.pathString]
+        }
+        #if os(macOS)
+        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
+            commandLine += ["-sdk", sdkRoot.pathString]
+        }
+        #endif
+
+        // Honor any module cache override that's set in the environment.
+        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+        if let moduleCachePath = moduleCachePath {
+            commandLine += ["-module-cache-path", moduleCachePath]
+        }
+
+        // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
+        commandLine += ["-parse-as-library"]
+
+        // Ask the compiler to create a diagnostics file (we'll put it next to the executable).
+        commandLine += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagFilePath.pathString]
+
+        // Add all the source files that comprise the plugin scripts.
+        commandLine += sourceFiles.map { $0.pathString }
+
+        // Finally add the output path of the compiled executable.
+        commandLine += ["-o", execFilePath.pathString]
+
+        // First try to create the output directory.
         do {
-            // We could name the executable anything, but using the plugin name makes it more understandable.
-            let execName = sources.root.basename.spm_mangledToC99ExtendedIdentifier()
-
-            // Get access to the path containing the PackagePlugin module and library.
-            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
-
-            // We use the toolchain's Swift compiler for compiling the plugin.
-            var command = [self.toolchain.swiftCompilerPathForManifests.pathString]
-
-            // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
-            // which produces a framework for dynamic package products.
-            if runtimePath.extension == "framework" {
-                command += [
-                    "-F", runtimePath.parentDirectory.pathString,
-                    "-framework", "PackagePlugin",
-                    "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
-                ]
-            } else {
-                command += [
-                    "-L", runtimePath.pathString,
-                    "-lPackagePlugin",
-                ]
-                #if !os(Windows)
-                // -rpath argument is not supported on Windows,
-                // so we add runtimePath to PATH when executing the manifest instead
-                command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
-                #endif
-            }
-
-            #if os(macOS)
-            // On macOS earlier than 12, add an rpath to the directory that contains the concurrency fallback library.
-            if #available(macOS 12.0, *) {
-                // Nothing is needed; the system has everything we need.
-            }
-            else {
-                // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
-                let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
-                command += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
-            }
-            #endif
-
-            // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
-            #if os(macOS)
-            let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget.versionString
-            command += ["-target", "\(self.hostTriple.tripleString(forPlatformVersion: version))"]
-            #endif
-
-            // Add any extra flags required as indicated by the ManifestLoader.
-            command += self.toolchain.swiftCompilerFlags
-
-            // Add the Swift language version implied by the package tools version.
-            command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
-
-            // Add the PackageDescription version specified by the package tools version, which controls what PackagePlugin API is seen.
-            command += ["-package-description-version", toolsVersion.description]
-
-            // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
-            // which produces a framework for dynamic package products.
-            if runtimePath.extension == "framework" {
-                command += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
-            } else {
-                command += ["-I", runtimePath.pathString]
-            }
-            #if os(macOS)
-            if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
-                command += ["-sdk", sdkRoot.pathString]
-            }
-            #endif
-
-            // Honor any module cache override that's set in the environment.
-            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
-            if let moduleCachePath = moduleCachePath {
-                command += ["-module-cache-path", moduleCachePath]
-            }
-
-            // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
-            command += ["-parse-as-library"]
-
-            // Add options to create a .dia file containing any diagnostics emitted by the compiler.
-            let diagnosticsFile = cacheDir.appending(component: "\(execName).dia")
-            command += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticsFile.pathString]
-
-            // Add all the source files that comprise the plugin scripts.
-            command += sources.paths.map { $0.pathString }
-
-            // Add the path of the compiled executable.
-#if os(Windows)
-            let execSuffix = ".exe"
-#else
-            let execSuffix = ""
-#endif
-            let executableFile = cacheDir.appending(component: execName + execSuffix)
-            command += ["-o", executableFile.pathString]
-        
-            // Create the cache directory in which we'll be placing the compiled executable if needed.
-            try FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
-        
-            // Hash the command line and the contents of the source files to decide whether we need to recompile the plugin executable.
-            let compilerInputsHash: String?
-            do {
-                // We include the full command line, the environment, and the contents of the source files.
-                let stream = BufferedOutputByteStream()
-                stream <<< command
-                for (key, value) in toolchain.swiftCompilerEnvironment.sorted(by: { $0.key < $1.key }) {
-                    stream <<< "\(key)=\(value)\n"
-                }
-                for sourceFile in sources.paths {
-                    try stream <<< fileSystem.readFileContents(sourceFile).contents
-                }
-                compilerInputsHash = stream.bytes.sha256Checksum
-                observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputsHash!)")
-            }
-            catch {
-                // We failed to compute the hash. We warn about it but proceed with the compilation (a cache miss).
-                observabilityScope.emit(warning: "Couldn't compute hash of plugin compilation inputs (\(error)")
-                compilerInputsHash = .none
-            }
-
-            // If we already have a compiled executable, then compare its hash with the new one.
-            var compilationNeeded = true
-            let hashFile = executableFile.parentDirectory.appending(component: execName + ".inputhash")
-            if fileSystem.exists(executableFile) && fileSystem.exists(hashFile) {
-                do {
-                    if (try fileSystem.readFileContents(hashFile)) == compilerInputsHash {
-                        compilationNeeded = false
-                    }
-                }
-                catch {
-                    // We failed to read the `.inputhash` file. We warn about it but proceed with the compilation (a cache miss).
-                    observabilityScope.emit(warning: "Couldn't read previous hash of plugin compilation inputs (\(error)")
-                }
-            }
-            if compilationNeeded {
-                // We need to recompile the executable, so we do so asynchronously.
-                Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
-                    // We are now on our caller's requested callback queue, so we just call the completion handler directly.
-                    dispatchPrecondition(condition: .onQueue(callbackQueue))
-                    completion($0.tryMap {
-                        // Emit the compiler output as observable info.
-                        let compilerOutput = ((try? $0.utf8Output()) ?? "") + ((try? $0.utf8stderrOutput()) ?? "")
-                        observabilityScope.emit(info: compilerOutput)
-
-                        // We return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
-                        let result = PluginCompilationResult(
-                            compilerResult: $0,
-                            diagnosticsFile: diagnosticsFile,
-                            compiledExecutable: executableFile,
-                            wasCached: false)
-                        guard $0.exitStatus == .terminated(code: 0) else {
-                            // Try to clean up any old executable and hash file that might still be around from before.
-                            try? fileSystem.removeFileTree(executableFile)
-                            try? fileSystem.removeFileTree(hashFile)
-                            return result
-                        }
-
-                        // We only get here if the compilation succeeded.
-                        do {
-                            // Write out the hash of the inputs so we can compare the next time we try to compile.
-                            if let newHash = compilerInputsHash {
-                                try fileSystem.writeFileContents(hashFile, string: newHash)
-                            }
-                        }
-                        catch {
-                            // We failed to write the `.inputhash` file. We warn about it but proceed.
-                            observabilityScope.emit(warning: "Couldn't write new hash of plugin compilation inputs (\(error)")
-                        }
-                        return result
-                    })
-                }
-            }
-            else {
-                // There is no need to recompile the executable, so we just call the completion handler with the results from last time.
-                let result = PluginCompilationResult(
-                    compilerResult: .none,
-                    diagnosticsFile: diagnosticsFile,
-                    compiledExecutable: executableFile,
-                    wasCached: true)
-                callbackQueue.async {
-                    completion(.success(result))
-                }
-            }
+            observabilityScope.emit(debug: "Plugin compilation output directory '\(execFilePath.parentDirectory)'")
+            try FileManager.default.createDirectory(at: execFilePath.parentDirectory.asURL, withIntermediateDirectories: true, attributes: nil)
         }
         catch {
-            // We get here if we didn't even get far enough to invoke the compiler before hitting an error.
-            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationPreparationFailed(error: error))) }
+            // Bail out right away if we didn't even get this far.
+            return callbackQueue.async {
+                completion(.failure(DefaultPluginScriptRunnerError.compilationPreparationFailed(error: error)))
+            }
+        }
+        
+        // Hash the compiler inputs to decide whether we really need to recompile.
+        let compilerInputHash: String?
+        do {
+            // Include the full compiler arguments and environment, and the contents of the source files.
+            let stream = BufferedOutputByteStream()
+            stream <<< commandLine
+            for (key, value) in toolchain.swiftCompilerEnvironment.sorted(by: { $0.key < $1.key }) {
+                stream <<< "\(key)=\(value)\n"
+            }
+            for sourceFile in sourceFiles {
+                try stream <<< fileSystem.readFileContents(sourceFile).contents
+            }
+            compilerInputHash = stream.bytes.sha256Checksum
+            observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputHash!)")
+        }
+        catch {
+            // We couldn't compute the hash. We warn about it but proceed with the compilation (a cache miss).
+            observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs (\(error))")
+            compilerInputHash = .none
+        }
+        
+        /// Persisted information about the last time the compiler was invoked.
+        struct PersistedCompilationState: Codable {
+            var commandLine: [String]
+            var environment: [String:String]
+            var inputHash: String?
+            var output: String
+            var result: Result
+            enum Result: Equatable, Codable {
+                case exit(code: Int32)
+                case abnormal(exception: UInt32)
+                case signal(number: Int32)
+                
+                init(_ processExitStatus: ProcessResult.ExitStatus) {
+                    switch processExitStatus {
+                    case .terminated(let code):
+                        self = .exit(code: code)
+                    #if os(Windows)
+                    case .abnormal(let exception):
+                        self = .abnormal(exception: exception)
+                    #else
+                    case .signalled(let signal):
+                        self = .signal(number: signal)
+                    #endif
+                    }
+                }
+            }
+            
+            var succeeded: Bool {
+                return result == .exit(code: 0)
+            }
+        }
+        
+        // Check if we already have a compiled executable and a persisted state (we only recompile if things have changed).
+        let stateFilePath = self.cacheDir.appending(component: execName + "-state" + ".json")
+        var compilationState: PersistedCompilationState? = .none
+        if fileSystem.exists(execFilePath) && fileSystem.exists(stateFilePath) {
+            do {
+                // Try to load the previous compilation state.
+                let previousState = try JSONDecoder.makeWithDefaults().decode(
+                    path: stateFilePath,
+                    fileSystem: fileSystem,
+                    as: PersistedCompilationState.self)
+                
+                // If it succeeded last time and the compiler inputs are the same, we don't need to recompile.
+                if previousState.succeeded && previousState.inputHash == compilerInputHash {
+                    compilationState = previousState
+                }
+            }
+            catch {
+                // We couldn't read the compilation state file even though it existed. We warn about it but proceed with recompiling.
+                observabilityScope.emit(debug: "Couldn't read previous compilation state (\(error))")
+            }
+        }
+        
+        // If we still have a compilation state, it means the executable is still valid and we don't need to do anything.
+        if let compilationState = compilationState {
+            // Just call the completion handler with the persisted results.
+            let result = PluginCompilationResult(
+                succeeded: compilationState.succeeded,
+                commandLine: commandLine,
+                executableFile: execFilePath,
+                diagnosticsFile: diagFilePath,
+                compilerOutput: compilationState.output,
+                cached: true)
+            return callbackQueue.async {
+                completion(.success(result))
+            }
+        }
+
+        // Otherwise we need to recompile. We start by cleaning up any old files to avoid confusion if the compiler can't be invoked.
+        do {
+            try fileSystem.removeFileTree(execFilePath)
+            try fileSystem.removeFileTree(diagFilePath)
+            try fileSystem.removeFileTree(stateFilePath)
+        }
+        catch {
+            observabilityScope.emit(debug: "Couldn't clean up before invoking compiler (\(error))")
+        }
+        
+        // Now invoke the compiler asynchronously.
+        Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
+            // We are now on our caller's requested callback queue, so we just call the completion handler directly.
+            dispatchPrecondition(condition: .onQueue(callbackQueue))
+            completion($0.tryMap { process in
+                // Emit the compiler output as observable info.
+                let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
+                observabilityScope.emit(info: compilerOutput)
+
+                // Save the persisted compilation state for possible reuse next time.
+                let compilationState = PersistedCompilationState(
+                    commandLine: commandLine,
+                    environment: toolchain.swiftCompilerEnvironment,
+                    inputHash: compilerInputHash,
+                    output: compilerOutput,
+                    result: .init(process.exitStatus))
+                do {
+                    try JSONEncoder.makeWithDefaults().encode(path: stateFilePath, fileSystem: self.fileSystem, compilationState)
+                }
+                catch {
+                    // We couldn't write out the `.state` file. We warn about it but proceed.
+                    observabilityScope.emit(debug: "Couldn't save plugin compilation state (\(error))")
+                }
+
+                // Return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
+                return PluginCompilationResult(
+                    succeeded: compilationState.succeeded,
+                    commandLine: commandLine,
+                    executableFile: execFilePath,
+                    diagnosticsFile: diagFilePath,
+                    compilerOutput: compilerOutput,
+                    cached: false)
+            })
         }
     }
 

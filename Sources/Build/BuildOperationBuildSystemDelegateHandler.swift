@@ -729,7 +729,7 @@ fileprivate struct CommandTaskTracker {
         case .isUpToDate:
             self.totalCount -= 1
         case .isComplete:
-            break
+            self.finishedCount += 1
         @unknown default:
             assertionFailure("unhandled command status kind \(kind) for command \(command)")
             break
@@ -741,15 +741,6 @@ fileprivate struct CommandTaskTracker {
         self.onTaskProgressUpdateText?(progressTextValue, targetName)
 
         self.latestFinishedText = progressTextValue
-
-        switch result {
-        case .succeeded, .skipped:
-            self.finishedCount += 1
-        case .cancelled, .failed:
-            break
-        default:
-            break
-        }
     }
 
     mutating func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage, targetName: String) {

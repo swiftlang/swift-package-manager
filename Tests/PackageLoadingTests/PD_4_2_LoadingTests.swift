@@ -800,18 +800,19 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         try testWithTemporaryDirectory { path in
             let total = 1000
             let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try localFileSystem.writeFileContents(manifestPath) { stream in
-                stream <<< """
-                    import PackageDescription
-                    let package = Package(
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
-                        ]
-                    )
-                    """
+            try localFileSystem.createDirectory(manifestPath.parentDirectory)
+            try localFileSystem.writeFileContents(manifestPath) {
+                """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+                    ]
+                )
+                """
             }
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -887,7 +888,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     // run this with TSAN/ASAN to detect concurrency issues
     func testConcurrencyNoWarmUp() throws {
         try testWithTemporaryDirectory { path in
-            let total = 1000
+            let total = 100
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
@@ -898,18 +899,19 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 let random = Int.random(in: 0 ... total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {
-                    try localFileSystem.writeFileContents(manifestPath) { stream in
-                        stream <<< """
-                            import PackageDescription
-                            let package = Package(
-                                name: "Trivial-\(random)",
-                                targets: [
-                                    .target(
-                                        name: "foo-\(random)",
-                                        dependencies: []),
-                                ]
-                            )
-                            """
+                    try localFileSystem.createDirectory(manifestPath.parentDirectory)
+                    try localFileSystem.writeFileContents(manifestPath) {
+                        """
+                        import PackageDescription
+                        let package = Package(
+                            name: "Trivial-\(random)",
+                            targets: [
+                                .target(
+                                    name: "foo-\(random)",
+                                    dependencies: []),
+                            ]
+                        )
+                        """
                     }
                 }
 
@@ -942,7 +944,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
             }
 
-            if case .timedOut = sync.wait(timeout: .now() + 600) {
+            if case .timedOut = sync.wait(timeout: .now() + 60) {
                 XCTFail("timeout")
             }
 
