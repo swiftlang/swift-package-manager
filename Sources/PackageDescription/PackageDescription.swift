@@ -27,7 +27,7 @@ import Foundation
 /// dependencies, and other configuration options.
 ///
 /// By convention, you need to define the properties of a package in a single
-/// nested initializer statement. Don''t modify it after initialization. The
+/// nested initializer statement. Don't modify it after initialization. The
 /// following package manifest shows the initialization of a simple package
 /// object for the MyLibrary Swift package:
 ///
