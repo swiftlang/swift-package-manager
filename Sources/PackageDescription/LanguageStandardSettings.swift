@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The supported C language standard to use for compiling C sources in the
+/// The supported C language standard you use to complile C sources in the
 /// package.
 public enum CLanguageStandard: String, Encodable {
 
@@ -83,7 +83,7 @@ public enum CLanguageStandard: String, Encodable {
     case iso9899_2018 = "iso9899:2018"
 }
 
-/// The supported C++ language standard to use for compiling C++ sources in the
+/// The supported C++ language standard tyou use to compile C++ sources in the
 /// package.
 ///
 /// Aliases are available for some C++ language standards. For example,
@@ -148,7 +148,7 @@ public enum CXXLanguageStandard: String, Encodable {
     case gnucxx2b = "gnu++2b"
 }
 
-/// The version of the Swift language to use for compiling Swift sources in the
+/// The version of the Swift language you use to compile Swift sources in the
 /// package.
 public enum SwiftVersion {
     /// The identifier for the Swift 3 language version.

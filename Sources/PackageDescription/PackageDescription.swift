@@ -53,7 +53,7 @@ import Foundation
 /// )
 /// ```
 ///
-/// On versions before 5.4, the package manifest must begin with the string `// swift-tools-version:`
+/// In Swift tools versions earlier than 5.4, the package manifest must begin with the string `// swift-tools-version:`
 /// followed by a version number specifier. Version 5.4 and later has relaxed the whitespace requirements.
 /// The following code listing shows a few examples of valid declarations of the Swift tools version:
 ///
@@ -71,7 +71,7 @@ import Foundation
 /// version of the Swift tools to use the Swift package. Each version of Swift
 /// can introduce updates to the PackageDescription framework, but the previous
 /// API version is available to packages which declare a prior tools version.
-/// This behavior lets you take advantage of new releases of Swift, the Swift
+/// This behavior means you can take advantage of new releases of Swift, the Swift
 /// tools, and the PackageDescription library, without having to update your
 /// package's manifest or losing access to existing packages.
 public final class Package {
@@ -115,7 +115,7 @@ public final class Package {
     /// The list of package dependencies.
     public var dependencies: [Dependency]
 
-    /// The list of Swift versions that this package is compatible with.
+    /// The list of Swift versions with which this package is compatible.
     public var swiftLanguageVersions: [SwiftVersion]?
 
     /// The C language standard to use for all C targets in this package.
@@ -245,7 +245,7 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` to deduce the name from the package's Git URL.
+    ///   - name: The name of the Swift package or `nil` with which Swift Package Manager deduces the name from the package's Git URL.
     ///   - defaultLocalization: The default localization for resources.
     ///   - platforms: The list of supported platforms with a custom deployment target.
     ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
@@ -254,7 +254,7 @@ public final class Package {
     ///   - products: The list of products that this package makes available for clients to use.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.
-    ///   - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
+    ///   - swiftLanguageVersions: The list of Swift versions with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 5.3)
