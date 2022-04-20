@@ -245,7 +245,7 @@ public final class Package {
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///   - name: The name of the Swift package or `nil` with which Swift Package Manager deduces the name from the package's Git URL.
+    ///   - name: The name of the Swift package, or `nil` to use the package's Git URL to deduce the name.
     ///   - defaultLocalization: The default localization for resources.
     ///   - platforms: The list of supported platforms with a custom deployment target.
     ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
@@ -378,7 +378,7 @@ extension LanguageTag: CustomStringConvertible {
     public var description: String { tag }
 }
 
-/// The system package providers used in this Swift package.
+/// The system package providers that this package uses.
 public enum SystemPackageProvider {
 
     /// Packages installable by the HomeBrew package manager.
