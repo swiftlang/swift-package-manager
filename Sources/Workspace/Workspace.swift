@@ -720,6 +720,11 @@ public class Workspace {
 
 extension Workspace {
 
+    /// Reload the workspace state from the workspace-state.json file on disk.
+    public func reloadWorkspaceState(warningHandler: (String) -> Void) {
+        self.state.load(warningHandler: warningHandler)
+    }
+
     // deprecated 10/2021
     @available(*, deprecated, message: "use observability system APIs instead")
     public func edit(packageName: String, path: AbsolutePath? = nil, revision: Revision? = nil, checkoutBranch: String? = nil, diagnostics: DiagnosticsEngine) {
