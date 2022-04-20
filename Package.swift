@@ -62,6 +62,50 @@ if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
 }
 
+let packageCollectionSigningTargets: [Target]
+// swift-crypto's Crypto module depends on CCryptoBoringSSL on these platforms only
+#if os(Linux) || os(Windows) || os(Android)
+packageCollectionSigningTargets = [
+    .target(
+        /** Package collections signing C lib */
+        name: "PackageCollectionsSigningLibc",
+        dependencies: [
+            .product(name: "Crypto", package: "swift-crypto"), // for CCryptoBoringSSL
+        ],
+        exclude: ["CMakeLists.txt"],
+        cSettings: [
+            .define("WIN32_LEAN_AND_MEAN"),
+        ]
+    ),
+    .target(
+         /** Package collections signing */
+         name: "PackageCollectionsSigning",
+         dependencies: [
+            "Basics",
+            .product(name: "Crypto", package: "swift-crypto"),
+            "PackageCollectionsModel",
+            "PackageCollectionsSigningLibc",
+         ],
+         exclude: ["CMakeLists.txt"],
+         swiftSettings: swiftSettings
+    ),
+]
+#else
+packageCollectionSigningTargets = [
+    .target(
+         /** Package collections signing */
+         name: "PackageCollectionsSigning",
+         dependencies: [
+            "Basics",
+            .product(name: "Crypto", package: "swift-crypto"),
+            "PackageCollectionsModel",
+         ],
+         exclude: ["CMakeLists.txt"],
+         swiftSettings: swiftSettings
+    ),
+]
+#endif
+
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -110,7 +154,7 @@ let package = Package(
             ]
         ),
     ],
-    targets: [
+    targets: packageCollectionSigningTargets + [
         // The `PackageDescription` target provides the API that is available
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -227,30 +271,6 @@ let package = Package(
                 "CMakeLists.txt",
                 "Formats/v1.md"
             ]
-        ),
-
-        .target(
-            /** Package collections signing C lib */
-            name: "PackageCollectionsSigningLibc",
-            dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"),
-            ],
-            exclude: ["CMakeLists.txt"],
-            cSettings: [
-                .define("WIN32_LEAN_AND_MEAN"),
-            ]
-        ),
-        .target(
-             /** Package collections signing */
-             name: "PackageCollectionsSigning",
-             dependencies: [
-                "Basics",
-                .product(name: "Crypto", package: "swift-crypto"),
-                "PackageCollectionsModel",
-                "PackageCollectionsSigningLibc",
-             ],
-             exclude: ["CMakeLists.txt"],
-             swiftSettings: swiftSettings
         ),
 
         .target(
