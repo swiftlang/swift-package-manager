@@ -178,16 +178,16 @@ public class Product: Encodable {
     /// Creates a library product to allow clients that declare a dependency on
     /// this package to use the package's functionality.
     ///
-    /// A library's product can either be statically or dynamically linked. If
-    /// possible, don't declare the type of library explicitly to let Swift Package Manager
+    /// A library's product can be either statically or dynamically linked. It's recommended
+    /// that you don't explicity declare the type of library, so Swift Package Manager can
     /// choose between static or dynamic linking based on the preference of the
     /// package's consumer.
     ///
     /// - Parameters:
     ///   - name: The name of the library product.
     ///   - type: The optional type of the library that's used to determine how to
-    ///     link to the library. Leave this parameter unspecified to let to let
-    ///     Swift Package Manager choose between static or dynamic linking (recommended). If you
+    ///     link to the library. Leave this parameter so
+    ///     Swift Package Manager can choose between static or dynamic linking (recommended). If you
     ///     don't support both linkage types, use
     ///     ``Product/Library/LibraryType/static`` or
     ///     ``Product/Library/LibraryType/dynamic`` for this parameter.
@@ -219,10 +219,10 @@ public static func executable(
     /// Defines a product that vends a package plugin target for use by clients of the package.
     ///
     /// It is not necessary to define a product for a plugin that
-    /// is only used within the same package as it is defined. All the targets
-    /// listed must be plugin targets in the same package as the product. They
-    /// will be applied to any client targets of the product in the same order
-    /// as they are listed.
+    /// is only used within the same package where you define it. All the targets
+    /// listed must be plugin targets in the same package as the product. Swift Package Manager
+    /// will apply them to any client targets of the product in the order
+    /// they are listed.
     /// - Parameters:
     ///   - name: The name of the plugin product.
     ///   - targets: The plugin targets to vend as a product.

@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// A target, the basic building block of a Swift package.
+/// The basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that Swift Package Manager compiles into a module
 /// or test suite. You can vend targets to other packages by defining products
@@ -118,13 +118,13 @@ public final class Target {
     }
     private var _resources: [Resource]?
 
-    /// The paths to source and resource files you don't want to include in the target.
+    /// The paths to source and resource files that you don't want to include in the target.
     ///
     /// Excluded paths are relative to the target path. This property has
     /// precedence over the `sources` and `resources` properties.
     public var exclude: [String]
 
-    /// A boolean value that indicates if this is a test target.
+    /// A Boolean value that indicates whether this is a test target.
     public var isTest: Bool {
         return type == .test
     }
@@ -132,7 +132,7 @@ public final class Target {
     /// The target's dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
 
-    /// The path to the directory containing public headers of a C-family target.
+    /// The path to the directory that contains public headers of a C-family target.
     ///
     /// If this is `nil`, the directory is set to `include`.
     public var publicHeadersPath: String?
@@ -158,8 +158,9 @@ public final class Target {
     }
     private var _pluginCapability: PluginCapability?
 
-    /// The different types of capability that a plugin can provide. In this
-    /// version of SwiftPM, only build tool and command plugins are supported;
+    /// The different types of capability that a plugin can provide.
+    ///
+    /// In this version of SwiftPM, only build tool and command plugins are supported;
     /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
@@ -930,17 +931,16 @@ public final class Target {
     /// Note that the role of the package plugin is only to define the commands
     /// that will run before, during, or after the build. It does not itself run
     /// those commands. The commands are defined in an IDE-neutral way, and are
-    /// run as appropriate by the build system that builds the package. The exten-
-    /// sion itself is only a procedural way of generating commands and their input
+    /// run as appropriate by the build system that builds the package. The extension
+    /// itself is only a procedural way of generating commands and their input
     /// and output dependencies.
     ///
     /// The package plugin may specify the executable targets or binary targets
     /// that provide the build tools that will be used by the generated commands
     /// during the build. In the initial implementation, prebuild actions can only
     /// depend on binary targets. Build tool and postbuild plugins can depend
-    /// on executables as well as binary targets. This is because of limitations
-    /// in how SwiftPM constructs its build plan, and the goal is to remove this
-    /// restriction in a future release.
+    /// on executables as well as binary targets. This is due to current limitations
+    /// in how Swift Package Manager constructs its build plan.
     ///
     /// - Parameters:
     ///   - name: The name of the plugin target.
