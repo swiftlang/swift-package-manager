@@ -939,8 +939,8 @@ public final class Target {
     /// that provide the build tools that will be used by the generated commands
     /// during the build. In the initial implementation, prebuild actions can only
     /// depend on binary targets. Build tool and postbuild plugins can depend
-    /// on executables as well as binary targets. This is due to current limitations
-    /// in how Swift Package Manager constructs its build plan.
+    /// on executables as well as binary targets. This is due to how
+    /// Swift Package Manager constructs its build plan.
     ///
     /// - Parameters:
     ///   - name: The name of the plugin target.
