@@ -802,4 +802,18 @@ class MiscellaneousTestCase: XCTestCase {
         }
         #endif
     }
+
+    func testWASIWithUnusedDynamicLibrary() throws {
+        try fixture(name: "Miscellaneous/WASI/UnusedDynamic") { path in
+            let root = path.appending(component: "Root")
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess(
+                ["--triple", "wasm32-unknown-wasi"],
+                packagePath: root
+            )
+            let error = try result.utf8stderrOutput()
+            // Package loading should not object to the dynamic library, since it is not used.
+            XCTAssert(!error.contains("dynamic"), error)
+            // (Other errors are fine; without a WASI toolchain, the actual build is expected to fail.)
+        }
+    }
 }

@@ -1269,7 +1269,10 @@ public final class ProductBuildDescription {
         }
 
         args += ["-L", buildParameters.buildPath.pathString]
-        args += ["-o", binary.pathString]
+        if !buildParameters.triple.isWASI()
+            || product.type != .library(.dynamic) {
+            args += ["-o", binary.pathString]
+        }
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 

@@ -861,13 +861,26 @@ extension LLBuildManifestBuilder {
                 outputs: [.file(buildProduct.binary)]
             )
         } else {
-            let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
+            var inputs = buildProduct.objects
+            var outputs: [Node] = []
+            let label: String
+
+            if !buildParameters.triple.isWASI() {
+                inputs += buildProduct.dylibs.map({ $0.binary })
+            }
+            if !buildParameters.triple.isWASI()
+                || buildProduct.product.type != .library(.dynamic) {
+                outputs.append(.file(buildProduct.binary))
+                label = buildProduct.binary.prettyPath()
+            } else {
+                label = buildProduct.product.name
+            }
 
             manifest.addShellCmd(
                 name: cmdName,
-                description: "Linking \(buildProduct.binary.prettyPath())",
+                description: "Linking \(label)",
                 inputs: inputs.map(Node.file),
-                outputs: [.file(buildProduct.binary)],
+                outputs: outputs,
                 arguments: try buildProduct.linkArguments()
             )
         }
@@ -877,9 +890,15 @@ extension LLBuildManifestBuilder {
         let output: Node = .virtual(targetName)
 
         manifest.addNode(output, toTarget: targetName)
+
+        var inputs: [Node] = []
+        if !buildParameters.triple.isWASI()
+            || buildProduct.product.type != .library(.dynamic) {
+            inputs.append(.file(buildProduct.binary))
+        }
         manifest.addPhonyCmd(
             name: output.name,
-            inputs: [.file(buildProduct.binary)],
+            inputs: inputs,
             outputs: [output]
         )
 
