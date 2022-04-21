@@ -210,9 +210,11 @@ class MiscellaneousTestCase: XCTestCase {
                 // in "swift test" test output goes to stdout
                 XCTAssertMatch(error.stdout, .contains("testExample1"))
                 XCTAssertMatch(error.stdout, .contains("testExample2"))
+                XCTAssertMatch(error.stdout, .contains("testSureSkipped"))
                 XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
                 XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsSkippedTests' passed"))
+                XCTAssertMatch(error.stdout, .contains("[4/4]"))
             }
 
             do {
@@ -224,15 +226,17 @@ class MiscellaneousTestCase: XCTestCase {
                     // in "swift test" test output goes to stdout
                     XCTAssertMatch(error.stdout, .contains("testExample1"))
                     XCTAssertMatch(error.stdout, .contains("testExample2"))
+                    XCTAssertMatch(error.stdout, .contains("testSureSkipped"))
                     XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
                     XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                    XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsSkippedTests' passed"))
+                    XCTAssertMatch(error.stdout, .contains("[4/4]"))
                 }
 
                 // Check the xUnit output.
                 XCTAssertFileExists(xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-                XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                XCTAssertMatch(contents, .contains("tests=\"4\" failures=\"1\" skipped=\"0\""))
                 XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
                 XCTAssertNoMatch(contents, .contains("time=\"0.0\""))
             }
@@ -246,6 +250,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+            XCTAssertNoMatch(stdout, .contains("testSureSkipped"))
         }
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
@@ -254,6 +259,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
+            XCTAssertNoMatch(stdout, .contains("testSureSkipped"))
         }
     }
 
@@ -264,6 +270,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
+            XCTAssertMatch(stdout, .contains("testSureSkipped"))
         }
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
@@ -272,6 +279,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+            XCTAssertNoMatch(stdout, .contains("testSureSkipped"))
         }
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
@@ -280,6 +288,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+            XCTAssertNoMatch(stdout, .contains("testSureSkipped"))
             XCTAssertMatch(stderr, .contains("No matching test cases were run"))
         }
     }

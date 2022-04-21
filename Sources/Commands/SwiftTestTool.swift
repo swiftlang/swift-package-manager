@@ -651,8 +651,15 @@ final class ParallelTestRunner {
     struct TestResult {
         var unitTest: UnitTest
         var output: String
-        var success: Bool
+        var result: Result
         var duration: DispatchTimeInterval
+
+        /// An enum representing all possible test result states.
+        enum Result {
+            case success
+            case failure
+            case skipped
+        }
     }
 
     /// Path to XCTest binaries.
@@ -778,7 +785,7 @@ final class ParallelTestRunner {
                     self.finishedTests.enqueue(TestResult(
                         unitTest: test,
                         output: output,
-                        success: success,
+                        result: success ? .success : .failure, // TODO: Determine if skipped
                         duration: duration
                     ))
                 }
@@ -808,11 +815,11 @@ final class ParallelTestRunner {
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        progressAnimation.complete(success: processedTests.get().contains(where: { $0.result == .failure }))
 
         // Print test results.
         for test in processedTests.get() {
-            if !test.success || shouldOutputSuccess {
+            if test.result == .failure || shouldOutputSuccess {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print(test.output)
@@ -979,12 +986,13 @@ final class XUnitGenerator {
         stream <<< "<testsuites>\n"
 
         // Get the failure count.
-        let failures = results.filter({ !$0.success }).count
+        let failures = results.filter({ $0.result == .failure }).count
+        let skipped = results.filter({ $0.result == .skipped }).count
         let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
 
         // We need better output reporting from XCTest.
         stream <<< """
-            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
+            <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" skipped="\(skipped)" time="\(duration)">
 
             """
 
@@ -999,8 +1007,13 @@ final class XUnitGenerator {
 
                 """
 
-            if !result.success {
-                stream <<< "<failure message=\"failed\"></failure>\n"
+            switch result.result {
+                case .success:
+                    break
+                case .failure:
+                    stream <<< "<failure message=\"failed\"></failure>\n"
+                case .skipped:
+                    stream <<< "<skipped message=\"skipped\"></skipped>\n"
             }
 
             stream <<< "</testcase>\n"
