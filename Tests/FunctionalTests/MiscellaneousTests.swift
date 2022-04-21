@@ -243,6 +243,34 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testSwiftTestSerialXUnit() throws {
+        try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+            do {
+                let xUnitOutput = fixturePath.appending(component: "result.xml")
+                // Run tests in serial with xunit output.
+                XCTAssertThrowsCommandExecutionError(
+                    try SwiftPMProduct.SwiftTest.execute(["--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
+                ) { error in
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(error.stdout, .contains("testExample1]' passed"))
+                    XCTAssertMatch(error.stdout, .contains("testExample2]' passed"))
+                    XCTAssertMatch(error.stdout, .contains("testSureFailure]' failed"))
+                    XCTAssertMatch(error.stdout, .contains("testSureSkipped]' skipped"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsSkippedTests' passed"))
+                    XCTAssertMatch(error.stdout, .contains("Executed 4 tests, with 1 test skipped and 1 failure"))
+                }
+
+                // Check the xUnit output.
+                XCTAssertFileExists(xUnitOutput)
+                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+                XCTAssertMatch(contents, .contains("tests=\"4\" failures=\"1\" skipped=\"1\""))
+                XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
+            }
+        }
+    }
+
     func testSwiftTestFilter() throws {
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l"], packagePath: fixturePath)

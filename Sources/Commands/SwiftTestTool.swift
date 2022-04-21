@@ -15,6 +15,9 @@ import Basics
 import Build
 import Dispatch
 import class Foundation.ProcessInfo
+import class Foundation.NSRegularExpression
+import struct Foundation.NSRange
+import class Foundation.NSString
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -264,6 +267,20 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             let xctestArg: String?
+            let tests: [UnitTest]
+
+            func findTests() throws -> [UnitTest] {
+                // Find the tests we need to run.
+                let testSuites = try TestingSupport.getTestSuites(
+                    in: testProducts,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: options.enableCodeCoverage,
+                    sanitizers: globalOptions.build.sanitizers
+                )
+                return try testSuites
+                    .filteredTests(specifier: options.testCaseSpecifier)
+                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
+            }
 
             switch options.testCaseSpecifier {
             case .none:
@@ -271,6 +288,7 @@ public struct SwiftTestTool: SwiftCommand {
                     fallthrough
                 } else {
                     xctestArg = nil
+                    tests = try findTests()
                 }
 
             case .regex, .specific, .skip:
@@ -279,16 +297,7 @@ public struct SwiftTestTool: SwiftCommand {
                     swiftTool.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
-                // Find the tests we need to run.
-                let testSuites = try TestingSupport.getTestSuites(
-                    in: testProducts,
-                    swiftTool: swiftTool,
-                    enableCodeCoverage: options.enableCodeCoverage,
-                    sanitizers: globalOptions.build.sanitizers
-                )
-                let tests = try testSuites
-                    .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
+                tests = try findTests()
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
@@ -314,14 +323,63 @@ public struct SwiftTestTool: SwiftCommand {
                 observabilityScope: swiftTool.observabilityScope
             )
 
+            // Map tests for fast lookup during each test run
+            let testMap = tests.reduce(into: [String: UnitTest]()) {
+                $0[$1.specifier] = $1
+            }
+            let resultRegex = try! NSRegularExpression(
+                pattern: "^Test Case" +
+                         " '-\\[(?<classname>.*) (?<name>.*)\\]' " + // test specifier
+                         "(?<result>\(XCTestResult.passed.rawValue)" + // result
+                         "|\(XCTestResult.failed.rawValue)" +
+                         "|\(XCTestResult.skipped.rawValue)) " +
+                         "\\((?<duration>[0-9]+.[0-9]{3}) seconds\\)\\.$", // duration
+                options: .anchorsMatchLines
+            )
+            var testResults = [TestResult]()
+
             // Finally, run the tests.
             let ranSuccessfully = runner.test(outputHandler: {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
                 print($0)
+                if options.xUnitOutput == nil {
+                    // No need to process output if xunit has not been requested
+                    return
+                }
+
+                // If xunit output has been requested we must parse XCTest output using
+                // regex as XCTest does not produce machine consumable output.
+                let groups = resultRegex.captureGroups(in: $0, groupNames: ["classname", "name", "result", "duration"])
+                if let classname = groups["classname"],
+                   let name = groups["name"],
+                   let resultString = groups["result"],
+                   let durationString = groups["duration"],
+                   let unitTest = testMap["\(classname)/\(name)"],
+                   let xctResult = XCTestResult(rawValue: resultString),
+                   let duration = Double(durationString)
+                {
+                    let interval = DispatchTimeInterval.milliseconds(Int(duration * 1000))
+                    testResults.append(TestResult(
+                        unitTest: unitTest,
+                        output: "", // TODO: Capture output of each test
+                        result: TestResult.Result.fromXCTestResult(xctResult),
+                        duration: interval
+                    ))
+                }
             })
+
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
+            }
+
+            // Generate xUnit file if requested
+            if let xUnitOutput = options.xUnitOutput {
+                let generator = XUnitGenerator(
+                    fileSystem: swiftTool.fileSystem,
+                    results: testResults
+                )
+                try generator.generate(at: xUnitOutput)
             }
 
             if self.options.enableCodeCoverage {
@@ -645,23 +703,38 @@ final class TestRunner {
     }
 }
 
-/// A class to run tests in parallel.
-final class ParallelTestRunner {
-    /// An enum representing result of a unit test execution.
-    struct TestResult {
-        var unitTest: UnitTest
-        var output: String
-        var result: Result
-        var duration: DispatchTimeInterval
+/// An enum representing result of a unit test execution.
+struct TestResult {
+    var unitTest: UnitTest
+    var output: String
+    var result: Result
+    var duration: DispatchTimeInterval
 
-        /// An enum representing all possible test result states.
-        enum Result {
-            case success
-            case failure
-            case skipped
+    /// An enum representing all possible test result states.
+    enum Result {
+        case success
+        case failure
+        case skipped
+
+        static func fromXCTestResult(_ result: XCTestResult) -> Result {
+            switch result {
+                case .passed: return .success
+                case .failed: return .failure
+                case .skipped: return .skipped
+            }
         }
     }
+}
 
+/// An enum representing valid string values for XCTest result lines.
+enum XCTestResult: String {
+    case passed
+    case failed
+    case skipped
+}
+
+/// A class to run tests in parallel.
+final class ParallelTestRunner {
     /// Path to XCTest binaries.
     private let bundlePaths: [AbsolutePath]
 
@@ -963,8 +1036,6 @@ fileprivate extension Array where Element == UnitTest {
 
 /// xUnit XML file generator for a swift-test run.
 final class XUnitGenerator {
-    typealias TestResult = ParallelTestRunner.TestResult
-
     /// The file system to use
     let fileSystem: FileSystem
 
@@ -1075,5 +1146,26 @@ extension TestToolOptions {
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
+    }
+}
+
+private extension NSRegularExpression {
+    /// Returns the capture groups associated with the named capture groups.
+    func captureGroups(in string: String, groupNames: [String]) -> [String: String] {
+        let range = NSRange(location: 0, length: (string as NSString).length)
+
+        var captures = [String: String]()
+        for match in matches(in: string, range: range) {
+            for group in groupNames {
+                let range = match.range(withName: group)
+                guard let substring = Range(range, in: string) else {
+                    continue
+                }
+
+                let capture = String(string[substring])
+                captures[group] = capture
+            }
+        }
+        return captures
     }
 }
