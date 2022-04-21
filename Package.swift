@@ -62,10 +62,15 @@ if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
 }
 
-let packageCollectionSigningTargets: [Target]
+var packageCollectionsSigningTargets = [Target]()
+var packageCollectionsSigningDeps: [Target.Dependency] = [
+    "Basics",
+    .product(name: "Crypto", package: "swift-crypto"),
+    "PackageCollectionsModel",
+]
 // swift-crypto's Crypto module depends on CCryptoBoringSSL on these platforms only
 #if os(Linux) || os(Windows) || os(Android)
-packageCollectionSigningTargets = [
+packageCollectionsSigningTargets.append(
     .target(
         /** Package collections signing C lib */
         name: "PackageCollectionsSigningLibc",
@@ -76,35 +81,20 @@ packageCollectionSigningTargets = [
         cSettings: [
             .define("WIN32_LEAN_AND_MEAN"),
         ]
-    ),
-    .target(
-         /** Package collections signing */
-         name: "PackageCollectionsSigning",
-         dependencies: [
-            "Basics",
-            .product(name: "Crypto", package: "swift-crypto"),
-            "PackageCollectionsModel",
-            "PackageCollectionsSigningLibc",
-         ],
-         exclude: ["CMakeLists.txt"],
-         swiftSettings: swiftSettings
-    ),
-]
-#else
-packageCollectionSigningTargets = [
-    .target(
-         /** Package collections signing */
-         name: "PackageCollectionsSigning",
-         dependencies: [
-            "Basics",
-            .product(name: "Crypto", package: "swift-crypto"),
-            "PackageCollectionsModel",
-         ],
-         exclude: ["CMakeLists.txt"],
-         swiftSettings: swiftSettings
-    ),
-]
+    )
+)
+packageCollectionsSigningDeps.append("PackageCollectionsSigningLibc")
 #endif
+// Define PackageCollectionsSigning target always
+packageCollectionsSigningTargets.append(
+    .target(
+         /** Package collections signing */
+         name: "PackageCollectionsSigning",
+         dependencies: packageCollectionsSigningDeps,
+         exclude: ["CMakeLists.txt"],
+         swiftSettings: swiftSettings
+    )
+)
 
 let package = Package(
     name: "SwiftPM",
@@ -154,7 +144,7 @@ let package = Package(
             ]
         ),
     ],
-    targets: packageCollectionSigningTargets + [
+    targets: packageCollectionsSigningTargets + [
         // The `PackageDescription` target provides the API that is available
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
