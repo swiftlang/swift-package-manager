@@ -58,7 +58,7 @@ public struct Resource: Encodable {
         self.path = path
         self.localization = localization
     }
-    
+
     /// Applies platform-specific rules to the resource at the given path.
     ///
     /// Use the `process` rule to process resources at the given path according
