@@ -130,6 +130,8 @@ public struct CSetting: Encodable {
     ///
     /// The path must be a directory inside the package.
     ///
+    /// - Since: First available in PackageDescription 5.0.
+    ///
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
@@ -140,6 +142,8 @@ public struct CSetting: Encodable {
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - name: The name of the macro.
@@ -164,6 +168,8 @@ public struct CSetting: Encodable {
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, the use of unsafe flags makes the products containing this
     /// target ineligible for use by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - flags: The unsafe flags to set.
@@ -190,6 +196,8 @@ public struct CXXSetting: Encodable {
     ///
     /// The path must be a directory inside the package.
     ///
+    /// - Since: First available in PackageDescription 5.0.
+    ///
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is
     ///   - condition: A condition that restricts the application of the build setting.
@@ -200,6 +208,8 @@ public struct CXXSetting: Encodable {
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - name: The name of the macro.
@@ -223,6 +233,8 @@ public struct CXXSetting: Encodable {
     ///
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, you can't use products with unsafe build flags as dependencies in another package.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - flags: The unsafe flags to set.
@@ -256,6 +268,8 @@ public struct SwiftSetting: Encodable {
     /// Unlike macros in C/C++, compilation conditions don't have an associated
     /// value.
     ///
+    /// - Since: First available in PackageDescription 5.0.
+    ///
     /// - Parameters:
     ///   - name: The name of the macro.
     ///   - condition: A condition that restricts the application of the build
@@ -274,6 +288,8 @@ public struct SwiftSetting: Encodable {
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, the use of unsafe flags makes the products containing this
     /// target ineligible for use by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - flags: The unsafe flags to set.
@@ -297,6 +313,8 @@ public struct LinkerSetting: Encodable {
     /// This setting is most useful when the library can't be linked
     /// automatically, such as C++ based libraries and non-modular libraries.
     ///
+    /// - Since: First available in PackageDescription 5.0.
+    ///
     /// - Parameters:
     ///   - library: The library name.
     ///   - condition: A condition that restricts the application of the build
@@ -309,6 +327,8 @@ public struct LinkerSetting: Encodable {
     ///
     /// This setting is most useful when the framework can't be linked
     /// automatically, such as C++ based frameworks and non-modular frameworks.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - framework: The framework name.
@@ -328,6 +348,8 @@ public struct LinkerSetting: Encodable {
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, the use of unsafe flags makes the products containing this
     /// target ineligible for use by other packages.
+    ///
+    /// - Since: First available in PackageDescription 5.0.
     ///
     /// - Parameters:
     ///   - flags: The unsafe flags to set.
