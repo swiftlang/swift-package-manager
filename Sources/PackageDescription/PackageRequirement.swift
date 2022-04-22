@@ -25,7 +25,7 @@ extension Package.Dependency {
     ///
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard, visit the
-    /// [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
+    /// [Semantic Versioning 2.0.0](https://semver.org) website.
     ///
     /// Selecting the version requirement is the recommended way to add a
     /// package dependency. It allows you to create a balance between
@@ -148,7 +148,7 @@ extension Package.Dependency {
     /// versions, and may require you to modify your code when they update.
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard,
-    /// see the [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
+    /// see the [Semantic Versioning 2.0.0](https://semver.org) website.
     ///
     /// Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
     ///
@@ -202,7 +202,7 @@ extension Package.Dependency {
     /// versions, and may require you to modify your code when they update.
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard,
-    /// visit the [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) website.
+    /// visit the [Semantic Versioning 2.0.0](https://semver.org) website.
     @available(_PackageDescription, introduced: 999)
     public enum RegistryRequirement {
         /// A requirement based on an exact version.

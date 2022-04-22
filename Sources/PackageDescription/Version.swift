@@ -16,7 +16,7 @@
 /// that your package behaves in a predictable manner once developers update their
 /// package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 /// requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
-/// [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+/// [Semantic Versioning 2.0.0](https://semver.org).
 ///
 /// - term The major version: The first digit of a version, or _major version_,
 /// signifies breaking changes to the API that require updates to existing
@@ -113,7 +113,7 @@ extension Version: Comparable {
     /// Returns a Boolean value indicating whether the value of the first
     /// argument is less than that of the second argument.
     ///
-    /// The precedence is determined according to rules described at the [Semantic Versioning 2.0.0](https://semver.org/#spec-item-11) website.
+    /// The precedence is determined according to rules described in the [Semantic Versioning 2.0.0](https://semver.org) standard, paragraph 11.
     ///
     /// - Parameters:
     ///   - lhs: A value to compare.
