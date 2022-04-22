@@ -209,7 +209,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: version.version)
     }
-    
+
     /// Configure the minimum deployment target version for the watchOS
     /// platform using a custom version string.
     ///
