@@ -85,7 +85,11 @@ public struct ToolsVersionParser {
             throw Error.nonUTF8EncodedManifest(path: manifestPath)
         }
 
-        return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
+        do {
+          return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
+        } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
+          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
+        }
     }
 
     public static func parse(utf8String: String) throws -> ToolsVersion {
@@ -653,13 +657,8 @@ extension ManifestLoader {
             do {
                 regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
             }
-            catch {
-                if case ToolsVersionParser.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error {
-                    regularManifestToolsVersion = .v3
-                }
-                else {
-                    throw error
-                }
+            catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
+              regularManifestToolsVersion = .v3
             }
 
             // Compare the tools version of this manifest with the regular
