@@ -40,7 +40,7 @@ extension Package {
             ///  - Parameters:
             ///    - name: The name of the dependency.
             ///    - location: The Git URL of the dependency.
-            ///    - requirement: A `SourceControlRequirement` instance.
+            ///    - requirement: The version based requirement for a package.
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             /// A dependency based on a registry requirement.
             /// - Parameters:

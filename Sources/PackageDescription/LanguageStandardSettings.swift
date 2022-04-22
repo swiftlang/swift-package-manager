@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The supported C language standard you use to complile C sources in the
+/// The supported C language standard you use to compile C sources in the
 /// package.
 public enum CLanguageStandard: String, Encodable {
 
@@ -83,7 +83,7 @@ public enum CLanguageStandard: String, Encodable {
     case iso9899_2018 = "iso9899:2018"
 }
 
-/// The supported C++ language standard tyou use to compile C++ sources in the
+/// The supported C++ language standard you use to compile C++ sources in the
 /// package.
 ///
 /// Aliases are available for some C++ language standards. For example,

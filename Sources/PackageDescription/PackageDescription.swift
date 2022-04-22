@@ -81,7 +81,7 @@ public final class Package {
     /// package using its Git URL.
     public var name: String
 
-    /// The list of platforms supported by the package.
+    /// The list of minimum versions for platforms supported by the package.
     @available(_PackageDescription, introduced: 5)
     public var platforms: [SupportedPlatform]? {
         get { return _platforms }
