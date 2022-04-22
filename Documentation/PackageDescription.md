@@ -372,7 +372,7 @@ Major versions tend to have more significant changes than minor
 versions, and may require you to modify your code when they update.
 The version rule requires Swift packages to conform to semantic
 versioning. To learn more about the semantic versioning standard,
-visit [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+visit [semver.org](https://semver.org).
 
 Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
 
@@ -476,7 +476,7 @@ A package version is a three period-separated integer, for example `1.0.0`. It m
 that your package behaves in a predictable manner once developers update their
 package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
-[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+[semver.org](www.semver.org).
 
 **The Major Version**
 
