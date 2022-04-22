@@ -609,7 +609,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -669,7 +669,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }

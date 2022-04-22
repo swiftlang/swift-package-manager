@@ -32,6 +32,7 @@ add_library(Basics
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift
+  VFSOverlay.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC
   SwiftCollections::OrderedCollections
