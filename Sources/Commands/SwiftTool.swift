@@ -752,6 +752,7 @@ public class SwiftTool {
             buildParameters: customBuildParameters ?? self.buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
             disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,

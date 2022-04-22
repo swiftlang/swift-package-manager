@@ -174,6 +174,17 @@ public enum TargetBuildDescription {
         }
     }
 
+    /// The resources in this target.
+    var resources: [Resource] {
+        switch self {
+        case .swift(let target):
+            return target.resources
+        case .clang(let target):
+            // TODO: Clang targets should support generated resources in the future.
+            return target.target.underlyingTarget.resources
+        }
+    }
+
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
         switch self {
@@ -239,7 +250,7 @@ public final class ClangTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        buildParameters.bundlePath(for: target)
+        target.underlyingTarget.bundleName.map(buildParameters.bundlePath(named:))
     }
 
     /// The modulemap file for this target, if any.
@@ -542,14 +553,26 @@ public final class SwiftTargetBuildDescription {
     /// These are the source files derived from plugins.
     private var pluginDerivedSources: Sources
 
+    /// These are the resource files derived from plugins.
+    private var pluginDerivedResources: [Resource]
+
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        buildParameters.bundlePath(for: target)
+        if let bundleName = target.underlyingTarget.potentialBundleName, !resources.isEmpty {
+            return buildParameters.bundlePath(named: bundleName)
+        } else {
+            return .none
+        }
     }
 
     /// The list of all source files in the target, including the derived ones.
     public var sources: [AbsolutePath] {
         target.sources.paths + derivedSources.paths + pluginDerivedSources.paths
+    }
+
+    /// The list of all resource files in the target, including the derived ones.
+    public var resources: [Resource] {
+        target.underlyingTarget.resources + pluginDerivedResources
     }
 
     /// The objects in this target.
@@ -633,16 +656,21 @@ public final class SwiftTargetBuildDescription {
     /// The results of running any prebuild commands for this target.
     public let prebuildCommandResults: [PrebuildCommandResult]
 
+    /// ObservabilityScope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
+
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
+        additionalFileRules: [FileRuleDescription] = [],
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
         isTestDiscoveryTarget: Bool = false,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
@@ -659,23 +687,29 @@ public final class SwiftTargetBuildDescription {
         self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
+        self.observabilityScope = observabilityScope
 
-        // Add any derived source files that were declared for any commands from plugin invocations.
+        // Add any derived files that were declared for any commands from plugin invocations.
+        var pluginDerivedFiles = [AbsolutePath]()
         for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            // TODO: What should we do if we find non-Swift sources here?
             for absPath in command.outputFiles {
-                let relPath = absPath.relative(to: self.pluginDerivedSources.root)
-                self.pluginDerivedSources.relativePaths.append(relPath)
+                pluginDerivedFiles.append(absPath)
             }
         }
 
-        // Add any derived source files that were discovered from output directories of prebuild commands.
+        // Add any derived files that were discovered from output directories of prebuild commands.
         for result in self.prebuildCommandResults {
-            // TODO: What should we do if we find non-Swift sources here?
-            for path in result.derivedSourceFiles {
-                let relPath = path.relative(to: self.pluginDerivedSources.root)
-                self.pluginDerivedSources.relativePaths.append(relPath)
+            for path in result.derivedFiles {
+                pluginDerivedFiles.append(path)
             }
+        }
+
+        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
+        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(for: pluginDerivedFiles, toolsVersion: toolsVersion, additionalFileRules: additionalFileRules, defaultLocalization: target.defaultLocalization, targetName: target.name, targetPath: target.underlyingTarget.path, observabilityScope: observabilityScope)
+        self.pluginDerivedResources = derivedResources
+        derivedSources.forEach { absPath in
+            let relPath = absPath.relative(to: self.pluginDerivedSources.root)
+            self.pluginDerivedSources.relativePaths.append(relPath)
         }
 
         if shouldEmitObjCCompatibilityHeader {
@@ -1585,7 +1619,8 @@ public class BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true,
-                    fileSystem: fileSystem
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
                 )
 
                 result.append((testProduct, desc))
@@ -1621,7 +1656,8 @@ public class BuildPlan {
                     buildParameters: buildParameters,
                     isTestTarget: true,
                     isTestDiscoveryTarget: true,
-                    fileSystem: fileSystem
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
                 )
 
                 result.append((testProduct, target))
@@ -1635,28 +1671,11 @@ public class BuildPlan {
         return result
     }
 
-    @available(*, deprecated, message: "use observability system instead")
-    public convenience init(
-        buildParameters: BuildParameters,
-        graph: PackageGraph,
-        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
-        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
-    ) throws {
-        let observabilitySystem = ObservabilitySystem(diagnosticEngine: diagnostics)
-        try self.init(
-            buildParameters: buildParameters,
-            graph: graph,
-            fileSystem: fileSystem,
-            observabilityScope: observabilitySystem.topScope
-        )
-    }
-
     /// Create a build plan with build parameters and a package graph.
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
+        additionalFileRules: [FileRuleDescription] = [],
         buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         fileSystem: FileSystem,
@@ -1700,10 +1719,12 @@ public class BuildPlan {
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     target: target,
                     toolsVersion: toolsVersion,
+                    additionalFileRules: additionalFileRules,
                     buildParameters: buildParameters,
                     buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
-                    fileSystem: fileSystem)
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope)
                 )
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
@@ -2236,11 +2257,9 @@ private extension Basics.Diagnostic {
 }
 
 extension BuildParameters {
-    /// Returns a target's bundle path inside the build directory.
-    fileprivate func bundlePath(for target: ResolvedTarget) -> AbsolutePath? {
-        target.underlyingTarget.bundleName
-        .map{ $0 + triple.nsbundleExtension }
-        .map(buildPath.appending(component:))
+    /// Returns a named bundle's path inside the build directory.
+    fileprivate func bundlePath(named name: String) -> AbsolutePath {
+        return buildPath.appending(component: name + triple.nsbundleExtension)
     }
 }
 
