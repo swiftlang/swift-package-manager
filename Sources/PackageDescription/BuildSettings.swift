@@ -181,7 +181,7 @@ public struct CXXSetting: Encodable {
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
-  
+
     /// Provides a header search path relative to the target's directory.
     ///
     /// Use this setting to add a search path for headers within your target.
@@ -304,7 +304,7 @@ public struct LinkerSetting: Encodable {
     public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
-    
+
     /// Declares linkage to a system framework.
     ///
     /// This setting is most useful when the framework can't be linked
