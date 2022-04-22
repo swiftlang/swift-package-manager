@@ -59,7 +59,7 @@ public struct Resource: Encodable {
         self.localization = localization
     }
 
-    /// Applies platform-specific rules to the resource at the given path.
+    /// Applies a platform-specific rules to the resource at the given path.
     ///
     /// Use the `process` rule to process resources at the given path according
     /// to the platform Swift Package Manager builds the target for. For example, Swift Package Manager may
