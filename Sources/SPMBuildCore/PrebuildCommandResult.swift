@@ -16,14 +16,14 @@ import TSCBasic
 
 /// Represents the result of running prebuild commands for a single plugin invocation for a target.
 public struct PrebuildCommandResult {
-    /// Paths of any derived source files that should be included in the build.
-    public var derivedSourceFiles: [AbsolutePath]
+    /// Paths of any derived files that should be included in the build.
+    public var derivedFiles: [AbsolutePath]
     
     /// Paths of any directories whose contents influence the build plan.
     public var outputDirectories: [AbsolutePath]
 
-    public init(derivedSourceFiles: [AbsolutePath], outputDirectories: [AbsolutePath]) {
-        self.derivedSourceFiles = derivedSourceFiles
+    public init(derivedFiles: [AbsolutePath], outputDirectories: [AbsolutePath]) {
+        self.derivedFiles = derivedFiles
         self.outputDirectories = outputDirectories
     }
 }

@@ -153,13 +153,19 @@ public class Target: PolymorphicCodableProtocol {
     public private(set) var c99name: String
 
     /// The bundle name, if one is being generated.
-    public let bundleName: String?
+    public var bundleName: String? {
+        return resources.isEmpty ? nil : potentialBundleName
+    }
+    public let potentialBundleName: String?
 
     /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
 
     /// The kind of target.
     public let type: Kind
+
+    /// The path of the target.
+    public let path: AbsolutePath
 
     /// The sources for the target.
     public let sources: Sources
@@ -181,8 +187,9 @@ public class Target: PolymorphicCodableProtocol {
 
     fileprivate init(
         name: String,
-        bundleName: String? = nil,
+        potentialBundleName: String? = nil,
         type: Kind,
+        path: AbsolutePath,
         sources: Sources,
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
@@ -192,8 +199,9 @@ public class Target: PolymorphicCodableProtocol {
         pluginUsages: [PluginUsage]
     ) {
         self.name = name
-        self.bundleName = bundleName
+        self.potentialBundleName = potentialBundleName
         self.type = type
+        self.path = path
         self.sources = sources
         self.resources = resources
         self.ignored = ignored
@@ -205,7 +213,7 @@ public class Target: PolymorphicCodableProtocol {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, ignored, others, buildSettings, pluginUsages
+        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -214,10 +222,9 @@ public class Target: PolymorphicCodableProtocol {
         // FIXME: dependencies property is skipped on purpose as it points to
         // the actual target dependency object.
         try container.encode(name, forKey: .name)
-        try container.encode(bundleName, forKey: .bundleName)
-        //try container.encode(defaultLocalization, forKey: .defaultLocalization)
-        //try container.encode(platforms, forKey: .platforms)
+        try container.encode(potentialBundleName, forKey: .potentialBundleName)
         try container.encode(type, forKey: .type)
+        try container.encode(path, forKey: .path)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
         try container.encode(ignored, forKey: .ignored)
@@ -230,8 +237,9 @@ public class Target: PolymorphicCodableProtocol {
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
-        self.bundleName = try container.decodeIfPresent(String.self, forKey: .bundleName)
+        self.potentialBundleName = try container.decodeIfPresent(String.self, forKey: .potentialBundleName)
         self.type = try container.decode(Kind.self, forKey: .type)
+        self.path = try container.decode(AbsolutePath.self, forKey: .path)
         self.sources = try container.decode(Sources.self, forKey: .sources)
         self.resources = try container.decode([Resource].self, forKey: .resources)
         self.ignored = try container.decode([AbsolutePath].self, forKey: .ignored)
@@ -274,6 +282,7 @@ public final class SwiftTarget: Target {
         super.init(
             name: name,
             type: .executable,
+            path: .root,
             sources: testDiscoverySrc,
             dependencies: dependencies,
             buildSettings: .init(),
@@ -286,8 +295,9 @@ public final class SwiftTarget: Target {
 
     public init(
         name: String,
-        bundleName: String? = nil,
+        potentialBundleName: String? = nil,
         type: Kind,
+        path: AbsolutePath,
         sources: Sources,
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
@@ -300,8 +310,9 @@ public final class SwiftTarget: Target {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
-            bundleName: bundleName,
+            potentialBundleName: potentialBundleName,
             type: type,
+            path: path,
             sources: sources,
             resources: resources,
             ignored: ignored,
@@ -332,6 +343,7 @@ public final class SwiftTarget: Target {
         super.init(
             name: name,
             type: .executable,
+            path: .root,
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
@@ -364,11 +376,6 @@ public final class SystemLibraryTarget: Target {
     /// List of system package providers, if any.
     public let providers: [SystemPackageProviderDescription]?
 
-    /// The package path.
-    public var path: AbsolutePath {
-        return sources.root
-    }
-
     /// True if this system library should become implicit target
     /// dependency of its dependent packages.
     public let isImplicit: Bool
@@ -387,6 +394,7 @@ public final class SystemLibraryTarget: Target {
         super.init(
             name: name,
             type: .systemModule,
+            path: sources.root,
             sources: sources,
             dependencies: [],
             buildSettings: .init(),
@@ -442,13 +450,14 @@ public final class ClangTarget: Target {
 
     public init(
         name: String,
-        bundleName: String? = nil,
+        potentialBundleName: String? = nil,
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         moduleMapType: ModuleMapType,
         headers: [AbsolutePath] = [],
         type: Kind,
+        path: AbsolutePath,
         sources: Sources,
         resources: [Resource] = [],
         ignored: [AbsolutePath] = [],
@@ -467,8 +476,9 @@ public final class ClangTarget: Target {
         self.headers = headers
         super.init(
             name: name,
-            bundleName: bundleName,
+            potentialBundleName: potentialBundleName,
             type: type,
+            path: path,
             sources: sources,
             resources: resources,
             ignored: ignored,
@@ -530,6 +540,7 @@ public final class BinaryTarget: Target {
         super.init(
             name: name,
             type: .binary,
+            path: .root,
             sources: sources,
             dependencies: [],
             buildSettings: .init(),
@@ -650,6 +661,7 @@ public final class PluginTarget: Target {
         super.init(
             name: name,
             type: .plugin,
+            path: .root,
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
