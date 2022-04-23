@@ -20,7 +20,9 @@ private extension ResolvedTarget {
     convenience init(name: String, deps: ResolvedTarget...) {
         self.init(
             target: SwiftTarget(
-                name: name, type: .library, 
+                name: name,
+                type: .library,
+                path: .root,
                 sources: Sources(paths: [], root: AbsolutePath("/")),
                 dependencies: [],
                 swiftVersion: .v4

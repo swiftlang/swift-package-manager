@@ -767,7 +767,7 @@ public final class PackageBuilder {
 
         // FIXME: use identity instead?
         // The name of the bundle, if one is being generated.
-        let bundleName = resources.isEmpty ? nil : self.manifest.displayName + "_" + potentialModule.name
+        let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
         if sources.relativePaths.isEmpty && resources.isEmpty {
             return nil
@@ -808,8 +808,9 @@ public final class PackageBuilder {
         if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
-                bundleName: bundleName,
+                potentialBundleName: potentialBundleName,
                 type: targetType,
+                path: potentialModule.path,
                 sources: sources,
                 resources: resources,
                 ignored: ignored,
@@ -836,13 +837,14 @@ public final class PackageBuilder {
 
             return try ClangTarget(
                 name: potentialModule.name,
-                bundleName: bundleName,
+                potentialBundleName: potentialBundleName,
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
                 moduleMapType: moduleMapType,
                 headers: headers,
                 type: targetType,
+                path: potentialModule.path,
                 sources: sources,
                 resources: resources,
                 ignored: ignored,
@@ -1362,6 +1364,7 @@ extension PackageBuilder {
                 return SwiftTarget(
                     name: name,
                     type: .snippet,
+                    path: .root,
                     sources: sources,
                     dependencies: dependencies,
                     swiftVersion: try swiftVersion(),

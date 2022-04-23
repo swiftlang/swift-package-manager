@@ -171,7 +171,7 @@ extension LLBuildManifestBuilder {
         let infoPlistDestination = RelativePath("Info.plist")
 
         // Create a copy command for each resource file.
-        for resource in target.target.underlyingTarget.resources {
+        for resource in target.resources {
             let destination = bundlePath.appending(resource.destination)
             let (_, output) = addCopyCommand(from: resource.path, to: destination)
             outputs.append(output)
