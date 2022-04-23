@@ -20,24 +20,43 @@ extension Package {
     /// A package dependency consists of a Git URL to the source of the package,
     /// and a requirement for the version of the package.
     ///
-    /// The Swift Package Manager performs a process called *dependency resolution* to
-    /// figure out the exact version of the package dependencies that an app or other
-    /// Swift package can use. The `Package.resolved` file records the results of the
-    /// dependency resolution and lives in the top-level directory of a Swift package.
-    /// If you add the Swift package as a package dependency to an app for an Apple platform,
-    /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
+    /// Swift Package Manager performs a process called _dependency resolution_ to figure out
+    /// the exact version of the package dependencies that an app or other Swift
+    /// package can use. The `Package.resolved` file records the results of the
+    /// dependency resolution and lives in the top-level directory of a Swift
+    /// package. If you add the Swift package as a package dependency to an app
+    /// for an Apple platform, you can find the `Package.resolved` file inside
+    /// your `.xcodeproj` or `.xcworkspace`.
     public class Dependency: Encodable {
+        /// The kind of dependency.
         @available(_PackageDescription, introduced: 5.6)
         public enum Kind {
+            /// A dependency located at the given path.
+            /// - Parameters:
+            ///    - name: The name of the dependency.
+            ///    - path: The path to the dependency.
             case fileSystem(name: String?, path: String)
+            /// A dependency based on a source control requirement.
+            ///  - Parameters:
+            ///    - name: The name of the dependency.
+            ///    - location: The Git URL of the dependency.
+            ///    - requirement: The version-based requirement for a package.
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
+            /// A dependency based on a registry requirement.
+            /// - Parameters:
+            ///   - id: The package identifier of the dependency.
+            ///   - requirement: The version based requirement for a package.
             case registry(id: String, requirement: RegistryRequirement)
         }
 
+        /// A description of the package dependency.
         @available(_PackageDescription, introduced: 5.6)
         public let kind: Kind
 
-        /// The name of the dependency, or `nil` to deduce the name using the package's Git URL.
+        /// The name of the dependency.
+        ///
+        /// If the `name` is `nil`, Swift Package Manager deduces the dependency's name from its
+        /// package identity or Git URL.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var name: String? {
             get {
@@ -52,7 +71,7 @@ extension Package {
             }
         }
 
-        /// The location of the dependency.
+        /// The Git URL of the package dependency.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var url: String? {
             get {
@@ -72,7 +91,7 @@ extension Package {
         @available(_PackageDescription, introduced: 5.7)
         public var moduleAliases: [String: String]?
 
-        /// The requirement of the dependency.
+        /// The dependency requirement of the package dependency.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var requirement: Requirement {
             get {
@@ -139,31 +158,34 @@ extension Package {
 // MARK: - file system
 
 extension Package.Dependency {
-    /// Adds a package dependency to a local package on the filesystem.
+    /// Adds a dependency to a package located at the given path.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
     /// are especially useful during development of a new package or when working
     /// on multiple tightly coupled packages.
     ///
-    /// - Parameters
-    ///   - path: The file system path to the package.
+    /// - Parameter path: The file system path to the package.
+    ///
+    /// - Returns: A package dependency.
     public static func package(
         path: String
     ) -> Package.Dependency {
         return .init(name: nil, path: path)
     }
 
-    /// Adds a package dependency to a local package on the filesystem.
+    /// Adds a dependency to a package located at the given path on the filesystem.
     ///
-    /// The Swift Package Manager uses the package dependency as-is
-    /// and doesn't perform any source control access. Local package dependencies
-    /// are especially useful during development of a new package or when working
-    /// on multiple tightly coupled packages.
+    /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
+    /// control access. Local package dependencies are especially useful during
+    /// development of a new package or when working on multiple tightly coupled
+    /// packages.
     ///
-    /// - Parameters
-    ///   - name: The name of the Swift package, used only for target dependencies lookup.
-    ///   - path: The file system path to the package.
+    /// - Parameters:
+    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
+    ///   - path: The local path to the package.
+    ///
+    /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 5.2)
     public static func package(
         name: String,
@@ -189,12 +211,15 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to select a version
     /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
-    ///    .package(url: "https://example.com/example-package.git", from: "1.2.3"),
+    ///```swift
+    ///.package(url: "https://example.com/example-package.git", from: "1.2.3"),
+    ///```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - version: The minimum version requirement.
+    ///    - url: The valid Git URL of the package.
+    ///    - version: The minimum version requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     public static func package(
         url: String,
         from version: Version
@@ -202,25 +227,32 @@ extension Package.Dependency {
         return .package(url: url, .upToNextMajor(from: version))
     }
 
-    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
-    /// going up to the next major version.
+    /// Adds a package dependency that uses the version requirement, starting
+    /// with the given minimum version, going up to the next major version.
     ///
-    /// This is the recommended way to specify a remote package dependency.
-    /// It allows you to specify the minimum version you require, allows updates that include bug fixes
-    /// and backward-compatible feature updates, but requires you to explicitly update to a new major version of the dependency.
-    /// This approach provides the maximum flexibility on which version to use,
-    /// while making sure you don't update to a version with breaking changes,
-    /// and helps to prevent conflicts in your dependency graph.
+    /// This is the recommended way to specify a remote package dependency. It
+    /// allows you to specify the minimum version you require, allows updates
+    /// that include bug fixes and backward-compatible feature updates, but
+    /// requires you to explicitly update to a new major version of the
+    /// dependency. This approach provides the maximum flexibility on which
+    /// version to use, while making sure you don't update to a version with
+    /// breaking changes, and helps to prevent conflicts in your dependency
+    /// graph.
     ///
-    /// The following example allows the Swift Package Manager to select a version
-    /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
+    /// The following example allows the Swift package manager to select a
+    /// version like a `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
-    ///    .package(url: "https://example.com/example-package.git", from: "1.2.3"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", from:
+    /// "1.2.3"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - version: The minimum version requirement.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from  the package's Git URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - version: The minimum version requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use package(url:from:) instead")
     public static func package(
         name: String,
@@ -232,11 +264,15 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency given a branch requirement.
     ///
-    ///    .package(url: "https://example.com/example-package.git", branch: "main"),
+    ///```swift
+    /// .package(url: "https://example.com/example-package.git", branch: "main"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - url: The valid Git URL of the package.
-    ///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - url: The valid Git URL of the package.
+    ///   - branch: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func package(
         url: String,
@@ -247,12 +283,16 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency given a branch requirement.
     ///
-    ///    .package(url: "https://example.com/example-package.git", branch: "main"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", branch: "main"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - name: The name of the package, or nil to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - branch: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5, deprecated: 5.6, message: "use package(url:branch:) instead")
     public static func package(
         name: String,
@@ -264,11 +304,15 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency given a revision requirement.
     ///
-    ///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - url: The valid Git URL of the package.
-    ///     - revision: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - url: The valid Git URL of the package.
+    ///   - revision: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func package(
         url: String,
@@ -279,12 +323,16 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency given a revision requirement.
     ///
-    ///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - revision: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - name: The name of the package, or nil to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - revision: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5, deprecated: 5.6, message: "use package(url:revision:) instead")
     public static func package(
         name: String,
@@ -300,12 +348,16 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
-    ///     .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - range: The custom version range requirement.
+    ///   - name: The name of the package, or nil to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - range: The custom version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     public static func package(
         url: String,
         _ range: Range<Version>
@@ -319,12 +371,16 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
-    ///     .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or `nil` to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - range: The custom version range requirement.
+    ///   - name: The name of the package, or `nil` to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - range: The custom version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use package(url:_:) instead")
     public static func package(
         name: String,
@@ -340,12 +396,16 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///     .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or `nil` to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - range: The closed version range requirement.
+    ///   - name: The name of the package, or `nil` to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - range: The closed version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     public static func package(
         url: String,
         _ range: ClosedRange<Version>
@@ -359,22 +419,30 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///    .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 2.0.0
     ///
-    ///    .package(url: "https://example.com/example-package.git", .upToNextMajor("1.0.0"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", .upToNextMajor("1.0.0"),
+    /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
-    ///    .package(url: "https://example.com/example-package.git", .upToNextMinor("1.0.0"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", .upToNextMinor("1.0.0"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or `nil` to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - range: The closed version range requirement.
+    ///   - name: The name of the package, or `nil` to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - range: The closed version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use package(url:_:) instead")
     public static func package(
         name: String,
@@ -390,12 +458,16 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///    .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or `nil` to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - range: The closed version range requirement.
+    ///   - name: The name of the package, or `nil` to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - range: The closed version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     private static func package(
         name: String?,
         url: String,
@@ -419,11 +491,15 @@ extension Package.Dependency {
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
-    ///    .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - url: The valid Git URL of the package.
-    ///     - version: The exact version of the dependency for this requirement.
+    ///   - url: The valid Git URL of the package.
+    ///   - version: The exact version of the dependency for this requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.6)
     public static func package(
         url: String,
@@ -435,9 +511,11 @@ extension Package.Dependency {
     /// Adds a remote package dependency given a version requirement.
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or nil to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - name: The name of the package, or nil to deduce it from the URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, deprecated: 5.6, message: "use specific requirement APIs instead (e.g. use 'branch:' instead of '.branch')")
     public static func package(
         url: String,
@@ -449,9 +527,12 @@ extension Package.Dependency {
     /// Adds a remote package dependency with a given version requirement.
     ///
     /// - Parameters:
-    ///     - name: The name of the package, or `nil` to deduce it from the URL.
-    ///     - url: The valid Git URL of the package.
-    ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    ///   - name: The name of the Swift package or `nil` to deduce the name from the package's Git URL.
+    ///   - url: The valid Git URL of the package.
+    ///   - requirement: A dependency requirement. See static methods on
+    ///     ``Package/Dependency/Requirement-swift.enum`` for available options.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use specific requirement APIs instead (e.g. use 'branch:' instead of '.branch')")
     public static func package(
         name: String?,
@@ -488,11 +569,15 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to select a version
     /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
-    ///    .package(id: "scope.name", from: "1.2.3"),
+    /// ```swift
+    /// .package(id: "scope.name", from: "1.2.3"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - id: The identity of the package.
-    ///     - version: The minimum version requirement.
+    ///   - id: The identity of the package.
+    ///   - version: The minimum version requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
@@ -510,11 +595,15 @@ extension Package.Dependency {
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
-    ///    .package(id: "scope.name", exact: "1.2.3"),
+    /// ```swift
+    /// .package(id: "scope.name", exact: "1.2.3"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - id: The identity of the package.
-    ///     - version: The exact version of the dependency for this requirement.
+    ///   - id: The identity of the package.
+    ///   - version: The exact version of the dependency for this requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
@@ -529,21 +618,29 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
-    ///    .package(id: "scope.name", "1.2.3"..<"1.2.6"),
+    /// ```swift
+    /// .package(id: "scope.name", "1.2.3"..<"1.2.6"),
+    /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 2.0.0
     ///
-    ///    .package(id: "scope.name", .upToNextMajor("1.0.0"),
+    /// ```swift
+    /// .package(id: "scope.name", .upToNextMajor("1.0.0"),
+    /// ```
     ///
     /// The following example allows the Swift Package Manager to pick
     /// versions between 1.0.0 and 1.1.0
     ///
-    ///    .package(id: "scope.name", .upToNextMinor("1.0.0"),
+    /// ```swift
+    /// .package(id: "scope.name", .upToNextMinor("1.0.0"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - id: The identity of the package.
-    ///     - range: The custom version range requirement.
+    ///   - id: The identity of the package.
+    ///   - range: The custom version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,
@@ -558,11 +655,15 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///    .package(id: "scope.name", "1.2.3"..."1.2.6"),
+    /// ```swift
+    /// .package(id: "scope.name", "1.2.3"..."1.2.6"),
+    /// ```
     ///
     /// - Parameters:
-    ///     - id: The identity of the package.
-    ///     - range: The closed version range requirement.
+    ///   - id: The identity of the package.
+    ///   - range: The closed version range requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
     public static func package(
         id: String,

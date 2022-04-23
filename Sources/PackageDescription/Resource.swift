@@ -81,8 +81,7 @@ public struct Resource: Encodable {
     /// use the ``copy(_:)`` rule. It copies resources at the given path, as is, to the top level
     /// in the package’s resource bundle. If the given path represents a directory, Xcode preserves its structure.
     ///
-    /// - Parameters:
-    ///     - path: The path for a resource.
+    /// - Parameter path: The path for a resource.
     public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)
     }
