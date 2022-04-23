@@ -12,23 +12,26 @@
 
 import Foundation
 
-/// A target, the basic building block of a Swift package.
+/// The basic building block of a Swift package.
 ///
-/// Each target contains a set of source files that are compiled into a module or test suite.
-/// You can vend targets to other packages by defining products that include the targets.
+/// Each target contains a set of source files that Swift Package Manager compiles into a module
+/// or test suite. You can vend targets to other packages by defining products
+/// that include the targets.
 ///
-/// A target may depend on other targets within the same package and on products vended by the package's dependencies.
+/// A target may depend on other targets within the same package and on products
+/// vended by the package's dependencies.
 public final class Target {
 
     /// The different types of a target.
     public enum TargetType: String, Encodable {
-        /// A target that contains code for the Swift package’s functionality.
+        /// A target that contains code for the Swift package's functionality.
         case regular
         /// A target that contains code for an executable's main module.
         case executable
-        /// A target that contains tests for the Swift package’s other targets.
+        /// A target that contains tests for the Swift package's other targets.
         case test
-        /// A target that adapts a library on the system to work with Swift packages.
+        /// A target that adapts a library on the system to work with Swift
+        /// packages.
         case system
         /// A target that references a binary artifact.
         case binary
@@ -38,8 +41,27 @@ public final class Target {
 
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
+        /// A denpendency on a target.
+        ///
+        ///  - Parameters:
+        ///    - name: The name of the target.
+        ///    - condition: A condition that limits the application of the target dependency. For example, only apply a dependency for a specific platform.
         case targetItem(name: String, condition: TargetDependencyCondition?)
+        /// A dependency on a product.
+        ///
+        /// - Parameters:
+        ///    - name: The name of the product.
+        ///    - package: The name of the package.
+        ///    - moduleAlias: The module aliases for targets in the product.
+        ///    - condition: A condition that limits the application of the target dependency. For example, only apply a dependency for a specific platform.
         case productItem(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
+        /// A by-name dependency on either a target or a product.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the dependency, either a target or a product.
+        ///   - condition: A condition that limits the application of the target
+        ///     dependency. For example, only apply a dependency for a specific
+        ///     platform.
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
 
@@ -48,22 +70,28 @@ public final class Target {
 
     /// The path of the target, relative to the package root.
     ///
-    /// If the path is `nil`, the Swift Package Manager looks for a target's source files at predefined search paths
-    /// and in a subdirectory with the target's name.
+    /// If the path is `nil`, Swift Package Manager looks for a target's source files at
+    /// predefined search paths and in a subdirectory with the target's name.
     ///
-    /// The predefined search paths are the following directories under the package root:
-    ///   - `Sources`, `Source`, `src`, and `srcs` for regular targets
-    ///   - `Tests`, `Sources`, `Source`, `src`, and `srcs` for test targets
+    /// The predefined search paths are the following directories under the
+    /// package root:
     ///
-    /// For example, the Swift Package Manager looks for source files inside the `[PackageRoot]/Sources/[TargetName]` directory.
+    /// - `Sources`, `Source`, `src`, and `srcs` for regular targets
+    /// - `Tests`, `Sources`, `Source`, `src`, and `srcs` for test targets
     ///
-    /// Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    /// For example, Swift Package Manager looks for source files inside the
+    /// `[PackageRoot]/Sources/[TargetName]` directory.
+    ///
+    /// Don't escape the package root; that is, values like `../Foo` or `/Foo`
+    /// are invalid.
     public var path: String?
 
     /// The URL of a binary target.
     ///
-    /// The URL points to a ZIP file that contains an XCFramework at its root.
-    /// Binary targets are only available on Apple Platforms.
+    /// The URL points to an archive file that contains the referenced binary
+    /// artifact at its root.
+    ///
+    /// Binary targets are only available on Apple platforms.
     @available(_PackageDescription, introduced: 5.3)
     public var url: String? {
         get { _url }
@@ -73,10 +101,13 @@ public final class Target {
 
     /// The source files in this target.
     ///
-    /// If this property is `nil`, the Swift Package Manager includes all valid source files in the target's path and treats specified paths as relative to the target’s path.
+    /// If this property is `nil`, Swift Package Manager includes all valid source files in the
+    /// target's path and treats specified paths as relative to the target's
+    /// path.
     ///
-    /// A path can be a path to a directory or an individual source file. In case of a directory, the Swift Package Manager searches for valid source files
-    /// recursively inside it.
+    /// A path can be a path to a directory or an individual source file. In
+    /// case of a directory, Swift Package Manager searches for valid source files recursively
+    /// inside it.
     public var sources: [String]?
 
     /// The explicit list of resource files in the target.
@@ -87,13 +118,13 @@ public final class Target {
     }
     private var _resources: [Resource]?
 
-    /// The paths to source and resource files you don’t want to include in the target.
+    /// The paths to source and resource files that you don't want to include in the target.
     ///
-    /// Excluded paths are relative to the target path.
-    /// This property has precedence over the ``sources`` and ``resources`` properties.
+    /// Excluded paths are relative to the target path. This property has
+    /// precedence over the `sources` and `resources` properties.
     public var exclude: [String]
 
-    /// A boolean value that indicates if this is a test target.
+    /// A Boolean value that indicates whether this is a test target.
     public var isTest: Bool {
         return type == .test
     }
@@ -101,20 +132,19 @@ public final class Target {
     /// The target's dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
 
-    /// The path to the directory containing public headers of a C-family target.
+    /// The path to the directory that contains public headers of a C-family target.
     ///
-    /// This path should be relative to the path specified in `path`.
     /// If this is `nil`, the directory is set to `include`.
     public var publicHeadersPath: String?
 
     /// The type of the target.
     public let type: TargetType
 
-    /// The `pkgconfig` name to use for a system library target.
+    /// The name of the package configuration file, without extension, for the system library target.
     ///
-    /// If present, the Swift Package Manager tries for every pkg-config
+    /// If present, the Swift Package Manager tries every package configuration
     /// name separated by a space to search for the `<name>.pc` file
-    /// to get the additional flags needed for the system target.
+    /// to get the additional flags needed for the system library target.
     public let pkgConfig: String?
 
     /// The providers array for a system library target.
@@ -128,8 +158,9 @@ public final class Target {
     }
     private var _pluginCapability: PluginCapability?
 
-    /// The different types of capability that a plugin can provide. In this
-    /// version of SwiftPM, only build tool and command plugins are supported;
+    /// The different types of capability that a plugin can provide.
+    ///
+    /// In this version of SwiftPM, only build tool and command plugins are supported;
     /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
@@ -168,8 +199,18 @@ public final class Target {
         set { _linkerSettings = newValue }
     }
     private var _linkerSettings: [LinkerSetting]?
-
-    /// The checksum for the ZIP file that contains the referenced XCFramework.
+ 
+    /// The checksum for the archive file that contains the referenced binary
+    /// artifact.
+    ///
+    /// If you make a remote binary framework available as a Swift package,
+    /// declare a remote, or _URL-based_, binary target in your package manifest
+    /// with ``Target/binaryTarget(name:url:checksum:)``. Aways run `swift
+    /// package compute-checksum path/to/MyFramework.zip` at the command line to
+    /// make sure you create a correct SHA256 checksum.
+    ///
+    /// For more information, see
+    /// <doc:distributing-binary-frameworks-as-swift-packages>.
     @available(_PackageDescription, introduced: 5.3)
     public var checksum: String? {
         get { _checksum }
@@ -177,14 +218,15 @@ public final class Target {
     }
     private var _checksum: String?
 
-    /// The usages of package plugins by the target.
+    /// The uses of package plugins by the target.
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]? {
         get { return _pluginUsages }
         set { _pluginUsages = newValue }
     }
     private var _pluginUsages: [PluginUsage]?
-
+    
+    /// A plugin used in a target.
     public enum PluginUsage {
         case _pluginItem(name: String, package: String?)
     }
@@ -782,15 +824,18 @@ public final class Target {
 
     /// Creates a system library target.
     ///
-    /// Use system library targets to adapt a library installed on the system to work with Swift packages.
-    /// Such libraries are generally installed by system package managers (such as Homebrew and apt-get)
-    /// and exposed to Swift packages by providing a `modulemap` file along with other metadata such as the library's `pkgConfig` name.
+    /// Use system library targets to adapt a library installed on the system to
+    /// work with Swift packages. Such libraries are generally installed by
+    /// system package managers (such as Homebrew and apt-get) and exposed to
+    /// Swift packages by providing a `modulemap` file along with other metadata
+    /// such as the library's `pkgConfig` name.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
-    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
-    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - path: The custom path for the target. By default, a targets sources
+    ///     are expected to be located in the predefined search paths, such as
+    ///     `[PackageRoot]/Sources/[TargetName]`. Do not escape the package root;
+    ///     that is, values like `../Foo` or `/Foo` are invalid.
     ///   - pkgConfig: The name of the `pkg-config` file for this system library.
     ///   - providers: The providers for this system library.
     public static func systemLibrary(
@@ -813,16 +858,14 @@ public final class Target {
 
     /// Creates a binary target that references a remote artifact.
     ///
-    /// A binary target provides the url to a pre-built binary artifact for the target. Currently only supports
-    /// artifacts for Apple platforms.
+    /// Binary targets are only available on Apple platforms.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - url: The URL to the binary artifact. This URL must point to an archive file
-    ///       that contains a binary artifact in its root directory.
-    ///   - checksum: The checksum of the archive file that contains the binary artifact.
-    ///
-    /// Binary targets are only available on Apple platforms.
+    ///   - url: The URL to the binary artifact. This URL must point to an archive
+    ///     file that contains a binary artifact in its root directory.
+    ///   - checksum: The checksum of the archive file that contains the binary
+    ///     artifact.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -843,15 +886,13 @@ public final class Target {
 
     /// Creates a binary target that references an artifact on disk.
     ///
-    /// A binary target provides the path to a pre-built binary artifact for the target.
-    /// The Swift Package Manager only supports binary targets for Apple platforms.
+    /// Binary targets are only available on Apple platforms.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - path: The path to the binary artifact. This path can point directly to a binary artifact
-    ///       or to an archive file that contains the binary artifact at its root.
-    ///
-    /// Binary targets are only available on Apple platforms.
+    ///   - path: The path to the binary artifact. This path can point directly to
+    ///     a binary artifact or to an archive file that contains the binary
+    ///     artifact at its root.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -866,9 +907,10 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary)
     }
-
-    /// Defines a new package plugin target with a given name, declaring it as
-    /// providing a capability of adding custom build commands to SwiftPM (and to
+    
+    /// Defines a new package plugin target.
+    ///
+    /// A plugin target provides custom build commands to SwiftPM (and to
     /// any IDEs based on libSwiftPM).
     ///
     /// The capability determines what kind of build commands it can add. Besides
@@ -878,7 +920,7 @@ public final class Target {
     ///
     /// In the initial version of this proposal, three capabilities are provided:
     /// prebuild, build tool, and postbuild. See the declaration of each capability
-    /// under `PluginCapability` for more information.
+    /// under ``PluginCapability-swift.enum`` for more information.
     ///
     /// The package plugin itself is implemented using a Swift script that is
     /// invoked for each target that uses it. The script is invoked after the
@@ -889,17 +931,25 @@ public final class Target {
     /// Note that the role of the package plugin is only to define the commands
     /// that will run before, during, or after the build. It does not itself run
     /// those commands. The commands are defined in an IDE-neutral way, and are
-    /// run as appropriate by the build system that builds the package. The exten-
-    /// sion itself is only a procedural way of generating commands and their input
+    /// run as appropriate by the build system that builds the package. The extension
+    /// itself is only a procedural way of generating commands and their input
     /// and output dependencies.
     ///
     /// The package plugin may specify the executable targets or binary targets
     /// that provide the build tools that will be used by the generated commands
     /// during the build. In the initial implementation, prebuild actions can only
     /// depend on binary targets. Build tool and postbuild plugins can depend
-    /// on executables as well as binary targets. This is because of limitations
-    /// in how SwiftPM constructs its build plan, and the goal is to remove this
-    /// restriction in a future release.
+    /// on executables as well as binary targets. This is due to how
+    /// Swift Package Manager constructs its build plan.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plugin target.
+    ///   - capability: The type of capability the plugin target provides.
+    ///   - dependencies: The plugin target's dependencies.
+    ///   - path: The path of the plugin target, relative to the package root.
+    ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
+    ///   - sources: The source files in the plugin target.
+    /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(
         name: String,
@@ -930,6 +980,7 @@ extension Target.Dependency {
     /// Creates a dependency on a target in the same package.
     ///
     /// - Parameter name: The name of the target.
+    /// - Returns: A `Target.Dependency` instance.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
         return .targetItem(name: name, condition: nil)
@@ -940,7 +991,8 @@ extension Target.Dependency {
     /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
-    @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
+    /// - Returns: A `Target.Dependency` instance.
+@available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
@@ -951,6 +1003,7 @@ extension Target.Dependency {
     ///   - name: The name of the product.
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - package: The name of the package.
+    /// - Returns: A `Target.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
     public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
@@ -958,10 +1011,10 @@ extension Target.Dependency {
 
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
-    /// - parameter name: The name of the dependency, either a target or a product.
-    ///
+    /// - Parameter name: The name of the dependency, either a target or a product.
+    /// - Returns: A `Target.Dependency` instance.
     /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
-    @available(_PackageDescription, obsoleted: 5.3)
+@available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
         return .byNameItem(name: name, condition: nil)
     }
@@ -971,7 +1024,8 @@ extension Target.Dependency {
     /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
-    @available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
+    /// - Returns: A `Target.Dependency` instance.
+@available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
     public static func product(
         name: String,
         package: String
@@ -983,9 +1037,11 @@ extension Target.Dependency {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
-    ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.3)
+    ///   - condition: A condition that limits the application of the target
+    ///     dependency. For example, only apply a dependency for a specific
+    ///     platform.
+    /// - Returns: A `Target.Dependency` instance.
+@available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .targetItem(name: name, condition: condition)
     }
@@ -995,9 +1051,11 @@ extension Target.Dependency {
     /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
-    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
-    ///       dependency for a specific platform.
-    @_disfavoredOverload
+    ///   - condition: A condition that limits the application of the target
+    ///     dependency. For example, only apply a dependency for a specific
+    ///     platform.
+    /// - Returns: A `Target.Dependency` instance.
+@_disfavoredOverload
     @available(_PackageDescription, introduced: 5.3, obsoleted: 5.7)
     public static func product(
         name: String,
@@ -1015,7 +1073,8 @@ extension Target.Dependency {
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.7)
+    /// - Returns: A `Target.Dependency` instance.
+@available(_PackageDescription, introduced: 5.7)
     public static func product(
       name: String,
       package: String,
@@ -1025,14 +1084,19 @@ extension Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
     }
 
-    /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
-    /// has loaded the package graph.
+    /// Creates a dependency that resolves to either a target or a product with
+    /// the specified name.
+    ///
+    /// Swift Package Manager creates the by-name dependency after it has loaded the package
+    /// graph.
     ///
     /// - Parameters:
     ///   - name: The name of the dependency, either a target or a product.
-    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
-    ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.3)
+    ///   - condition: A condition that limits the application of the target
+    ///     dependency. For example, only apply a dependency for a specific
+    ///     platform.
+    /// - Returns: A `Target.Dependency` instance.
+@available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
     }
@@ -1071,36 +1135,48 @@ public struct TargetDependencyCondition: Encodable {
 }
 
 extension Target.PluginCapability {
-
-    /// Specifies that the plugin provides a build tool capability. The plugin
-    /// will be applied to each target that uses it and should create commands
+    
+    /// Specifies that the plugin provides a build tool capability.
+    ///
+    /// The plugin will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
+    ///
+    ///  - Returns: A plugin capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
     public static func buildTool() -> Target.PluginCapability {
         return ._buildTool
     }
 
-    /// Specifies that the plugin provides a user command capability. It will
-    /// be available to invoke manually on one or more targets in a package.
+    /// Specifies that the plugin provides a user command capability.
+    ///
+    ///- Parameters:
+    ///   - intent: The semantic intent of the plugin (either one of the predefined intents,
+    ///     or a custom intent).
+    ///   - permissions: Any permissions needed by the command plugin. This affects what the
+    ///     sandbox in which the plugin is run allows. Some permissions may require
+    ///     approval by the user.
+    ///
+    /// - Returns: A plugin capability that defines a user command.
+    ///
+    /// Plugins that specify a `command` capability define commands that can be run
+    /// using the SwiftPM command line interface, or in an IDE that supports
+    /// Swift Packages. The command will be available to invoke manually on one or more targets in a package.
+    ///
+    ///```swift
+    ///swift package <verb>
+    ///```
+    ///
     /// The package can specify the verb that is used to invoke the command.
     @available(_PackageDescription, introduced: 5.6)
-    /// Plugins that specify a `command` capability define commands that can be run
-    /// using the SwiftPM CLI (`swift package <verb>`), or in an IDE that supports
-    /// Swift Packages.
     public static func command(
-        /// The semantic intent of the plugin (either one of the predefined intents,
-        /// or a custom intent).
         intent: PluginCommandIntent,
-
-        /// Any permissions needed by the command plugin. This affects what the
-        /// sandbox in which the plugin is run allows. Some permissions may require
-        /// approval by the user.
         permissions: [PluginPermission] = []
     ) -> Target.PluginCapability {
         return ._command(intent: intent, permissions: permissions)
     }
 }
 
+/// The intended use case of the command plugin.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginCommandIntent {
     case _documentationGeneration
@@ -1110,26 +1186,42 @@ public enum PluginCommandIntent {
 
 @available(_PackageDescription, introduced: 5.6)
 public extension PluginCommandIntent {
+    /// The plugin generates documentation.
+    ///
     /// The intent of the command is to generate documentation, either by parsing the
     /// package contents directly or by using the build system support for generating
     /// symbol graphs. Invoked by a `generate-documentation` verb to `swift package`.
+    ///
+    ///  - Returns: A `PluginCommandIntent` instance.
     static func documentationGeneration() -> PluginCommandIntent {
         return _documentationGeneration
     }
 
+    /// The plugin formats source code.
+    ///
     /// The intent of the command is to modify the source code in the package based
     /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
+    ///
+    /// - Returns: A `PluginCommandIntent` instance.
     static func sourceCodeFormatting() -> PluginCommandIntent {
         return _sourceCodeFormatting
     }
 
-    /// An intent that doesn't fit into any of the other categories, with a custom
-    /// verb through which it can be invoked.
+    /// A custom command plugin intent.
+    ///
+    ///  Use this case when none of the predefined cases fit the role of the plugin.
+    ///  - Parameters:
+    ///    - verb: The invocation verb of the plugin.
+    ///    - description: A human readable description of the plugin's role.
+    /// - Returns: A `PluginCommandIntent` instance.
     static func custom(verb: String, description: String) -> PluginCommandIntent {
         return _custom(verb: verb, description: description)
     }
 }
 
+/// The type of permission a plugin requires.
+///
+/// Only one type of permission is supported. See ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginPermission {
     case _writeToPackageDirectory(reason: String)
@@ -1137,9 +1229,13 @@ public enum PluginPermission {
 
 @available(_PackageDescription, introduced: 5.6)
 public extension PluginPermission {
+    /// Create a permission to modify files in the package's directory.
+    ///
     /// The command plugin wants permission to modify the files under the package
     /// directory. The `reason` string is shown to the user at the time of request
     /// for approval, explaining why the plugin is requesting this access.
+    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
+    ///   - Returns: A `PluginPermission` instance.
     static func writeToPackageDirectory(reason: String) -> PluginPermission {
         return _writeToPackageDirectory(reason: reason)
     }
@@ -1149,6 +1245,7 @@ extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter name: The name of the plugin target.
+    /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(name: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: nil)
@@ -1157,8 +1254,9 @@ extension Target.PluginUsage {
     /// Specifies use of a plugin product in a package dependency.
     ///
     /// - Parameters:
-    ///   - name: The name of the plugin product.
-    ///   - package: The name of the package in which it is defined.
+    ///   - name: The name of the plugin target.
+    ///   - package: The name of the package in which the plugin target is defined.
+    /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(name: String, package: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: package)
@@ -1168,6 +1266,8 @@ extension Target.PluginUsage {
 
 // MARK: ExpressibleByStringLiteral
 
+/// `ExpressibleByStringLiteral` conformance.
+///
 extension Target.Dependency: ExpressibleByStringLiteral {
 
     /// Creates a target dependency instance with the given value.
@@ -1178,6 +1278,8 @@ extension Target.Dependency: ExpressibleByStringLiteral {
     }
 }
 
+/// `ExpressibleByStringLiteral` conformance.
+///
 extension Target.PluginUsage: ExpressibleByStringLiteral {
 
     /// Specifies use of a plugin target in the same package.
