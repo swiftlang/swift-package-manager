@@ -999,7 +999,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a product from a dependent package.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - package: The name of the package.
@@ -1067,7 +1067,7 @@ extension Target.Dependency {
 
     /// Creates a target dependency on a product from a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     ///   - moduleAliases: The module aliases for targets in the product.

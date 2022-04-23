@@ -91,7 +91,7 @@ public struct Resource: Encodable {
     ///
     /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
-public static func copy(_ path: String) -> Resource {
+    public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)
     }
 }

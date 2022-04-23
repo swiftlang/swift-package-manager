@@ -802,4 +802,16 @@ class MiscellaneousTestCase: XCTestCase {
         }
         #endif
     }
+
+    func testPluginGeneratedResources() throws {
+        #if swift(<5.6)
+        try XCTSkipIf(true, "skipping because of potential concurrency back deployment issues")
+        #endif
+
+        try fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
+            let result = try SwiftPMProduct.SwiftRun.execute([], packagePath: path)
+            XCTAssertEqual(result.stdout, "Hello, World!\n", "executable did not produce expected output")
+            XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
+        }
+    }
 }

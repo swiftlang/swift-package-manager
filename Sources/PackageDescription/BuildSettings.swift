@@ -84,8 +84,7 @@ public struct BuildSettingCondition: Encodable {
 
     /// Creates a build setting condition.
     ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this build setting condition.
+    /// - Parameter platforms: The applicable platforms for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform]) -> BuildSettingCondition {
         BuildSettingCondition(platforms: platforms, config: .none)
@@ -93,8 +92,7 @@ public struct BuildSettingCondition: Encodable {
 
     /// Creates a build setting condition.
     ///
-    /// - Parameters:
-    ///   - configuration: The applicable build configuration for this build setting condition.
+    /// - Parameter configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
         BuildSettingCondition(platforms: .none, config: configuration)
