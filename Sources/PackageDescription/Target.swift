@@ -929,8 +929,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a target in the same package.
     ///
-    /// - parameters:
-    ///   - name: The name of the target.
+    /// - Parameter name: The name of the target.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
         return .targetItem(name: name, condition: nil)
@@ -938,7 +937,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a product from a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
@@ -948,7 +947,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a product from a dependent package.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - package: The name of the package.
@@ -959,8 +958,7 @@ extension Target.Dependency {
 
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
-    /// - parameters:
-    ///   - name: The name of the dependency, either a target or a product.
+    /// - parameter name: The name of the dependency, either a target or a product.
     ///
     /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
     @available(_PackageDescription, obsoleted: 5.3)
@@ -970,7 +968,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a product from a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     @available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
@@ -983,7 +981,7 @@ extension Target.Dependency {
 
     /// Creates a dependency on a target in the same package.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the target.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
@@ -994,7 +992,7 @@ extension Target.Dependency {
 
     /// Creates a target dependency on a product from a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
@@ -1011,7 +1009,7 @@ extension Target.Dependency {
 
     /// Creates a target dependency on a product from a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     ///   - moduleAliases: The module aliases for targets in the product.
@@ -1030,7 +1028,7 @@ extension Target.Dependency {
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
     /// has loaded the package graph.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the dependency, either a target or a product.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
@@ -1050,8 +1048,7 @@ public struct TargetDependencyCondition: Encodable {
 
     /// Creates a target dependency condition.
     ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
+    /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @_disfavoredOverload
     @available(_PackageDescription, obsoleted: 5.7, message: "using .when with nil platforms is obsolete")
     public static func when(
@@ -1064,8 +1061,7 @@ public struct TargetDependencyCondition: Encodable {
 
     /// Creates a target dependency condition.
     ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
+    /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(
         platforms: [Platform]
@@ -1152,8 +1148,7 @@ public extension PluginPermission {
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
-    /// - parameters:
-    ///   - name: The name of the plugin target.
+    /// - Parameter name: The name of the plugin target.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(name: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: nil)
@@ -1161,7 +1156,7 @@ extension Target.PluginUsage {
 
     /// Specifies use of a plugin product in a package dependency.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - name: The name of the plugin product.
     ///   - package: The name of the package in which it is defined.
     @available(_PackageDescription, introduced: 5.5)
@@ -1177,8 +1172,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 
     /// Creates a target dependency instance with the given value.
     ///
-    /// - parameters:
-    ///   - value: A string literal.
+    /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
         self = .byNameItem(name: value, condition: nil)
     }
@@ -1188,8 +1182,7 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
 
     /// Specifies use of a plugin target in the same package.
     ///
-    /// - parameters:
-    ///   - value: A string literal.
+    /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
         self = ._pluginItem(name: value, package: nil)
     }

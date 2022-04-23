@@ -37,6 +37,15 @@ extension Package: Encodable {
         case cxxLanguageStandard
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// If the value fails to encode anything, `encoder` will encode an empty
+    /// keyed container in its place.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -76,6 +85,12 @@ extension Package.Dependency.Requirement: Encodable {
         case localPackage
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -208,6 +223,15 @@ extension SystemPackageProvider: Encodable {
         case yum
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// If the value fails to encode anything, `encoder` will encode an empty
+    /// keyed container in its place.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -270,6 +294,7 @@ extension PluginCommandIntent: Encodable {
     }
 }
 
+/// `Encodable` conformance.
 extension PluginPermission: Encodable {
     private enum CodingKeys: CodingKey {
         case type, reason
@@ -279,6 +304,9 @@ extension PluginPermission: Encodable {
         case writeToPackageDirectory
     }
 
+    /// Encode the `PluginPermission` into the given encoder.
+    ///
+    /// - Parameter to: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -304,6 +332,15 @@ extension Target.Dependency: Encodable {
         case byName = "byname"
     }
 
+    /// Encodes the `Target.Dependency` into the given encoder.
+    ///
+    /// If the value fails to encode anything, `encoder` will encode an empty
+    /// keyed container in its place.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -347,6 +384,15 @@ extension Target: Encodable {
         case pluginUsages
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// If the value fails to encode anything, `encoder` will encode an empty
+    /// keyed container in its place.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -407,6 +453,12 @@ extension Target.PluginUsage: Encodable {
 }
 
 extension SwiftVersion: Encodable {
+    /// Encodes this value into the given encoder.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         let value: String
 
@@ -429,6 +481,12 @@ extension SwiftVersion: Encodable {
 }
 
 extension Version: Encodable {
+    /// Encodes this value into the given encoder.
+    ///
+    /// This function throws an error if any values are invalid for the given
+    /// encoder's format.
+    ///
+    /// - Parameter encoder: The encoder to write data to.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(description)
