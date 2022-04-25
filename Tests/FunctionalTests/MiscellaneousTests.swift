@@ -804,9 +804,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testPluginGeneratedResources() throws {
-        #if swift(<5.6)
-        try XCTSkipIf(true, "skipping because of potential concurrency back deployment issues")
-        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
             let result = try SwiftPMProduct.SwiftRun.execute([], packagePath: path)
