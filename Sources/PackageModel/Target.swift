@@ -137,13 +137,17 @@ public class Target: PolymorphicCodableProtocol {
         } else {
             moduleAliases?[name] = alias
         }
+    }
 
-        // If the argument name is same as this target's name, this
-        // target should be renamed as the argument alias.
-        if name == self.name {
+    @discardableResult
+    public func applyAlias() -> Bool {
+        // If there's an alias for this target, rename
+        if let alias = moduleAliases?[name] {
             self.name = alias
             self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
+            return true
         }
+        return false
     }
 
     /// The dependencies of this target.
