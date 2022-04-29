@@ -14,6 +14,7 @@ import Basics
 @testable import Workspace
 import TSCBasic
 import XCTest
+import TSCTestSupport
 
 final class WorkspaceStateTests: XCTestCase {
     func testV4Format() throws {
@@ -491,10 +492,202 @@ final class WorkspaceStateTests: XCTestCase {
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
         XCTAssertTrue(state.artifacts.isEmpty)
     }
+
+    func testStateWatcher() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+
+            let buildDir = tmpPath.appending(component: ".build")
+            try fs.createDirectory(buildDir, recursive: true)
+
+            let statePath = buildDir.appending(component: "workspace-state.json")
+            try fs.writeFileContents(statePath) {
+                """
+                {
+                    "version": 5,
+                    "object": {
+                        "artifacts": [],
+                        "dependencies": [
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "yams",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/jpsim/Yams.git",
+                                  "name": "Yams"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "revision": "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa",
+                                    "version": "4.0.6"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "Yams"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-tools-support-core",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/apple/swift-tools-support-core.git",
+                                  "name": "swift-tools-support-core"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "branch": "main",
+                                    "revision": "f9bbd6b80d67408021576adf6247e17c2e957d92"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "swift-tools-support-core"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-argument-parser",
+                                  "kind": "fileSystem",
+                                  "location": "/Users/tomerd/code/swift/swift-argument-parser",
+                                  "name": "swift-argument-parser"
+                                },
+                                "state": {
+                                  "name": "local",
+                                  "path": "/Users/tomerd/code/swift/swift-argument-parser"
+                                },
+                                "subpath": "swift-argument-parser"
+                            }
+                        ]
+                    }
+                }
+                """
+            }
+
+            let reloadSync = DispatchGroup()
+            let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir, stateReloadedHandler: {
+                reloadSync.leave()
+            })
+
+            XCTAssertTrue(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("yams") &&
+                $0.state == .sourceControlCheckout(.version("4.0.6", revision: .init(identifier: "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa")))
+            }))
+            XCTAssertTrue(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("swift-tools-support-core") &&
+                $0.state == .sourceControlCheckout(.branch(name: "main", revision: .init(identifier: "f9bbd6b80d67408021576adf6247e17c2e957d92")))
+            }))
+            XCTAssertTrue(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("swift-argument-parser") &&
+                $0.state == .fileSystem(.init("/Users/tomerd/code/swift/swift-argument-parser"))
+            }))
+
+            // write new content
+            reloadSync.enter()
+            try fs.writeFileContents(statePath) {
+                """
+                {
+                    "version": 5,
+                    "object": {
+                        "artifacts": [],
+                        "dependencies": [
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "yams",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/jpsim/Yams.git",
+                                  "name": "Yams"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "revision": "DA30FF7B9B9B4550B3E1210229CE221A",
+                                    "version": "4.3.1"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "Yams"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-tools-support-core",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/apple/swift-tools-support-core.git",
+                                  "name": "swift-tools-support-core"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "branch": "main",
+                                    "revision": "C912E36116A847FC8997095D264E12D7"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "swift-tools-support-core"
+                            }
+                        ]
+                    }
+                }
+                """
+            }
+
+            XCTAssertEqual(reloadSync.wait(timeout: .now() + 2), .success)
+
+            XCTAssertTrue(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("yams") &&
+                $0.state == .sourceControlCheckout(.version("4.3.1", revision: .init(identifier: "DA30FF7B9B9B4550B3E1210229CE221A")))
+            }))
+            XCTAssertTrue(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("swift-tools-support-core") &&
+                $0.state == .sourceControlCheckout(.branch(name: "main", revision: .init(identifier: "C912E36116A847FC8997095D264E12D7")))
+            }))
+            XCTAssertFalse(state.dependencies.contains(where: {
+                $0.packageRef.identity == .plain("swift-argument-parser") &&
+                $0.state == .fileSystem(.init("/Users/tomerd/code/swift/swift-argument-parser"))
+            }))
+        }
+    }
+
+    func testStateWatcherSaveNotTriggering() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+
+            let reloadSync = DispatchGroup()
+
+            let state = WorkspaceState(fileSystem: fs, storageDirectory: tmpPath, stateReloadedHandler: {
+                reloadSync.leave()
+                XCTFail("should not be called")
+            })
+            try state.dependencies.add(.fileSystem(packageRef: .fileSystem(identity: .plain("file-system"), path: tmpPath.appending(component: "file-system"))))
+            try state.dependencies.add(.sourceControlCheckout(packageRef: .remoteSourceControl(identity: .plain("source-control"), url: .init(string: "https://foo.com/bar")!), state: .version("13.5.93", revision: .init(identifier: "")), subpath: .init("source-control")))
+            try state.dependencies.add(.registryDownload(packageRef: .registry(identity: .plain("registry")), version: "1.2.8", subpath: .init("registry")))
+
+            reloadSync.enter()
+            try state.save()
+            XCTAssertEqual(state.dependencies.count, 3)
+
+            reloadSync.enter()
+            try state.reset()
+            XCTAssertEqual(state.dependencies.count, 0)
+
+            try state.dependencies.add(.fileSystem(packageRef: .fileSystem(identity: .plain("file-system"), path: tmpPath.appending(component: "file-system"))))
+
+            reloadSync.enter()
+            try state.save()
+            XCTAssertEqual(state.dependencies.count, 1)
+
+            reloadSync.enter()
+            let state2 = WorkspaceState(fileSystem: fs, storageDirectory: tmpPath, stateReloadedHandler: {
+                reloadSync.leave()
+                XCTFail("should not be called")
+            })
+            XCTAssertEqual(state2.dependencies.count, 1)
+
+            XCTAssertEqual(reloadSync.wait(timeout: .now() + 2), .timedOut)
+        }
+    }
 }
 
 extension WorkspaceState {
-    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
-        self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in })
+    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath, stateReloadedHandler: (() -> Void)? = .none) {
+        self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in }, stateReloadedHandler: stateReloadedHandler)
     }
 }

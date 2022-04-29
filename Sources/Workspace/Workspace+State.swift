@@ -31,13 +31,36 @@ public final class WorkspaceState {
     /// storage
     private let storage: WorkspaceStateStorage
 
-    init(
+    /// state file watcher
+    private let stateFileWatcher: FileWatcher
+
+    // for testing
+    private let stateReloadedHandler: (() -> Void)?
+
+    convenience init(
         fileSystem: FileSystem,
         storageDirectory: AbsolutePath,
         initializationWarningHandler: (String) -> Void
     ) {
+        self.init(
+            fileSystem: fileSystem,
+            storageDirectory: storageDirectory,
+            initializationWarningHandler: initializationWarningHandler,
+            stateReloadedHandler: .none
+        )
+    }
+
+    // initializer designed for testing state reload
+    init(
+        fileSystem: FileSystem,
+        storageDirectory: AbsolutePath,
+        initializationWarningHandler: (String) -> Void,
+        stateReloadedHandler: (() -> Void)?
+    ) {
         self.storagePath = storageDirectory.appending(component: "workspace-state.json")
         self.storage = WorkspaceStateStorage(path: self.storagePath, fileSystem: fileSystem)
+        self.stateFileWatcher = FileWatcher(path: self.storagePath, fileSystem: fileSystem)
+        self.stateReloadedHandler = stateReloadedHandler
 
         // Load the state from disk, if possible.
         //
@@ -57,6 +80,15 @@ public final class WorkspaceState {
             try? self.storage.reset()
             initializationWarningHandler("unable to restore workspace state: \(error)")
         }
+
+        // long running processes (ie IDEs) need to watch in case other SwiftPM processes (ie CLI) made changes to the state
+        // Setting up the watcher is not critical, so we only yield warnings
+        do {
+            try self.stateFileWatcher.start(handler: self.reloadState)
+        } catch {
+            self.stateFileWatcher.stop()
+            initializationWarningHandler("unable to set up workspace state watcher: \(error)")
+        }
     }
 
     func reset() throws {
@@ -66,13 +98,28 @@ public final class WorkspaceState {
     }
 
     public func save() throws {
+        self.stateFileWatcher.stop()
         try self.storage.save(dependencies: self.dependencies, artifacts: self.artifacts)
+        try self.stateFileWatcher.start(handler: self.reloadState)
     }
 
     /// Returns true if the state file exists on the filesystem.
     public func stateFileExists() -> Bool {
         return self.storage.fileExists()
     }
+
+    private func reloadState() {
+        if let storedState = try? self.storage.load() {
+            self.dependencies = storedState.dependencies
+            self.artifacts = storedState.artifacts
+            self.stateReloadedHandler?()
+        }
+    }
+}
+
+
+protocol WorkspaceStateDelegate {
+    func reloaded()
 }
 
 // MARK: - Serialization
