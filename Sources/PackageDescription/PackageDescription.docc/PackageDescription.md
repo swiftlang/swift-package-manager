@@ -1,46 +1,50 @@
 # ``PackageDescription``
 
-Swift package manifest configuration.
+Create reusable code, organize it in a lightweight way, and share it across your projects and with other developers.
 
-## Overview
+Swift packages are reusable components of Swift, Objective-C, Objective-C++, C, or C++ code that developers can use in their projects. They bundle source files, binaries, and resources in a way that’s easy to use in your app’s project. 
 
-Swift packages are configured using `Package.swift` manifest files. The manifest file, or package manifest, defines the package's name and its contents using ``Package`` from the `PackageDescription` module. A package has one or more targets, defined using ``Target``. Each target specifies a ``Product`` and may declare one or more dependencies, defined using ``Package/Dependency``.
+Each Swift package requires a `Package.swift` file in the main directory of the package — referred to as the package manifest. When you create a Swift package, you use the PackageDescription library in the package manifest to list dependencies, configure localized resources, and set other configuration options.
 
-### About the Swift Tools Version
+For example, the package manifest from the [SlothCreator: Building DocC Documentation in Xcode](https://developer.apple.com/documentation/xcode/slothcreator_building_docc_documentation_in_xcode) sample project below defines the SlothCreator package, with the SlothCreator library in it. It specifies the deployment targets, and that its resources are in the `Resources` folder.
 
-A `Package.swift` manifest file must begin with the string `// swift-tools-version:` followed by a version number specifier. The following code listing shows a few examples of valid declarations
-of the Swift tools version:
+```swift
+import PackageDescription
 
-    // swift-tools-version:3.0.2
-    // swift-tools-version:3.1
-    // swift-tools-version:4.0
-    // swift-tools-version:5.0
-    // swift-tools-version:5.1
-    // ...
-    // swift-tools-version:5.6
+let package = Package(
+    name: "SlothCreator",
+    platforms: [
+        .macOS(.v11),
+        .iOS(.v14),
+        .watchOS(.v7),
+        .tvOS(.v13)
+    ],
+    products: [
+        .library(
+            name: "SlothCreator",
+            targets: ["SlothCreator"]
+        )
+    ],
+    targets: [
+        .target(
+            name: "SlothCreator",
+            resources: [
+                .process("Resources/")
+            ]
+        )
+    ]
+)
+```
 
-The Swift tools version declares the version of the `PackageDescription` library, the minimum version of the Swift tools and Swift language compatibility version to process the manifest, and the minimum version of the Swift tools that are needed to use the Swift package. Each version of Swift can introduce updates to the `PackageDescription` framework, but the previous API version will continue to be available to packages which declare a prior tools version. This behavior lets you take advantage of new releases of Swift, the Swift tools, and the `PackageDescription` library, without having to update your package's manifest or losing access to existing packages.
+The package manifest also allows you to define executable products, as well as plugins that Swift Package Manager can use to build other products in the manifest.
+
+For more information about adding a package dependency to your app project and creating Swift packages with Xcode, see [Adding Package Dependencies to Your App](https://developer.apple.com/documentation/xcode/adding-package-dependencies-to-your-app), [Creating a Standalone Swift Package with Xcode](https://developer.apple.com/documentation/xcode/creating-a-standalone-swift-package-with-xcode), and [Swift Packages](https://developer.apple.com/documentation/xcode/swift-packages).
+
+Support for Swift packages in Xcode builds on the open-source Swift Package Manager project. To learn more about the Swift Package Manager, visit [Swift.org](https://www.swift.org/package-manager/) and the Swift Package Manager repository on [GitHub](https://github.com/apple/swift-package-manager).
 
 ## Topics
 
-### Package Definition
+### Creating a Package
 
 - ``Package``
-- ``Product``
-- ``Package/Dependency``
-- ``Target``
-
-### Settings
-
-- ``BuildSettingCondition``
-- ``LinkerSetting``
-- ``SupportedPlatform``
-- ``SwiftSetting``
-- ``SwiftVersion``
-
-### C/C++ Settings
-
-- ``CSetting``
-- ``CXXSetting``
-- ``CLanguageStandard``
-- ``CXXLanguageStandard``
+- ``Context``

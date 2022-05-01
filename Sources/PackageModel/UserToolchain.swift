@@ -261,6 +261,16 @@ public final class UserToolchain: Toolchain {
                                         .appending(component: "XCTest-\(info.defaults.xctestVersion)")
 
                         xctest = [
+                            "-I", AbsolutePath("usr/lib/swift/windows", relativeTo: installation).pathString,
+                            // Migration Path
+                            //
+                            // Older Swift (<=5.7) installations placed the
+                            // XCTest Swift module into the architecture
+                            // specified directory.  This was in order to match
+                            // the SDK setup.  However, the toolchain finally
+                            // gained the ability to consult the architecture
+                            // indepndent directory for Swift modules, allowing
+                            // the merged swiftmodules.  XCTest followed suit.
                             "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
                             "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
                         ]

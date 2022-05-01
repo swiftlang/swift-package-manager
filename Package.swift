@@ -56,11 +56,45 @@ automatic linking type with `-auto` suffix appended to product's name.
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V2"] != nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.5" : "1.1.7"
+let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.1.0" : "1.1.7"
 var swiftSettings: [SwiftSetting] = []
 if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
 }
+
+var packageCollectionsSigningTargets = [Target]()
+var packageCollectionsSigningDeps: [Target.Dependency] = [
+    "Basics",
+    .product(name: "Crypto", package: "swift-crypto"),
+    "PackageCollectionsModel",
+]
+// swift-crypto's Crypto module depends on CCryptoBoringSSL on these platforms only
+#if os(Linux) || os(Windows) || os(Android)
+packageCollectionsSigningTargets.append(
+    .target(
+        /** Package collections signing C lib */
+        name: "PackageCollectionsSigningLibc",
+        dependencies: [
+            .product(name: "Crypto", package: "swift-crypto"), // for CCryptoBoringSSL
+        ],
+        exclude: ["CMakeLists.txt"],
+        cSettings: [
+            .define("WIN32_LEAN_AND_MEAN"),
+        ]
+    )
+)
+packageCollectionsSigningDeps.append("PackageCollectionsSigningLibc")
+#endif
+// Define PackageCollectionsSigning target always
+packageCollectionsSigningTargets.append(
+    .target(
+         /** Package collections signing */
+         name: "PackageCollectionsSigning",
+         dependencies: packageCollectionsSigningDeps,
+         exclude: ["CMakeLists.txt"],
+         swiftSettings: swiftSettings
+    )
+)
 
 let package = Package(
     name: "SwiftPM",
@@ -110,7 +144,7 @@ let package = Package(
             ]
         ),
     ],
-    targets: [
+    targets: packageCollectionsSigningTargets + [
         // The `PackageDescription` target provides the API that is available
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -227,30 +261,6 @@ let package = Package(
                 "CMakeLists.txt",
                 "Formats/v1.md"
             ]
-        ),
-
-        .target(
-            /** Package collections signing C lib */
-            name: "PackageCollectionsSigningLibc",
-            dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"),
-            ],
-            exclude: ["CMakeLists.txt"],
-            cSettings: [
-                .define("WIN32_LEAN_AND_MEAN"),
-            ]
-        ),
-        .target(
-             /** Package collections signing */
-             name: "PackageCollectionsSigning",
-             dependencies: [
-                "Basics",
-                .product(name: "Crypto", package: "swift-crypto"),
-                "PackageCollectionsModel",
-                "PackageCollectionsSigningLibc",
-             ],
-             exclude: ["CMakeLists.txt"],
-             swiftSettings: swiftSettings
         ),
 
         .target(

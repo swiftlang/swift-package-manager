@@ -13,6 +13,7 @@
 import Basics
 import LLBuildManifest
 import PackageGraph
+import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
@@ -78,10 +79,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         (try? getBuildDescription())?.builtTestProducts ?? []
     }
 
+    /// File rules to determine resource handling behavior.
+    private let additionalFileRules: [FileRuleDescription]
+
     public init(
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
+        additionalFileRules: [FileRuleDescription],
         pluginScriptRunner: PluginScriptRunner,
         pluginWorkDirectory: AbsolutePath,
         disableSandboxForPluginCommands: Bool = false,
@@ -97,6 +102,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
+        self.additionalFileRules = additionalFileRules
         self.pluginScriptRunner = pluginScriptRunner
         self.pluginWorkDirectory = pluginWorkDirectory
         self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
@@ -351,6 +357,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
+            additionalFileRules: additionalFileRules,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             fileSystem: self.fileSystem,
@@ -443,7 +450,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         return try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the build,
             // and a list of the files in those directories after running the commands.
-            var derivedSourceFiles: [AbsolutePath] = []
+            var derivedFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
                 self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
@@ -463,7 +470,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // Add any files found in the output directory declared for the prebuild command after the command ends.
                 let outputFilesDir = command.outputFilesDirectory
                 if let swiftFiles = try? self.fileSystem.getDirectoryContents(outputFilesDir).sorted() {
-                    derivedSourceFiles.append(contentsOf: swiftFiles.map{ outputFilesDir.appending(component: $0) })
+                    derivedFiles.append(contentsOf: swiftFiles.map{ outputFilesDir.appending(component: $0) })
                 }
 
                 // Add the output directory to the list of directories whose structure should affect the build plan.
@@ -471,7 +478,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             // Add the results of running any prebuild commands for this invocation.
-            return PrebuildCommandResult(derivedSourceFiles: derivedSourceFiles, outputDirectories: prebuildOutputDirs)
+            return PrebuildCommandResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
         }
     }
 

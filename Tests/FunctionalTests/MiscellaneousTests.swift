@@ -802,4 +802,15 @@ class MiscellaneousTestCase: XCTestCase {
         }
         #endif
     }
+
+    func testPluginGeneratedResources() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
+            let result = try SwiftPMProduct.SwiftRun.execute([], packagePath: path)
+            XCTAssertEqual(result.stdout, "Hello, World!\n", "executable did not produce expected output")
+            XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
+        }
+    }
 }
