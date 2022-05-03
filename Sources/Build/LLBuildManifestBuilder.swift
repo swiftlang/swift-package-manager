@@ -172,14 +172,14 @@ extension LLBuildManifestBuilder {
 
         // Create a copy command for each resource file.
         for resource in target.resources {
-            let destination = bundlePath.appending(resource.destination)
+            let destination = AbsolutePath(resource.destination.pathString, relativeTo: bundlePath)
             let (_, output) = addCopyCommand(from: resource.path, to: destination)
             outputs.append(output)
         }
 
         // Create a copy command for the Info.plist if a resource with the same name doesn't exist yet.
         if let infoPlistPath = target.resourceBundleInfoPlistPath {
-            let destination = bundlePath.appending(infoPlistDestination)
+            let destination = AbsolutePath(infoPlistDestination.pathString, relativeTo: bundlePath)
             let (_, output) = addCopyCommand(from: infoPlistPath, to: destination)
             outputs.append(output)
         }
@@ -960,7 +960,7 @@ extension TypedVirtualPath {
             guard let workingDirectory = fileSystem.currentWorkingDirectory else {
                 throw InternalError("unknown working directory")
             }
-            return Node.file(workingDirectory.appending(relativePath))
+            return Node.file(AbsolutePath(relativePath.pathString, relativeTo: workingDirectory))
         } else if let temporaryFileName = file.temporaryFileName {
             return Node.virtual(temporaryFileName.pathString)
         } else {

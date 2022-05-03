@@ -22,7 +22,7 @@ public struct Sources: Codable {
 
     /// The list of absolute paths of all files.
     public var paths: [AbsolutePath] {
-        return relativePaths.map({ root.appending($0) })
+        return relativePaths.map { AbsolutePath($0.pathString, relativeTo: root) }
     }
 
     public init(paths: [AbsolutePath], root: AbsolutePath) {

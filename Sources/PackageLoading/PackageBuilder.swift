@@ -485,7 +485,7 @@ public final class PackageBuilder {
                     throw ModuleError.unsupportedTargetPath(subpath)
                 }
 
-                let path = packagePath.appending(relativeSubPath)
+                let path = AbsolutePath(relativeSubPath.pathString, relativeTo: packagePath)
                 // Make sure the target is inside the package root.
                 guard path.isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: self.identity.description, target: target.name)
@@ -740,7 +740,7 @@ public final class PackageBuilder {
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
+        let publicHeadersPath = AbsolutePath(publicHeaderComponent, relativeTo: potentialModule.path)
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
@@ -878,7 +878,7 @@ public final class PackageBuilder {
 
                 // Ensure that the search path is contained within the package.
                 let subpath = try RelativePath(validating: value)
-                guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
+                guard AbsolutePath(subpath.pathString, relativeTo: targetRoot).isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 

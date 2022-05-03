@@ -33,7 +33,7 @@ public struct MockDependency {
     public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
         switch self.location {
         case .fileSystem(let path):
-            let path = baseURL.appending(path)
+            let path = AbsolutePath(path.pathString, relativeTo: baseURL)
             let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: path.pathString))
             let identity = try identityResolver.resolveIdentity(for: remappedPath)
             return .fileSystem(
@@ -43,7 +43,7 @@ public struct MockDependency {
                 productFilter: self.products
             )
         case .localSourceControl(let path, let requirement):
-            let absolutePath = baseURL.appending(path)
+            let absolutePath = AbsolutePath(path.pathString, relativeTo: baseURL)
             let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: absolutePath.pathString))
             let identity = try identityResolver.resolveIdentity(for: remappedPath)
             return .localSourceControl(

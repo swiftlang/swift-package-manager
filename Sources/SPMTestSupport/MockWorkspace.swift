@@ -120,7 +120,7 @@ public final class MockWorkspace {
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
-                packagePath = basePath.appending(path)
+                packagePath = AbsolutePath(path.pathString, relativeTo: basePath)
             case .sourceControl(let url):
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
@@ -151,9 +151,9 @@ public final class MockWorkspace {
                 packageKind = .root(packagePath)
                 sourceControlSpecifier = RepositorySpecifier(path: packagePath)
             case (_, .fileSystem(let path)):
-                packageLocation = self.packagesDir.appending(path).pathString
+                packageLocation = AbsolutePath(path.pathString, relativeTo: self.packagesDir).pathString
                 packageKind = .fileSystem(packagePath)
-                sourceControlSpecifier = RepositorySpecifier(path: self.packagesDir.appending(path))
+                sourceControlSpecifier = RepositorySpecifier(path: AbsolutePath(path.pathString, relativeTo: self.packagesDir))
             case (_, .sourceControl(let url)):
                 packageLocation = url.absoluteString
                 packageKind = .remoteSourceControl(url)

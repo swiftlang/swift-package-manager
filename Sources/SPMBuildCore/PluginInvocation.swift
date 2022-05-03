@@ -348,7 +348,7 @@ extension PackageGraph {
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
-                        dict[name] = builtToolsDir.appending(path)
+                        dict[name] = AbsolutePath(path.pathString, relativeTo: builtToolsDir)
                     case .vendedTool(let name, let path):
                         dict[name] = path
                     }

@@ -69,8 +69,7 @@ public final class UserToolchain: Toolchain {
         // bootstrap script.
         let swiftCompiler = resolveSymlinks(self.swiftCompilerPath)
 
-        let runtime = swiftCompiler.appending(
-            RelativePath("../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib"))
+        let runtime = AbsolutePath("../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib", relativeTo: swiftCompiler)
 
         // Ensure that the runtime is present.
         guard localFileSystem.exists(runtime) else {

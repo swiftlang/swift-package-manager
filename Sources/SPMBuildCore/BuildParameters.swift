@@ -297,7 +297,7 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the binary of a product for the current build parameters.
     public func binaryPath(for product: ResolvedProduct) -> AbsolutePath {
-        return buildPath.appending(binaryRelativePath(for: product))
+        return AbsolutePath(binaryRelativePath(for: product).pathString, relativeTo: buildPath)
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
