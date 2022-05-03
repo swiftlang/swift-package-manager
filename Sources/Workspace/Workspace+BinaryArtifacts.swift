@@ -165,12 +165,12 @@ extension Workspace {
 
             // finally download zip files, if any
             for artifact in zipArtifacts.get() {
-                let parentDirectory =  artifactsDirectory.appending(component: artifact.packageRef.identity.description)
-                guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
+                let destinationDirectory =  artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+                guard observabilityScope.trap ({ try fileSystem.createDirectory(destinationDirectory, recursive: true) }) else {
                     continue
                 }
 
-                let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
+                let archivePath = destinationDirectory.appending(component: artifact.url.lastPathComponent)
                 if self.fileSystem.exists(archivePath) {
                     guard observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) }) else {
                         continue
@@ -241,7 +241,7 @@ extension Workspace {
                                         case .success:
                                             var artifactPath: AbsolutePath? = nil
                                             observabilityScope.trap {
-                                                try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
+                                                try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
                                                     // strip first level component if needed
                                                     if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
                                                         observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
@@ -253,7 +253,7 @@ extension Workspace {
                                                     // copy from temp location to actual location
                                                     for file in content {
                                                         let source = tempExtractionDirectory.appending(component: file)
-                                                        let destination = parentDirectory.appending(component: file)
+                                                        let destination = destinationDirectory.appending(component: file)
                                                         if self.fileSystem.exists(destination) {
                                                             try self.fileSystem.removeFileTree(destination)
                                                         }
@@ -332,24 +332,26 @@ extension Workspace {
                     case .success:
                         observabilityScope.trap { () -> Void in
                             var artifactPath: AbsolutePath? = nil
-                            // strip first level component if needed
-                            if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
-                                observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
-                                try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
-                            } else {
-                                observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
-                            }
-                            let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
-                            // copy from temp location to actual location
-                            for file in content {
-                                let source = tempExtractionDirectory.appending(component: file)
-                                let destination = destinationDirectory.appending(component: file)
-                                if self.fileSystem.exists(destination) {
-                                    try self.fileSystem.removeFileTree(destination)
+                            try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
+                                // strip first level component if needed
+                                if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                                    observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                    try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                } else {
+                                    observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
                                 }
-                                try self.fileSystem.copy(from: source, to: destination)
-                                if artifact.isMatchingDirectory(destination) {
-                                    artifactPath = destination
+                                let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                // copy from temp location to actual location
+                                for file in content {
+                                    let source = tempExtractionDirectory.appending(component: file)
+                                    let destination = destinationDirectory.appending(component: file)
+                                    if self.fileSystem.exists(destination) {
+                                        try self.fileSystem.removeFileTree(destination)
+                                    }
+                                    try self.fileSystem.copy(from: source, to: destination)
+                                    if artifact.isMatchingDirectory(destination) {
+                                        artifactPath = destination
+                                    }
                                 }
                             }
 
