@@ -224,7 +224,11 @@ func fixture(
             if localFileSystem.isFile(fixtureDir.appending(component: "Package.swift")) {
                 // It's a single package, so copy the whole directory as-is.
                 let dstDir = tmpDirPath.appending(component: copyName)
+#if os(Windows)
+                try localFileSystem.copy(from: fixtureDir, to: dstDir)
+#else
                 try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
+#endif
 
                 // Invoke the block, passing it the path of the copied fixture.
                 try body(dstDir)
@@ -234,7 +238,11 @@ func fixture(
                     let srcDir = fixtureDir.appending(component: fileName)
                     guard localFileSystem.isDirectory(srcDir) else { continue }
                     let dstDir = tmpDirPath.appending(component: fileName)
+#if os(Windows)
+                    try localFileSystem.copy(from: srcDir, to: dstDir)
+#else
                     try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+#endif
                     initGitRepo(dstDir, tag: "1.2.3", addFile: false)
                 }
 
