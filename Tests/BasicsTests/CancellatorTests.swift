@@ -340,7 +340,7 @@ final class CancellatorTests: XCTestCase {
             func work()  {}
 
             func cancel() {
-                sleep(5)
+                Thread.sleep(forTimeInterval: 5)
             }
         }
 
