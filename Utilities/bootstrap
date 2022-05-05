@@ -616,6 +616,10 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
 
+
+    # tools distributed in the toolchain should not statically link the swift runtime
+    swiftpm_args.append("--disable-static-swift-runtime")
+
     # Build SwiftPM, including libSwiftPM, all the command line tools, and the current variant of PackageDescription.
     call_swiftpm(args, swiftpm_args)
 

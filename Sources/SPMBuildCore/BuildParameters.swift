@@ -97,8 +97,8 @@ public struct BuildParameters: Encodable {
     /// How many jobs should llbuild and the Swift compiler spawn
     public var jobs: UInt32
 
-    /// If should link the Swift stdlib statically.
-    public var shouldLinkStaticSwiftStdlib: Bool
+    /// Disable automatic statically link the Swift runtime on supported platforms.
+    public var disableAutomaticSwiftRuntimeStaticLinking: Bool
 
     /// Which compiler sanitizers should be enabled
     public var sanitizers: EnabledSanitizers
@@ -188,7 +188,7 @@ public struct BuildParameters: Encodable {
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
-        shouldLinkStaticSwiftStdlib: Bool = false,
+        disableAutomaticSwiftRuntimeStaticLinking: Bool = false,
         shouldEnableManifestCaching: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
         shouldCreateDylibForDynamicProducts: Bool = true,
@@ -218,7 +218,7 @@ public struct BuildParameters: Encodable {
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
         self.jobs = jobs
-        self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
+        self.disableAutomaticSwiftRuntimeStaticLinking = disableAutomaticSwiftRuntimeStaticLinking
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName

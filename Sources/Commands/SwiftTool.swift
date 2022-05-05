@@ -536,6 +536,10 @@ public class SwiftTool {
         if options.caching._deprecated_useRepositoriesCache != nil {
             observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
+
+        if options.linker._deprecated_shouldLinkStaticSwiftStdlib != nil {
+            observabilityScope.emit(warning: "'--shouldLinkStaticSwiftStdlib' option is deprecated; Statically linking the Swift runtime is automatically done on relevant platforms (eg Linux). You may opt out of this behavior with --disable-static-swift-runtime")
+        }
     }
 
     /// Returns the currently active workspace.
@@ -678,7 +682,7 @@ public class SwiftTool {
             throw error
         }
     }
-    
+
     func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
@@ -821,7 +825,8 @@ public class SwiftTool {
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent()
+            )
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
@@ -831,7 +836,7 @@ public class SwiftTool {
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
+                disableAutomaticSwiftRuntimeStaticLinking: options.linker.disableAutomaticSwiftRuntimeStaticLinking,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
                 ),
