@@ -584,21 +584,6 @@ extension BuildSubset {
     }
 }
 
-extension OutputByteStream {
-    fileprivate var isTTY: Bool {
-        let stream: OutputByteStream
-        if let threadSafeStream = self as? ThreadSafeOutputByteStream {
-            stream = threadSafeStream.stream
-        } else {
-            stream = self
-        }
-        guard let fileStream = stream as? LocalFileOutputByteStream else {
-            return false
-        }
-        return TerminalController.isTTY(fileStream)
-    }
-}
-
 extension Basics.Diagnostic.Severity {
     var isVerbose: Bool {
         return self <= .info
