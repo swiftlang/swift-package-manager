@@ -30,7 +30,11 @@ fileprivate enum DirectoryNode: Codable {
         switch self {
         case .directory(let name, _, _): return name
         case .file(let name, _, _, _): return name
+#if os(Windows)
+        case .root(_): return "\\"
+#else
         case .root(_): return "/"
+#endif
         }
     }
 
