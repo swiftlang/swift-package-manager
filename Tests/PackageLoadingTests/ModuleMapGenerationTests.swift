@@ -20,13 +20,16 @@ import XCTest
 class ModuleMapGeneration: XCTestCase {
 
     func testModuleNameHeaderInInclude() throws {
+        let root: AbsolutePath = AbsolutePath.root
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/include/Foo.h",
-            "/Foo.c")
+            root.appending(components: "include", "Foo.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.check(contents: """
             module Foo {
-                umbrella header "/include/Foo.h"
+                umbrella header "\(root.appending(components: "include", "Foo.h"))"
                 export *
             }
 
@@ -35,13 +38,16 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testModuleNameDirAndHeaderInInclude() throws {
+        let root: AbsolutePath = AbsolutePath.root
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/include/Foo/Foo.h",
-            "/Foo.c")
+            root.appending(components: "include", "Foo", "Foo.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.check(contents: """
             module Foo {
-                umbrella header "/include/Foo/Foo.h"
+                umbrella header "\(root.appending(components: "include", "Foo", "Foo.h").pathString)"
                 export *
             }
 
@@ -50,15 +56,17 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testOtherCases() throws {
+        let root: AbsolutePath = AbsolutePath.root
         var fs: InMemoryFileSystem
 
         fs = InMemoryFileSystem(emptyFiles:
-            "/include/Bar.h",
-            "/Foo.c")
+            root.appending(components: "include", "Bar.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.check(contents: """
             module Foo {
-                umbrella "/include"
+                umbrella "\(root.appending(components: "include"))"
                 export *
             }
 
@@ -66,13 +74,14 @@ class ModuleMapGeneration: XCTestCase {
         }
 
         fs = InMemoryFileSystem(emptyFiles:
-            "/include/Baz.h",
-            "/include/Bar.h",
-            "/Foo.c")
+            root.appending(components: "include", "Baz.h").pathString,
+            root.appending(components: "include", "Bar.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.check(contents: """
             module Foo {
-                umbrella "/include"
+                umbrella "\(root.appending(components: "include"))"
                 export *
             }
 
@@ -80,13 +89,14 @@ class ModuleMapGeneration: XCTestCase {
         }
 
         fs = InMemoryFileSystem(emptyFiles:
-            "/include/Baz/Foo.h",
-            "/include/Bar/Bar.h",
-            "/Foo.c")
+            root.appending(components: "include", "Baz", "Foo.h").pathString,
+            root.appending(components: "include", "Bar", "Bar.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.check(contents: """
             module Foo {
-                umbrella "/include"
+                umbrella "\(root.appending(components: "include"))"
                 export *
             }
 
@@ -95,7 +105,11 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testWarnings() throws {
-        var fs = InMemoryFileSystem(emptyFiles: "/Foo.c")
+        let root: AbsolutePath = AbsolutePath.root
+
+        var fs = InMemoryFileSystem(emptyFiles:
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
@@ -108,19 +122,20 @@ class ModuleMapGeneration: XCTestCase {
         }
 
         fs = InMemoryFileSystem(emptyFiles:
-            "/include/F-o-o.h",
-            "/Foo.c")
+            root.appending(components: "include", "F-o-o.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
         ModuleMapTester("F-o-o", in: fs) { result in
             result.check(contents: """
                 module F_o_o {
-                    umbrella "/include"
+                    umbrella "\(root.appending(components: "include"))"
                     export *
                 }
 
                 """)
             result.checkDiagnostics { result in
                 let diagnostic = result.check(
-                    diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header",
+                    diagnostic: "\(root.appending(components: "include", "F-o-o.h")) should be renamed to \(root.appending(components: "include", "F_o_o.h")) to be used as an umbrella header",
                     severity: .warning
                 )
                 XCTAssertEqual(diagnostic?.metadata?.targetName, "F-o-o")
@@ -129,14 +144,17 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testUnsupportedLayouts() throws {
+        let include: AbsolutePath = AbsolutePath("/include")
+
         var fs = InMemoryFileSystem(emptyFiles:
-            "/include/Foo/Foo.h",
-            "/include/Bar/Foo.h")
+            include.appending(components: "Foo", "Foo.h").pathString,
+            include.appending(components: "Bar", "Foo.h").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
                 let diagnostic = result.check(
-                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one",
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo", "Foo.h"))', but more than one directory exists next to its parent directory: \(include.appending(components: "Bar")); consider reducing them to one",
                     severity: .error
                 )
                 XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
@@ -144,13 +162,14 @@ class ModuleMapGeneration: XCTestCase {
         }
 
         fs = InMemoryFileSystem(emptyFiles:
-            "/include/Foo.h",
-            "/include/Bar/Foo.h")
+            include.appending(components: "Foo.h").pathString,
+            include.appending(components: "Bar", "Foo.h").pathString
+        )
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
                 let diagnostic = result.check(
-                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them",
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '\(include.appending(components: "Foo.h"))', but directories exist next to it: \(include.appending(components: "Bar")); consider removing them",
                     severity: .error
                 )
                 XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
@@ -210,7 +229,7 @@ final class ModuleMapResult {
     }
 
     private var contents: String {
-        return try! fs.readFileContents(path)
+        return try! fs.readFileContents(path).replacingOccurrences(of: "\\\\", with: "\\")
     }
 
     private var isCreated: Bool {
