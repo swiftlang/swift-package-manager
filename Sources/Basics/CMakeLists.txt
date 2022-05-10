@@ -29,7 +29,8 @@ add_library(Basics
   Triple+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
-  Version+Extensions.swift)
+  Version+Extensions.swift
+  WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC
   SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage
