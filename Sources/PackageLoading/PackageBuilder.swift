@@ -481,11 +481,11 @@ public final class PackageBuilder {
                 }
 
                 // Make sure target is not referenced by absolute path
-                guard let relativeSubPath = try? RelativePath(validating: subpath) else {
+                if (try? RelativePath(validating: subpath)) == nil {
                     throw ModuleError.unsupportedTargetPath(subpath)
                 }
 
-                let path = packagePath.appending(relativeSubPath)
+                let path = AbsolutePath(subpath, relativeTo: packagePath)
                 // Make sure the target is inside the package root.
                 guard path.isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: self.identity.description, target: target.name)
