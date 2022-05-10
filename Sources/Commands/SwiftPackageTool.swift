@@ -1028,8 +1028,26 @@ extension SwiftPackageTool {
                 // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
                 if case .command(_, let permissions) = plugin.capability {
                     for case PluginPermission.writeToPackageDirectory(let reason) in permissions {
-                        // TODO: Ask for approval here if connected to TTY; only emit an error if not.
-                        throw ValidationError("Plugin ‘\(plugin.name)’ needs permission to write to the package directory (stated reason: “\(reason)”)")
+                        let problem = "Plugin ‘\(plugin.name)’ wants permission to write to the package directory."
+                        let reason = "Stated reason: “\(reason)”."
+                        if swiftTool.outputStream.isTTY {
+                            // We can ask the user directly, so we do so.
+                            let query = "Allow this plugin to write to the package directory?"
+                            swiftTool.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
+                            swiftTool.outputStream.flush()
+                            let answer = readLine(strippingNewline: true)
+                            // Throw an error if we didn't get permission.
+                            if answer?.lowercased() != "yes" {
+                                throw ValidationError("Plugin was denied permission to write to the package directory.")
+                            }
+                            // Otherwise append the directory to the list of allowed ones.
+                            writableDirectories.append(package.path)
+                        }
+                        else {
+                            // We can't ask the user, so emit an error suggesting passing the flag.
+                            let remedy = "Use `--allow-writing-to-package-directory` to allow this."
+                            throw ValidationError([problem, reason, remedy].joined(separator: "\n"))
+                        }
                     }
                 }
             }
