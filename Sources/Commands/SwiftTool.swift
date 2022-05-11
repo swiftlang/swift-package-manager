@@ -918,6 +918,10 @@ public class SwiftTool {
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
+            // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], fileSystem: self.fileSystem) {
+                extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
+            }
 
             if self.logLevel <= .info {
                 extraManifestFlags.append("-v")
