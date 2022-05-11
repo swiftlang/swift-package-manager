@@ -49,7 +49,8 @@ class PkgConfigTests: XCTestCase {
                 providers: [
                     .brew(["libFoo"]),
                     .apt(["libFoo-dev"]),
-                    .yum(["libFoo-devel"])
+                    .yum(["libFoo-devel"]),
+                    .nuget(["Foo"]),
                 ]
             )
             for result in pkgConfigArgs(for: target, fileSystem: fs, observabilityScope: observability.topScope) {
@@ -63,6 +64,8 @@ class PkgConfigTests: XCTestCase {
                     XCTAssertEqual(names, ["libFoo-dev"])
                 case .yum(let names)?:
                     XCTAssertEqual(names, ["libFoo-devel"])
+                case .nuget(let names)?:
+                    XCTAssertEqual(names, ["Foo"])
                 case nil:
                     XCTFail("Expected a provider here")
                 }

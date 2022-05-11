@@ -388,6 +388,8 @@ public enum SystemPackageProvider {
     /// Packages installable by the yum package manager.
     @available(_PackageDescription, introduced: 5.3)
     case yumItem([String])
+    @available(_PackageDescription, introduced: 999.0)
+    case nugetItem([String])
 
     /// Creates a system package provider with a list of installable packages
     /// for users of the HomeBrew package manager on macOS.
@@ -419,6 +421,17 @@ public enum SystemPackageProvider {
     @available(_PackageDescription, introduced: 5.3)
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return .yumItem(packages)
+    }
+
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the nuget package manager on Linux or Windows.
+    ///
+    /// - Parameter packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func nuget(_ packages: [String]) -> SystemPackageProvider {
+        return .nugetItem(packages)
     }
 }
 
