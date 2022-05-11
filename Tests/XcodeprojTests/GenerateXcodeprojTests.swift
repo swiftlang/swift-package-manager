@@ -154,7 +154,7 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             _ = try xcodeProject(
-                xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+                xcodeprojPath: dstdir.appending(component: "xcodeproj"),
                 graph: graph, extraDirs: [], extraFiles: [],
                 options: XcodeprojOptions(), fileSystem: localFileSystem,
                 observabilityScope: observability.topScope
