@@ -263,14 +263,14 @@ class PIFTests: XCTestCase {
 
         XCTAssertEqual(workspace["type"]?.string, "workspace")
         XCTAssertEqual(workspaceContents["guid"]?.string, "workspace@11")
-        XCTAssertEqual(workspaceContents["path"]?.string, "/path/to/workspace")
+        XCTAssertEqual(workspaceContents["path"]?.string, AbsolutePath("/path/to/workspace").pathString)
         XCTAssertEqual(workspaceContents["name"]?.string, "MyWorkspace")
         XCTAssertEqual(workspaceContents["projects"]?.array, [project["signature"]!])
 
         XCTAssertEqual(project["type"]?.string, "project")
         XCTAssertEqual(projectContents["guid"]?.string, "project@11")
-        XCTAssertEqual(projectContents["path"]?.string, "/path/to/workspace/project")
-        XCTAssertEqual(projectContents["projectDirectory"]?.string, "/path/to/workspace/project")
+        XCTAssertEqual(projectContents["path"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
+        XCTAssertEqual(projectContents["projectDirectory"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
         XCTAssertEqual(projectContents["projectName"]?.string, "MyProject")
         XCTAssertEqual(projectContents["projectIsPackage"]?.string, "true")
         XCTAssertEqual(projectContents["developmentRegion"]?.string, "fr")
