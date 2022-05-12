@@ -96,13 +96,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/Foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/Foo"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "Foo"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "Foo"))"])
 
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: /tmp/ws/pkgs/Quix"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: /tmp/ws/pkgs/Quix"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: /tmp/ws/pkgs/Baz"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: /tmp/ws/pkgs/Baz"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix"))"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz"))"])
 
         // Close and reopen workspace.
         try workspace.closeWorkspace(resetState: false)
@@ -215,7 +215,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(rootManifests.count == 0, "\(rootManifests)")
 
             testDiagnostics(observability.diagnostics) { result in
-                let diagnostic = result.check(diagnostic: .prefix("Invalid manifest\n\(path)/MyPkg/Package.swift:3:8: error: An error in MyPkg"), severity: .error)
+                let diagnostic = result.check(diagnostic: .prefix("Invalid manifest\n\(path.appending(components: "MyPkg", "Package.swift")):3:8: error: An error in MyPkg"), severity: .error)
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .init(path: pkgDir))
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, .root(pkgDir))
             }
@@ -558,7 +558,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
-        XCTAssertMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("fetching package: \(sandbox.appending(components: "pkgs", "Baz"))")])
         XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
 
         // Now load with Baz as a root package.
@@ -575,9 +575,9 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(notPresent: "baz")
         }
-        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: \(sandbox.appending(components: "pkgs", "Baz"))")])
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
-        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: \(sandbox.appending(components: "pkgs", "Baz"))")])
     }
 
     func testGraphRootDependencies() throws {
@@ -732,8 +732,8 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "a", at: .checkout(.version("1.0.1")))
                 result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
             }
-            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/A")])
-            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: /tmp/ws/pkgs/AA")])
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: \(sandbox.appending(components: "pkgs", "A"))")])
+            XCTAssertMatch(workspace.delegate.events, [.equal("updating repo: \(sandbox.appending(components: "pkgs", "AA"))")])
             XCTAssertEqual(workspace.delegate.events.filter { $0.hasPrefix("updating repo") }.count, 2)
         }
     }
@@ -1429,7 +1429,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
         }
-        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Bar")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: \(sandbox.appending(components: "pkgs", "Bar"))")])
 
         // Run update again.
         // Ensure that up-to-date delegate is called when there is nothing to update.
@@ -1752,7 +1752,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we can compute missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(try! manifests.missingPackages().map { $0.locationString }.sorted(), ["/tmp/ws/pkgs/Bar", "/tmp/ws/pkgs/Foo"])
+            XCTAssertEqual(try! manifests.missingPackages().map { $0.locationString }.sorted(), [sandbox.appending(components: "pkgs", "Bar").pathString, sandbox.appending(components: "pkgs", "Foo").pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1766,7 +1766,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(try! manifests.missingPackages().map { $0.locationString }.sorted(), ["/tmp/ws/pkgs/Bar"])
+            XCTAssertEqual(try! manifests.missingPackages().map { $0.locationString }.sorted(), [sandbox.appending(components: "pkgs", "Bar").pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -2360,7 +2360,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkUpdate { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
-        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Foo")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: \(sandbox.appending(components: "pkgs", "Foo"))")])
         try workspace.checkPackageGraph(deps: []) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2461,8 +2461,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let barKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar")
-            let editedBarKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Bar")
+            let barKey = MockManifestLoader.Key(url: sandbox.appending(components: "pkgs", "Bar").pathString)
+            let editedBarKey = MockManifestLoader.Key(url: sandbox.appending(components: "edits", "Bar").pathString)
             let manifest = workspace.manifestLoader.manifests[barKey]!
             workspace.manifestLoader.manifests[editedBarKey] = manifest
         }
@@ -2640,7 +2640,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that changing the requirement to 1.5.0 triggers re-resolution.
-        let fooKey = MockManifestLoader.Key(url: "/tmp/ws/roots/Foo")
+        let fooKey = MockManifestLoader.Key(url: sandbox.appending(components: "roots", "Foo").pathString)
         let manifest = workspace.manifestLoader.manifests[fooKey]!
 
         let dependency = manifest.dependencies[0]
@@ -2740,8 +2740,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
-            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let fooKey = MockManifestLoader.Key(url: sandbox.appending(components: "pkgs", "Foo").pathString)
+            let editedFooKey = MockManifestLoader.Key(url: sandbox.appending(components: "edits", "Foo").pathString)
             let manifest = workspace.manifestLoader.manifests[fooKey]!
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
@@ -3037,7 +3037,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(targets: "Foo")
             }
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("the package at '/tmp/ws/pkgs/Bar' cannot be accessed (/tmp/ws/pkgs/Bar doesn't exist in file system"), severity: .error)
+                result.check(diagnostic: .contains("the package at '\(sandbox.appending(components: "pkgs", "Bar"))' cannot be accessed (\(sandbox.appending(components: "pkgs", "Bar")) doesn't exist in file system"), severity: .error)
             }
         }
     }
@@ -3307,7 +3307,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, sandbox.appending(components: "pkgs", "Foo").pathString)
         }
 
         deps = [
@@ -3318,7 +3318,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, sandbox.appending(components: "pkgs", "Nested", "Foo").pathString)
         }
     }
 
@@ -4021,7 +4021,7 @@ final class WorkspaceTests: XCTestCase {
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: "an out-of-date resolved file was detected at /tmp/ws/Package.resolved, which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. Running resolver because  requirements have changed.", severity: .error)
+                result.check(diagnostic: "an out-of-date resolved file was detected at \(sandbox.appending(components: "Package.resolved")), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. Running resolver because  requirements have changed.", severity: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -4107,7 +4107,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             guard let diagnostic = diagnostics.first else { return XCTFail("unexpectedly got no diagnostics") }
             // rdar://82544922 (`WorkspaceResolveReason` is non-deterministic)
-            XCTAssertTrue(diagnostic.message.hasPrefix("a resolved file is required when automatic dependency resolution is disabled and should be placed at /tmp/ws/Package.resolved. Running resolver because the following dependencies were added:"), "unexpected diagnostic message")
+            XCTAssertTrue(diagnostic.message.hasPrefix("a resolved file is required when automatic dependency resolution is disabled and should be placed at \(sandbox.appending(components: "Package.resolved")). Running resolver because the following dependencies were added:"), "unexpected diagnostic message")
         }
     }
 
@@ -4545,8 +4545,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
-            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let fooKey = MockManifestLoader.Key(url: sandbox.appending(components: "pkgs", "Foo").pathString)
+            let editedFooKey = MockManifestLoader.Key(url: sandbox.appending(components: "edits", "Foo").pathString)
             let manifest = workspace.manifestLoader.manifests[fooKey]!
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
@@ -5167,8 +5167,8 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/roots/Root/XCFrameworks/A1.zip' which is required by binary target 'A1': dummy error"), severity: .error)
-                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/roots/Root/ArtifactBundles/A2.zip' which is required by binary target 'A2': dummy error"), severity: .error)
+                result.checkUnordered(diagnostic: .contains("failed extracting '\(sandbox.appending(components: "roots", "Root", "XCFrameworks", "A1.zip"))' which is required by binary target 'A1': dummy error"), severity: .error)
+                result.checkUnordered(diagnostic: .contains("failed extracting '\(sandbox.appending(components: "roots", "Root", "ArtifactBundles", "A2.zip"))' which is required by binary target 'A2': dummy error"), severity: .error)
             }
         }
     }
@@ -6392,7 +6392,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
             XCTAssertThrowsError(try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
-                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/missingFile.zip"))
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: \(sandbox.appending(component: "missingFile.zip"))"))
             }
         }
 
@@ -6401,7 +6401,7 @@ final class WorkspaceTests: XCTestCase {
             let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
             XCTAssertThrowsError(try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
-                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/aDirectory.zip"))
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: \(sandbox.appending(component: "aDirectory.zip"))"))
             }
         }
     }
@@ -7997,7 +7997,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    diagnostic: "'root' dependency on '\(sandbox.appending(components: "pkgs", "bar", "utility"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo", "utility"))' which has the same identity 'utility'",
                     severity: .error
                 )
             }
@@ -8058,7 +8058,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    diagnostic: "'root' dependency on '\(sandbox.appending(components: "pkgs", "bar", "utility"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo", "utility"))' which has the same identity 'utility'",
                     severity: .error
                 )
             }
@@ -8119,7 +8119,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
+                    diagnostic: "'root' dependency on '\(sandbox.appending(components: "pkgs", "bar"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo"))' which has the same explicit name 'FooPackage'",
                     severity: .error
                 )
             }
@@ -8463,7 +8463,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
+                    diagnostic: "'root' dependency on '\(sandbox.appending(components: "pkgs", "bar"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo"))' which has the same explicit name 'foo'",
                     severity: .error
                 )
             }
@@ -8523,7 +8523,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
+                    diagnostic: "'root' dependency on '\(sandbox.appending(components: "pkgs", "bar"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo"))' which has the same explicit name 'foo'",
                     severity: .error
                 )
             }
@@ -8600,7 +8600,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    diagnostic: "'bar' dependency on '\(sandbox.appending(components: "pkgs", "other", "utility"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo", "utility"))' which has the same identity 'utility'",
                     severity: .error
                 )
             }
@@ -8679,7 +8679,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other-foo/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
+                    diagnostic: "'bar' dependency on '\(sandbox.appending(components: "pkgs", "other-foo", "utility"))' conflicts with dependency on '\(sandbox.appending(components: "pkgs", "foo", "utility"))' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning
                 )
                 // FIXME: rdar://72940946
@@ -9693,8 +9693,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
@@ -9803,8 +9803,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
@@ -9887,8 +9887,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar"])
@@ -9997,8 +9997,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar"])
