@@ -767,7 +767,8 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
-                    let success = testRunner.test(outputHandler: { output += $0 })
+                    let outputLock = Lock()
+                    let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     if !success {
                         self.ranSuccessfully = false
                     }
