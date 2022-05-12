@@ -467,12 +467,7 @@ final class PackageToolTests: CommandsTestCase {
         // Returns symbol graph with or without pretty printing.
         func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
             let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
-            let output = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path).utf8Output()
-            guard output.contains("-- Emitting symbol graph for Bar") else {
-                XCTFail("Unexpected output for emitting symbol graph: \(output)", file: file, line: line)
-                return nil
-            }
-
+            _ = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path)
             let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil))
 
             var symbolGraphURL: URL?
