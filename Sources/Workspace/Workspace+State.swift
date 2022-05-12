@@ -108,7 +108,7 @@ public final class WorkspaceState {
         return self.storage.fileExists()
     }
 
-    private func reloadState() {
+    func reloadState() {
         if let storedState = try? self.storage.load() {
             self.dependencies = storedState.dependencies
             self.artifacts = storedState.artifacts

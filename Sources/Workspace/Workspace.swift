@@ -1069,6 +1069,8 @@ extension Workspace {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
+        // Reload state in case it was modified externally (eg by another process) before reloading the graph
+        self.state.reloadState()
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
@@ -2148,7 +2150,6 @@ extension Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     fileprivate func fixManagedDependencies(observabilityScope: ObservabilityScope) {
-
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
             try? self.state.reset()
