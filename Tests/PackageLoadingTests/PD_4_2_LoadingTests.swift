@@ -18,6 +18,12 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+extension AbsolutePath {
+    fileprivate func escapedPathString() -> String {
+        return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
+    }
+}
+
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
@@ -33,7 +39,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "/foo1", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -245,15 +251,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "/foo1", from: "1.0.0"),
-                   .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "/path/to/foo4"),
-                   .package(url: "/foo5", .exact("1.2.3")),
-                   .package(url: "/foo6", "1.2.3"..<"2.0.0"),
-                   .package(url: "/foo7", .branch("master")),
-                   .package(url: "/foo8", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "/foo9", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),
@@ -272,13 +278,13 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
         if case .fileSystem(let dep) = deps["foo3"] {
-            XCTAssertEqual(dep.path.pathString, "/foo3")
+            XCTAssertEqual(dep.path, AbsolutePath("/foo3"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo4"] {
-            XCTAssertEqual(dep.path.pathString, "/path/to/foo4")
+            XCTAssertEqual(dep.path, AbsolutePath("/path/to/foo4"))
         } else {
             XCTFail("expected to be local dependency")
         }
@@ -291,31 +297,31 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         let homeDir = "/home/user"
         if case .fileSystem(let dep) = deps["foo10"] {
-            XCTAssertEqual(dep.path.pathString, "\(homeDir)/path/to/foo10")
+            XCTAssertEqual(dep.path, AbsolutePath("\(homeDir)/path/to/foo10"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["~foo11"] {
-            XCTAssertEqual(dep.path.pathString, "/~foo11")
+            XCTAssertEqual(dep.path, AbsolutePath("/~foo11"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo12"] {
-            XCTAssertEqual(dep.path.pathString, "\(homeDir)/path/to/~/foo12")
+            XCTAssertEqual(dep.path, AbsolutePath("\(homeDir)/path/to/~/foo12"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["~"] {
-            XCTAssertEqual(dep.path.pathString, "/~")
+            XCTAssertEqual(dep.path, AbsolutePath("/~"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo13"] {
-            XCTAssertEqual(dep.path.pathString, "/path/to/foo13")
+            XCTAssertEqual(dep.path, AbsolutePath("/path/to/foo13"))
         } else {
             XCTFail("expected to be local dependency")
         }
@@ -887,6 +893,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     // run this with TSAN/ASAN to detect concurrency issues
     func testConcurrencyNoWarmUp() throws {
+#if os(Windows)
+        // FIXME: does this actually trigger only on Windows or are other
+        // platforms just getting lucky?  I'm feeling lucky.
+        throw XCTSkip("Foundation Process.terminationStatus race condition (apple/swift-corelibs-foundation#4589")
+#else
         try testWithTemporaryDirectory { path in
             let total = 100
             let observability = ObservabilitySystem.makeForTesting()
@@ -952,6 +963,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
+#endif
     }
 
     final class ManifestTestDelegate: ManifestLoaderDelegate {
