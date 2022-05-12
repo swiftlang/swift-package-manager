@@ -595,7 +595,7 @@ extension SwiftPackageTool {
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
                 includeSPISymbols: includeSPISymbols,
-                outputFormat: SymbolGraphExtract.OutputFormat.json(pretty: prettyPrint)
+                outputFormat: .json(pretty: prettyPrint)
             )
 
             // Run the tool once for every library and executable target in the root package.
