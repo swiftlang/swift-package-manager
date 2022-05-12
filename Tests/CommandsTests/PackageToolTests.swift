@@ -463,6 +463,47 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testDumpSymbolGraphFormatting() throws {
+        // Returns symbol graph with or without pretty printing.
+        func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
+            let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
+            let output = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path).utf8Output()
+            guard output.contains("-- Emitting symbol graph for Bar") else {
+                XCTFail("Unexpected output for emitting symbol graph: \(output)", file: file, line: line)
+                return nil
+            }
+
+            let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil))
+
+            var symbolGraphURL: URL?
+            for case let url as URL in enumerator where url.lastPathComponent == "Bar.symbols.json" {
+                symbolGraphURL = url
+                break
+            }
+
+            let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL))
+
+            // Double check that it's a valid JSON
+            XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData))
+
+            return symbolGraphData
+        }
+
+        // Test compact JSON output.
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
+            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
+        }
+
+        // Test pretty JSON output.
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
+            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
+        }
+    }
+
     func testShowDependencies() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")

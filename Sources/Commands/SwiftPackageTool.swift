@@ -594,7 +594,9 @@ extension SwiftPackageTool {
                 skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
-                includeSPISymbols: includeSPISymbols)
+                includeSPISymbols: includeSPISymbols,
+                outputFormat: SymbolGraphExtract.OutputFormat.json(pretty: prettyPrint)
+            )
 
             // Run the tool once for every library and executable target in the root package.
             let buildPlan = buildOp.buildPlan!
