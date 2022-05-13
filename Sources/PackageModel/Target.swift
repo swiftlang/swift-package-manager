@@ -138,6 +138,12 @@ public class Target: PolymorphicCodableProtocol {
             moduleAliases?[name] = alias
         }
     }
+    public func removeModuleAlias(for name: String) {
+        moduleAliases?.removeValue(forKey: name)
+        if moduleAliases?.isEmpty ?? false {
+            moduleAliases = nil
+        }
+    }
 
     @discardableResult
     public func applyAlias() -> Bool {
