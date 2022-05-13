@@ -877,9 +877,10 @@ public final class PackageBuilder {
                 }
 
                 // Ensure that the search path is contained within the package.
-                let subpath = try RelativePath(validating: value)
-                guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
-                    throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
+                _ = try RelativePath(validating: value)
+                guard AbsolutePath(value, relativeTo: targetRoot)
+                        .isDescendantOfOrEqual(to: packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(value)
                 }
 
             case .define(let value):
