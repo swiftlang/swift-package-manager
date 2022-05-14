@@ -463,35 +463,39 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
-    func testDumpSymbolGraphFormatting() throws {
-        // Returns symbol graph with or without pretty printing.
-        func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
-            let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
-            _ = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path)
-            let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil))
+    // Returns symbol graph with or without pretty printing.
+    private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
+        let tool = try SwiftTool(options: GlobalOptions.parse(["--package-path", path.pathString]))
+        let symbolGraphExtractorPath = try tool.getToolchain().getSymbolGraphExtract()
 
-            var symbolGraphURL: URL?
-            for case let url as URL in enumerator where url.lastPathComponent == "Bar.symbols.json" {
-                symbolGraphURL = url
-                break
-            }
+        let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
-            let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL))
+        _ = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
-            // Double check that it's a valid JSON
-            XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData))
-
-            return symbolGraphData
+        var symbolGraphURL: URL?
+        for case let url as URL in enumerator where url.lastPathComponent == "Bar.symbols.json" {
+            symbolGraphURL = url
+            break
         }
 
-        // Test compact JSON output.
+        let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL, file: file, line: line))
+
+        // Double check that it's a valid JSON
+        XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData), file: file, line: line)
+
+        return symbolGraphData
+    }
+
+    func testDumpSymbolGraphCompactFormatting() throws {
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
             let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
             XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
         }
+    }
 
-        // Test pretty JSON output.
+    func testDumpSymbolGraphPrettyFormatting() throws {
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
             let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
