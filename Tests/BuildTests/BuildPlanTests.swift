@@ -1989,6 +1989,71 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testModuleAliasingSameNameTargetsWithAliasesInMultiProducts() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                        "/swift-log/Sources/Logging/fileLogging.swift",
+                                        "/swift-metrics/Sources/Metrics/file.swift",
+                                        "/swift-metrics/Sources/Logging/fileLogging.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "swift-log",
+                    path: .init("/swift-log"),
+                    products: [
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "swift-metrics",
+                    path: .init("/swift-metrics"),
+                    products: [
+                        ProductDescription(name: "Metrics", type: .library(.automatic), targets: ["Metrics"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Metrics", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/swift-log"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/swift-metrics"), requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [.product(name: "Logging",
+                                                                  package: "swift-log"
+                                                                 ),
+                                                         .product(name: "Metrics",
+                                                                  package: "swift-metrics",
+                                                                  moduleAliases: ["Logging": "MetricsLogging"]
+                                                                 )
+                                                        ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "MetricsLogging" && $0.target.moduleAliases?["Logging"] == "MetricsLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+    }
+
     func testModuleAliasingInvalidSourcesUpstream() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                                         "/thisPkg/Sources/exe/main.swift",
