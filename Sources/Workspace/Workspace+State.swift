@@ -65,13 +65,21 @@ public final class WorkspaceState {
         try self.save()
     }
 
+    // marked public for testing
     public func save() throws {
         try self.storage.save(dependencies: self.dependencies, artifacts: self.artifacts)
     }
 
     /// Returns true if the state file exists on the filesystem.
-    public func stateFileExists() -> Bool {
+    func stateFileExists() -> Bool {
         return self.storage.fileExists()
+    }
+
+    /// Returns true if the state file exists on the filesystem.
+    func reload() throws  {
+        let storedState = try self.storage.load()
+        self.dependencies = storedState.dependencies
+        self.artifacts = storedState.artifacts
     }
 }
 
