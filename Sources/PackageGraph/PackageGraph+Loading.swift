@@ -849,11 +849,17 @@ private class ModuleAliasTracker {
                                 }
                             }
                         } else {
-                            // If there are multiple aliases for the same key from
-                            // different child products, and their values are
-                            // different, aliasing should not be applied.
-                            let hasMultiValuesForAliasing = allTargetsInOtherChildProducts.compactMap{$0.moduleAliases}.flatMap{$0}.contains{$0.key == nameToBeAliased && $0.value != aliasInChild}
-                            if hasMultiValuesForAliasing {
+                            // If there are no aliases or conflicting aliases
+                            // for the same key defined in other child products,
+                            // those aliases should be removed from this target.
+                            let hasConflict = allTargetsInOtherChildProducts.contains{ otherTarget in
+                                if let otherAlias = otherTarget.moduleAliases?[nameToBeAliased] {
+                                    return otherAlias != aliasInChild
+                                } else {
+                                    return otherTarget.name == nameToBeAliased
+                                }
+                            }
+                            if hasConflict {
                                 // If there are aliases, remove as aliasing should
                                 // not be applied
                                 curTarget.removeModuleAlias(for: nameToBeAliased)
