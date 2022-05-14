@@ -1906,15 +1906,17 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(input) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            // pre-populate managed dependencies if we are asked to do so
-            // FIXME: this seems like hack, needs further investigation why this is needed
+            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved file)
             if automaticallyAddManagedDependencies {
-                try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
-                    try self.state.dependencies.add(.fileSystem(packageRef: dependency.createPackageRef()))
+                try dependenciesToLoad.forEach { ref in
+                    // Since we are creating managed dependencies based on the resolved file in this mode, but local packages aren't part of that file, they will be missing from it. So we're eagerly adding them here, but explicitly don't add any that are overridden by a root with the same identity since that would lead to loading the given package twice, once as a root and once as a dependency  which violates various assumptions.
+                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
+                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
+                    }
                 }
                 observabilityScope.trap { try self.state.save() }
             }
-            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return dependenciesRequired.compactMap { dependency in
