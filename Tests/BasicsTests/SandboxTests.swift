@@ -18,7 +18,11 @@ import XCTest
 final class SandboxTest: XCTestCase {
     func testSandboxOnAllPlatforms() throws {
         try withTemporaryDirectory { path in
+#if os(Windows)
+            let command = Sandbox.apply(command: ["tar.exe", "-h"], strictness: .default, writableDirectories: [])
+#else
             let command = Sandbox.apply(command: ["echo", "0"], strictness: .default, writableDirectories: [])
+#endif
             XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
         }
     }
