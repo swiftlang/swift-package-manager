@@ -41,9 +41,12 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedSources() throws {
+        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/main.swift",
-            "/Sources/foo/main.c")
+            foo.appending(components: "main.swift").pathString,
+            foo.appending(components: "main.c").pathString
+        )
 
         let manifest = Manifest.createRootManifest(
             name: "pkg",
@@ -53,7 +56,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "target at '/Sources/foo' contains mixed language source files; feature not supported", severity: .error)
+            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported", severity: .error)
         }
     }
 
@@ -146,7 +149,7 @@ class PackageBuilderTests: XCTestCase {
                 diagnostic: "ignoring target 'MyPackageTests' in package '\(package.packageIdentity)'; C language in tests is not yet supported",
                 severity: .warning
             )
-            #elseif os(macOS) || os(Android)
+            #elseif os(macOS) || os(Android) || os(Windows)
             package.checkProduct("MyPackagePackageTests") { _ in }
             #endif
         }
@@ -223,13 +226,15 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testPublicIncludeDirMixedWithSources() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/clib/nested/nested.h",
-            "/Sources/clib/nested/nested.c",
-            "/Sources/clib/clib.h",
-            "/Sources/clib/clib.c",
-            "/Sources/clib/clib2.h",
-            "/Sources/clib/clib2.c",
+            Sources.appending(components: "clib", "nested", "nested.h").pathString,
+            Sources.appending(components: "clib", "nested", "nested.c").pathString,
+            Sources.appending(components: "clib", "clib.h").pathString,
+            Sources.appending(components: "clib", "clib.c").pathString,
+            Sources.appending(components: "clib", "clib2.h").pathString,
+            Sources.appending(components: "clib", "clib2.c").pathString,
             "/done"
         )
 
@@ -246,18 +251,20 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { package, diags in
             diags.check(
-                diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib",
+                diagnostic: "found duplicate sources declaration in the package manifest: \(Sources.appending(components: "clib"))",
                 severity: .warning
             )
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
-                module.checkSources(root: "/Sources", paths: "clib/clib.c", "clib/clib2.c", "clib/nested/nested.c")
-                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/clib/clib.h")))
+                module.checkSources(root: Sources.pathString, paths: RelativePath("clib").appending(components: "clib.c").pathString, RelativePath("clib").appending(components: "clib2.c").pathString, RelativePath("clib").appending(components: "nested", "nested.c").pathString)
+                module.check(moduleMapType: .umbrellaHeader(Sources.appending(components: "clib", "clib.h")))
             }
         }
     }
 
     func testDeclaredSourcesWithDot() throws {
+        let swiftLib: RelativePath = RelativePath("swift.lib")
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/swift.lib/foo.swift",
             "/Sources/swiftlib1/swift.lib/foo.swift",
@@ -276,7 +283,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "swiftlib1",
                     path: "Sources/swiftlib1",
-                    sources: ["swift.lib"]
+                    sources: [swiftLib.pathString]
                 ),
                 try TargetDescription(
                     name: "swiftlib2",
@@ -293,13 +300,13 @@ class PackageBuilderTests: XCTestCase {
                 module.checkSources(sources: ["foo.swift"])
             }
             result.checkModule("swiftlib1") { module in
-                module.checkSources(sources: ["swift.lib/foo.swift"])
+                module.checkSources(sources: [swiftLib.appending(components: "foo.swift").pathString])
             }
             result.checkModule("swiftlib2") { module in
                 module.checkSources(sources: ["foo.swift"])
             }
             result.checkModule("swiftlib3") { module in
-                module.checkSources(sources: ["foo.bar/bar.swift", "foo.swift"])
+                module.checkSources(sources: [RelativePath("foo.bar").appending(components: "bar.swift").pathString, "foo.swift"])
             }
         }
     }
@@ -325,7 +332,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { result, _ in
             result.checkModule("clib") { module in
-                module.checkSources(sources: ["clib/bar.c", "clib/subfolder/foo.c"])
+                module.checkSources(sources: [RelativePath("clib").appending(components: "bar.c").pathString, RelativePath("clib").appending(components: "subfolder", "foo.c").pathString])
             }
         }
     }
@@ -572,10 +579,12 @@ class PackageBuilderTests: XCTestCase {
 
     func testMultipleTestManifestError() throws {
         let name = SwiftTarget.testManifestNames.first!
+        let swift: AbsolutePath = AbsolutePath("/swift")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/\(name)",
-            "/swift/\(name)",
-            "/swift/tests/footests.swift"
+            AbsolutePath.root.appending(components: name).pathString,
+            swift.appending(components: name).pathString,
+            swift.appending(components: "tests", "footests.swift").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -589,22 +598,26 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test manifest files: /\(name), /swift/\(name)", severity: .error)
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test manifest files: \(AbsolutePath("/\(name)")), \(swift.appending(components: name))", severity: .error)
         }
     }
 
     func testCustomTargetPaths() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let swift: RelativePath = RelativePath("swift")
+        let bar: AbsolutePath = AbsolutePath("/bar")
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
             "/mah/target/exe/swift/exe/foo.swift",
             "/mah/target/exe/swift/bar.swift",
             "/mah/target/exe/shouldBeIgnored.swift",
             "/mah/target/exe/foo.c",
-            "/Sources/foo/foo.swift",
-            "/bar/bar/foo.swift",
-            "/bar/bar/excluded.swift",
-            "/bar/bar/fixture/fix1.swift",
-            "/bar/bar/fixture/fix2.swift"
+            Sources.appending(components: "foo", "foo.swift").pathString,
+            bar.appending(components: "bar", "foo.swift").pathString,
+            bar.appending(components: "bar", "excluded.swift").pathString,
+            bar.appending(components: "bar", "fixture", "fix1.swift").pathString,
+            bar.appending(components: "bar", "fixture", "fix2.swift").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -613,7 +626,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "exe",
                     path: "mah/target/exe",
-                    sources: ["swift"]),
+                    sources: [swift.pathString]),
                 try TargetDescription(
                     name: "clib",
                     path: "mah/target/exe",
@@ -628,12 +641,12 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
 
             package.checkModule("exe") { module in
                 module.check(c99name: "exe", type: .executable)
                 module.checkSources(root: "/mah/target/exe",
-                    paths: "swift/exe/main.swift", "swift/exe/foo.swift", "swift/bar.swift")
+                    paths: swift.appending(components: "exe", "main.swift").pathString, swift.appending(components: "exe", "foo.swift").pathString, swift.appending(components: "bar.swift").pathString)
             }
 
             package.checkModule("clib") { module in
@@ -648,7 +661,7 @@ class PackageBuilderTests: XCTestCase {
 
             package.checkModule("bar") { module in
                 module.check(c99name: "bar", type: .library)
-                module.checkSources(root: "/bar", paths: "bar/foo.swift")
+                module.checkSources(root: bar.pathString, paths: RelativePath("bar").appending(components: "foo.swift").pathString)
             }
 
             package.checkProduct("exe") { _ in }
@@ -656,9 +669,11 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCustomTargetPathsOverlap() throws {
+        let bar: AbsolutePath = AbsolutePath("/target/bar")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/target/bar/bar.swift",
-            "/target/bar/Tests/barTests.swift"
+            bar.appending(components: "bar.swift").pathString,
+            bar.appending(components: "Tests", "barTests.swift").pathString
         )
 
         var manifest = Manifest.createRootManifest(
@@ -674,7 +689,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnotics in
-            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift", severity: .error)
+            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: \(bar.appending(components: "Tests", "barTests.swift"))", severity: .error)
         }
 
         manifest = Manifest.createRootManifest(
@@ -691,7 +706,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: AbsolutePath("/Sources").pathString, testTarget: AbsolutePath("/Tests").pathString)
 
             package.checkModule("bar") { module in
                 module.check(c99name: "bar", type: .library)
@@ -700,7 +715,7 @@ class PackageBuilderTests: XCTestCase {
 
             package.checkModule("barTests") { module in
                 module.check(c99name: "barTests", type: .test)
-                module.checkSources(root: "/target/bar/Tests", paths: "barTests.swift")
+                module.checkSources(root: bar.appending(components: "Tests").pathString, paths: "barTests.swift")
             }
 
             package.checkProduct("pkgPackageTests")
@@ -708,14 +723,17 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testPublicHeadersPath() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Tests: AbsolutePath = AbsolutePath("/Tests")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/inc/module.modulemap",
-            "/Sources/Foo/inc/Foo.h",
-            "/Sources/Foo/Foo_private.h",
-            "/Sources/Foo/Foo.c",
-            "/Sources/Bar/include/module.modulemap",
-            "/Sources/Bar/include/Bar.h",
-            "/Sources/Bar/Bar.c"
+            Sources.appending(components: "Foo", "inc", "module.modulemap").pathString,
+            Sources.appending(components: "Foo", "inc", "Foo.h").pathString,
+            Sources.appending(components: "Foo", "Foo_private.h").pathString,
+            Sources.appending(components: "Foo", "Foo.c").pathString,
+            Sources.appending(components: "Bar", "include", "module.modulemap").pathString,
+            Sources.appending(components: "Bar", "include", "Bar.h").pathString,
+            Sources.appending(components: "Bar", "Bar.c").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -730,22 +748,22 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: Tests.pathString)
 
             package.checkModule("Foo") { module in
                 let clangTarget = module.target as? ClangTarget
-                XCTAssertEqual(clangTarget?.headers.map{ $0.pathString }, ["/Sources/Foo/Foo_private.h", "/Sources/Foo/inc/Foo.h"])
+                XCTAssertEqual(clangTarget?.headers.map{ $0.pathString }, [Sources.appending(components: "Foo", "Foo_private.h").pathString, Sources.appending(components: "Foo", "inc", "Foo.h").pathString])
                 module.check(c99name: "Foo", type: .library)
-                module.checkSources(root: "/Sources/Foo", paths: "Foo.c")
-                module.check(includeDir: "/Sources/Foo/inc")
-                module.check(moduleMapType: .custom(AbsolutePath("/Sources/Foo/inc/module.modulemap")))
+                module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.c")
+                module.check(includeDir: Sources.appending(components: "Foo", "inc").pathString)
+                module.check(moduleMapType: .custom(Sources.appending(components: "Foo", "inc", "module.modulemap")))
             }
 
             package.checkModule("Bar") { module in
                 module.check(c99name: "Bar", type: .library)
-                module.checkSources(root: "/Sources/Bar", paths: "Bar.c")
-                module.check(includeDir: "/Sources/Bar/include")
-                module.check(moduleMapType: .custom(AbsolutePath("/Sources/Bar/include/module.modulemap")))
+                module.checkSources(root: Sources.appending(components: "Bar").pathString, paths: "Bar.c")
+                module.check(includeDir: Sources.appending(components: "Bar", "include").pathString)
+                module.check(moduleMapType: .custom(Sources.appending(components: "Bar", "include", "module.modulemap")))
             }
         }
     }
@@ -753,11 +771,11 @@ class PackageBuilderTests: XCTestCase {
     func testInvalidPublicHeadersPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/inc/module.modulemap",
-                                    "/Sources/Foo/inc/Foo.h",
-                                    "/Sources/Foo/Foo.c",
-                                    "/Sources/Bar/include/module.modulemap",
-                                    "/Sources/Bar/include/Bar.h",
-                                    "/Sources/Bar/Bar.c"
+            "/Sources/Foo/inc/Foo.h",
+            "/Sources/Foo/Foo.c",
+            "/Sources/Bar/include/module.modulemap",
+            "/Sources/Bar/include/Bar.h",
+            "/Sources/Bar/Bar.c"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -772,16 +790,19 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'", severity: .error)
+            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'\(AbsolutePath.root)\' or \'~\'", severity: .error)
         }
     }
 
     func testTestsLayoutsv4() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/main.swift",
+            Sources.appending(components: "A", "main.swift").pathString,
             "/Tests/B/Foo.swift",
             "/Tests/ATests/Foo.swift",
-            "/Tests/TheTestOfA/Foo.swift")
+            "/Tests/TheTestOfA/Foo.swift"
+        )
 
         let manifest = Manifest.createRootManifest(
             name: "Foo",
@@ -793,7 +814,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
 
             package.checkModule("A") { module in
                 module.check(c99name: "A", type: .executable)
@@ -921,10 +942,13 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTargetDependencies() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/Foo.swift",
-            "/Sources/Bar/Bar.swift",
-            "/Sources/Baz/Baz.swift")
+            Sources.appending(components: "Foo", "Foo.swift").pathString,
+            Sources.appending(components: "Bar", "Bar.swift").pathString,
+            Sources.appending(components: "Baz", "Baz.swift").pathString
+        )
 
         let manifest = Manifest.createRootManifest(
             name: "pkg",
@@ -938,11 +962,11 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
 
-            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
 
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
-                module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.swift")
                 module.check(targetDependencies: ["Bar", "Baz"])
                 module.check(productDependencies: [.init(name: "Bam", package: nil)])
             }
@@ -1089,10 +1113,13 @@ class PackageBuilderTests: XCTestCase {
         }
 
         do {
+            let pkg2: AbsolutePath = AbsolutePath("/Sources/pkg2")
+
             // Reference a target which doesn't have sources.
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Sources/pkg1/Foo.swift",
-                "/Sources/pkg2/readme.txt")
+                pkg2.appending(components: "readme.txt").pathString
+            )
 
             let manifest = Manifest.createRootManifest(
                 name: "pkg",
@@ -1103,7 +1130,7 @@ class PackageBuilderTests: XCTestCase {
             )
             PackageBuilderTester(manifest, in: fs) { package, diagnostics in
                 diagnostics.check(
-                    diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2",
+                    diagnostic: "Source files for target pkg2 should be located under \(pkg2)",
                     severity: .warning
                 )
                 package.checkModule("pkg1") { module in
@@ -1396,10 +1423,12 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSpecialTargetDir() throws {
+        let src: AbsolutePath = AbsolutePath("/src")
         // Special directory should be src because both target and test target are under it.
         let fs = InMemoryFileSystem(emptyFiles:
-            "/src/A/Foo.swift",
-            "/src/ATests/Foo.swift")
+            src.appending(components: "A", "Foo.swift").pathString,
+            src.appending(components: "ATests", "Foo.swift").pathString
+        )
 
         let manifest = Manifest.createRootManifest(
             name: "Foo",
@@ -1410,7 +1439,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: "/src", testTarget: "/src")
+            package.checkPredefinedPaths(target: src.pathString, testTarget: src.pathString)
 
             package.checkModule("A") { module in
                 module.check(c99name: "A", type: .library)
@@ -1545,9 +1574,11 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSystemLibraryTargetDiagnostics() throws {
+        let Sources: AbsolutePath = AbsolutePath("/Sources")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/module.modulemap",
-            "/Sources/bar/bar.swift"
+            Sources.appending(components: "foo", "module.modulemap").pathString,
+            Sources.appending(components: "bar", "bar.swift").pathString
         )
 
         var manifest = Manifest.createRootManifest(
@@ -1599,7 +1630,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(
-                diagnostic: "package has unsupported layout; missing system target module map at '/Sources/bar/module.modulemap'",
+                diagnostic: "package has unsupported layout; missing system target module map at '\(Sources.appending(components: "bar", "module.modulemap"))'",
                 severity: .error
             )
         }
@@ -1725,11 +1756,13 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesIgnoredInV5_2Manifest() throws {
+        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+
         // Files with unknown suffixes under declared sources are not considered valid sources in 5.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/lib/movie.mkv",
-            "/Sources/lib/lib.c",
-            "/Sources/lib/include/lib.h"
+            lib.appending(components: "movie.mkv").pathString,
+            lib.appending(components: "lib.c").pathString,
+            lib.appending(components: "include", "lib.h").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -1742,19 +1775,21 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("lib") { module in
-                module.checkSources(root: "/Sources/lib", paths: "lib.c")
-                module.check(includeDir: "/Sources/lib/include")
-                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/lib/include/lib.h")))
+                module.checkSources(root: lib.pathString, paths: "lib.c")
+                module.check(includeDir: lib.appending(components: "include").pathString)
+                module.check(moduleMapType: .umbrellaHeader(lib.appending(components: "include", "lib.h")))
             }
         }
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesCompiledInV5_3Manifest() throws {
+        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+
         // Files with unknown suffixes under declared sources are treated as compilable in 5.3 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/lib/movie.mkv",
-            "/Sources/lib/lib.c",
-            "/Sources/lib/include/lib.h"
+            lib.appending(components: "movie.mkv").pathString,
+            lib.appending(components: "lib.c").pathString,
+            lib.appending(components: "include", "lib.h").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -1767,9 +1802,9 @@ class PackageBuilderTests: XCTestCase {
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("lib") { module in
-                module.checkSources(root: "/Sources/lib", paths: "movie.mkv", "lib.c")
-                module.check(includeDir: "/Sources/lib/include")
-                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/lib/include/lib.h")))
+                module.checkSources(root: lib.pathString, paths: "movie.mkv", "lib.c")
+                module.check(includeDir: lib.appending(components: "include").pathString)
+                module.check(moduleMapType: .umbrellaHeader(lib.appending(components: "include", "lib.h")))
             }
         }
     }
@@ -1981,7 +2016,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'", severity: .error)
+            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '\(AbsolutePath.root)' or '~'", severity: .error)
         }
 
         let manifest2 = Manifest.createRootManifest(
@@ -2160,12 +2195,15 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testXcodeResources() throws {
+        let root: AbsolutePath = AbsolutePath("/Foo")
+        let Foo: AbsolutePath = root.appending(components: "Sources", "Foo")
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Foo/Sources/Foo/Foo.xcassets",
-            "/Foo/Sources/Foo/Foo.xib",
-            "/Foo/Sources/Foo/Foo.xcdatamodel",
-            "/Foo/Sources/Foo/Foo.metal"
+            Foo.appending(components: "foo.swift").pathString,
+            Foo.appending(components: "Foo.xcassets").pathString,
+            Foo.appending(components: "Foo.xib").pathString,
+            Foo.appending(components: "Foo.xcdatamodel").pathString,
+            Foo.appending(components: "Foo.metal").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -2176,14 +2214,14 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { result, diagnostics in
+        PackageBuilderTester(manifest, path: root, in: fs) { result, diagnostics in
             result.checkModule("Foo") { result in
                 result.checkSources(sources: ["foo.swift"])
                 result.checkResources(resources: [
-                    "/Foo/Sources/Foo/Foo.xib",
-                    "/Foo/Sources/Foo/Foo.xcdatamodel",
-                    "/Foo/Sources/Foo/Foo.xcassets",
-                    "/Foo/Sources/Foo/Foo.metal"
+                    Foo.appending(components: "Foo.xib").pathString,
+                    Foo.appending(components: "Foo.xcdatamodel").pathString,
+                    Foo.appending(components: "Foo.xcassets").pathString,
+                    Foo.appending(components: "Foo.metal").pathString
                 ])
             }
         }
