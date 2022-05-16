@@ -123,7 +123,11 @@ public struct PkgConfig {
 
     private static var envSearchPaths: [AbsolutePath] {
         if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
+#if os(Windows)
+            return configPath.split(separator: ";").map({ AbsolutePath(String($0)) })
+#else
             return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
+#endif
         }
         return []
     }
@@ -174,7 +178,7 @@ internal struct PkgConfigParser {
         variables["pcfiledir"] = pcFile.parentDirectory.pathString
 
         // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
-        variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? "/"
+        variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? AbsolutePath.root.pathString
 
         let fileContents: String = try fileSystem.readFileContents(pcFile)
         for line in fileContents.components(separatedBy: "\n") {
@@ -382,18 +386,24 @@ internal struct PCFileFinder {
     ///
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
-    public init(brewPrefix: AbsolutePath? = .none) {
+    public init(brewPrefix: AbsolutePath? = .none, pkgConfig: AbsolutePath? = .none) {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
                 let pkgConfigPath: String
-                if let brewPrefix = brewPrefix {
+                if let pkgConfig = pkgConfig {
+                    pkgConfigPath = pkgConfig.pathString
+                } else if let brewPrefix = brewPrefix {
                     pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").pathString
                 } else {
                     pkgConfigPath = "pkg-config"
                 }
                 let searchPaths = try Process.checkNonZeroExit(
                 args: pkgConfigPath, "--variable", "pc_path", "pkg-config").spm_chomp()
+#if os(Windows)
+                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ";").map { AbsolutePath(String($0)) }
+#else
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+#endif
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []
