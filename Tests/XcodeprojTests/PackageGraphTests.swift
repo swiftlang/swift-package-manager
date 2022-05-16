@@ -137,7 +137,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
-                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, RelativePath(unsafeUncheckedPath: "../Overrides.xcconfig").pathString)
                 XCTAssertNil(targetResult.target.buildSettings.common.SDKROOT)
             }
 
@@ -150,7 +150,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
-                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, RelativePath(unsafeUncheckedPath: "../Overrides.xcconfig").pathString)
             }
 
             result.check(target: "Sea") { targetResult in
@@ -164,7 +164,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
-                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, RelativePath(unsafeUncheckedPath: "../Overrides.xcconfig").pathString)
             }
 
             result.check(target: "Sea2") { targetResult in
@@ -178,7 +178,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
-                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, RelativePath(unsafeUncheckedPath: "../Overrides.xcconfig").pathString)
             }
 
             result.check(target: "Sea3") { targetResult in
@@ -196,7 +196,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
-                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, RelativePath(unsafeUncheckedPath: "../Overrides.xcconfig").pathString)
             }
         }
     }
@@ -285,12 +285,12 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "swift") { targetResult in
                 XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
                     "$(inherited)", "-Xcc",
-                    "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
+                    "-fmodule-map-file=$(SRCROOT)/\(RelativePath("Sources").appending(components: "Sea2", "include", "module.modulemap"))",
                 ])
                 XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                     "$(inherited)",
-                    "$(SRCROOT)/Sources/Sea2/include",
-                    "$(SRCROOT)/Sources/Sea/include",
+                    "$(SRCROOT)/\(RelativePath("Sources").appending(components: "Sea2", "include"))",
+                    "$(SRCROOT)/\(RelativePath("Sources").appending(components: "Sea", "include"))",
                 ])
             }
             result.check(target: "Sea") { targetResult in
