@@ -2757,6 +2757,92 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testStateModified() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: [
+                            .product(name: "Foo", package: "foo"),
+                            .product(name: "Bar", package: "bar")
+                        ]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://scm.com/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: [nil, "1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://scm.com/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+        }
+
+        let underlying = try workspace.getOrCreateWorkspace()
+        let fooEditPath = sandbox.appending(components: ["edited", "foo"])
+
+        // mimic external process putting a dependency into edit mode
+        do {
+            try fs.createDirectory(fooEditPath, recursive: true)
+            try fs.writeFileContents(fooEditPath.appending(component: "Package.swift"), bytes: "// swift-tools-version: 5.6")
+
+            let fooState = underlying.state.dependencies[.plain("foo")]!
+            let externalState = WorkspaceState(fileSystem: fs, storageDirectory: underlying.state.storagePath.parentDirectory, initializationWarningHandler: { _ in })
+            externalState.dependencies.remove(fooState.packageRef.identity)
+            externalState.dependencies.add(try fooState.edited(subpath: .init("foo"), unmanagedPath: fooEditPath))
+            try externalState.save()
+        }
+
+        // reload graph after "external" change
+        try workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(packages: "Bar", "Foo", "Root")
+            }
+        }
+
+        do {
+            let fooState = underlying.state.dependencies[.plain("foo")]!
+            guard case .edited(basedOn: _, unmanagedPath: fooEditPath) = fooState.state else {
+                XCTFail("'\(fooState.packageRef.identity)' dependency expected to be in edit mode, but was: \(fooState)")
+                return
+            }
+        }
+    }
+
     func testSkipUpdate() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
