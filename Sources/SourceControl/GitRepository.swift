@@ -597,29 +597,23 @@ public final class GitRepository: Repository, WorkingCheckout {
         return try self.lock.withLock {
             let stringPaths = paths.map { $0.pathString }
 
-            return try withTemporaryFile { pathsFile in
-                try localFileSystem.writeFileContents(pathsFile.path) {
-                    for path in paths {
-                        $0 <<< path.pathString <<< "\0"
-                    }
+            let output: String
+            do {
+                output = try self.git.run(["-C", self.path.pathString, "check-ignore"] + stringPaths)
+            } catch let error as GitShellError {
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    throw GitRepositoryError(path: self.path, message: "unable to check ignored files", result: error.result)
                 }
-
-                let args = [
-                    Git.tool, "-C", self.path.pathString.spm_shellEscaped(),
-                    "check-ignore", "-z", "--stdin",
-                    "<", pathsFile.path.pathString.spm_shellEscaped(),
-                ]
-                let argsWithSh = ["sh", "-c", args.joined(separator: " ")]
-                let result = try Process.popen(arguments: argsWithSh)
-                let output = try result.output.get()
-
-                let outputs: [String] = output.split(separator: 0).map { String(decoding: $0, as: Unicode.UTF8.self) }
-
-                guard result.exitStatus == .terminated(code: 0) || result.exitStatus == .terminated(code: 1) else {
-                    throw GitInterfaceError.fatalError
-                }
-                return stringPaths.map(outputs.contains)
+                output = try error.result.utf8Output().spm_chomp()
             }
+
+            return stringPaths.map(output.split(separator: "\n").map {
+                let string = String($0).replacingOccurrences(of: "\\\\", with: "\\")
+                if string.utf8.first == UInt8(ascii: "\"") {
+                    return String(string.dropFirst(1).dropLast(1))
+                }
+                return string
+            }.contains)
         }
     }
 
