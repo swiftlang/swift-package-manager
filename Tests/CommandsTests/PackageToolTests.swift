@@ -488,6 +488,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDumpSymbolGraphCompactFormatting() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
             let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
@@ -496,6 +499,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDumpSymbolGraphPrettyFormatting() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
             let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
