@@ -61,7 +61,11 @@ class ZipArchiverTests: XCTestCase {
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
+#if os(Windows)
+                XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
+#else
                 XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))
+#endif
             }
         }
     }

@@ -73,8 +73,11 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileDeleted() throws {
+#if os(Windows)
+        try XCTSkipIf(true, "open files cannot be deleted on Windows")
+#endif
         try XCTSkipIf(is_tsan_enabled())
-        
+
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
@@ -112,8 +115,11 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileCorrupt() throws {
+#if os(Windows)
+        try XCTSkipIf(true, "open files cannot be deleted on Windows")
+#endif
         try XCTSkipIf(is_tsan_enabled())
-        
+
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)

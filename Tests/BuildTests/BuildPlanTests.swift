@@ -3064,7 +3064,6 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" && $0.target.moduleAliases?["Utils"] == "YUtils" && $0.target.moduleAliases?.count == 1 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ZLog" && $0.target.moduleAliases?["Log"] == "ZLog" && $0.target.moduleAliases?.count == 1 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "G" && $0.target.moduleAliases?["Utils"] == "YUtils" && $0.target.moduleAliases?["Log"] == "ZLog" && $0.target.moduleAliases?.count == 2})
-        print(result.targetMap)
     }
 
     func testModuleAliasingSomeConflictingAliasesInMultiProducts() throws {
