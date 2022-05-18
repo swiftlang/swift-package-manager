@@ -1,0 +1,16 @@
+name: macOS
+
+on: [push, pull_request]
+
+jobs:
+  macOS:
+    name: macOS
+    runs-on: macos-12
+    steps:
+    - name: Check out
+      uses: actions/checkout@v2
+    - name: Test
+      shell: bash
+      run: |
+        set -x
+        swift test
