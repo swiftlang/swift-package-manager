@@ -1762,7 +1762,9 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ wants permission to write to the package directory."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Stated reason: “For testing purposes”."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Use `--allow-writing-to-package-directory` to allow this."))
             }
           #endif
 

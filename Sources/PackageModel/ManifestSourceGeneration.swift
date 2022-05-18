@@ -398,6 +398,9 @@ fileprivate extension SourceCodeFragment {
         case .yum(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "yum", subnodes: params)
+        case .nuget(let names):
+            let params = [SourceCodeFragment(strings: names)]
+            self.init(enum: "nuget", subnodes: params)
         }
     }
 

@@ -44,9 +44,7 @@ final class CancellatorTests: XCTestCase {
     }
 
     func testTSCProcess() throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-        #endif
+#if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -98,12 +96,13 @@ final class CancellatorTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
+#else
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+#endif
     }
 
     func testTSCProcessForceKill() throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-        #endif
+#if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -163,12 +162,13 @@ final class CancellatorTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
+#else
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+#endif
     }
 
     func testFoundationProcess() throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-        #endif
+#if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -224,12 +224,13 @@ final class CancellatorTests: XCTestCase {
             
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
+#else
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+#endif
     }
 
     func testFoundationProcessForceKill() throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-        #endif
+#if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -293,6 +294,9 @@ final class CancellatorTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
+#else
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+#endif
     }
 
     func testConcurrency() throws {
@@ -340,7 +344,7 @@ final class CancellatorTests: XCTestCase {
             func work()  {}
 
             func cancel() {
-                sleep(5)
+                Thread.sleep(forTimeInterval: 5)
             }
         }
 

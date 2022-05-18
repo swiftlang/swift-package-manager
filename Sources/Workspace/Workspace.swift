@@ -1069,6 +1069,10 @@ extension Workspace {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
+        // reload state in case it was modified externally (eg by another process) before reloading the graph
+        // long running host processes (ie IDEs) need this in case other SwiftPM processes (ie CLI) made changes to the state
+        // such hosts processes call loadPackageGraph to make sure the workspace state is correct
+        try self.state.reload()
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests

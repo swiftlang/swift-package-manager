@@ -481,9 +481,11 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testEmptyDependency() throws {
+        let Bar: AbsolutePath = AbsolutePath("/Bar")
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Bar/source.txt"
+            Bar.appending(components: "Sources", "Bar", "source.txt").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -501,7 +503,7 @@ class PackageGraphTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(Bar.pathString),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -514,7 +516,7 @@ class PackageGraphTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar",
+                diagnostic: "Source files for target Bar should be located under \(Bar.appending(components: "Sources", "Bar"))",
                 severity: .warning
             )
             result.check(

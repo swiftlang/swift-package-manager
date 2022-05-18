@@ -120,7 +120,7 @@ public func initGitRepo(
     do {
         if addFile {
             let file = dir.appending(component: "file.swift")
-            try systemQuietly(["touch", file.pathString])
+            try localFileSystem.writeFileContents(file, bytes: "")
         }
 
         try systemQuietly([Git.tool, "-C", dir.pathString, "init"])

@@ -421,7 +421,11 @@ class MiscellaneousTestCase: XCTestCase {
 
             // check for interrupt result
             let result = try process.waitUntilExit()
+#if os(Windows)
+            XCTAssertEqual(result.exitStatus, .abnormal(exception: 2))
+#else
             XCTAssertEqual(result.exitStatus, .signalled(signal: 2))
+#endif
         }
 
         class OutputHandler {

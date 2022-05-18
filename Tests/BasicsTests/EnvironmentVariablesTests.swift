@@ -53,10 +53,10 @@ final class EnvironmentVariablesTests: XCTestCase {
         XCTAssertEqual(env[key], ["a", "b"].joined(separator: pathDelimiter))
         
         env.appendPath(key, value: "c")
-        XCTAssertEqual(env[key], ["a:b:c"].joined(separator: pathDelimiter))
+        XCTAssertEqual(env[key], ["a", "b", "c"].joined(separator: pathDelimiter))
         
         env.appendPath(key, value: "")
-        XCTAssertEqual(env[key], ["a:b:c"].joined(separator: pathDelimiter))
+        XCTAssertEqual(env[key], ["a", "b", "c"].joined(separator: pathDelimiter))
     }
     
     func testProcess() throws {

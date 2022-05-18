@@ -17,6 +17,12 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+extension AbsolutePath {
+    fileprivate func escapedPathString() -> String {
+        return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
+    }
+}
+
 class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4
@@ -131,12 +137,12 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "/foo1", from: "1.0.0"),
-                   .package(url: "/foo2", .upToNextMajor(from: "1.0.0")),
-                   .package(url: "/foo3", .upToNextMinor(from: "1.0.0")),
-                   .package(url: "/foo4", .exact("1.0.0")),
-                   .package(url: "/foo5", .branch("main")),
-                   .package(url: "/foo6", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .upToNextMajor(from: "1.0.0")),
+                   .package(url: "\(AbsolutePath("/foo3").escapedPathString())", .upToNextMinor(from: "1.0.0")),
+                   .package(url: "\(AbsolutePath("/foo4").escapedPathString())", .exact("1.0.0")),
+                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .branch("main")),
+                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                ]
             )
             """
@@ -296,8 +302,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             if case ManifestParseError.invalidManifestFormat(let error, _) = error {
-                XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:exact:) instead\n"), "\(error)")
-                XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) instead\n"), "\(error)")
+                XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:exact:) instead"), "\(error)")
+                XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) instead"), "\(error)")
             } else {
                 XCTFail("unexpected error: \(error)")
             }
