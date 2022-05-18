@@ -382,23 +382,27 @@ internal struct PCFileFinder {
     ///
     /// This is needed because on Linux machines, the search paths can be different
     /// from the standard locations that we are currently searching.
-    public init(brewPrefix: AbsolutePath? = .none) {
+    private init(pkgConfigPath: String) {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
-                let pkgConfigPath: String
-                if let brewPrefix = brewPrefix {
-                    pkgConfigPath = brewPrefix.appending(components: "bin", "pkg-config").pathString
-                } else {
-                    pkgConfigPath = "pkg-config"
-                }
-                let searchPaths = try Process.checkNonZeroExit(
-                args: pkgConfigPath, "--variable", "pc_path", "pkg-config").spm_chomp()
+                let searchPaths = try Process.checkNonZeroExit(args:
+                    pkgConfigPath, "--variable", "pc_path", "pkg-config"
+                ).spm_chomp()
+
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []
             }
         }
+    }
+
+    public init(brewPrefix: AbsolutePath?) {
+        self.init(pkgConfigPath: brewPrefix?.appending(components: "bin", "pkg-config").pathString ?? "pkg-config")
+    }
+
+    public init(pkgConfig: AbsolutePath? = .none) {
+        self.init(pkgConfigPath: pkgConfig?.pathString ?? "pkg-config")
     }
 
     /// Reset the cached `pkgConfigPaths` property, so that it will be evaluated

@@ -141,19 +141,33 @@ final class PkgConfigParserTests: XCTestCase {
         PCFileFinder.resetCachedPkgConfigPaths()
 
         try testWithTemporaryDirectory { tmpdir in
+#if os(Windows)
+            let fakePkgConfig = tmpdir.appending(components: "bin", "pkg-config.cmd")
+#else
             let fakePkgConfig = tmpdir.appending(components: "bin", "pkg-config")
+#endif
             try localFileSystem.createDirectory(fakePkgConfig.parentDirectory)
 
             let stream = BufferedOutputByteStream()
+#if os(Windows)
+            stream <<< """
+            @echo off
+            echo /Volumes/BestDrive/pkgconfig
+            """
+#else
             stream <<< """
             #!/bin/sh
             echo "/Volumes/BestDrive/pkgconfig"
             """
+#endif
             try localFileSystem.writeFileContents(fakePkgConfig, bytes: stream.bytes)
-            // `FileSystem` does not support `chmod` on Linux, so we shell out instead.
-            _ = try Process.popen(args: "chmod", "+x", fakePkgConfig.pathString)
+            try localFileSystem.chmod(.executable, path: fakePkgConfig, options: [])
 
+#if os(Windows)
+            _ = PCFileFinder(pkgConfig: fakePkgConfig)
+#else
             _ = PCFileFinder(brewPrefix: fakePkgConfig.parentDirectory.parentDirectory)
+#endif
         }
 
         XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath("/Volumes/BestDrive/pkgconfig")])
