@@ -55,6 +55,21 @@ final class PackageToolTests: CommandsTestCase {
         let stdout = try execute(["--version"]).stdout
         XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
+	
+	func testInitOverview() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
+	}
+	
+	func testInitUsage() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init <options>"))
+	}
+	
+	func testInitOptionsHelp() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("OPTIONS:"))
+	}
 
     func testPlugin() throws {
         XCTAssertThrowsCommandExecutionError(try execute(["plugin"])) { error in
@@ -460,6 +475,52 @@ final class PackageToolTests: CommandsTestCase {
                     "options": .array([])
                 ]),
             ])
+        }
+    }
+
+    // Returns symbol graph with or without pretty printing.
+    private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
+        let tool = try SwiftTool(options: GlobalOptions.parse(["--package-path", path.pathString]))
+        let symbolGraphExtractorPath = try tool.getToolchain().getSymbolGraphExtract()
+
+        let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
+
+        _ = try SwiftPMProduct.SwiftPackage.executeProcess(arguments, packagePath: path, env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString])
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
+
+        var symbolGraphURL: URL?
+        for case let url as URL in enumerator where url.lastPathComponent == "Bar.symbols.json" {
+            symbolGraphURL = url
+            break
+        }
+
+        let symbolGraphData = try Data(contentsOf: XCTUnwrap(symbolGraphURL, file: file, line: line))
+
+        // Double check that it's a valid JSON
+        XCTAssertNoThrow(try JSONSerialization.jsonObject(with: symbolGraphData), file: file, line: line)
+
+        return symbolGraphData
+    }
+
+    func testDumpSymbolGraphCompactFormatting() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let compactGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
+            let compactJSONText = try XCTUnwrap(String(data: compactGraphData, encoding: .utf8))
+            XCTAssertEqual(compactJSONText.components(separatedBy: .newlines).count, 1)
+        }
+    }
+
+    func testDumpSymbolGraphPrettyFormatting() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let prettyGraphData = try XCTUnwrap(symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
+            let prettyJSONText = try XCTUnwrap(String(data: prettyGraphData, encoding: .utf8))
+            XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
 
