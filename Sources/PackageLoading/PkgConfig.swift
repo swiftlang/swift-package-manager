@@ -174,7 +174,7 @@ internal struct PkgConfigParser {
         variables["pcfiledir"] = pcFile.parentDirectory.pathString
 
         // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
-        variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? "/"
+        variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? AbsolutePath.root.pathString
 
         let fileContents: String = try fileSystem.readFileContents(pcFile)
         for line in fileContents.components(separatedBy: "\n") {
