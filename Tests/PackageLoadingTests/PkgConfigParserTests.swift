@@ -43,7 +43,7 @@ final class PkgConfigParserTests: XCTestCase {
                 "exec_prefix": "/usr/local/Cellar/gtk+3/3.18.9",
                 "targets": "quartz",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
-                "pc_sysrootdir": "/"
+                "pc_sysrootdir": AbsolutePath.root.pathString
             ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk", "cairo", "cairo-gobject", "gdk-pixbuf-2.0", "gio-2.0"])
             XCTAssertEqual(parser.privateDependencies, ["atk", "epoxy", "gio-unix-2.0"])
@@ -58,7 +58,7 @@ final class PkgConfigParserTests: XCTestCase {
                 "prefix": "/usr/local/bin",
                 "exec_prefix": "/usr/local/bin",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
-                "pc_sysrootdir": "/"
+                "pc_sysrootdir": AbsolutePath.root.pathString
             ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, [])
@@ -73,7 +73,7 @@ final class PkgConfigParserTests: XCTestCase {
                 "exec_prefix": "/usr/local/bin",
                 "my_dep": "atk",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
-                "pc_sysrootdir": "/"
+                "pc_sysrootdir": AbsolutePath.root.pathString
             ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I"])
@@ -97,7 +97,7 @@ final class PkgConfigParserTests: XCTestCase {
                 "exec_prefix": "/usr/local/bin",
                 "my_dep": "atk",
                 "pcfiledir": parser.pcFile.parentDirectory.pathString,
-                "pc_sysrootdir": "/"
+                "pc_sysrootdir": AbsolutePath.root.pathString
             ])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Wine Cellar/gtk+3/3.18.9/include/gtk-3.0", "-I/after/extra/spaces"])
@@ -117,22 +117,22 @@ final class PkgConfigParserTests: XCTestCase {
             "/usr/local/opt/foo/lib/pkgconfig/foo.pc",
             "/custom/foo.pc")
         XCTAssertEqual(
-            "/custom/foo.pc",
-            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope).pathString
+            AbsolutePath("/custom/foo.pc"),
+            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope)
         )
         XCTAssertEqual(
-            "/custom/foo.pc",
-            try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope).pcFile.pathString
+            AbsolutePath("/custom/foo.pc"),
+            try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope).pcFile
         )
         XCTAssertEqual(
-            "/usr/lib/pkgconfig/foo.pc",
-            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs, observabilityScope: observability.topScope).pathString
+            AbsolutePath("/usr/lib/pkgconfig/foo.pc"),
+            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs, observabilityScope: observability.topScope)
         )
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig"]) {
-            XCTAssertEqual("/usr/local/opt/foo/lib/pkgconfig/foo.pc", try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile.pathString)
+            XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig:/usr/lib/pkgconfig"]) {
-            XCTAssertEqual("/usr/local/opt/foo/lib/pkgconfig/foo.pc", try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile.pathString)
+            XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
     }
 
