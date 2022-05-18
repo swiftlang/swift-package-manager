@@ -322,7 +322,9 @@ final class HTTPClientTest: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
-    func testExponentialBackoff() {
+    func testExponentialBackoff() throws {
+        throw XCTSkip("Broken in some environments even on master.")
+
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5
@@ -582,6 +584,8 @@ final class HTTPClientTest: XCTestCase {
     }
 
     func testCancel() throws {
+        throw XCTSkip("Broken in some environments even on master.")
+
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
