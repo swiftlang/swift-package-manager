@@ -131,7 +131,12 @@ final class PkgConfigParserTests: XCTestCase {
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig"]) {
             XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
-        try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig:/usr/lib/pkgconfig"]) {
+#if os(Windows)
+        let separator = ";"
+#else
+        let separator = ":"
+#endif
+        try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig\(separator)/usr/lib/pkgconfig"]) {
             XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
     }
