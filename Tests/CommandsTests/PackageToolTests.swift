@@ -55,6 +55,21 @@ final class PackageToolTests: CommandsTestCase {
         let stdout = try execute(["--version"]).stdout
         XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
+	
+	func testInitOverview() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
+	}
+	
+	func testInitUsage() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init <options>"))
+	}
+	
+	func testInitOptionsHelp() throws {
+		let stdout = try execute(["init", "--help"]).stdout
+		XCTAssertMatch(stdout, .contains("OPTIONS:"))
+	}
 
     func testPlugin() throws {
         XCTAssertThrowsCommandExecutionError(try execute(["plugin"])) { error in
