@@ -16,9 +16,22 @@ import XCTest
 
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
+        // tiny PE binary from: https://archive.is/w01DO
+        let contents: [UInt8] = [
+          0x4d, 0x5a, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x4c, 0x01, 0x01, 0x00,
+          0x6a, 0x2a, 0x58, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x04, 0x00, 0x03, 0x01, 0x0b, 0x01, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
+          0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
+          0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x68, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x02
+        ]
+
         let fs = TSCBasic.localFileSystem
-        try withTemporaryFile { vfsPath in
-            try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+        try withTemporaryFile { [contents] vfsPath in
+            try withTemporaryDirectory(removeTreeOnDeinit: true) { [contents] tempDirPath in
                 let file = tempDirPath.appending(component: "best")
                 try fs.writeFileContents(file, string: "best")
 
@@ -26,17 +39,13 @@ class VFSTests: XCTestCase {
                 try fs.createSymbolicLink(sym, pointingAt: file, relative: false)
 
                 let executable = tempDirPath.appending(component: "exec-foo")
+                try fs.writeFileContents(executable, bytes: ByteString(contents))
+#if !os(Windows)
+                try fs.chmod(.executable, path: executable, options: [])
+#endif
+
                 let executableSym = tempDirPath.appending(component: "exec-sym")
                 try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
-                let stream = BufferedOutputByteStream()
-                stream <<< """
-                    #!/bin/sh
-                    set -e
-                    exit
-
-                    """
-                try fs.writeFileContents(executable, bytes: stream.bytes)
-                try Process.checkNonZeroExit(args: "chmod", "+x", executable.pathString)
 
                 try fs.createDirectory(tempDirPath.appending(component: "dir"))
                 try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), body: { _ in })
@@ -80,7 +89,7 @@ class VFSTests: XCTestCase {
 
             // readFileContents
             let execFileContents = try vfs.readFileContents(executablePath)
-            XCTAssertEqual(execFileContents, "#!/bin/sh\nset -e\nexit\n")
+            XCTAssertEqual(execFileContents, ByteString(contents))
 
             // isDirectory()
             XCTAssert(vfs.isDirectory(AbsolutePath("/")))
@@ -91,7 +100,7 @@ class VFSTests: XCTestCase {
                 _ = try vfs.getDirectoryContents(AbsolutePath("/does-not-exist"))
                 XCTFail("Unexpected success")
             } catch {
-                XCTAssertEqual(error.localizedDescription, "no such file or directory: /does-not-exist")
+                XCTAssertEqual(error.localizedDescription, "no such file or directory: \(AbsolutePath("/does-not-exist"))")
             }
 
             let thisDirectoryContents = try vfs.getDirectoryContents(AbsolutePath("/"))
