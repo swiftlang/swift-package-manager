@@ -432,8 +432,6 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testCancel() throws {
-        throw XCTSkip("Broken in some environments even on master.")
-
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
