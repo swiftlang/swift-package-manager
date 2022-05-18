@@ -46,7 +46,11 @@ public struct ZipArchiver: Archiver, Cancellable {
                 throw FileSystemError(.notDirectory, destinationPath)
             }
 
+#if os(Windows)
+            let process = Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+#else
             let process = Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
+#endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")
             }
@@ -72,7 +76,11 @@ public struct ZipArchiver: Archiver, Cancellable {
                 throw FileSystemError(.noEntry, path)
             }
 
+#if os(Windows)
+            let process = Process(arguments: ["tar.exe", "tf", path.pathString])
+#else
             let process = Process(arguments: ["unzip", "-t", path.pathString])
+#endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")
             }
