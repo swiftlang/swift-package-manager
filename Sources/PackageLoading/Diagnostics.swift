@@ -56,6 +56,10 @@ extension Basics.Diagnostic {
         .error("system library product \(product) shouldn't have a type and contain only one target")
     }
 
+    static func nonPluginProductWithPluginTargets(product: String, type: ProductType, pluginTargets: [String]) -> Self {
+        .error("\(type.description) product '\(product)' should not contain plugin targets (it has \(pluginTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
+    }
+
     static func executableProductTargetNotExecutable(product: String, target: String) -> Self {
         .error("""
             executable product '\(product)' expects target '\(target)' to be executable; an executable target requires \
