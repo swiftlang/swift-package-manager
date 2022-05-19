@@ -3853,7 +3853,10 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "Lib",
-                                          dependencies: [.product(name: "UtilsProd",
+                                          dependencies: [.product(name: "Game",
+                                                                  package: "gamePkg"
+                                                                 ),
+                                                         .product(name: "UtilsProd",
                                                                   package: "gamePkg",
                                                                   moduleAliases: ["Utils": "GameUtils"]
                                                                  ),
