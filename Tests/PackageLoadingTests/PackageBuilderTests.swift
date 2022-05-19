@@ -1476,11 +1476,11 @@ class PackageBuilderTests: XCTestCase {
                 product.check(type: .library(.dynamic), targets: ["foo"])
             }
             diagnostics.check(
-                diagnostic: "ignoring duplicate product 'foo' (static)",
+                diagnostic: "ignoring duplicate product 'foo' (static library)",
                 severity: .warning
             )
             diagnostics.check(
-                diagnostic: "ignoring duplicate product 'foo' (dynamic)",
+                diagnostic: "ignoring duplicate product 'foo' (dynamic library)",
                 severity: .warning
             )
         }
@@ -1610,7 +1610,8 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo1/main.swift",
             "/Sources/foo2/main.swift",
             "/Sources/FooLib1/lib.swift",
-            "/Sources/FooLib2/lib.swift"
+            "/Sources/FooLib2/lib.swift",
+            "/Plugins/Plugin1/plugin.swift"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -1619,12 +1620,14 @@ class PackageBuilderTests: XCTestCase {
                 try ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
                 try ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
                 try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
+                try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "Plugin1"])
             ],
             targets: [
                 try TargetDescription(name: "foo1"),
                 try TargetDescription(name: "foo2"),
                 try TargetDescription(name: "FooLib1"),
                 try TargetDescription(name: "FooLib2"),
+                try TargetDescription(name: "Plugin1", type: .plugin, pluginCapability: .buildTool),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1632,6 +1635,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("foo2") { _ in }
             package.checkModule("FooLib1") { _ in }
             package.checkModule("FooLib2") { _ in }
+            package.checkModule("Plugin1") { _ in }
             diagnostics.check(
                 diagnostic: """
                     executable product 'foo1' expects target 'FooLib1' to be executable; an executable target requires \
@@ -1650,8 +1654,41 @@ class PackageBuilderTests: XCTestCase {
                 diagnostic: "executable product 'foo3' should not have more than one executable target",
                 severity: .error
             )
+            diagnostics.check(
+                diagnostic: "executable product 'foo3' should not contain plugin targets (it has 'Plugin1')",
+                severity: .error
+            )
         }
     }
+
+    func testLibraryProductDiagnostics() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/MyLibrary/library.swift",
+            "/Plugins/MyPlugin/plugin.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            name: "MyPackage",
+            products: [
+                try ProductDescription(name: "MyLibrary", type: .library(.automatic), targets: ["MyLibrary", "MyPlugin"])
+            ],
+            targets: [
+                try TargetDescription(name: "MyLibrary", type: .regular),
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("MyLibrary") { _ in }
+            package.checkModule("MyPlugin") { _ in }
+            diagnostics.check(
+                diagnostic: """
+                    library product 'MyLibrary' should not contain plugin targets (it has 'MyPlugin')
+                    """,
+                severity: .error
+            )
+        }
+    }
+
 
     func testBadREPLPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
