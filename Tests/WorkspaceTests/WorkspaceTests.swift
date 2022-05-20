@@ -11993,7 +11993,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .regex("failed extracting '.*/registry/downloads/org/foo/1.0.0.zip' to '.*/registry/downloads/org/foo/1.0.0': boom"), severity: .error)
+                    result.check(diagnostic: .regex("failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"), severity: .error)
                 }
             }
         }
