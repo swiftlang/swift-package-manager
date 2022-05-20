@@ -878,7 +878,7 @@ fileprivate extension AbsolutePath {
     func withExtension(_ extension: String) -> AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
-        return AbsolutePath(self, RelativePath("..")).appending(component: "\(basename).\(`extension`)")
+        return self.parentDirectory.appending(component: "\(basename).\(`extension`)")
     }
 }
 
