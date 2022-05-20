@@ -42,7 +42,7 @@ public struct RepositorySpecifier: Hashable {
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ??  ""
+        var basename = self.url.pathComponents.dropFirst(1).last(where: { !$0.isEmpty }) ?? ""
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
