@@ -578,7 +578,13 @@ public struct PubgrubDependencyResolver {
             newTerms += priorCause.terms.filter { $0.node != _mostRecentSatisfier.term.node }
 
             if let _difference = difference {
-                newTerms.append(_difference.inverse)
+                // rdar://93335995
+                // do not add the exact inverse of a requirement as it can lead to endless loops
+                if _difference.inverse != mostRecentTerm {
+                    newTerms.append(_difference.inverse)
+                } else {
+                    print("uggg")
+                }
             }
 
             incompatibility = try Incompatibility(
