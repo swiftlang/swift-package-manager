@@ -780,11 +780,11 @@ private class GitFileSystemView: FileSystem {
     private func getEntry(_ path: AbsolutePath) throws -> Tree.Entry? {
         // Walk the components resolving the tree (starting with a synthetic
         // root entry).
-        var current: Tree.Entry = Tree.Entry(location: self.root, type: .tree, name: "/")
+        var current: Tree.Entry = Tree.Entry(location: self.root, type: .tree, name: AbsolutePath.root.pathString)
         var currentPath = AbsolutePath.root
-        for component in path.components.dropFirst(1) {
+        for component in path.components {
             // Skip the root pseudo-component.
-            if component == "/" { continue }
+            if component == AbsolutePath.root.pathString { continue }
 
             currentPath = currentPath.appending(component: component)
             // We have a component to resolve, so the current entry must be a tree.
@@ -877,7 +877,7 @@ private class GitFileSystemView: FileSystem {
     }
 
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+        return AbsolutePath.root
     }
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
