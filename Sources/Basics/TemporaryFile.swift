@@ -33,12 +33,14 @@ import TSCLibc
 /// - Throws: `MakeDirectoryError` and rethrows all errors from `body`.
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public func withTemporaryDirectory<Result>(
-  dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory" , _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
+    _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) async throws -> Result {
-    let template = try createTemporaryDirectoryTemplate(dir: dir, prefix: prefix)
-  return try await body(AbsolutePath(String(cString: template))) { path in
-    _ = try? FileManager.default.removeItem(atPath: path.pathString)
-  }
+    let temporaryDirectory = try createTemporaryDirectory(dir: dir, prefix: prefix)
+    return try await body(temporaryDirectory) { path in
+        _ = try? FileManager.default.removeItem(atPath: path.pathString)
+    }
 }
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
@@ -59,27 +61,30 @@ public func withTemporaryDirectory<Result>(
 /// - Throws: `MakeDirectoryError` and rethrows all errors from `body`.
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public func withTemporaryDirectory<Result>(
-  dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false , _ body: (AbsolutePath) async throws -> Result
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
+    removeTreeOnDeinit: Bool = false ,
+    _ body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
-  try await withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
-    defer { if removeTreeOnDeinit { cleanup(path) } }
-    return try await body(path)
-  }
+    try await withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
+        defer { if removeTreeOnDeinit { cleanup(path) } }
+        return try await body(path)
+    }
 }
 
-private func createTemporaryDirectoryTemplate(dir: AbsolutePath?, prefix: String) throws -> [Int8] {
+private func createTemporaryDirectory(dir: AbsolutePath?, prefix: String) throws -> AbsolutePath {
     // Construct path to the temporary directory.
     let templatePath = try AbsolutePath(prefix + ".XXXXXX", relativeTo: determineTempDirectory(dir))
-
+    
     // Convert templatePath to a C style string terminating with null char to be an valid input
     // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
     // which will be the actual path to the temporary directory.
-    var template = [UInt8](templatePath.pathString.utf8).map({ Int8($0) }) + [Int8(0)]
-
+    var template = templatePath.pathString.utf8CString.map { $0 }
+    
     if TSCLibc.mkdtemp(&template) == nil {
         throw MakeDirectoryError(errno: errno)
     }
-    return template
+    return AbsolutePath(String(cString: template))
 }
 
 private extension MakeDirectoryError {
