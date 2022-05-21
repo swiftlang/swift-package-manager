@@ -670,7 +670,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
 
         // We only support one dummy URL.
-        let basename = repository.location.description.components(separatedBy: "/").last!
+        let basename = repository.url.pathComponents.last!
         if basename != "dummy" {
             throw DummyError.invalidRepository
         }
