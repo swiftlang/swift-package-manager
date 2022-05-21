@@ -98,7 +98,9 @@ extension DispatchTimeInterval {
 #if os(Linux) || os(Windows) || os(Android) || os(OpenBSD)
 extension DispatchTime {
     public func distance(to: DispatchTime) -> DispatchTimeInterval {
-        let duration = to.uptimeNanoseconds.subtractingReportingOverflow(self.uptimeNanoseconds).partialValue
+        let final = to.uptimeNanoseconds
+        let point = self.uptimeNanoseconds
+        let duration: Int64 = Int64(bitPattern: final.subtractingReportingOverflow(point).partialValue)
         return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
     }
 }
