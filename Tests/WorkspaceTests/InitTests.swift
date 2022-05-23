@@ -101,7 +101,11 @@ class InitTests: XCTestCase {
             XCTAssertBuilds(path)
             let triple = UserToolchain.default.triple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent(), "debug")
+#if os(Windows)
+            XCTAssertFileExists(binPath.appending(component: "Foo.exe"))
+#else
             XCTAssertFileExists(binPath.appending(component: "Foo"))
+#endif
             XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
             #endif
         }
