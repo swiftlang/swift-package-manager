@@ -56,8 +56,8 @@ class VFSTests: XCTestCase {
             let vfs = try VirtualFileSystem(path: vfsPath.path, fs: fs)
 
             // exists()
-            XCTAssert(vfs.exists(AbsolutePath("/")))
-            XCTAssert(!vfs.exists(AbsolutePath("/does-not-exist")))
+            XCTAssertTrue(vfs.exists(AbsolutePath("/")))
+            XCTAssertFalse(vfs.exists(AbsolutePath("/does-not-exist")))
 
             // isFile()
             let filePath = AbsolutePath("/best")
@@ -92,8 +92,8 @@ class VFSTests: XCTestCase {
             XCTAssertEqual(execFileContents, ByteString(contents))
 
             // isDirectory()
-            XCTAssert(vfs.isDirectory(AbsolutePath("/")))
-            XCTAssert(!vfs.isDirectory(AbsolutePath("/does-not-exist")))
+            XCTAssertTrue(vfs.isDirectory(AbsolutePath("/")))
+            XCTAssertFalse(vfs.isDirectory(AbsolutePath("/does-not-exist")))
 
             // getDirectoryContents()
             do {
@@ -104,8 +104,8 @@ class VFSTests: XCTestCase {
             }
 
             let thisDirectoryContents = try vfs.getDirectoryContents(AbsolutePath("/"))
-            XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
-            XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
+            XCTAssertFalse(thisDirectoryContents.contains(where: { $0 == "." }))
+            XCTAssertFalse(thisDirectoryContents.contains(where: { $0 == ".." }))
             XCTAssertEqual(thisDirectoryContents.sorted(), ["best", "dir", "exec-foo", "exec-sym", "hello"])
 
             let contents = try vfs.getDirectoryContents(AbsolutePath("/dir"))
