@@ -29,18 +29,28 @@ import TSCLibc
 ///           If `body` has a return value, that value is also used as the
 ///           return value for the `withTemporaryDirectory` function.
 ///           The cleanup block should be called when the temporary directory is no longer needed.
-///
+/// - Returns: `Task<Result, Error>` which can be used
 /// - Throws: `MakeDirectoryError` and rethrows all errors from `body`.
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
-    _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
-) async throws -> Result {
+    _ body: @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
+) throws -> Task<Result, Error> {
     let temporaryDirectory = try createTemporaryDirectory(dir: dir, prefix: prefix)
-    return try await body(temporaryDirectory) { path in
-        _ = try? FileManager.default.removeItem(atPath: path.pathString)
+    
+    let task: Task<Result, Error> = Task {
+        try await withTaskCancellationHandler {
+            try await body(temporaryDirectory) { path in
+                _ = try? FileManager.default.removeItem(atPath: path.pathString)
+            }
+        } onCancel: {
+            _ = try? FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
+        }
+        
     }
+    
+    return task
 }
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
@@ -63,10 +73,10 @@ public func withTemporaryDirectory<Result>(
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
-    removeTreeOnDeinit: Bool = false ,
-    _ body: (AbsolutePath) async throws -> Result
-) async throws -> Result {
-    try await withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
+    removeTreeOnDeinit: Bool = false,
+    _ body: @escaping (AbsolutePath) async throws -> Result
+) throws -> Task<Result, Error> {
+    try withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
         defer { if removeTreeOnDeinit { cleanup(path) } }
         return try await body(path)
     }

@@ -29,7 +29,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             return tempDirPath
-        }
+        }.value
         XCTAssertFalse(localFileSystem.isDirectory(path1))
         
         // Test temp directory is not removed when its not empty.
@@ -45,7 +45,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             
             try localFileSystem.writeFileContents(filePath, bytes: ByteString())
             return tempDirPath
-        }
+        }.value
         XCTAssertTrue(localFileSystem.isDirectory(path2))
         // Cleanup.
         try FileManager.default.removeItem(atPath: path2.pathString)
@@ -63,7 +63,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             
             try localFileSystem.writeFileContents(filePath, bytes: ByteString())
             return tempDirPath
-        }
+        }.value
         XCTAssertFalse(localFileSystem.isDirectory(path3))
     }
     
@@ -81,10 +81,26 @@ class TemporaryAsyncFileTests: XCTestCase {
                 // Their paths should be different.
                 XCTAssertTrue(pathOne != pathTwo)
                 return pathTwo
-            }
+            }.value
             return (pathOne, pathTwo)
-        }
+        }.value
         XCTAssertFalse(localFileSystem.isDirectory(pathOne))
         XCTAssertFalse(localFileSystem.isDirectory(pathTwo))
+    }
+    
+    func testCancelOfTask() async throws {
+        let task: Task<AbsolutePath, Error> = try withTemporaryDirectory { path in
+            
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            XCTAssertTrue(Task.isCancelled)
+            XCTAssertFalse(localFileSystem.isDirectory(path))
+            return path
+        }
+        task.cancel()
+        do {
+            // The correct path is to throw an error here
+            let _ = try await task.value
+            XCTFail("The correct path here is to throw an error")
+        } catch {}
     }
 }
