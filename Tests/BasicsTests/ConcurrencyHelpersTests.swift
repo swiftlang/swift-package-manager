@@ -42,7 +42,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
                 }
             }
 
-            switch sync.wait(timeout: .now() + 1) {
+            switch sync.wait(timeout: .now() + .seconds(2)) {
             case .timedOut:
                 XCTFail("timeout")
             case .success:
@@ -72,7 +72,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
                 }
             }
 
-            switch sync.wait(timeout: .now() + 1) {
+            switch sync.wait(timeout: .now() + .seconds(2)) {
             case .timedOut:
                 XCTFail("timeout")
             case .success:
@@ -109,7 +109,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
                 }
             }
 
-            switch sync.wait(timeout: .now() + 1) {
+            switch sync.wait(timeout: .now() + .seconds(2)) {
             case .timedOut:
                 XCTFail("timeout")
             case .success:
