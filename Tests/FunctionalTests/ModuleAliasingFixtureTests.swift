@@ -18,7 +18,7 @@ import TSCBasic
 import Workspace
 import XCTest
  
-class ModuleAliasingTests: XCTestCase {
+class ModuleAliasingFixtureTests: XCTestCase {
 
     func testModuleRenaming() throws {
         #if swift(<5.6)
