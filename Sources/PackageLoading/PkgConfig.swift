@@ -123,7 +123,11 @@ public struct PkgConfig {
 
     private static var envSearchPaths: [AbsolutePath] {
         if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
+#if os(Windows)
+            return configPath.split(separator: ";").map({ AbsolutePath(String($0)) })
+#else
             return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
+#endif
         }
         return []
     }
@@ -341,6 +345,9 @@ internal struct PkgConfigParser {
                 inQuotes = !inQuotes
             } else if char == "\\" {
                 if let next = it.next() {
+#if os(Windows)
+                    if ![" ", "\\"].contains(next) { fragment.append("\\") }
+#endif
                     fragment.append(next)
                 }
             } else if char == " " && !inQuotes {
@@ -389,7 +396,11 @@ internal struct PCFileFinder {
                     pkgConfigPath, "--variable", "pc_path", "pkg-config"
                 ).spm_chomp()
 
+#if os(Windows)
+                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ";").map({ AbsolutePath(String($0)) })
+#else
                 PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+#endif
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []

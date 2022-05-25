@@ -1125,9 +1125,13 @@ public final class PackageBuilder {
                 }
             }
 
-            // Do some validation for executable products.
+            // Do some validation based on the product type.
             switch product.type {
-            case .library, .test:
+            case .library:
+                guard self.validateLibraryProduct(product, with: targets) else {
+                    continue
+                }
+            case .test:
                 break
             case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: targets) else {
@@ -1214,6 +1218,15 @@ public final class PackageBuilder {
         return products.map{ $0.item }
     }
 
+    private func validateLibraryProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        let pluginTargets = targets.filter{ $0.type == .plugin }
+        guard pluginTargets.isEmpty else {
+            self.observabilityScope.emit(.nonPluginProductWithPluginTargets(product: product.name, type: product.type, pluginTargets: pluginTargets.map{ $0.name }))
+            return false
+        }
+        return true
+    }
+
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
         let executableTargetCount = targets.filter { $0.type == .executable }.count
         guard executableTargetCount == 1 else {
@@ -1226,10 +1239,13 @@ public final class PackageBuilder {
             } else {
                 self.observabilityScope.emit(.executableProductWithMoreThanOneExecutableTarget(product: product.name))
             }
-
             return false
         }
-
+        let pluginTargets = targets.filter{ $0.type == .plugin }
+        guard pluginTargets.isEmpty else {
+            self.observabilityScope.emit(.nonPluginProductWithPluginTargets(product: product.name, type: product.type, pluginTargets: pluginTargets.map{ $0.name }))
+            return false
+        }
         return true
     }
 

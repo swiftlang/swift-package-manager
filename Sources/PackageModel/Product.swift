@@ -187,11 +187,11 @@ extension ProductType: CustomStringConvertible {
         case .library(let type):
             switch type {
             case .automatic:
-                return "automatic"
+                return "library"
             case .dynamic:
-                return "dynamic"
+                return "dynamic library"
             case .static:
-                return "static"
+                return "static library"
             }
         case .plugin:
             return "plugin"

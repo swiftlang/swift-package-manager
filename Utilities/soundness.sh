@@ -86,7 +86,7 @@ EOF
         exceptions=( -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*" )
         matching_files=( -name '*.py' )
         cat > "$tmp" <<"EOF"
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##===----------------------------------------------------------------------===##
 ##
 ## This source file is part of the Swift open source project
