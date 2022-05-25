@@ -1723,7 +1723,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "Lib",
-                                          dependencies: [.product(name: "UtilsProd",
+                                          dependencies: [.product(name: "GameProd",
+                                                                  package: "gamePkg"
+                                                                 ),
+                                                         .product(name: "UtilsProd",
                                                                   package: "gamePkg",
                                                                   moduleAliases: ["Utils": "GameUtils", "Render": "GameRender"]
                                                                  ),
@@ -1830,7 +1833,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "Lib",
-                                          dependencies: [.product(name: "UtilsProd",
+                                          dependencies: [.product(name: "Game",
+                                                                  package: "gamePkg"
+                                                                 ),
+                                                         .product(name: "UtilsProd",
                                                                   package: "gamePkg",
                                                                   moduleAliases: ["Utils": "GameUtils"]
                                                                  ),
