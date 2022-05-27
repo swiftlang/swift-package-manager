@@ -22,10 +22,7 @@ class TemporaryAsyncFileTests: XCTestCase {
         // Test can create and remove temp directory.
         let path1: AbsolutePath = try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             // Do some async task
-            let task = Task {
-                return
-            }
-            await task.value
+            try await Task.sleep(nanoseconds: 1_000)
             
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             return tempDirPath
@@ -38,17 +35,14 @@ class TemporaryAsyncFileTests: XCTestCase {
             // Create a file inside the temp directory.
             let filePath = tempDirPath.appending(component: "somefile")
             // Do some async task
-            let task = Task {
-                return
-            }
-            await task.value
+            try await Task.sleep(nanoseconds: 1_000)
             
             try localFileSystem.writeFileContents(filePath, bytes: ByteString())
             return tempDirPath
         }.value
         XCTAssertTrue(localFileSystem.isDirectory(path2))
         // Cleanup.
-        try FileManager.default.removeItem(atPath: path2.pathString)
+        try localFileSystem.removeFileTree(path2)
         XCTAssertFalse(localFileSystem.isDirectory(path2))
         
         // Test temp directory is removed when its not empty and removeTreeOnDeinit is enabled.
@@ -56,10 +50,7 @@ class TemporaryAsyncFileTests: XCTestCase {
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             let filePath = tempDirPath.appending(component: "somefile")
             // Do some async task
-            let task = Task {
-                return
-            }
-            await task.value
+            try await Task.sleep(nanoseconds: 1_000)
             
             try localFileSystem.writeFileContents(filePath, bytes: ByteString())
             return tempDirPath
@@ -71,10 +62,7 @@ class TemporaryAsyncFileTests: XCTestCase {
         let (pathOne, pathTwo): (AbsolutePath, AbsolutePath) = try await withTemporaryDirectory(removeTreeOnDeinit: true) { pathOne in
             let pathTwo: AbsolutePath = try await withTemporaryDirectory(removeTreeOnDeinit: true) { pathTwo in
                 // Do some async task
-                let task = Task {
-                    return
-                }
-                await task.value
+                try await Task.sleep(nanoseconds: 1_000)
                 
                 XCTAssertTrue(localFileSystem.isDirectory(pathOne))
                 XCTAssertTrue(localFileSystem.isDirectory(pathTwo))

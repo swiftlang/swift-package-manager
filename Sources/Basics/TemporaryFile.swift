@@ -35,6 +35,7 @@ import TSCLibc
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
+    fileSystem: FileSystem = localFileSystem,
     _ body: @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) throws -> Task<Result, Error> {
     let temporaryDirectory = try createTemporaryDirectory(dir: dir, prefix: prefix)
@@ -42,10 +43,10 @@ public func withTemporaryDirectory<Result>(
     let task: Task<Result, Error> = Task {
         try await withTaskCancellationHandler {
             try await body(temporaryDirectory) { path in
-                _ = try? FileManager.default.removeItem(atPath: path.pathString)
+                try? fileSystem.removeFileTree(path)
             }
         } onCancel: {
-            _ = try? FileManager.default.removeItem(atPath: temporaryDirectory.pathString)
+            try? fileSystem.removeFileTree(temporaryDirectory)
         }
         
     }
@@ -73,10 +74,11 @@ public func withTemporaryDirectory<Result>(
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
+    fileSystem: FileSystem = localFileSystem,
     removeTreeOnDeinit: Bool = false,
     _ body: @escaping (AbsolutePath) async throws -> Result
 ) throws -> Task<Result, Error> {
-    try withTemporaryDirectory(dir: dir, prefix: prefix) { path, cleanup in
+    try withTemporaryDirectory(dir: dir, prefix: prefix, fileSystem: fileSystem) { path, cleanup in
         defer { if removeTreeOnDeinit { cleanup(path) } }
         return try await body(path)
     }
