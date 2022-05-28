@@ -38,7 +38,7 @@ public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     _ body: @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) throws -> Task<Result, Error> {
-    let temporaryDirectory = try createTemporaryDirectory(dir: dir, prefix: prefix)
+    let temporaryDirectory = try createTemporaryDirectory(dir: dir, prefix: prefix, fileSystem: fileSystem)
     
     let task: Task<Result, Error> = Task {
         try await withTaskCancellationHandler {
@@ -84,19 +84,18 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
-private func createTemporaryDirectory(dir: AbsolutePath?, prefix: String) throws -> AbsolutePath {
+private func createTemporaryDirectory(dir: AbsolutePath?, prefix: String, fileSystem: FileSystem) throws -> AbsolutePath {
+    // This random generation is needed so that
+    // it is more or less equal to generation using `mkdtemp` function
+    let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+    let randomSuffix = String((0..<6).map { _ in letters.randomElement()! })
+    
     // Construct path to the temporary directory.
-    let templatePath = try AbsolutePath(prefix + ".XXXXXX", relativeTo: determineTempDirectory(dir))
-    
-    // Convert templatePath to a C style string terminating with null char to be an valid input
-    // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
-    // which will be the actual path to the temporary directory.
-    var template = templatePath.pathString.utf8CString.map { $0 }
-    
-    if TSCLibc.mkdtemp(&template) == nil {
-        throw MakeDirectoryError(errno: errno)
-    }
-    return AbsolutePath(String(cString: template))
+    let templatePath = try AbsolutePath(prefix + ".\(randomSuffix)", relativeTo: determineTempDirectory(dir))
+
+    try fileSystem.createDirectory(templatePath, recursive: true)
+    return templatePath
 }
 
 private extension MakeDirectoryError {
