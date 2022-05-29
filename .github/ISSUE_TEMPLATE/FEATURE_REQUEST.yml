@@ -1,0 +1,39 @@
+name: Feature Request
+description: A suggestion for a new feature
+labels: [enhancement]
+body:
+- type: textarea
+  attributes:
+    label: Description
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Expected behavior
+    description: What you expected to happen.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Actual behavior
+    description: What actually happened.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    placeholder: |
+      1. ...
+      2. ...
+  validations:
+    required: false
+- type: input
+  attributes:
+    label: Swift Package Manager version/commit hash
+  validations:
+    required: false 
+- type: textarea
+  attributes:
+    label: Swift & OS version (output of `swift --version && uname -a`)
+  validations:
+    required: false 
