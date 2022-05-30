@@ -10,8 +10,6 @@
 
 import XCTest
 
-import class Foundation.FileManager
-
 import TSCBasic
 
 import Basics
