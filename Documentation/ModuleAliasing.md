@@ -54,7 +54,7 @@ To resolve the collision, we can now use a new parameter `moduleAliases` as foll
 
 This will rename the `Utils` module in packgae `swift-game` to be a new user-provided name `GameUtils` and compile all the source references to `Utils` as `GameUtils` in targets of the product in the package. The name of the binary for the `Utils` module will be `GameUtils.swiftmodule`. No source changes are required by the `swift-game` package. 
 
-If `App` wants to import the `Utils` module from `swift-game`, it needs to directly reference the aliased module in its sosurce code, e.g. `import GameUtils`. If it already contains `import Utils`, it will continue to refer to the `Utils` module from package `swift-draw`, as expected.
+If `App` wants to import the `Utils` module from `swift-game`, it needs to directly reference the aliased module in its source code, e.g. `import GameUtils`. If it already contains `import Utils`, it will continue to refer to the `Utils` module from package `swift-draw`, as expected.
 
 If there are more aliases to be defined, they can be added with a comma delimiter, per below. 
 
