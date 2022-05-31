@@ -45,20 +45,15 @@ public final class ResolvedPackage {
     /// The default localization for resources.
     public let defaultLocalization: String?
 
-    /// The list of platforms that are supported by this target.
-    public let platforms: SupportedPlatforms
-
     public init(
         package: Package,
         defaultLocalization: String?,
-        platforms: SupportedPlatforms,
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct]
     ) {
         self.underlyingPackage = package
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
         self.dependencies = dependencies
         self.targets = targets
         self.products = products

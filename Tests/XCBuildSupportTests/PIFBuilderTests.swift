@@ -31,11 +31,11 @@ class PIFBuilderTests: XCTestCase {
         // Repeat multiple times to detect non-deterministic shuffling due to sets.
         for _ in 0..<10 {
             let fs = InMemoryFileSystem(emptyFiles:
-                                            "/A/Sources/A1/main.swift",
-                                        "/A/Sources/A2/lib.swift",
-                                        "/A/Sources/A3/lib.swift",
-                                        "/B/Sources/B1/main.swift",
-                                        "/B/Sources/B2/lib.swift"
+                "/A/Sources/A1/main.swift",
+                "/A/Sources/A2/lib.swift",
+                "/A/Sources/A3/lib.swift",
+                "/B/Sources/B1/main.swift",
+                "/B/Sources/B2/lib.swift"
             )
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -104,9 +104,9 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Tests/FooTests/tests.swift",
-                                    "/Bar/Sources/BarLib/lib.swift"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Tests/FooTests/tests.swift",
+            "/Bar/Sources/BarLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -178,7 +178,6 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "NO")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf")
-                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_NS_ASSERTIONS], "YES")
                         XCTAssertEqual(settings[.ENABLE_TESTABILITY], "YES")
@@ -186,10 +185,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
@@ -201,9 +197,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Onone")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "9.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "2.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -226,16 +220,12 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "YES")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf-with-dsym")
-                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_TESTING_SEARCH_PATHS], "YES")
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                         XCTAssertEqual(settings[.SDK_VARIANT], "auto")
@@ -246,9 +236,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Owholemodule")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "9.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "2.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -280,7 +268,6 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "NO")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf")
-                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_NS_ASSERTIONS], "YES")
                         XCTAssertEqual(settings[.ENABLE_TESTABILITY], "YES")
@@ -288,10 +275,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.14")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
@@ -303,9 +287,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Onone")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -328,16 +310,12 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "YES")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf-with-dsym")
-                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_TESTING_SEARCH_PATHS], "YES")
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.14")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                         XCTAssertEqual(settings[.SDK_VARIANT], "auto")
@@ -348,9 +326,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Owholemodule")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "6.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -383,13 +359,13 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/cfoo/main.c",
-                                    "/Foo/Sources/FooLib/lib.swift",
-                                    "/Foo/Sources/SystemLib/module.modulemap",
-                                    "/Bar/Sources/bar/main.swift",
-                                    "/Bar/Sources/cbar/main.c",
-                                    "/Bar/Sources/BarLib/lib.swift"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/cfoo/main.c",
+            "/Foo/Sources/FooLib/lib.swift",
+            "/Foo/Sources/SystemLib/module.modulemap",
+            "/Bar/Sources/bar/main.swift",
+            "/Bar/Sources/cbar/main.c",
+            "/Bar/Sources/BarLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -498,6 +474,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -522,6 +504,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -559,6 +547,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -583,6 +577,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -620,6 +620,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -641,6 +647,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -677,6 +689,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -700,6 +718,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -714,16 +738,16 @@ class PIFBuilderTests: XCTestCase {
                 try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/FooTests/FooTests.swift",
-                                    "/Foo/Sources/CFooTests/CFooTests.m",
-                                    "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/FooLib/lib.swift",
-                                    "/Foo/Sources/SystemLib/module.modulemap",
-                                    "/Bar/Sources/bar/main.swift",
-                                    "/Bar/Sources/BarTests/BarTests.swift",
-                                    "/Bar/Sources/CBarTests/CBarTests.m",
-                                    "/Bar/Sources/BarLib/lib.swift",
-                                    inputsDir.appending(component: "Foo.pc").pathString
+            "/Foo/Sources/FooTests/FooTests.swift",
+            "/Foo/Sources/CFooTests/CFooTests.m",
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/FooLib/lib.swift",
+            "/Foo/Sources/SystemLib/module.modulemap",
+            "/Bar/Sources/bar/main.swift",
+            "/Bar/Sources/BarTests/BarTests.swift",
+            "/Bar/Sources/CBarTests/CBarTests.m",
+            "/Bar/Sources/BarLib/lib.swift",
+            inputsDir.appending(component: "Foo.pc").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -833,9 +857,11 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
-                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .driverKit).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macCatalyst).versionString)
                         }
                     }
 
@@ -865,9 +891,11 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
                             XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
-                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .driverKit).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macCatalyst).versionString)
                         }
                     }
 
@@ -911,9 +939,11 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
-                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .driverKit).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macCatalyst).versionString)
                         }
                     }
 
@@ -946,9 +976,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
                             XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
-                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
                             XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
                             XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .driverKit).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macCatalyst).versionString)
+                             
                         }
                     }
 
@@ -1132,6 +1165,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1156,6 +1195,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                             XCTAssertEqual(settings[.USES_SWIFTPM_UNSAFE_FLAGS], "NO")
                             XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1170,10 +1215,10 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/FooLib1/lib.swift",
-                                    "/Foo/Sources/FooLib2/lib.cpp",
-                                    "/Foo/Sources/SystemLib/module.modulemap",
-                                    "/Bar/Sources/BarLib/lib.c"
+            "/Foo/Sources/FooLib1/lib.swift",
+            "/Foo/Sources/FooLib2/lib.cpp",
+            "/Foo/Sources/SystemLib/module.modulemap",
+            "/Bar/Sources/BarLib/lib.c"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1264,6 +1309,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib1")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1292,6 +1343,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib1")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1336,6 +1393,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib2")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib2.o")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib2")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1363,6 +1426,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooLib2")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "FooLib2.o")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib2")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1415,6 +1484,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib.o")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1442,6 +1517,12 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "BarLib")
                             XCTAssertEqual(settings[.PRODUCT_NAME], "BarLib.o")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], Platform.macOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
                         }
                     }
 
@@ -1467,11 +1548,11 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/App/Sources/App/main.swift",
-                                        "/App/Sources/Logging/lib.swift",
-                                    "/App/Sources/Utils/lib.swift",
-                                    "/Bar/Sources/Lib/lib.swift",
-                                    "/Bar/Sources/Logging/lib.swift"
+            "/App/Sources/App/main.swift",
+            "/App/Sources/Logging/lib.swift",
+            "/App/Sources/Utils/lib.swift",
+            "/Bar/Sources/Lib/lib.swift",
+            "/Bar/Sources/Logging/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1804,8 +1885,8 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/SystemLib1/module.modulemap",
-                                    "/Foo/Sources/SystemLib2/module.modulemap"
+            "/Foo/Sources/SystemLib1/module.modulemap",
+            "/Foo/Sources/SystemLib2/module.modulemap"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1990,15 +2071,15 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/foo/Resources/Data.plist",
-                                    "/Foo/Sources/foo/Resources/Database.xcdatamodel",
-                                    "/Foo/Sources/FooLib/lib.swift",
-                                    "/Foo/Sources/FooLib/Resources/Data.plist",
-                                    "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
-                                    "/Foo/Sources/FooTests/FooTests.swift",
-                                    "/Foo/Sources/FooTests/Resources/Data.plist",
-                                    "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/foo/Resources/Data.plist",
+            "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooLib/lib.swift",
+            "/Foo/Sources/FooLib/Resources/Data.plist",
+            "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooTests/FooTests.swift",
+            "/Foo/Sources/FooTests/Resources/Data.plist",
+            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2212,9 +2293,9 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/FooLib/lib.swift",
-                                    "/Foo/Sources/FooTests/FooTests.swift"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/FooLib/lib.swift",
+            "/Foo/Sources/FooTests/FooTests.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2425,10 +2506,10 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift",
-                                    "/Foo/Sources/FooLib1/lib.swift",
-                                    "/Foo/Sources/FooLib2/lib.swift",
-                                    "/Foo/Sources/FooTests/FooTests.swift"
+            "/Foo/Sources/foo/main.swift",
+            "/Foo/Sources/FooLib1/lib.swift",
+            "/Foo/Sources/FooLib2/lib.swift",
+            "/Foo/Sources/FooTests/FooTests.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2497,7 +2578,7 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/Foo/Sources/foo/main.swift"
+            "/Foo/Sources/foo/main.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2531,9 +2612,17 @@ class PIFBuilderTests: XCTestCase {
 
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Foo") { project in
-                project.checkBuildConfiguration("Debug") { configuration in
-                    configuration.checkBuildSettings { settings in
-                        XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: .macOS], ["best"])
+                project.checkTarget("PACKAGE-PRODUCT:foo") { target in
+                    target.checkBuildConfiguration("Debug") { configuration in
+                        configuration.checkBuildSettings { settings in
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], Platform.watchOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], Platform.tvOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.14")
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: .macOS], ["best"])
+                            XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], Platform.driverKit.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], Platform.iOS.oldestSupportedVersion.versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], Platform.macCatalyst.oldestSupportedVersion.versionString)
+                        }
                     }
                 }
             }
@@ -2547,7 +2636,7 @@ class PIFBuilderTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/MyLib/Sources/MyLib/Foo.swift"
+            "/MyLib/Sources/MyLib/Foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
