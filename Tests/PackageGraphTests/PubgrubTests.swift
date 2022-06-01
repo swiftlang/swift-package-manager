@@ -414,68 +414,132 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(try solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
     }
 
+    // this test reconstruct the conditions described in radar/93335995
     func testRadar93335995() throws  {
-        let observability = ObservabilitySystem { _, diagnostics in
-            print(diagnostics)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
         let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
         let solver = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
         let state = PubgrubDependencyResolver.State(root: rootNode)
 
-        var terms1 = OrderedCollections.OrderedSet<Term>()
-        /*terms1.append(
-            Term(node: .root(package: bRef),
-                 requirement: .exact("1.1.0"),
-                 isPositive: true
-            )
-        )*/
-        terms1.append(
-            Term(node: .root(package: bRef),
-                 requirement: .range("1.1.0" ..< "2.0.0"),
-                 isPositive: true
-            )
-        )
+        state.decide(.root(package: aRef), at: "1.1.0")
 
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.1.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.1.0" ..< "2.0.0"), isPositive: true), cause: cause)
+        }
 
-        let cause = Incompatibility(
-            //Term(.root(package: aRef), .range("1.1.0" ..< "2.0.0")),
-            //root: rootNode,
-            //cause: .root
-            terms: terms1,
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.3.1" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.3.1" ..< "2.0.0"), isPositive: false), cause: cause)
+            // order here matters to reproduce the issue
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.1"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.2.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
+        }
+
+        let conflict = Incompatibility(
+            terms: .init([
+                Term(node: .root(package: aRef),
+                     requirement: .exact("1.1.0"),
+                     isPositive: true
+                ),
+                Term(node: .root(package: bRef),
+                     requirement: .ranges(["1.1.1" ..< "1.2.0", "1.2.1" ..< "1.3.0"]),
+                     isPositive: true
+                )
+            ]),
             cause: .noAvailableVersion
         )
 
-        //state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: true), cause: cause)
-        state.decide(.root(package: aRef), at: "1.1.0")
+        _ = try solver.resolve(state: state, conflict: conflict)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
 
-        state.derive(Term(node: .root(package: bRef), requirement: .range("1.1.0" ..< "2.0.0"), isPositive: true), cause: cause)
-        state.derive(Term(node: .root(package: bRef), requirement: .range("1.3.1" ..< "2.0.0"), isPositive: false), cause: cause)
+    func testNoInfiniteLoop() throws  {
+        let observability = ObservabilitySystem.makeForTesting()
+        let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
+        let solver = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
+        let state = PubgrubDependencyResolver.State(root: rootNode)
 
-        state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.0"), isPositive: false), cause: cause)
-        state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.1"), isPositive: false), cause: cause)
-        state.derive(Term(node: .root(package: bRef), requirement: .exact("1.2.0"), isPositive: false), cause: cause)
-        state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
-
-        var terms = OrderedCollections.OrderedSet<Term>()
-        terms.append(
-            Term(node: .root(package: aRef),
-                 requirement: .exact("1.1.0"),
-                 isPositive: true
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.1.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
             )
-        )
-        terms.append(
-            Term(node: .root(package: bRef),
-                 requirement: .ranges(["1.1.1" ..< "1.2.0",  "1.2.1" ..< "1.3.0"]),
-                 isPositive: true
+            state.derive(Term(node: .root(package: aRef), requirement: .exact("1.1.0"), isPositive: true), cause: cause) // no decision available on this which will throw it into an infinite loop
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.1.0" ..< "2.0.0"), isPositive: true), cause: cause)
+        }
+
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.2.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
             )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.2.0" ..< "2.0.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.2.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
+        }
+
+        let conflict = Incompatibility(
+            terms: .init([
+                Term(node: .root(package: aRef),
+                     requirement: .exact("1.1.0"),
+                     isPositive: true
+                ),
+                Term(node: .root(package: bRef),
+                     requirement: .ranges(["1.1.1" ..< "1.2.0"]),
+                     isPositive: true
+                )
+            ]),
+            cause: .noAvailableVersion
         )
 
-        let incompatibility2 = try Incompatibility(
-            terms: terms,
-            cause: .root
-        )
-
-        try solver.resolve(state: state, conflict: incompatibility2)
+        XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
+            XCTAssertTrue(error is PubgrubDependencyResolver.PubgrubError)
+        }
     }
 
     func testResolutionNoConflicts() {
