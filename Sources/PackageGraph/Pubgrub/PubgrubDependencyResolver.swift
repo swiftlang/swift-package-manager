@@ -583,6 +583,7 @@ public struct PubgrubDependencyResolver {
                 if _difference.inverse != mostRecentTerm {
                     newTerms.append(_difference.inverse)
                 } else {
+                    // FIXME: debug
                     print("uggg")
                 }
             }
