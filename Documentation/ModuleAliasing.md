@@ -8,7 +8,7 @@ The number of package dependencies often grows, with that, a name collision can 
 
 Let's consider the following scenarios to go over how module aliasing can be used. 
 
-Example 1:
+### Example 1
 
 `App` imports a module called `Utils` from a package `swift-draw`. It wants to add another package dependency `swift-game` and imports a module `Utils` vended from the package.
 
@@ -53,7 +53,7 @@ To use the aliased module, `App` needs to reference the the new name, i.e. `impo
 
 Note that the names being disambiguated here are the conflicting module names, not the product names, thus the product names of each package are still required to be unique. If the vended product name of `swift-game` is `Utils` instead of `UtilsProduct` in the example above, it will throw a `multiple products named "Utils"' error as it does today.   
 
-Example 2:
+### Example 2
 
 `App` imports a module `Utils` from a package `swift-draw`. It wants to add another package dependency `swift-game` and imports a module `Game` vended from the package. The `Game` module imports `Utils` from the same package.
 
