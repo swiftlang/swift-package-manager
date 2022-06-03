@@ -246,7 +246,7 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    try resolveModuleAliases(packageBuilders: packageBuilders)
+    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -383,25 +383,65 @@ private func createResolvedPackages(
     }
 
     // Find duplicate products in the package graph.
-    let duplicateProducts = packageBuilders
-        .flatMap({ $0.products })
-        .map({ $0.product })
-        .spm_findDuplicateElements(by: \.name)
-        .map({ $0[0].name })
+    let productList = packageBuilders.flatMap({ $0.products }).map({ $0.product })
 
-    // Emit diagnostics for duplicate products.
-    for productName in duplicateProducts {
-        let packages = packageBuilders
-            .filter({ $0.products.contains(where: { $0.product.name == productName }) })
-            .map{ $0.package.identity.description }
-            .sorted()
+    if moduleAliasingUsed {
+        // FIXME: If moduleAliasingUsed, we want to allow duplicate product names
+        // from different packages as often times the product name of a package is
+        // same as its target name which might have a conflict with the name of the
+        // product itself or its target from another package.
+        // The following is a workaround; eventually we want to allow duplicate product
+        // names even when module aliasing is not used, which is a cleaner solution.
+        // Ref rdar://94744134.
 
-        observabilityScope.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
-    }
+        // We first divide the products by type which determines whether to use
+        // the product ID (unique, fully qualified name) or name to look up duplicates.
+        // There are no files/dirs created for a static library product, so use
+        // the product ID property to look up duplicates.
+        let staticLibProducts = productList
+            .filter{ $0.isStaticLibrary }
+            .spm_findDuplicateElements(by: \.ID)
+            .map({ $0[0] })
 
-    // Remove the duplicate products from the builders.
-    for packageBuilder in packageBuilders {
-        packageBuilder.products = packageBuilder.products.filter({ !duplicateProducts.contains($0.product.name) })
+        // There are files/dirs created for products such as dylibs or executables,
+        // e.g. Foo.product (directory), libFoo.dylib, etc., thus the original product
+        // names should be preserved and look up should be done by the name property.
+        let otherProducts = productList
+            .filter{ !$0.isStaticLibrary }
+            .spm_findDuplicateElements(by: \.name)
+            .map({ $0[0] })
+
+        let allProducts = staticLibProducts + otherProducts
+        // Emit diagnostics for duplicate products.
+        for dupProduct in allProducts {
+            let packages = packageBuilders
+                .filter({ $0.products.contains(where: { $0.product.isStaticLibrary ? $0.product.ID == dupProduct.ID : $0.product.name == dupProduct.name }) })
+                .map{ $0.package.identity.description }
+                .sorted()
+            observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
+        }
+        // Remove the duplicate products from the builders.
+        let staticLibProductIDs = staticLibProducts.map{ $0.ID }
+        let otherProductNames = otherProducts.map{ $0.name }
+        for packageBuilder in packageBuilders {
+            packageBuilder.products = packageBuilder.products.filter { $0.product.isStaticLibrary ? !staticLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
+        }
+    } else {
+        let duplicateProducts = productList
+            .spm_findDuplicateElements(by: \.name)
+            .map({ $0[0] })
+        // Emit diagnostics for duplicate products.
+        for dupProduct in duplicateProducts {
+            let packages = packageBuilders
+                .filter({ $0.products.contains(where: { $0.product.name == dupProduct.name }) })
+                .map{ $0.package.identity.description }
+                .sorted()
+            observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
+        }
+        // Remove the duplicate products from the builders.
+        for packageBuilder in packageBuilders {
+            packageBuilder.products = packageBuilder.products.filter { !duplicateProducts.map{$0.name}.contains($0.product.name) }
+        }
     }
 
     // The set of all target names.
@@ -436,7 +476,7 @@ private func createResolvedPackages(
                 let explicit = Set(dependency.package.manifest.products.lazy.map({ $0.name }))
                 return dependency.products.filter({ explicit.contains($0.product.name) })
             })
-        let productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
+        let productDependencyMap = moduleAliasingUsed ? productDependencies.spm_createDictionary({ ($0.product.ID, $0) }) : productDependencies.spm_createDictionary({ ($0.product.name, $0) })
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
@@ -449,7 +489,9 @@ private func createResolvedPackages(
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
                 // Find the product in this package's dependency products.
-                guard let product = productDependencyMap[productRef.name] else {
+                // Look it up by ID if module aliasing is used, otherwise by name.
+                let product = moduleAliasingUsed ? productDependencyMap[productRef.ID] : productDependencyMap[productRef.name]
+                guard let product = product else {
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
@@ -515,6 +557,12 @@ private func createResolvedPackages(
         }
     }
     return try packageBuilders.map{ try $0.construct() }
+}
+
+fileprivate extension Product {
+    var isStaticLibrary: Bool {
+        return type == .library(.automatic) || type == .library(.static)
+    }
 }
 
 private func computePlatforms(
@@ -590,7 +638,7 @@ private func computePlatforms(
 }
 
 // Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) throws {
+private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) throws -> Bool {
 
     // If there are no module aliases specified, return early
     let hasAliases = packageBuilders.contains { $0.package.targets.contains {
@@ -603,7 +651,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) thr
         }
     }
 
-    guard hasAliases else { return }
+    guard hasAliases else { return false }
     let aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         try aliasTracker.addTargetAliases(targets: packageBuilder.package.targets,
@@ -626,10 +674,11 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) thr
     // upstream can be overriden.
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
-            try aliasTracker.validateAndApplyAliases(product: product.name,
+            try aliasTracker.validateAndApplyAliases(product: product,
                                                      package: packageBuilder.package.identity)
         }
     }
+    return true
 }
 
 /// A generic builder for `Resolved` models.
