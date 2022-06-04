@@ -17,8 +17,8 @@ import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual
 
 extension ObservabilitySystem {
-    public static func makeForTesting() -> TestingObservability {
-        let collector = TestingObservability.Collector()
+    public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
+        let collector = TestingObservability.Collector(verbose: verbose)
         let observabilitySystem = ObservabilitySystem(collector)
         return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
     }
@@ -53,13 +53,18 @@ public struct TestingObservability {
         var diagnosticsHandler: DiagnosticsHandler { return self }
 
         let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
+        private let verbose: Bool
 
-        init() {
+        init(verbose: Bool) {
+            self.verbose = verbose
             self.diagnostics = .init()
         }
 
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+            if self.verbose {
+                print(diagnostic.description)
+            }
             self.diagnostics.append(diagnostic)
         }
 
