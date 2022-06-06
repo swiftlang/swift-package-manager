@@ -4,24 +4,24 @@ This guide provides a brief overview of Swift Package Manager plugins, describes
 
 ## Overview
 
-Some of Swift Package Manager's functionality can be extended through _plugins_.  Package plugins are written in Swift using the `PackagePlugin` API provided by the Swift Package Manager.  This is somewhat similar to how the Swift Package manifest itself is implemented as a Swift script that is run as needed to produce the information SwiftPM needs.
+Some of Swift Package Manager's functionality can be extended through _plugins_.  Package plugins are written in Swift using the `PackagePlugin` API provided by the Swift Package Manager.  This is similar to how the Swift Package manifest itself is implemented as a Swift script that runs as needed in order to produce the information SwiftPM needs.
 
-Plugins are represented as targets of the `pluginTarget` type in the SwiftPM manifest, and a plugin in one package can be made available to other packages by defining a `plugin` product for it.  Source code for plugins is normally located under the `Plugins` directory in the package, but this can be customized.
+A plugin is represented in the SwiftPM package manifest as a target of the `pluginTarget` type — and if it should be available to other packages, there also needs to be a corresponding `pluginProduct` target.  Source code for a plugin is normally located in a directory under the `Plugins` directory in the package, but this can be customized.
 
 SwiftPM currently defines two extension points for plugins:
 
-- custom build tool tasks that are run before or during the build
+- custom build tool tasks that provide commands to run before or during the build
 - custom commands that are run using the `swift package` command line interface
 
 A plugin declares which extension point it implements by defining the plugin's _capability_.  This determines the entry point through which SwiftPM will call it, and determines which actions the plugin can perform.
 
 Plugins have access to a representation of the package model, and plugins that define custom commands can also invoke services provided by SwiftPM to build and test products and targets defined in the package to which the plugin is applied.
 
-Every plugin runs in its own process in a sandbox that prevents network access as well as attempts to write to the file system.  Custom command plugins that need to modify the package source code can specify this requirement, and if the user approves, will have write access to the package directory.  Build tool plugins cannot modify the package source code.
+Every plugin runs as a separate process, and (on platforms that support sandboxing) it is wrapped in a sandbox that prevents network access as well as attempts to write to arbitrary locations in the file system.  Custom command plugins that need to modify the package source code can specify this requirement, and if the user approves, will have write access to the package directory.  Build tool plugins cannot modify the package source code.  All plugins can write to a temporary directory.
 
 ## Using a Package Plugin
 
-A package plugin is available in the package that defines it, as well as in any other package that has a direct dependency on the package that defines it.
+A package plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package that defines it.
 
 To get access to a plugin defined in another package, add a package dependency on the package that defines the plugin.  This will let the package access any build tool plugins and command plugins from the dependency.
 
@@ -49,7 +49,7 @@ let package = Package(
 )
 ```
 
-This will cause SwiftPM to call the plugin, passing it a simplified version of the package model for the target to which it is being applied.  Any build commands defined by the plugin will be incorporated into the build graph and will run at the appropriate time during the build.
+This will cause SwiftPM to call the plugin, passing it a simplified version of the package model for the target to which it is being applied.  Any build commands returned by the plugin will be incorporated into the build graph and will run at the appropriate time during the build.
 
 ### Making use of a command plugin
 
@@ -67,7 +67,7 @@ To list the plugins that are available within the context of a package, use the 
 ❯ swift package plugin --list
 ```
 
-Command plugins that need to write to the file system will only be allowed to do so if the user passes the `--allow-writing-to-package-directory` option to the `swift package` invocation.
+Command plugins that need to write to the file system will cause SwiftPM to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment.
 
 ## Writing a Plugin
 
@@ -75,20 +75,20 @@ The first step when writing a package plugin is to decide what kind of plugin yo
 
 ### Build tool plugins
 
-Build tool plugins are invoked before building a package in order to construct command invocations that should run as part of the build.  There are two kinds of command invocations that a build tool plugin can construct:
+Build tool plugins are invoked before a package is built in order to construct command invocations to run as part of the build.  There are two kinds of commands that a build tool plugin can return:
 
 - prebuild commands — are run before the build starts and can generate an arbitrary number of output files with names that can't be predicted before running the command
 - build commands — are incorporated into the build system's dependency graph and will run at the appropriate time during the build based on the existence and timestamps of their predefined inputs and outputs
 
-Build commands are preferred over prebuild commands when the paths of all of the inputs and outputs are known before the command runs, since they allow the build system to more efficiently decide when they should be run.  This is actually quite common.  Examples include source translation tools that generate one output file (with a predictable name) for each input file, or other cases where the plugin can control the names of the outputs without having to first run the tool.  In this case the build system can run the command only when some of the outputs are missing or when the inputs have changed since the last time the command ran.
+Build commands are preferred over prebuild commands when the paths of all of the inputs and outputs are known before the command runs, since they allow the build system to more efficiently decide when they should be run.  This is actually quite common.  Examples include source translation tools that generate one output file (with a predictable name) for each input file, or other cases where the plugin can control the names of the outputs without having to first run the tool.  In this case the build system can run the command only when some of the outputs are missing or when the inputs have changed since the last time the command ran.  There doesn't have to be a one-to-one correspondence between inputs and outputs; a plugin is free to choose how many (if any) output files to create by examining the input target using any logic it wants to.
 
 Prebuild commands should be used only when the names of the outputs are not known until the tool is run — this is the case if the _contents_ of the input files (as opposed to just their names) determines the number and names of the output files.  Prebuild commands have to run before every build, and should therefore do their own caching to do as little work as possible to avoid slowing down incremental builds.
 
-In either case, it is important to note that it is not the plugin itself that does all the work of the build command — rather, the plugin constructs the commands that will later need to run, and it is those commands that perform the actual work.  The plugin itself is usually rather small and mostly concerned with forming the command line for the build command that does the actual work.
+In either case, it is important to note that it is not the plugin itself that does all the work of the build command — rather, the plugin constructs the commands that will later need to run, and it is those commands that perform the actual work.  The plugin itself is usually quite small and is mostly concerned with forming the command line for the build command that does the actual work.
 
 #### Declaring a build tool plugin in the package manifest
 
-Like all kinds of plugins, build tool plugins are declared in the package manifest.  This is done using a `pluginTarget` entry in the `targets` section of the package, and if the plugin should be visible to other packages, there needs to be a corresponding entry in the `products` section as well:
+Like all kinds of package plugins, build tool plugins are declared in the package manifest.  This is done using a `pluginTarget` entry in the `targets` section of the package.  If the plugin should be visible to other packages, there needs to be a corresponding `plugin` entry in the `products` section as well:
 
 ```swift
 // swift-tools-version: 5.6
@@ -122,11 +122,11 @@ let package = Package(
 )
 ```
 
-The `plugin` target declares the name and capabilities of the plugin, along with its dependencies.  The capability of `.buildTool()` is what indicates this as a build tool plugin as opposed to any other kind of plugin — this also determines what entry point the plugin is expected to implement (see below).
+The `plugin` target declares the name and capability of the plugin, along with its dependencies.  The capability of `.buildTool()` is what declares it as a build tool plugin as opposed to any other kind of plugin — this also determines what entry point the plugin is expected to implement (as described below).
 
-The Swift script files that implement the logic of the plugin are expected to be in a directory named the same as the plugin under the `Plugins` subdirectory of the package, unless overridden with a `path` parameter in the `pluginTarget`.
+The Swift script files that implement the logic of the plugin are expected to be in a directory named the same as the plugin, located under the `Plugins` subdirectory of the package.  This can be overridden with a `path` parameter in the `pluginTarget`.
 
-The `plugin` product is what makes the plugin visible to other packages that have dependencies on the package that defines the plugin.  The name of the plugin doesn't have to match the name of the product, but they are often the same in order to avoid confusion.  If a built tool plugin is used only within the package that declares it, there is no need to declare a `plugin` product.
+The `plugin` product is what makes the plugin visible to other packages that have dependencies on the package that defines the plugin.  The name of the plugin doesn't have to match the name of the product, but they are often the same in order to avoid confusion.  The plugin product should list only the name of the plugin target it vends.  If a built tool plugin is used only within the package that declares it, there is no need to declare a `plugin` product.
 
 #### Build tool target dependencies
 
@@ -170,7 +170,7 @@ struct MyPlugin: BuildToolPlugin {
 
 The plugin script can import *Foundation* and other standard libraries, but in the current version of SwiftPM, it cannot import other libraries.
 
-In this example, the returned command of the type `buildCommand`, so it will be incorporated into the build system's command graph and will run if any of the output files are missing or if the contents of any of the input files have changed since the last time the command ran.
+In this example, the returned command is of the type `buildCommand`, so it will be incorporated into the build system's command graph and will run if any of the output files are missing or if the contents of any of the input files have changed since the last time the command ran.
 
 Note that build tool plugins are always applied to a target, which is passed in the parameter to the entry point.  Only source module targets have source files, so a plugin that iterates over source files will commonly test that the target it was given conforms to `SourceModuleTarget`.
 
@@ -209,11 +209,11 @@ Note that a build tool plugin can return a combination of build tool commands an
 
 Any prebuild commands are run after the plugin runs but before the build starts, and any files that are in the prebuild command's declared `outputFilesDirectory` will be evaluated as if they had been source files in the target.  The prebuild command should add or remove files in this directory to reflect the results of having run the command.
 
-The current version of the Swift Package Manager supports only generated Swift source files as outputs, but the intent is it support any type of file that could have been included as a source file in the target.
+The current version of the Swift Package Manager supports generated Swift source files and resources as outputs, but it does not yet support non-Swift source files.  Any generated resources are processed as if they had been declared in the manifest with the `.process()` rule.  The intent is to eventually support any type of file that could have been included as a source file in the target, and to let the plugin provide greater controls over the downstream processing of generated files.
 
 ### Command plugins
 
-Command plugins are invoked at will by the user, by invoking `swift` `package` `<command>` `<arguments>`.  They are unrelated to the build graph, and often perform their work by calling out to underlying tools as subprocesses.
+Command plugins are invoked at will by the user, by invoking `swift` `package` `<command>` `<arguments>`.  They are unrelated to the build graph, and often perform their work by invoking to command line tools as subprocesses.
 
 Command plugins are declared in a similar way to build tool plugins, except that they declare a `.command()` capability and implement a different entry point in the plugin script.
 
@@ -337,3 +337,7 @@ In the current version of Swift Package Manager, plugins can only use standard s
 Plugin entry points are marked `throws`, and any errors thrown from the entry point cause the plugin invocation to be marked as having failed.  The thrown error is presented to the user, and should include a clear description of what went wrong.
 
 Additionally, plugins can use the `Diagnostics` API in PackagePlugin to emit warnings and errors that optionally include references to file paths and line numbers in those files.
+
+### Debugging and Testing
+
+SwiftPM doesn't currently have any specific support for debugging and testing plugins.  Many plugins act only as adapters that construct command lines for invoking the tools that do the real work — in the cases in which there is non-trivial code in a plugin, the best current approach is to factor out that code into separate source files that can be included in unit tests in the plugin package via symbolic links with relative paths.
