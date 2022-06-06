@@ -341,3 +341,38 @@ Additionally, plugins can use the `Diagnostics` API in PackagePlugin to emit war
 ### Debugging and Testing
 
 SwiftPM doesn't currently have any specific support for debugging and testing plugins.  Many plugins act only as adapters that construct command lines for invoking the tools that do the real work — in the cases in which there is non-trivial code in a plugin, the best current approach is to factor out that code into separate source files that can be included in unit tests in the plugin package via symbolic links with relative paths.
+
+### Xcode Extensions to the PackagePlugin API
+
+When invoked in Apple’s Xcode IDE, plugins have access to a library module provided by Xcode called *XcodeProjectPlugin* — this module extends the *PackagePlugin* APIs to let plugins work on Xcode targets in addition to packages.
+
+In order to write a plugin that works with packages in every environment and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.  For exampe:
+
+```swift
+import PackagePlugin
+
+@main
+struct MyCommandPlugin: CommandPlugin {
+    /// This entry point is called when operating on a Swift package.
+    func performCommand(context: PluginContext, arguments: [String]) throws {
+        debugPrint(context)
+    }
+}
+
+#if canImport(XcodeProjectPlugin)
+import XcodeProjectPlugin
+
+extension MyCommandPlugin: XcodeCommandPlugin {
+    /// This entry point is called when operating on an Xcode project.
+    func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+        debugPrint(context)
+    }
+}
+#endif
+```
+
+The `XcodePluginContext` input structure is similar to the regular `PluginContext` structure, except that it provides access to an Xcode project that uses Xcode naming and semantics for the project model (which is somewhat different from that of SwiftPM).  Some of the underlying types, such as `FileList`, `Path`, etc are the same for `PackagePlugin` and `XcodeProjectPlugin` types.
+
+If any targets are chosen in the Xcode user interface, Xcode passes their names as `--target` arguments to the plugin.
+
+It is expected that other IDEs or custom environments that use SwiftPM could similarly provide modules that define new entry points and extend the functionality of the core `PackagePlugin` APIs.
