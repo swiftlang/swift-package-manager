@@ -441,6 +441,11 @@ class PluginTests: XCTestCase {
                 catch {
                     XCTFail("error \(String(describing: error))", file: file, line: line)
                 }
+                
+                // Check that we didn't end up with any completely empty diagnostics.
+                XCTAssertNil(observability.diagnostics.first{ $0.message.isEmpty })
+
+                // Invoke the diagnostics checker for the plugin output.
                 testDiagnostics(delegate.diagnostics, problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
             }
 

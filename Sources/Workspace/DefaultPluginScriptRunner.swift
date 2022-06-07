@@ -318,7 +318,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             completion($0.tryMap { process in
                 // Emit the compiler output as observable info.
                 let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
-                observabilityScope.emit(info: compilerOutput)
+                if !compilerOutput.isEmpty {
+                    observabilityScope.emit(info: compilerOutput)
+                }
 
                 // Save the persisted compilation state for possible reuse next time.
                 let compilationState = PersistedCompilationState(
