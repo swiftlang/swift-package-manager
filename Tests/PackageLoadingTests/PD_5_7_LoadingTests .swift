@@ -126,4 +126,31 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testPlatforms() throws {
+        let content =  """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v13), .iOS(.v16),
+                   .tvOS(.v16), .watchOS(.v9),
+                   .macCatalyst(.v16), .driverKit(.v22),
+               ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.platforms, [
+            PlatformDescription(name: "macos", version: "13.0"),
+            PlatformDescription(name: "ios", version: "16.0"),
+            PlatformDescription(name: "tvos", version: "16.0"),
+            PlatformDescription(name: "watchos", version: "9.0"),
+            PlatformDescription(name: "maccatalyst", version: "16.0"),
+            PlatformDescription(name: "driverkit", version: "22.0"),
+        ])
+    }
 }

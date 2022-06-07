@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2018-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -316,6 +316,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v12: MacOSVersion = .init(string: "12.0")
+
+        /// The value that represents macOS 13.0.
+        ///
+        /// - Since: First available in PackageDescription 5.7.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v13: MacOSVersion = .init(string: "13.0")
     }
 
     /// The supported tvOS version.
@@ -367,6 +373,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: TVOSVersion = .init(string: "15.0")
+
+        /// The value that represents tvOS 16.0.
+        ///
+        /// - Since: First available in PackageDescription 5.7.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v16: TVOSVersion = .init(string: "16.0")
     }
 
     /// The supported Mac Catalyst version.
@@ -398,6 +410,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: MacCatalystVersion = .init(string: "15.0")
+
+        /// The value that represents Mac Catalyst 16.0.
+        ///
+        /// - Since: First available in PackageDescription 5.7.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v16: MacCatalystVersion = .init(string: "16.0")
     }
 
     /// The supported iOS version.
@@ -454,6 +472,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v15: IOSVersion = .init(string: "15.0")
+
+        /// The value that represents iOS 16.0.
+        ///
+        /// - Since: First available in PackageDescription 5.7.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v16: IOSVersion = .init(string: "16.0")
     }
 
     /// The supported watchOS version.
@@ -505,6 +529,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.5.
         @available(_PackageDescription, introduced: 5.5)
         public static let v8: WatchOSVersion = .init(string: "8.0")
+
+        /// The value that represents watchOS 9.0.
+        ///
+        /// - Since: First available in PackageDescription 5.7.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v9: WatchOSVersion = .init(string: "9.0")
     }
 
     /// The supported DriverKit version.
@@ -530,6 +560,10 @@ extension SupportedPlatform {
         /// The value that represents DriverKit 21.0.
         @available(_PackageDescription, introduced: 5.5)
         public static let v21: DriverKitVersion = .init(string: "21.0")
+
+        /// The value that represents DriverKit 22.0.
+        @available(_PackageDescription, introduced: 5.7)
+        public static let v22: DriverKitVersion = .init(string: "22.0")
     }
 }
 
