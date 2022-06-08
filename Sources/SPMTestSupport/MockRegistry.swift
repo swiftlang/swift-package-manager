@@ -31,7 +31,7 @@ public class MockRegistry {
     private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
     private var packagesSourceControlURLs = [PackageIdentity: [URL]]()
     private var sourceControlURLs = [URL: PackageIdentity]()
-    private let packagesLock = Lock()
+    private let packagesLock = Basics.Lock()
 
     public init(
         filesystem: FileSystem,

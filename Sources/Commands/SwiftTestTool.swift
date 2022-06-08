@@ -769,7 +769,7 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
-                    let outputLock = Lock()
+                    let outputLock = Basics.Lock()
                     let start = DispatchTime.now()
                     let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     let duration = start.distance(to: .now())

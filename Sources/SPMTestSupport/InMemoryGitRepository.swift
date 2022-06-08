@@ -67,7 +67,7 @@ public final class InMemoryGitRepository {
     /// The file system in which this repository should be installed.
     private let fs: InMemoryFileSystem
 
-    private let lock = Lock()
+    private let lock = Basics.Lock()
 
     /// Create a new repository at the given path and filesystem.
     public init(path: AbsolutePath, fs: InMemoryFileSystem) {

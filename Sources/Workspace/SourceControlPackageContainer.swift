@@ -63,7 +63,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     /// The cached dependency information.
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
-    private var dependenciesCacheLock = Lock()
+    private var dependenciesCacheLock = Basics.Lock()
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
     private var manifestsCache = ThreadSafeKeyValueStore<String, Manifest>()

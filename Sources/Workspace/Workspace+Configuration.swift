@@ -379,7 +379,7 @@ extension Workspace.Configuration {
         private let fileSystem: FileSystem
 
         private var _mirrors: DependencyMirrors
-        private let lock = Lock()
+        private let lock = Basics.Lock()
 
         /// The mirrors in this configuration
         public var mirrors: DependencyMirrors {
@@ -565,7 +565,7 @@ extension Workspace.Configuration {
         private let fileSystem: FileSystem
 
         private var _configuration = RegistryConfiguration()
-        private let lock = Lock()
+        private let lock = Basics.Lock()
 
         /// The registry configuration
         public var configuration: RegistryConfiguration {

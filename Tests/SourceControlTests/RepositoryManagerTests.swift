@@ -652,7 +652,7 @@ private class DummyRepository: Repository {
 private class DummyRepositoryProvider: RepositoryProvider {
     private let fileSystem: FileSystem
 
-    private let lock = Lock()
+    private let lock = Basics.Lock()
     private var _numClones = 0
     private var _numFetches = 0
 

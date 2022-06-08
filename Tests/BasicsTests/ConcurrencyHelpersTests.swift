@@ -23,7 +23,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var expected = [Int: Int]()
-            let lock = Lock()
+            let lock = Basics.Lock()
 
             let cache = ThreadSafeKeyValueStore<Int, Int>()
             for index in 0 ..< 1000 {
@@ -58,7 +58,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var expected = [Int]()
-            let lock = Lock()
+            let lock = Basics.Lock()
 
             let cache = ThreadSafeArrayStore<Int>()
             for _ in 0 ..< 1000 {
@@ -88,7 +88,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var winner: Int?
-            let lock = Lock()
+            let lock = Basics.Lock()
 
             let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
 

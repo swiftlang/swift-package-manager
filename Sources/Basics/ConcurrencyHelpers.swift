@@ -14,12 +14,10 @@ import Dispatch
 import class Foundation.ProcessInfo
 import TSCBasic
 
-public typealias Lock = TSCBasic.Lock
-
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
-    private let lock = Lock()
+    private let lock = Basics.Lock()
 
     public init(_ seed: [Key: Value] = [:]) {
         self.underlying = seed

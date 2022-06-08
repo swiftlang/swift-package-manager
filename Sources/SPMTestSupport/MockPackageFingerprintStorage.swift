@@ -18,7 +18,7 @@ import TSCBasic
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]]
-    private let lock = Lock()
+    private let lock = Basics.Lock()
 
     public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]] = [:]) {
         self.packageFingerprints = packageFingerprints

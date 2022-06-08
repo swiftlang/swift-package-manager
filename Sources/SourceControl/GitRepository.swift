@@ -331,7 +331,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private let git: GitShellHelper
 
     // lock top protect concurrent modifications to the repository
-    private let lock = Lock()
+    private let lock = Basics.Lock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool

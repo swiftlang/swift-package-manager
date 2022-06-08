@@ -7054,7 +7054,7 @@ final class WorkspaceTests: XCTestCase {
 
         let maxConcurrentRequests = 2
         var concurrentRequests = 0
-        let concurrentRequestsLock = Lock()
+        let concurrentRequestsLock = Basics.Lock()
 
         var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests

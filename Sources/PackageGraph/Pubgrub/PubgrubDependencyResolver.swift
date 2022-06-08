@@ -39,7 +39,7 @@ public struct PubgrubDependencyResolver {
         /// The current best guess for a solution satisfying all requirements.
         public private(set) var solution: PartialSolution
 
-        private let lock = Lock()
+        private let lock = Basics.Lock()
 
         init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
