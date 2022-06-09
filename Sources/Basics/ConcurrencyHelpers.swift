@@ -12,12 +12,13 @@
 
 import Dispatch
 import class Foundation.ProcessInfo
-import TSCBasic
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.tsc_await
 
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
-    private let lock = Basics.Lock()
+    private let lock = Lock()
 
     public init(_ seed: [Key: Value] = [:]) {
         self.underlying = seed
@@ -98,7 +99,7 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
 /// Thread-safe array like structure
 public final class ThreadSafeArrayStore<Value> {
     private var underlying: [Value]
-    private let lock = Lock()
+    private let lock = Basics.Lock()
 
     public init(_ seed: [Value] = []) {
         self.underlying = seed
