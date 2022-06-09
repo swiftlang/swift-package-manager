@@ -22,6 +22,9 @@ import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
+import class TSCUtility.MultiLineNinjaProgressAnimation
+import class TSCUtility.NinjaProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 import Workspace
 import XCBuildSupport
 
@@ -41,18 +44,6 @@ import var TSCUtility.verbosity
 typealias Diagnostic = Basics.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
-    /// The stream to use for reporting progress.
-    private let outputStream: ThreadSafeOutputByteStream
-
-    /// The progress animation for downloads.
-    private let binaryDownloadAnimation: NinjaProgressAnimation
-
-    /// The progress animation for repository fetches.
-    private let fetchAnimation: NinjaProgressAnimation
-
-    /// Logging level
-    private let logLevel: Diagnostic.Severity
-
     private struct DownloadProgress {
         let bytesDownloaded: Int64
         let totalBytesToDownload: Int64
@@ -65,60 +56,52 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     /// The progress of binary downloads.
     private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
+    private let binaryDownloadProgressLock = Lock()
 
     /// The progress of package  fetch operations.
     private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
-
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
+    private let fetchProgressLock = Lock()
 
     private let observabilityScope: ObservabilityScope
 
-    init(_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity, observabilityScope: ObservabilityScope) {
-        // FIXME: Implement a class convenience initializer that does this once they are supported
-        // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
-        self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.binaryDownloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
-        self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
-        self.logLevel = logLevel
+    private let outputHandler: (String, Bool) -> Void
+    private let progressHandler: (Int64, Int64, String?) -> Void
+
+    init(
+        observabilityScope: ObservabilityScope,
+        outputHandler: @escaping (String, Bool) -> Void,
+        progressHandler: @escaping (Int64, Int64, String?) -> Void
+    ) {
         self.observabilityScope = observabilityScope
+        self.outputHandler = outputHandler
+        self.progressHandler = progressHandler
     }
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
-        queue.async {
-            self.outputStream <<< "Fetching \(packageLocation ?? package.description)"
-            if fetchDetails.fromCache {
-                self.outputStream <<< " from cache"
-            }
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", false)
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
-        queue.async {
-            guard case .success = result, !self.observabilityScope.errorsReported else {
-                self.fetchAnimation.clear()
-                return
-            }
+        guard case .success = result, !self.observabilityScope.errorsReported else {
+            return
+        }
 
+        self.fetchProgressLock.withLock {
             let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
             let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
 
             if progress == total && !self.fetchProgress.isEmpty {
-                self.fetchAnimation.clear()
                 self.fetchProgress.removeAll()
             } else {
                 self.fetchProgress[package] = nil
             }
-
-            self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
         }
+
+        self.outputHandler("Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))", false)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-        queue.async {
+       let (step, total, packages) = self.fetchProgressLock.withLock {
             self.fetchProgress[package] = FetchProgress(
                 progress: progress,
                 total: total ?? progress
@@ -127,105 +110,57 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
             let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
             let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
-            self.fetchAnimation.update(
-                step: progress > Int.max ? Int.max : Int(progress),
-                total: total > Int.max ? Int.max : Int(total),
-                text: "Fetching \(packages)"
-            )
+           return (progress, total, packages)
         }
+        self.progressHandler(step, total, "Fetching \(packages)")
     }
 
     func willUpdateRepository(package: PackageIdentity, repository url: String) {
-        queue.async {
-            self.outputStream <<< "Updating \(url)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Updating \(url)", false)
     }
 
     func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
-        queue.async {
-            self.outputStream <<< "Updated \(url) (\(duration.descriptionInSeconds))"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
     }
 
     func dependenciesUpToDate() {
-        queue.async {
-            self.outputStream <<< "Everything is already up-to-date"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Everything is already up-to-date", false)
     }
 
     func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
-        queue.async {
-            self.outputStream <<< "Creating working copy for \(url)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Creating working copy for \(url)", false)
     }
 
     func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
-        queue.async {
-            self.outputStream <<< "Working copy of \(url) resolved at \(revision)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
     }
 
     func removing(package: PackageIdentity, packageLocation: String?) {
-        queue.async {
-            self.outputStream <<< "Removing \(packageLocation ?? package.description)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Removing \(packageLocation ?? package.description)", false)
     }
 
     func willResolveDependencies(reason: WorkspaceResolveReason) {
-        guard self.logLevel <= .info else {
-            return
-        }
-
-        queue.sync {
-            self.outputStream <<< Workspace.format(workspaceResolveReason: reason)
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler(Workspace.format(workspaceResolveReason: reason), true)
     }
 
     func willComputeVersion(package: PackageIdentity, location: String) {
-        queue.async {
-            self.outputStream <<< "Computing version for \(location)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Computing version for \(location)", false)
     }
 
     func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
-        queue.async {
-            self.outputStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
     }
 
     func willDownloadBinaryArtifact(from url: String) {
-        queue.async {
-            self.outputStream <<< "Downloading binary artifact \(url)"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
+        self.outputHandler("Downloading binary artifact \(url)", false)
     }
 
     func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
-        queue.async {
-            guard case .success = result, !self.observabilityScope.errorsReported else {
-                self.binaryDownloadAnimation.clear()
-                return
-            }
+        guard case .success = result, !self.observabilityScope.errorsReported else {
+            return
+        }
 
+        self.binaryDownloadProgressLock.withLock {
             let progress = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
             let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
 
@@ -234,16 +169,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             } else {
                 self.binaryDownloadProgress[url] = nil
             }
-
-            self.binaryDownloadAnimation.clear()
-            self.outputStream <<< "Downloaded \(url) (\(duration.descriptionInSeconds))"
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
         }
+
+        self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        queue.async {
+        let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock {
             self.binaryDownloadProgress[url] = DownloadProgress(
                 bytesDownloaded: bytesDownloaded,
                 totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
@@ -252,12 +184,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
             let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
             let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
-            self.binaryDownloadAnimation.update(
-                step: step > Int.max ? Int.max : Int(step > 1024 ? step / 1024 : step),
-                total: total > Int.max ? Int.max : Int(total > 1024 ? total / 1024 : total),
-                text: "Downloading \(artifacts)"
-            )
+            return (step, total, artifacts)
         }
+
+        self.progressHandler(step, total, "Downloading \(artifacts)")
     }
 
     // noop
@@ -280,6 +210,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: globalOptions)
         try self.run(swiftTool)
+        swiftTool.waitForObservabilityEvents(timeout: .now() + 5)  // wait for all observability items to process
         if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
@@ -538,13 +469,21 @@ public class SwiftTool {
         }
     }
 
+    func waitForObservabilityEvents(timeout: DispatchTime) {
+        self.observabilityHandler.wait(timeout: timeout)
+    }
+
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
 
-        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let delegate = ToolWorkspaceDelegate(
+            observabilityScope: self.observabilityScope,
+            outputHandler: self.observabilityHandler.print,
+            progressHandler: self.observabilityHandler.progress
+        )
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
@@ -678,7 +617,7 @@ public class SwiftTool {
             throw error
         }
     }
-    
+
     func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
@@ -941,7 +880,7 @@ public class SwiftTool {
     enum ExecutionStatus {
         case success
         case failure
-        }
+    }
 }
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
@@ -1029,27 +968,109 @@ private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
     }
 
+    // for raw output reporting
+    func print(_ output: String, verbose: Bool) {
+        self.outputHandler.print(output, verbose: verbose)
+    }
+
+    // for raw progress reporting
+    func progress(step: Int64, total: Int64, description: String?) {
+        self.outputHandler.progress(step: step, total: total, description: description)
+    }
+
     // FIXME: deprecate this one we are further along refactoring the call sites that use it
     var outputStream: OutputByteStream {
         self.outputHandler.outputStream
     }
 
+    func wait(timeout: DispatchTime) {
+        self.outputHandler.wait(timeout: timeout)
+    }
+
     struct OutputHandler: DiagnosticsHandler {
-        let logLevel: Diagnostic.Severity
-        let outputStream: ThreadSafeOutputByteStream
-        let writer: InteractiveWriter
+        private let logLevel: Diagnostic.Severity
+        internal let outputStream: ThreadSafeOutputByteStream
+        private let writer: InteractiveWriter
+        private let progressAnimation: ProgressAnimationProtocol
+
+        private let queue = DispatchQueue(label: "org.swift.swiftpm.tools-output")
+        private let sync = DispatchGroup()
 
         init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
+            self.progressAnimation = logLevel.isVerbose ?
+                MultiLineNinjaProgressAnimation(stream: outputStream) :
+                NinjaProgressAnimation(stream: outputStream)
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-            // TODO: do something useful with scope
-            if diagnostic.severity >= self.logLevel {
-                diagnostic.print(with: self.writer)
+            self.queue.async(group: self.sync) {
+                guard diagnostic.severity >= self.logLevel else {
+                    return
+                }
+
+                // TODO: do something useful with scope
+                var output: String
+                switch diagnostic.severity {
+                case .error:
+                    output = self.writer.format("error: ", inColor: .red, bold: true)
+                case .warning:
+                    output = self.writer.format("warning: ", inColor: .yellow, bold: true)
+                case .info:
+                    output = self.writer.format("info: ", inColor: .white, bold: true)
+                case .debug:
+                    output = self.writer.format("debug: ", inColor: .white, bold: true)
+                }
+
+                if let diagnosticPrefix = diagnostic.metadata?.diagnosticPrefix {
+                    output += diagnosticPrefix
+                    output += ": "
+                }
+
+                output += diagnostic.message
+                self.write(output)
             }
+        }
+
+        // for raw output reporting
+        func print(_ output: String, verbose: Bool) {
+            self.queue.async(group: self.sync) {
+                guard !verbose || self.logLevel.isVerbose else {
+                    return
+                }
+                self.write(output)
+            }
+        }
+
+        // for raw progress reporting
+        func progress(step: Int64, total: Int64, description: String?) {
+            self.queue.async(group: self.sync) {
+                self.progressAnimation.update(
+                    step: step > Int.max ? Int.max : Int(step),
+                    total: total > Int.max ? Int.max : Int(total),
+                    text: description ?? ""
+                )
+            }
+        }
+
+        func wait(timeout: DispatchTime) {
+            switch self.sync.wait(timeout: timeout) {
+            case .success:
+                break
+            case .timedOut:
+                self.write("warning: failed to process all diagnostics")
+            }
+        }
+
+        private func write(_ output: String) {
+            self.progressAnimation.clear()
+            var output = output
+            if !output.hasSuffix("\n") {
+                output += "\n"
+            }
+            self.writer.write(output)
         }
     }
 }
@@ -1059,34 +1080,6 @@ extension SwiftTool {
     /// The stream to print standard output on.
     var outputStream: OutputByteStream {
         self.observabilityHandler.outputStream
-    }
-}
-
-extension Basics.Diagnostic {
-    fileprivate func print(with writer: InteractiveWriter) {
-        var message: String
-        switch self.severity {
-        case .error:
-            message = writer.format("error: ", inColor: .red, bold: true)
-        case .warning:
-            message = writer.format("warning: ", inColor: .yellow, bold: true)
-        case .info:
-            message = writer.format("info: ", inColor: .white, bold: true)
-        case .debug:
-            message = writer.format("debug: ", inColor: .white, bold: true)
-        }
-
-        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
-            message += diagnosticPrefix
-            message += ": "
-        }
-
-        message += self.message
-        if !self.message.hasPrefix("\n") {
-            message += "\n"
-        }
-
-        writer.write(message)
     }
 }
 
@@ -1146,7 +1139,7 @@ extension Workspace.ManagedDependency {
 }
 
 extension LoggingOptions {
-    var logLevel: Diagnostic.Severity {
+    fileprivate var logLevel: Diagnostic.Severity {
         if self.verbose {
             return .info
         } else if self.veryVerbose {
@@ -1158,7 +1151,7 @@ extension LoggingOptions {
 }
 
 extension ResolverOptions.SourceControlToRegistryDependencyTransformation {
-    var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
+    fileprivate var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
         switch self {
         case .disabled:
             return .disabled
@@ -1171,7 +1164,7 @@ extension ResolverOptions.SourceControlToRegistryDependencyTransformation {
 }
 
 extension BuildOptions.StoreMode {
-    var buildParameter: BuildParameters.IndexStoreMode {
+    fileprivate var buildParameter: BuildParameters.IndexStoreMode {
         switch self {
         case .autoIndexStore:
             return .auto
@@ -1180,5 +1173,11 @@ extension BuildOptions.StoreMode {
         case .disableIndexStore:
             return .off
         }
+    }
+}
+
+extension Basics.Diagnostic.Severity {
+    fileprivate var isVerbose: Bool {
+        return self <= .info
     }
 }

@@ -31,6 +31,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -47,6 +49,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
@@ -65,6 +69,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -82,6 +88,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -98,6 +106,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
