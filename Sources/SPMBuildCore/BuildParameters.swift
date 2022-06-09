@@ -128,9 +128,6 @@ public struct BuildParameters: Encodable {
     /// Whether to use the explicit module build flow (with the integrated driver)
     public var useExplicitModuleBuild: Bool
 
-    /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    public var printManifestGraphviz: Bool
-
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
@@ -200,7 +197,6 @@ public struct BuildParameters: Encodable {
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
-        printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
         linkerDeadStrip: Bool = true,
@@ -230,7 +226,6 @@ public struct BuildParameters: Encodable {
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
-        self.printManifestGraphviz = printManifestGraphviz
         // decide on testability based on debug/release config
         // the goals of this being based on the build configuration is
         // that `swift build` followed by a `swift test` will need to do minimal rebuilding

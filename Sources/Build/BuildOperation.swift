@@ -143,8 +143,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
             // We need to perform actual planning if we reach here.
-            return try self.plan()
+            return try self.plan().description
         }
+    }
+
+    public func getBuildManifest() throws -> LLBuildManifest.BuildManifest {
+        return try self.plan().manifest
     }
 
     /// Cancel the active build operation.
@@ -283,7 +287,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> BuildDescription {
+    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest.BuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
 
@@ -372,18 +376,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope
         )
 
-        // FIXME: ideally this would be done outside of the planning phase,
-        // but it would require deeper changes in how we serialize BuildDescription
-        // Output a dot graph
-        if buildParameters.printManifestGraphviz {
-            // FIXME: this seems like the wrong place to print
-            var serializer = DOTManifestSerializer(manifest: buildManifest)
-            serializer.writeDOT(to: self.outputStream)
-            self.outputStream.flush()
-        }
-
         // Finally create the llbuild manifest from the plan.
-        return buildDescription
+        return (buildDescription, buildManifest)
     }
 
     /// Build the package structure target.
@@ -519,7 +513,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)

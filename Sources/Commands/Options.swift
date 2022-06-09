@@ -339,12 +339,6 @@ struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false
 
-    /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    @Flag(
-        name: .customLong("print-manifest-job-graph"),
-        help: "Write the command graph for the build manifest as a graphviz file")
-    var printManifestGraphviz: Bool = false
-
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemKind = .native

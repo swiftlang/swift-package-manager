@@ -69,6 +69,11 @@ struct BuildToolOptions: ParsableArguments {
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
     var shouldPrintBinPath: Bool = false
 
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    @Flag(name: .customLong("print-manifest-job-graph"),
+          help: "Write the command graph for the build manifest as a graphviz file")
+    var printManifestGraphviz: Bool = false
+
     /// Specific target to build.
     @Option(help: "Build the specified target")
     var target: String?
@@ -96,7 +101,17 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            try print(swiftTool.buildParameters().buildPath.description)
+            return try print(swiftTool.buildParameters().buildPath.description)
+        }
+
+        if options.printManifestGraphviz {
+            let buildOperation = try swiftTool.createBuildOperation()
+            let buildManifest = try buildOperation.getBuildManifest()
+            var serializer = DOTManifestSerializer(manifest: buildManifest)
+            // print to stdout
+            let outputStream = stdoutStream
+            serializer.writeDOT(to: outputStream)
+            outputStream.flush()
             return
         }
 
