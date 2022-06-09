@@ -101,7 +101,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-       let (step, total, packages) = self.fetchProgressLock.withLock {
+        let (step, total, packages) = self.fetchProgressLock.withLock { () -> (Int64, Int64, String) in
             self.fetchProgress[package] = FetchProgress(
                 progress: progress,
                 total: total ?? progress
@@ -110,7 +110,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
             let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
             let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
-           return (progress, total, packages)
+            return (progress, total, packages)
         }
         self.progressHandler(step, total, "Fetching \(packages)")
     }
@@ -175,7 +175,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock {
+        let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
             self.binaryDownloadProgress[url] = DownloadProgress(
                 bytesDownloaded: bytesDownloaded,
                 totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
