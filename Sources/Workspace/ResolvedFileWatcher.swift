@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.NSLock
 import PackageModel
 import PackageGraph
 import TSCBasic
@@ -22,7 +23,7 @@ import class TSCUtility.FSWatch
 final class ResolvedFileWatcher {
     private var fswatch: FSWatch!
     private var existingValue: ByteString?
-    private let valueLock: Lock = Lock()
+    private let valueLock = NSLock()
     private let resolvedFile: AbsolutePath
 
     public func updateValue() {

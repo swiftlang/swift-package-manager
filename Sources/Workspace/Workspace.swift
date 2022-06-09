@@ -1175,7 +1175,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope,
         completion: @escaping(Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
-        let lock = Basics.Lock()
+        let lock = NSLock()
         let sync = DispatchGroup()
         var rootManifests = [AbsolutePath: Manifest]()
         Set(packages).forEach { package in

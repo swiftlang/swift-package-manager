@@ -395,7 +395,7 @@ fileprivate struct Worker {
 class ProcessStartedSemaphore {
     let term: String
     let underlying = DispatchSemaphore(value: 0)
-    let lock = Basics.Lock()
+    let lock = NSLock()
     var trapped = false
     var output = ""
 

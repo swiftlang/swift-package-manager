@@ -12,6 +12,7 @@
 
 import Basics
 import Dispatch
+import class Foundation.NSLock
 import TSCBasic
 
 import enum TSCUtility.Git
@@ -331,7 +332,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private let git: GitShellHelper
 
     // lock top protect concurrent modifications to the repository
-    private let lock = Basics.Lock()
+    private let lock = NSLock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool

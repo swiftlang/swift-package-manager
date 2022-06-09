@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import TSCBasic
 import TSCTestSupport
 import XCTest
 
@@ -23,7 +22,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var expected = [Int: Int]()
-            let lock = Basics.Lock()
+            let lock = NSLock()
 
             let cache = ThreadSafeKeyValueStore<Int, Int>()
             for index in 0 ..< 1000 {
@@ -58,7 +57,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var expected = [Int]()
-            let lock = Basics.Lock()
+            let lock = NSLock()
 
             let cache = ThreadSafeArrayStore<Int>()
             for _ in 0 ..< 1000 {
@@ -88,7 +87,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let sync = DispatchGroup()
 
             var winner: Int?
-            let lock = Basics.Lock()
+            let lock = NSLock()
 
             let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
 

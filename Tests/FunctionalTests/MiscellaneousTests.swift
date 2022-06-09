@@ -431,7 +431,7 @@ class MiscellaneousTestCase: XCTestCase {
         class OutputHandler {
             let sync: DispatchGroup
             var state = State.idle
-            let lock = Basics.Lock()
+            let lock = NSLock()
 
             init(sync: DispatchGroup) {
                 self.sync = sync

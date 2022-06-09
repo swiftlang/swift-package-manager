@@ -15,6 +15,7 @@ import Dispatch
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
+import class Foundation.NSLock
 import struct Foundation.URL
 import PackageModel
 import TSCBasic
@@ -36,14 +37,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let decoder: JSONDecoder
 
     private var state = State.idle
-    private let stateLock = Basics.Lock()
+    private let stateLock = NSLock()
 
     private let cache = ThreadSafeKeyValueStore<Model.CollectionIdentifier, Model.Collection>()
 
-    // Lock helps prevent concurrency errors with transaction statements during e.g. `refreshCollections`,
+    // NSLock helps prevent concurrency errors with transaction statements during e.g. `refreshCollections`,
     // since only one transaction is allowed per SQLite connection. We need transactions to speed up bulk updates.
     // TODO: we could potentially optimize this with db connection pool
-    private let ftsLock = Basics.Lock()
+    private let ftsLock = NSLock()
     // FTS not supported on some platforms; the code falls back to "slow path" in that case
     // marked internal for testing
     internal let useSearchIndices = ThreadSafeBox<Bool>()
@@ -51,7 +52,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
     private var targetTrieReady: Bool?
-    private let populateTargetTrieLock = Basics.Lock()
+    private let populateTargetTrieLock = NSLock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))

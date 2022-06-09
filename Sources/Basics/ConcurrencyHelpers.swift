@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.tsc_await
@@ -18,7 +19,7 @@ import func TSCBasic.tsc_await
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
-    private let lock = Lock()
+    private let lock = NSLock()
 
     public init(_ seed: [Key: Value] = [:]) {
         self.underlying = seed
@@ -99,7 +100,7 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
 /// Thread-safe array like structure
 public final class ThreadSafeArrayStore<Value> {
     private var underlying: [Value]
-    private let lock = Basics.Lock()
+    private let lock = NSLock()
 
     public init(_ seed: [Value] = []) {
         self.underlying = seed
@@ -171,7 +172,7 @@ public final class ThreadSafeArrayStore<Value> {
 @dynamicMemberLookup
 public final class ThreadSafeBox<Value> {
     private var underlying: Value?
-    private let lock = Lock()
+    private let lock = NSLock()
 
     public init() {}
 

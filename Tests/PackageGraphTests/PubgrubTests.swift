@@ -1506,7 +1506,7 @@ final class PubgrubTests: XCTestCase {
     func testDelegate() {
         class TestDelegate: DependencyResolverDelegate {
             var events = [String]()
-            let lock = Basics.Lock()
+            let lock = NSLock()
 
             func willResolve(term: Term) {
                 self.lock.withLock {

@@ -8,24 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
+import class Foundation.NSLock
 
-/// A simple lock wrapper.
-public struct Lock {
-    private let _lock = NSLock()
-    
-    /// Create a new lock.
-    public init() {
-    }
-    
-    func lock() {
-        _lock.lock()
-    }
-    
-    func unlock() {
-        _lock.unlock()
-    }
-    
+extension NSLock {
     /// Execute the given block while holding the lock.
     public func withLock<T> (_ body: () throws -> T) rethrows -> T {
         lock()
