@@ -382,7 +382,7 @@ public final class ClangTargetBuildDescription {
         // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
         // 2. on Windows when compiling for any language, because of issues with the Windows SDK
         // 3. on Android when compiling for any language, because of issues with the Android SDK
-        let enableModules = !(buildParameters.triple.isDarwin() && isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
+        let enableModules = !isCXX && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
 
         if enableModules {
             // Using modules currently conflicts with the Windows and Android SDKs.
