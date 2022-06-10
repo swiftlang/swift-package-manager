@@ -556,6 +556,10 @@ private func createResolvedPackages(
             }
         }
     }
+
+    if moduleAliasingUsed {
+        productList.filter{ $0.isStaticLibrary }.forEach { $0.useIDAsName() }
+    }
     return try packageBuilders.map{ try $0.construct() }
 }
 

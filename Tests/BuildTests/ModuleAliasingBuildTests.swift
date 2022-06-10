@@ -222,7 +222,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
                                         "/thisPkg/Sources/exe/main.swift",
                                     "/fooPkg/Sources/Logging/fileLogging.swift",
-                                    "/barPkg/Sources/Logging/fileLogging.swift"
+                                    "/barPkg/Sources/Logging/fileLogging.swift",
+                                    "/bazPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
@@ -246,22 +247,38 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Logging", dependencies: []),
                     ]),
+                Manifest.createFileSystemManifest(
+                    name: "bazPkg",
+                    path: .init("/bazPkg"),
+                    products: [
+                        ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init("/thisPkg"),
                     dependencies: [
                         .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init("/bazPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
                                           dependencies: [.product(name: "Logging",
-                                                                  package: "fooPkg"
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"]
                                                                  ),
                                                          .product(name: "Logging",
                                                                   package: "barPkg",
                                                                   moduleAliases: ["Logging": "BarLogging"]
+                                                                 ),
+                                                         .product(name: "Logging",
+                                                                  package: "bazPkg",
+                                                                  moduleAliases: ["Logging": "BazLogging"]
                                                                  )
+
                                           ]),
                     ]),
             ],
@@ -274,13 +291,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         ))
-        result.checkProductsCount(2)
-        result.checkTargetsCount(3)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+        result.checkProductsCount(3)
+        result.checkTargetsCount(4)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" && $0.target.moduleAliases?["Logging"] == "BazLogging" })
         #if os(macOS)
         let dylib = try result.buildProduct(for: "Logging")
         XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "barpkg")
+        let staticlib = try result.buildProduct(for: "bazpkg_Logging")
+        XCTAssertTrue(staticlib.binary.basename == "libbazpkg_Logging.a" && staticlib.package.identity.description == "bazpkg")
         #endif
     }
 

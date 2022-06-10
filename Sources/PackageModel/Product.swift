@@ -17,7 +17,7 @@ import struct TSCUtility.PolymorphicCodableArray
 
 public class Product: Codable {
     /// The name of the product.
-    public let name: String
+    public private(set) var name: String
 
     /// Fully qualified name for this product: package ID + name of this product
     public let ID: String
@@ -57,6 +57,10 @@ public class Product: Codable {
         self.ID = package.description.lowercased() + "_" + name
         self._targets = .init(wrappedValue: targets)
         self.testManifest = testManifest
+    }
+
+    public func useIDAsName() {
+        name = ID
     }
 }
 
