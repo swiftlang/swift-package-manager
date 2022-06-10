@@ -396,19 +396,20 @@ private func createResolvedPackages(
 
         // We first divide the products by type which determines whether to use
         // the product ID (unique, fully qualified name) or name to look up duplicates.
-        // Names of the automatic or static lib products will be altered as IDs later,
-        // so we look up the duplicates with the ID property here.
+
+        // There are no shared dirs/files created for automatic library products, so look
+        // up duplicates with the ID property for those products.
         let staticLibProducts = productList
-            .filter{ $0.isStaticLibrary }
+            .filter{ $0.isDefaultLibrary }
             .spm_findDuplicateElements(by: \.ID)
             .map({ $0[0] })
 
-        // Building products such as dylibs or executables creates shared dirs/files,
-        // e.g. Foo.product (directory), libFoo.dylib, etc., so we want to keep the
-        // original product names in such case. Thus, use the name property to find
-        // duplicates among those products.
+        // Building other products, i.e. static libs, dylibs, executables, result in
+        // shared dirs/files, e.g. Foo.product (dir), libFoo.dylib, etc., so we want
+        // to keep the original product names for those. Thus, use the name property
+        // to look up duplicates.
         let otherProducts = productList
-            .filter{ !$0.isStaticLibrary }
+            .filter{ !$0.isDefaultLibrary }
             .spm_findDuplicateElements(by: \.name)
             .map({ $0[0] })
 
@@ -416,7 +417,7 @@ private func createResolvedPackages(
         // Emit diagnostics for duplicate products.
         for dupProduct in allProducts {
             let packages = packageBuilders
-                .filter({ $0.products.contains(where: { $0.product.isStaticLibrary ? $0.product.ID == dupProduct.ID : $0.product.name == dupProduct.name }) })
+                .filter({ $0.products.contains(where: { $0.product.isDefaultLibrary ? $0.product.ID == dupProduct.ID : $0.product.name == dupProduct.name }) })
                 .map{ $0.package.identity.description }
                 .sorted()
             observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
@@ -425,7 +426,7 @@ private func createResolvedPackages(
         let staticLibProductIDs = staticLibProducts.map{ $0.ID }
         let otherProductNames = otherProducts.map{ $0.name }
         for packageBuilder in packageBuilders {
-            packageBuilder.products = packageBuilder.products.filter { $0.product.isStaticLibrary ? !staticLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
+            packageBuilder.products = packageBuilder.products.filter { $0.product.isDefaultLibrary ? !staticLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
         }
     } else {
         let duplicateProducts = productList
@@ -558,17 +559,12 @@ private func createResolvedPackages(
         }
     }
 
-    if moduleAliasingUsed {
-        // Since duplicate product names are allowed for automatic or static lib products,
-        // they need to be renamed as IDs here.
-        productList.filter{ $0.isStaticLibrary }.forEach { $0.useIDAsName() }
-    }
     return try packageBuilders.map{ try $0.construct() }
 }
 
 fileprivate extension Product {
-    var isStaticLibrary: Bool {
-        return type == .library(.automatic) || type == .library(.static)
+    var isDefaultLibrary: Bool {
+        return type == .library(.automatic)
     }
 }
 
