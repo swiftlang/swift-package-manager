@@ -36,8 +36,9 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
 
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
@@ -58,8 +59,9 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
 
         XCTAssertEqual(manifest.platforms, [
             PlatformDescription(name: "macos", version: "12.0"),

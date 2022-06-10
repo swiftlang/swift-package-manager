@@ -2074,17 +2074,11 @@ extension Workspace {
         // Load the manifest, bracketed by the calls to the delegate callbacks.
         delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
 
-        let observabilityScope = observabilityScope.makeChildScope(description: "Loading manifest") {
+        let manifestLoadingScope = observabilityScope.makeChildScope(description: "Loading manifest") {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-        let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-            observabilityScope.emit(diagnostic)
-            manifestLoadingDiagnostics.append(diagnostic)
-        }).topScope.makeChildScope(description: "Loading manifest") {
-            .packageMetadata(identity: packageIdentity, kind: packageKind)
-        }
+        var manifestLoadingDiagnostics = [Basics.Diagnostic]()
 
         self.manifestLoader.load(
             packagePath: packagePath,
@@ -2099,61 +2093,25 @@ extension Workspace {
             delegateQueue: .sharedConcurrent,
             callbackQueue: .sharedConcurrent
         ) { result in
+            var result = result
             switch result {
-            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-            case .failure(Diagnostics.fatalError):
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
             case .failure(let error):
-                manifestLoadingScope.emit(error)
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+                manifestLoadingDiagnostics.append(.error(error))
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics)
             case .success(let manifest):
-                manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
+                let validator = ManifestValidator(manifest: manifest, sourceControlValidator: self.repositoryManager, fileSystem: self.fileSystem)
+                let validationIssues = validator.validate()
+                if !validationIssues.isEmpty {
+                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                    result = .failure(Diagnostics.fatalError)
+                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
+                }
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics)
             }
+            manifestLoadingScope.emit(manifestLoadingDiagnostics)
             completion(result)
         }
     }
-
-    // TODO: move more manifest validation in here from other parts of the code, e.g. from ManifestLoader
-    private func validateManifest(_ manifest: Manifest) throws {
-        // validate dependency requirements
-        for dependency in manifest.dependencies {
-            switch dependency {
-            case .sourceControl(let sourceControl):
-                try validateSourceControlDependency(sourceControl)
-            default:
-                break
-            }
-        }
-
-        func validateSourceControlDependency(_ dependency: PackageDependency.SourceControl) throws {
-            // validate source control ref
-            switch dependency.requirement {
-            case .branch(let name):
-                guard self.repositoryManager.isValidRefFormat(name) else {
-                    throw StringError("Invalid branch name: '\(name)'")
-                }
-            case .revision(let revision):
-                guard self.repositoryManager.isValidRefFormat(revision) else {
-                    throw StringError("Invalid revision: '\(revision)'")
-                }
-            default:
-                break
-            }
-            // if a location is on file system, validate it is in fact a git repo
-            // there is a case to be made to throw early (here) if the path does not exists
-            // but many of our tests assume they can pass a non existent path
-            if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
-                guard self.repositoryManager.isValidDirectory(localPath) else {
-                    // Provides better feedback when mistakingly using url: for a dependency that
-                    // is a local package. Still allows for using url with a local package that has
-                    // also been initialized by git
-                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
-                }
-            }
-        }
-    }
-
 
     /// Validates that all the edited dependencies are still present in the file system.
     /// If some checkout dependency is removed form the file system, clone it again.
@@ -4067,3 +4025,6 @@ fileprivate func warnToStderr(_ message: String) {
     TSCBasic.stderrStream.write("warning: \(message)\n")
     TSCBasic.stderrStream.flush()
 }
+
+// used for manifest validation
+extension RepositoryManager: ManifestSourceControlValidator {}

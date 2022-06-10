@@ -160,6 +160,12 @@ public protocol DiagnosticsEmitterProtocol {
 }
 
 extension DiagnosticsEmitterProtocol {
+    public func emit(_ diagnostics: [Diagnostic]) {
+        for diagnostic in diagnostics {
+            self.emit(diagnostic)
+        }
+    }
+
     public func emit(severity: Diagnostic.Severity, message: String, metadata: ObservabilityMetadata? = .none) {
         self.emit(.init(severity: severity, message: message, metadata: metadata))
     }
