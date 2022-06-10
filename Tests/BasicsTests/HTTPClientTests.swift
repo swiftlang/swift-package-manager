@@ -539,7 +539,7 @@ final class HTTPClientTest: XCTestCase {
     func testMaxConcurrency() throws {
         let maxConcurrentRequests = 2
         var concurrentRequests = 0
-        let concurrentRequestsLock = Lock()
+        let concurrentRequestsLock = NSLock()
 
         var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests

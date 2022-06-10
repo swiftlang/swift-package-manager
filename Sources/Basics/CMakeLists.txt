@@ -23,6 +23,7 @@ add_library(Basics
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
   Netrc.swift
+  NSLock+Extensions.swift
   Observability.swift
   Sandbox.swift
   String+Extensions.swift

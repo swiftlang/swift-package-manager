@@ -19,7 +19,7 @@ public final class DependencyMirrors: Equatable {
     private var index: [String: String]
     private var reverseIndex: [String: [String]]
     private var visited: OrderedCollections.OrderedSet<String>
-    private let lock = Lock()
+    private let lock = NSLock()
 
     public var mapping: [String: String] {
         self.lock.withLock {

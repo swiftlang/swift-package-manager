@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct TSCBasic.Lock
 import struct TSCBasic.StringError
 import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual

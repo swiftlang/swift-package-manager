@@ -777,7 +777,7 @@ public final class MockWorkspace {
 }
 
 public final class MockWorkspaceDelegate: WorkspaceDelegate {
-    private let lock = Lock()
+    private let lock = NSLock()
     private var _events = [String]()
     private var _manifest: Manifest?
     private var _manifestLoadingDiagnostics: [Basics.Diagnostic]?

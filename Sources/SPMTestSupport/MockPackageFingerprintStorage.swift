@@ -12,13 +12,13 @@
 
 import Basics
 import Dispatch
+import class Foundation.NSLock
 import PackageFingerprint
 import PackageModel
-import TSCBasic
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]]
-    private let lock = Lock()
+    private let lock = NSLock()
 
     public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]] = [:]) {
         self.packageFingerprints = packageFingerprints

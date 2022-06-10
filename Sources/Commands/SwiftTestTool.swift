@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
@@ -769,7 +770,7 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
-                    let outputLock = Lock()
+                    let outputLock = NSLock()
                     let start = DispatchTime.now()
                     let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     let duration = start.distance(to: .now())

@@ -413,7 +413,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Set up a pipe for receiving messages from the plugin on its stdout.
         let stdoutPipe = Pipe()
-        let stdoutLock = Lock()
+        let stdoutLock = NSLock()
         stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Receive the next message and pass it on to the delegate.
             stdoutLock.withLock {
@@ -448,7 +448,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Set up a pipe for receiving free-form text output from the plugin on its stderr.
         let stderrPipe = Pipe()
-        let stderrLock = Lock()
+        let stderrLock = NSLock()
         var stderrData = Data()
         let stderrHandler = { (data: Data) in
             // Pass on any available data to the delegate.

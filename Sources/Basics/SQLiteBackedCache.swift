@@ -25,7 +25,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     public let configuration: SQLiteBackedCacheConfiguration
 
     private var state = State.idle
-    private let stateLock = Lock()
+    private let stateLock = NSLock()
 
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
