@@ -276,10 +276,12 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(3)
-        let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "barpkg")
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
+        #if os(macOS)
+        let dylib = try result.buildProduct(for: "Logging")
+        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "barpkg")
+        #endif
     }
 
     func testModuleAliasingDuplicateProductNamesUpstream() throws {
@@ -375,12 +377,14 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
         result.checkProductsCount(4)
         result.checkTargetsCount(5)
-        let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "xpkg")
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ALogging" && $0.target.moduleAliases?["Logging"] == "ALogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Logging"] == "ALogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "B" && $0.target.moduleAliases == nil })
+        #if os(macOS)
+        let dylib = try result.buildProduct(for: "Logging")
+        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "xpkg")
+        #endif
     }
 
     func testModuleAliasingDirectDeps() throws {
@@ -1287,7 +1291,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "A",
-                                          dependencies: [ //"Utils",
+                                          dependencies: [
                                             .product(name: "G",
                                                      package: "gPkg"),
                                             .product(name: "B",
