@@ -396,16 +396,17 @@ private func createResolvedPackages(
 
         // We first divide the products by type which determines whether to use
         // the product ID (unique, fully qualified name) or name to look up duplicates.
-        // There are no files/dirs created for a static library product, so use
-        // the product ID property to look up duplicates.
+        // Names of the automatic or static lib products will be altered as IDs later,
+        // so we look up the duplicates with the ID property here.
         let staticLibProducts = productList
             .filter{ $0.isStaticLibrary }
             .spm_findDuplicateElements(by: \.ID)
             .map({ $0[0] })
 
-        // There are files/dirs created for products such as dylibs or executables,
-        // e.g. Foo.product (directory), libFoo.dylib, etc., thus the original product
-        // names should be preserved and look up should be done by the name property.
+        // Building products such as dylibs or executables creates shared dirs/files,
+        // e.g. Foo.product (directory), libFoo.dylib, etc., so we want to keep the
+        // original product names in such case. Thus, use the name property to find
+        // duplicates among those products.
         let otherProducts = productList
             .filter{ !$0.isStaticLibrary }
             .spm_findDuplicateElements(by: \.name)
@@ -558,6 +559,8 @@ private func createResolvedPackages(
     }
 
     if moduleAliasingUsed {
+        // Since duplicate product names are allowed for automatic or static lib products,
+        // they need to be renamed as IDs here.
         productList.filter{ $0.isStaticLibrary }.forEach { $0.useIDAsName() }
     }
     return try packageBuilders.map{ try $0.construct() }
