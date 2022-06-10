@@ -23,7 +23,7 @@ Package manifest `swift-game`
 {
     name: "swift-game",
     products: [
-        .library(name: "UtilsProduct", targets: ["Utils"]),
+        .library(name: "Utils", targets: ["Utils"]),
     ],
     targets: [
         .target(name: "Utils", dependencies: [])
@@ -40,7 +40,7 @@ Both `swift-draw` and `swift-game` vend modules with the same name `Utils`, thus
             dependencies: [
                 .product(name: "Utils",
                          package: "swift-draw"),
-                .product(name: "UtilsProduct",
+                .product(name: "Utils",
                          package: "swift-game",
                          moduleAliases: ["Utils": "GameUtils"]),
             ])
@@ -50,8 +50,6 @@ Both `swift-draw` and `swift-game` vend modules with the same name `Utils`, thus
 The value for the `moduleAliases` parameter is a dictionary where the key is the original module name in conflict and the value is a user-defined new unique name, in this case `GameUtils`. This will rename the `Utils` module in package `swift-game` as `GameUtils`; the name of the binary will be `GameUtils.swiftmodule`. No source or manifest changes are required by the `swift-game` package. 
 
 To use the aliased module, `App` needs to reference the the new name, i.e. `import GameUtils`. Its existing `import Utils` statement will continue to reference the `Utils` module from package `swift-draw`, as expected.
-
-Note that the names being disambiguated here are the conflicting module names, not the product names, thus the product names of each package are still required to be unique. If the vended product name of `swift-game` is `Utils` instead of `UtilsProduct` in the example above, it will throw a `multiple products named "Utils"' error as it does today.   
 
 ### Example 2
 
@@ -153,4 +151,3 @@ The alias `SwiftUtils` defined in `swift-game` will be overridden by the value `
 * A module being aliased cannot be a prebuilt binary due to the impact on mangling and serialization, i.e. source-based only.
 * A module being aliased should not be passed to a runtime call such as `NSClassFromString(...)` that converts (directly or indirectly) String to a type in a module since such call will fail.
 * If a target mapped to a module being aliased contains resources, they should be asset catalogs, localized strings, or resources that do not require explicit module names.
-* Module aliasing disambiguates conflicting module names which affect the corresponding target names, thus the product names of each package are still required to be unique.
