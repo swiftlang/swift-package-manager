@@ -399,7 +399,7 @@ private func createResolvedPackages(
 
         // There are no shared dirs/files created for automatic library products, so look
         // up duplicates with the ID property for those products.
-        let staticLibProducts = productList
+        let autoLibProducts = productList
             .filter{ $0.isDefaultLibrary }
             .spm_findDuplicateElements(by: \.ID)
             .map({ $0[0] })
@@ -413,7 +413,7 @@ private func createResolvedPackages(
             .spm_findDuplicateElements(by: \.name)
             .map({ $0[0] })
 
-        let allProducts = staticLibProducts + otherProducts
+        let allProducts = autoLibProducts + otherProducts
         // Emit diagnostics for duplicate products.
         for dupProduct in allProducts {
             let packages = packageBuilders
@@ -423,10 +423,10 @@ private func createResolvedPackages(
             observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
         }
         // Remove the duplicate products from the builders.
-        let staticLibProductIDs = staticLibProducts.map{ $0.ID }
+        let autoLibProductIDs = autoLibProducts.map{ $0.ID }
         let otherProductNames = otherProducts.map{ $0.name }
         for packageBuilder in packageBuilders {
-            packageBuilder.products = packageBuilder.products.filter { $0.product.isDefaultLibrary ? !staticLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
+            packageBuilder.products = packageBuilder.products.filter { $0.product.isDefaultLibrary ? !autoLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
         }
     } else {
         let duplicateProducts = productList
