@@ -5,7 +5,7 @@ Swift 5.7
 
 * [SE-0292]
 
-  SwiftPM can now resolve deepndencies from a server compliant with the pacakge registry server API defined in SE-0292. 
+  SwiftPM can now resolve deepndencies from a server compliant with the package registry server API defined in SE-0292. 
   
 * [SE-0339]
 
