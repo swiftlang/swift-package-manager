@@ -7,9 +7,8 @@ class ModuleAliasTracker {
     var idToProductToAllTargets = [PackageIdentity: [String: [Target]]]()
     var productToDirectTargets = [String: [Target]]()
     var productToAllTargets = [String: [Target]]()
-    var childToParentProducts = [String: [String]]()
     var parentToChildProducts = [String: [String]]()
-    var cachedChildToParentProducts = [String: [String]]()
+    var childToParentProducts = [String: [String]]()
     var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
     var childToParentID = [PackageIdentity: PackageIdentity]()
 
@@ -25,7 +24,8 @@ class ModuleAliasTracker {
                 if let aliasList = productRef.moduleAliases {
                     // Track aliases for this product
                     try addAliases(aliasList,
-                                   product: productRef.name,
+                                   productID: productRef.ID,
+                                   productName: productRef.name,
                                    originPackage: productPkgID,
                                    consumingPackage: package)
                 }
@@ -34,7 +34,8 @@ class ModuleAliasTracker {
     }
 
     func addAliases(_ aliases: [String: String],
-                    product: String,
+                    productID: String,
+                    productName: String,
                     originPackage: PackageIdentity,
                     consumingPackage: PackageIdentity) throws {
         if let aliasDict = aliasMap[originPackage] {
@@ -43,14 +44,14 @@ class ModuleAliasTracker {
                 if let newAlias = aliases[existingAlias.name], newAlias != existingAlias.alias {
                     // Error if there are multiple different aliases specified for
                     // targets in this product
-                    throw PackageGraphError.multipleModuleAliases(target: existingAlias.name, product: product, package: originPackage.description, aliases: existingAliases.map{$0.alias} + [newAlias])
+                    throw PackageGraphError.multipleModuleAliases(target: existingAlias.name, product: productName, package: originPackage.description, aliases: existingAliases.map{$0.alias} + [newAlias])
                 }
             }
         }
 
         for (originalName, newName) in aliases {
             let model = ModuleAliasModel(name: originalName, alias: newName, originPackage: originPackage, consumingPackage: consumingPackage)
-            aliasMap[originPackage, default: [:]][product, default: []].append(model)
+            aliasMap[originPackage, default: [:]][productID, default: []].append(model)
         }
     }
 
@@ -73,25 +74,25 @@ class ModuleAliasTracker {
         allTargetDeps.append(contentsOf: targetDeps)
         for dep in allTargetDeps {
             if case let .product(depRef, _) = dep {
-                childToParentProducts[depRef.name, default: []].append(product.name)
-                parentToChildProducts[product.name, default: []].append(depRef.name)
+                childToParentProducts[depRef.ID, default: []].append(product.ID)
+                parentToChildProducts[product.ID, default: []].append(depRef.ID)
             }
         }
 
         var allTargetsInProduct = targetDeps.compactMap{$0.target}
         allTargetsInProduct.append(contentsOf: product.targets)
-        idToProductToAllTargets[package, default: [:]][product.name] = allTargetsInProduct
-        productToDirectTargets[product.name] = product.targets
-        productToAllTargets[product.name] = allTargetsInProduct
+        idToProductToAllTargets[package, default: [:]][product.ID] = allTargetsInProduct
+        productToDirectTargets[product.ID] = product.targets
+        productToAllTargets[product.ID] = allTargetsInProduct
     }
 
-    func validateAndApplyAliases(product: String,
+    func validateAndApplyAliases(product: Product,
                                  package: PackageIdentity) throws {
-        guard let targets = idToProductToAllTargets[package]?[product] else { return }
+        guard let targets = idToProductToAllTargets[package]?[product.ID] else { return }
         let targetsWithAliases = targets.filter{ $0.moduleAliases != nil }
         for target in targetsWithAliases {
             if target.sources.containsNonSwiftFiles {
-                throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product, package: package.description)
+                throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product.name, package: package.description)
             }
             target.applyAlias()
         }
@@ -113,8 +114,8 @@ class ModuleAliasTracker {
         // Now merge overriden upstream aliases and add them to
         // downstream targets
         if let productToAllTargets = idToProductToAllTargets[rootPkg] {
-            for productName in productToAllTargets.keys {
-                mergeAliases(product: productName)
+            for productID in productToAllTargets.keys {
+                mergeAliases(productID: productID)
             }
         }
     }
@@ -176,23 +177,23 @@ class ModuleAliasTracker {
     }
 
     // Merge overriden upstream aliases and add them to downstream targets
-    func mergeAliases(product: String) {
-        guard let childProducts = parentToChildProducts[product] else { return }
+    func mergeAliases(productID: String) {
+        guard let childProducts = parentToChildProducts[productID] else { return }
         for child in childProducts {
-            mergeAliases(product: child)
+            mergeAliases(productID: child)
             // Filter out targets in the current product with names that are
             // aliased with different values in the child products since they
             // should either not be aliased or their existing aliases if any
             // should not be overridden.
-            let allTargetNamesInCurProduct = productToAllTargets[product]?.compactMap{$0.name} ?? []
+            let allTargetNamesInCurProduct = productToAllTargets[productID]?.compactMap{$0.name} ?? []
             let childTargetsAliases = productToDirectTargets[child]?.compactMap{$0.moduleAliases}.flatMap{$0}.filter{ !allTargetNamesInCurProduct.contains($0.key) }
 
             if let childTargetsAliases = childTargetsAliases,
-               let directTargets = productToDirectTargets[product] {
+               let directTargets = productToDirectTargets[productID] {
                 // Keep track of all targets in this product that directly
                 // or indirectly depend on the child product
-                let directRelevantTargets = directTargets.filter {$0.dependsOn(product: child)}
-                var relevantTargets = directTargets.map{$0.dependentTargets()}.flatMap{$0}.filter {$0.dependsOn(product: child)}
+                let directRelevantTargets = directTargets.filter {$0.dependsOn(productID: child)}
+                var relevantTargets = directTargets.map{$0.dependentTargets()}.flatMap{$0}.filter {$0.dependsOn(productID: child)}
                 relevantTargets.append(contentsOf: directTargets)
                 relevantTargets.append(contentsOf: directRelevantTargets)
                 let relevantTargetSet = Set(relevantTargets)
@@ -259,10 +260,10 @@ class ModuleAliasModel {
 }
 
 extension Target {
-    func dependsOn(product: String) -> Bool {
+    func dependsOn(productID: String) -> Bool {
         return dependencies.contains { dep in
             if case let .product(prodRef, _) = dep {
-                return prodRef.name == product
+                return prodRef.ID == productID
             }
             return false
         }
