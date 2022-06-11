@@ -49,6 +49,15 @@ public class Target: PolymorphicCodableProtocol {
         /// becomes the name of its .swiftmodule binary.
         public let moduleAliases: [String: String]?
 
+        /// Fully qualified name for this product dependency: package ID + name of the product
+        public var ID: String {
+            if let pkg = package {
+                return pkg.lowercased() + "_" + name
+            }
+            // package ID won't be included for products referenced only by name
+            return name
+        }
+
         /// Creates a product reference instance.
         public init(name: String, package: String?, moduleAliases: [String: String]? = nil) {
             self.name = name
