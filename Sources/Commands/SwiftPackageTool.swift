@@ -2299,7 +2299,7 @@ struct InstalledPackage: Codable, Equatable {
     }
     
     enum Errors: Swift.Error, LocalizedError {
-        case faildToLoadPackagesJSONFile(reason: String )
+        case faildToLoadPackagesJSONFile(reason: String)
         case failedToCreatePackagesJSONFile
         case itemAlreadyExists(item: InstalledPackage)
         
