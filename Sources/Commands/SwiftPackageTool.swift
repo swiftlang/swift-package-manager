@@ -1046,7 +1046,7 @@ extension SwiftPackageTool {
         var name: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            guard let package = InstalledPackage.InstalledPackages.first(where: { installedPkg in
+            guard let package = try InstalledPackage.getInstalledPackages().first(where: { installedPkg in
                 installedPkg.name == name
             }) else {
                 throw StringError("No installed packages with the name \"\(name)\" found.")
@@ -1068,7 +1068,7 @@ extension SwiftPackageTool {
         var name: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            guard let package = InstalledPackage.InstalledPackages.first(where: { installedPkg in
+            guard let package = try InstalledPackage.getInstalledPackages().first(where: { installedPkg in
                 installedPkg.name == name
             }) else {
                 throw StringError("No installed packages with the name \"\(name)\" found")
@@ -2192,23 +2192,30 @@ struct InstalledPackage: Codable, Equatable {
         .appendingPathComponent(".swiftpm")
         .appendingPathComponent("installed-packages.json")
 
-    static public var InstalledPackages: [InstalledPackage] {
-        guard let data = try? Data(contentsOf: self.InstalledPackagesFileURL),
-              let decoded = try? JSONDecoder().decode([InstalledPackage].self, from: data) else {
-            return []
+    static public func getInstalledPackages() throws -> [InstalledPackage] {
+        guard FileManager.default.fileExists(atPath: self.InstalledPackagesFileURL.path) else {
+            throw Errors.faildToLoadPackagesJSONFile(reason: "installed-packages.json file doesn't exist")
         }
         
-        return decoded
+        do {
+            let data = try Data(contentsOf: self.InstalledPackagesFileURL)
+            return try JSONDecoder().decode([InstalledPackage].self, from: data)
+        } catch {
+            throw Errors.faildToLoadPackagesJSONFile(reason: "Failed to load or decode file, check if it's corrupted?")
+        }
     }
     
     /// Registers the item to the installed-packages.json file
     func writeToFile() throws {
         let installedPackagesFileURL = InstalledPackage.InstalledPackagesFileURL
         
-        var array: [InstalledPackage] = InstalledPackage.InstalledPackages
+        var array: [InstalledPackage] = []
+        if FileManager.default.fileExists(atPath: Self.InstalledPackagesFileURL.path) {
+            array = try Self.getInstalledPackages()
+        }
         
         // Make sure the item doesn't already exist
-        guard !array.contains(self) || array.map(\.name).contains(self.name) else {
+        guard !array.contains(self) || !array.map(\.name).contains(self.name) else {
             throw Errors.itemAlreadyExists(item: self)
         }
         
@@ -2236,7 +2243,7 @@ struct InstalledPackage: Codable, Equatable {
             try FileManager.default.removeItem(at: URL(fileURLWithPath: self.installedPath))
         }
         
-        var installedPackages = Self.InstalledPackages
+        var installedPackages = try Self.getInstalledPackages()
         
         installedPackages.removeAll {
             $0 == self
@@ -2292,13 +2299,17 @@ struct InstalledPackage: Codable, Equatable {
     }
     
     enum Errors: Swift.Error, LocalizedError {
+        case faildToLoadPackagesJSONFile(reason: String )
         case failedToCreatePackagesJSONFile
         case itemAlreadyExists(item: InstalledPackage)
+        
         
         var errorDescription: String? {
             switch self {
             case .failedToCreatePackagesJSONFile:
                 return "Failed to create installed-packages.json file."
+            case .faildToLoadPackagesJSONFile(let reason):
+                return "Failed to access / load installed-packages.json file: \(reason)"
             case .itemAlreadyExists(let package):
                 return "Cannot add \(package) to installed-packages.json because it already exists there."
             }
