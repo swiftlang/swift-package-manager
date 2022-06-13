@@ -62,6 +62,7 @@ public struct SwiftPackageTool: ParsableCommand {
             GenerateXcodeProject.self,
             ComputeChecksum.self,
             ArchiveSource.self,
+            Install.self,
             CompletionTool.self,
             PluginCommand.self,
             
@@ -893,6 +894,124 @@ extension SwiftPackageTool {
         }
     }
 
+    struct Install: SwiftCommand {
+        static let configuration: CommandConfiguration = CommandConfiguration(
+            commandName: "install",
+            abstract: "Clone, compile, and copy a remote executable target"
+        )
+        
+        @Argument(help: "URL of the remote target.")
+        var remoteTarget: String
+        
+        @OptionGroup(_hiddenFromHelp: true)
+        var globalOptions: GlobalOptions
+        
+        @Option(
+            name: .customLong("target"),
+            help: "The executable target to install."
+        )
+        var targetName: String?
+        
+        func run(_ swiftTool: SwiftTool) throws {
+            let spmBinPath = URL(fileURLWithPath: NSHomeDirectory())
+                .appendingPathComponent(".swiftpm")
+                .appendingPathComponent("bin")
+            
+            // If ~/.swiftpm/bin isn't in the user PATH, emit a warning.
+            if let userPATH = ProcessInfo.processInfo.environment["PATH"], !userPATH.contains(spmBinPath.path) {
+                swiftTool.observabilityScope.emit(warning: "User PATH doesn't include \(spmBinPath.path)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
+            }
+            
+            let buildTmpDir = URL(fileURLWithPath: NSHomeDirectory())
+                .appendingPathComponent(".swiftpm")
+                .appendingPathComponent("tmp")
+                .appendingPathComponent("swiftpm-install-\(String(UUID().uuidString.prefix(5)))")
+            try FileManager.default.createDirectory(at: buildTmpDir, withIntermediateDirectories: true)
+            let buildTmpDirAbsolute = AbsolutePath(buildTmpDir.path)
+            
+#if DEBUG
+            print("buildTmpDir: \(buildTmpDir)")
+#endif
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            task.standardError = FileHandle.nullDevice
+            task.standardOutput = FileHandle.nullDevice
+            task.arguments = ["clone", remoteTarget, buildTmpDir.path]
+            try task.run()
+            task.waitUntilExit()
+            
+            var globalOpts = globalOptions
+            globalOpts.locations._packageDirectory = buildTmpDirAbsolute
+            let tool = try SwiftTool(options: globalOpts)
+            let workspace = try tool.getActiveWorkspace()
+            
+            let packageGraph = try tsc_await {
+                workspace.loadRootPackage(at: buildTmpDirAbsolute, observabilityScope: tool.observabilityScope, completion: $0)
+            }
+            
+            let executableTargets = packageGraph.targets.filter { $0.type == .executable }
+            // Make sure that there are executable targets.
+            guard !executableTargets.isEmpty else {
+                throw InstallErrors.noExecutableTargetsFound
+            }
+            
+            let binName: String
+            if let targetName {
+                guard executableTargets.contains(where: { $0.name == targetName }) else {
+                    throw InstallErrors.noExecutableTargetsFoundWithName(name: targetName)
+                }
+                binName = targetName
+            } else {
+                // if the user didn't specify the executable target to install,
+                // make sure there's only one.
+                guard executableTargets.count == 1 else {
+                    throw InstallErrors.multipleExecutibleTargetsFound
+                }
+                
+                binName = executableTargets[0].name
+            }
+            
+            // Make sure that the binary with the same name in ~/.swiftpm/bin/ doesn't exist.
+            guard !FileManager.default.fileExists(atPath: spmBinPath.appendingPathComponent(binName).path) else {
+                throw InstallErrors.outputBinaryPathAlreadyExists(path: spmBinPath.appendingPathComponent(binName).path)
+            }
+            
+            try tool.createBuildSystem().build()
+            
+            let binFullPath = try tool.buildParameters().buildPath.appending(component: binName)
+            
+            try FileManager.default.moveItem(
+                at: URL(fileURLWithPath: binFullPath.pathString),
+                to: spmBinPath.appendingPathComponent(binName)
+            )
+            
+            try FileManager.default.removeItem(at: buildTmpDir)
+        }
+        
+        enum InstallErrors: Swift.Error, LocalizedError {
+            case remoteTargetURLProvidedNotValid(url: String)
+            case outputBinaryPathAlreadyExists(path: String)
+            case noExecutableTargetsFoundWithName(name: String)
+            case noExecutableTargetsFound
+            case multipleExecutibleTargetsFound
+            
+            var errorDescription: String? {
+                switch self {
+                case .remoteTargetURLProvidedNotValid(let url):
+                    return "Remote Target URL \"\(url)\" is not a valid URL."
+                case .noExecutableTargetsFound:
+                    return "No executable targets found."
+                case .outputBinaryPathAlreadyExists(let path):
+                    return "\(path) already exists."
+                case .noExecutableTargetsFoundWithName(let name):
+                    return "No executable targets with name \"\(name)\" were found."
+                case .multipleExecutibleTargetsFound:
+                    return "Multiple executable targets found, but the target to install wasn't specified. Please specify one with --target."
+                }
+            }
+        }
+    }
+    
     struct ArchiveSource: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "archive-source",
