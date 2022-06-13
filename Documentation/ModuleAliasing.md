@@ -65,6 +65,8 @@ The value for the `moduleAliases` parameter is a dictionary where the key is the
 
 To use the aliased module, `App` needs to reference the the new name, i.e. `import GameUtils`. Its existing `import Utils` statement will continue to reference the `Utils` module from package `swift-draw`, as expected.
 
+Note that the dependency product names are duplicate, i.e. both have the same name `Utils`, which is by default not allowed. However, this is allowed when module aliasing is used as long as no multiple files with the same product name are created. This means they must all be automatic library types, or at most one of them can be a static library, dylib, an executable, or any other type that creates a file or a directory with the product name. 
+
 ### Example 2
 
 `App` imports a module `Utils` from a package `swift-draw`. It wants to add another package dependency `swift-game` and imports a module `Game` vended from the package. The `Game` module imports `Utils` from the same package.
@@ -197,3 +199,4 @@ The `Utils` module from package `a-utils` will be renamed as `DrawUtils`, and `U
 * A module being aliased cannot be a prebuilt binary due to the impact on mangling and serialization, i.e. source-based only.
 * A module being aliased should not be passed to a runtime call such as `NSClassFromString(...)` that converts (directly or indirectly) String to a type in a module since such call will fail.
 * If a target mapped to a module being aliased contains resources, they should be asset catalogs, localized strings, or resources that do not require explicit module names.
+* If a product that a module being aliased belongs to has a conflicting name with another product, at most one of the products can be a non-automatic library type.
