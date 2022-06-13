@@ -13,6 +13,7 @@ add_library(PackageGraph
   DependencyResolver.swift
   Diagnostics.swift
   GraphLoadingNode.swift
+  ModuleAliasTracker.swift
   PackageContainer.swift
   PackageGraph.swift
   PackageGraph+Loading.swift

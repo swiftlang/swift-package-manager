@@ -246,7 +246,7 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    try resolveModuleAliases(packageBuilders: packageBuilders)
+    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -383,25 +383,67 @@ private func createResolvedPackages(
     }
 
     // Find duplicate products in the package graph.
-    let duplicateProducts = packageBuilders
-        .flatMap({ $0.products })
-        .map({ $0.product })
-        .spm_findDuplicateElements(by: \.name)
-        .map({ $0[0].name })
+    let productList = packageBuilders.flatMap({ $0.products }).map({ $0.product })
 
-    // Emit diagnostics for duplicate products.
-    for productName in duplicateProducts {
-        let packages = packageBuilders
-            .filter({ $0.products.contains(where: { $0.product.name == productName }) })
-            .map{ $0.package.identity.description }
-            .sorted()
+    if moduleAliasingUsed {
+        // FIXME: If moduleAliasingUsed, we want to allow duplicate product names
+        // from different packages as often times the product name of a package is
+        // same as its target name which might have a conflict with the name of the
+        // product itself or its target from another package.
+        // The following is a workaround; eventually we want to allow duplicate product
+        // names even when module aliasing is not used, which is a cleaner solution.
+        // Ref rdar://94744134.
 
-        observabilityScope.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
-    }
+        // We first divide the products by type which determines whether to use
+        // the product ID (unique, fully qualified name) or name to look up duplicates.
 
-    // Remove the duplicate products from the builders.
-    for packageBuilder in packageBuilders {
-        packageBuilder.products = packageBuilder.products.filter({ !duplicateProducts.contains($0.product.name) })
+        // There are no shared dirs/files created for automatic library products, so look
+        // up duplicates with the ID property for those products.
+        let autoLibProducts = productList
+            .filter{ $0.isDefaultLibrary }
+            .spm_findDuplicateElements(by: \.ID)
+            .map({ $0[0] })
+
+        // Building other products, i.e. static libs, dylibs, executables, result in
+        // shared dirs/files, e.g. Foo.product (dir), libFoo.dylib, etc., so we want
+        // to keep the original product names for those. Thus, use the name property
+        // to look up duplicates.
+        let otherProducts = productList
+            .filter{ !$0.isDefaultLibrary }
+            .spm_findDuplicateElements(by: \.name)
+            .map({ $0[0] })
+
+        let allProducts = autoLibProducts + otherProducts
+        // Emit diagnostics for duplicate products.
+        for dupProduct in allProducts {
+            let packages = packageBuilders
+                .filter({ $0.products.contains(where: { $0.product.isDefaultLibrary ? $0.product.ID == dupProduct.ID : $0.product.name == dupProduct.name }) })
+                .map{ $0.package.identity.description }
+                .sorted()
+            observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
+        }
+        // Remove the duplicate products from the builders.
+        let autoLibProductIDs = autoLibProducts.map{ $0.ID }
+        let otherProductNames = otherProducts.map{ $0.name }
+        for packageBuilder in packageBuilders {
+            packageBuilder.products = packageBuilder.products.filter { $0.product.isDefaultLibrary ? !autoLibProductIDs.contains($0.product.ID) : !otherProductNames.contains($0.product.name) }
+        }
+    } else {
+        let duplicateProducts = productList
+            .spm_findDuplicateElements(by: \.name)
+            .map({ $0[0] })
+        // Emit diagnostics for duplicate products.
+        for dupProduct in duplicateProducts {
+            let packages = packageBuilders
+                .filter({ $0.products.contains(where: { $0.product.name == dupProduct.name }) })
+                .map{ $0.package.identity.description }
+                .sorted()
+            observabilityScope.emit(PackageGraphError.duplicateProduct(product: dupProduct.name, packages: packages))
+        }
+        // Remove the duplicate products from the builders.
+        for packageBuilder in packageBuilders {
+            packageBuilder.products = packageBuilder.products.filter { !duplicateProducts.map{$0.name}.contains($0.product.name) }
+        }
     }
 
     // The set of all target names.
@@ -436,7 +478,7 @@ private func createResolvedPackages(
                 let explicit = Set(dependency.package.manifest.products.lazy.map({ $0.name }))
                 return dependency.products.filter({ explicit.contains($0.product.name) })
             })
-        let productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
+        let productDependencyMap = moduleAliasingUsed ? productDependencies.spm_createDictionary({ ($0.product.ID, $0) }) : productDependencies.spm_createDictionary({ ($0.product.name, $0) })
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
@@ -449,7 +491,9 @@ private func createResolvedPackages(
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in targetBuilder.target.dependencies {
                 // Find the product in this package's dependency products.
-                guard let product = productDependencyMap[productRef.name] else {
+                // Look it up by ID if module aliasing is used, otherwise by name.
+                let product = moduleAliasingUsed ? productDependencyMap[productRef.ID] : productDependencyMap[productRef.name]
+                guard let product = product else {
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
@@ -514,7 +558,14 @@ private func createResolvedPackages(
             }
         }
     }
+
     return try packageBuilders.map{ try $0.construct() }
+}
+
+fileprivate extension Product {
+    var isDefaultLibrary: Bool {
+        return type == .library(.automatic)
+    }
 }
 
 private func computePlatforms(
@@ -590,7 +641,7 @@ private func computePlatforms(
 }
 
 // Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) throws {
+private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) throws -> Bool {
 
     // If there are no module aliases specified, return early
     let hasAliases = packageBuilders.contains { $0.package.targets.contains {
@@ -603,7 +654,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) thr
         }
     }
 
-    guard hasAliases else { return }
+    guard hasAliases else { return false }
     let aliasTracker = ModuleAliasTracker()
     for packageBuilder in packageBuilders {
         try aliasTracker.addTargetAliases(targets: packageBuilder.package.targets,
@@ -626,283 +677,11 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) thr
     // upstream can be overriden.
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
-            try aliasTracker.validateAndApplyAliases(product: product.name,
+            try aliasTracker.validateAndApplyAliases(product: product,
                                                      package: packageBuilder.package.identity)
         }
     }
-}
-
-// This class helps track module aliases in a package graph and override
-// upstream alises if needed
-private class ModuleAliasTracker {
-    var aliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
-    var idToProductToAllTargets = [PackageIdentity: [String: [Target]]]()
-    var productToDirectTargets = [String: [Target]]()
-    var productToAllTargets = [String: [Target]]()
-    var childToParentProducts = [String: [String]]()
-    var parentToChildProducts = [String: [String]]()
-    var cachedChildToParentProducts = [String: [String]]()
-    var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
-    var childToParentID = [PackageIdentity: PackageIdentity]()
-
-    init() {}
-    func addTargetAliases(targets: [Target], package: PackageIdentity) throws {
-        let targetDependencies = targets.map{$0.dependencies}.flatMap{$0}
-        for dep in targetDependencies {
-            if case let .product(productRef, _) = dep,
-               let productPkg = productRef.package {
-                let productPkgID = PackageIdentity.plain(productPkg)
-                // Track dependency package ID chain
-                addPackageIDChain(parent: package, child: productPkgID)
-                if let aliasList = productRef.moduleAliases {
-                    // Track aliases for this product
-                    try addAliases(aliasList,
-                                   product: productRef.name,
-                                   originPackage: productPkgID,
-                                   consumingPackage: package)
-                }
-            }
-        }
-    }
-
-    func addAliases(_ aliases: [String: String],
-                    product: String,
-                    originPackage: PackageIdentity,
-                    consumingPackage: PackageIdentity) throws {
-        if let aliasDict = aliasMap[originPackage] {
-            let existingAliases = aliasDict.values.flatMap{$0}.filter {  aliases.keys.contains($0.name) }
-            for existingAlias in existingAliases {
-                if let newAlias = aliases[existingAlias.name], newAlias != existingAlias.alias {
-                    // Error if there are multiple different aliases specified for
-                    // targets in this product
-                    throw PackageGraphError.multipleModuleAliases(target: existingAlias.name, product: product, package: originPackage.description, aliases: existingAliases.map{$0.alias} + [newAlias])
-                }
-            }
-        }
-
-        for (originalName, newName) in aliases {
-            let model = ModuleAliasModel(name: originalName, alias: newName, originPackage: originPackage, consumingPackage: consumingPackage)
-            aliasMap[originPackage, default: [:]][product, default: []].append(model)
-        }
-    }
-
-    func addPackageIDChain(parent: PackageIdentity,
-                           child: PackageIdentity) {
-        if parentToChildIDs[parent]?.contains(child) ?? false {
-            // Already added
-        } else {
-            parentToChildIDs[parent, default: []].append(child)
-            // Used to track the top-most level package
-            childToParentID[child] = parent
-        }
-    }
-
-    // This func should be called once per product
-    func trackTargetsPerProduct(product: Product,
-                                package: PackageIdentity) {
-        let targetDeps = product.targets.map{$0.dependencies}.flatMap{$0}
-        var allTargetDeps = product.targets.map{$0.dependentTargets().map{$0.dependencies}}.flatMap{$0}.flatMap{$0}
-        allTargetDeps.append(contentsOf: targetDeps)
-        for dep in allTargetDeps {
-            if case let .product(depRef, _) = dep {
-                childToParentProducts[depRef.name, default: []].append(product.name)
-                parentToChildProducts[product.name, default: []].append(depRef.name)
-            }
-        }
-
-        var allTargetsInProduct = targetDeps.compactMap{$0.target}
-        allTargetsInProduct.append(contentsOf: product.targets)
-        idToProductToAllTargets[package, default: [:]][product.name] = allTargetsInProduct
-        productToDirectTargets[product.name] = product.targets
-        productToAllTargets[product.name] = allTargetsInProduct
-    }
-
-    func validateAndApplyAliases(product: String,
-                                 package: PackageIdentity) throws {
-        guard let targets = idToProductToAllTargets[package]?[product] else { return }
-        let targetsWithAliases = targets.filter{ $0.moduleAliases != nil }
-        for target in targetsWithAliases {
-            if target.sources.containsNonSwiftFiles {
-                throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product, package: package.description)
-            }
-            target.applyAlias()
-        }
-    }
-
-    func propagateAliases() {
-        // First get the root package ID
-        var pkgID = childToParentID.first?.key
-        var rootPkg = pkgID
-        while pkgID != nil {
-            rootPkg = pkgID
-            // pkgID is not nil here so can be force unwrapped
-            pkgID = childToParentID[pkgID!]
-        }
-        guard let rootPkg = rootPkg else { return }
-        // Propagate and override upstream aliases if needed
-        var aliasBuffer = [String: ModuleAliasModel]()
-        propagate(package: rootPkg, aliasBuffer: &aliasBuffer)
-        // Now merge overriden upstream aliases and add them to
-        // downstream targets
-        if let productToAllTargets = idToProductToAllTargets[rootPkg] {
-            for productName in productToAllTargets.keys {
-                mergeAliases(product: productName)
-            }
-        }
-    }
-
-    // Traverse upstream and override aliases for the same targets if needed
-    func propagate(package: PackageIdentity, aliasBuffer: inout [String: ModuleAliasModel]) {
-        if let curProductToTargetAliases = aliasMap[package] {
-            let curAliasModels = curProductToTargetAliases.map {$0.value}.filter{!$0.isEmpty}.flatMap{$0}
-            for aliasModel in curAliasModels {
-                // A buffer is used to track the most downstream aliases
-                // (hence the nil check here) to allow overriding upstream
-                // aliases for targets; if the downstream aliases are applied
-                // to upstream targets, then they get removed
-                if aliasBuffer[aliasModel.name] == nil {
-                    // Add a target name as a key. The buffer only tracks
-                    // a target that needs to be renamed, not the depending
-                    // targets which might have multiple target dependencies
-                    // with their aliases, so add a single alias model as value.
-                    aliasBuffer[aliasModel.name] = aliasModel
-                }
-            }
-        }
-        if let curProductToTargets = idToProductToAllTargets[package] {
-            // Check if targets for the products in this package have
-            // aliases tracked by the buffer
-            let curProductToTargetsToAlias = curProductToTargets.filter { $0.value.contains { aliasBuffer[$0.name] != nil } }
-            if !curProductToTargetsToAlias.isEmpty {
-                var usedKeys = Set<String>()
-                for (curProductName, targetsForCurProduct) in curProductToTargets {
-                    if let targetListToAlias = curProductToTargetsToAlias[curProductName] {
-                        for targetToAlias in targetListToAlias {
-                            if let aliasModel = aliasBuffer[targetToAlias.name] {
-                                var didAlias = false
-                                for curTarget in targetsForCurProduct {
-                                    // Check if curTarget is relevant for aliasing
-                                    let canAlias = curTarget.name == aliasModel.name || curTarget.dependencies.contains { $0.name == aliasModel.name }
-                                    if canAlias {
-                                        curTarget.addModuleAlias(for: aliasModel.name, as: aliasModel.alias)
-                                        didAlias = true
-                                    }
-                                }
-                                if didAlias {
-                                    usedKeys.insert(targetToAlias.name)
-                                }
-                            }
-                        }
-                    }
-                }
-                for used in usedKeys {
-                    // Remove an entry for a used alias
-                    aliasBuffer.removeValue(forKey: used)
-                }
-            }
-        }
-        guard let children = parentToChildIDs[package] else { return }
-        for childID in children {
-            propagate(package: childID, aliasBuffer: &aliasBuffer)
-        }
-    }
-
-    // Merge overriden upstream aliases and add them to downstream targets
-    func mergeAliases(product: String) {
-        guard let childProducts = parentToChildProducts[product] else { return }
-        for child in childProducts {
-            mergeAliases(product: child)
-            // Filter out targets in the current product with names that are
-            // aliased with different values in the child products since they
-            // should either not be aliased or their existing aliases if any
-            // should not be overridden.
-            let allTargetNamesInCurProduct = productToAllTargets[product]?.compactMap{$0.name} ?? []
-            let childTargetsAliases = productToDirectTargets[child]?.compactMap{$0.moduleAliases}.flatMap{$0}.filter{ !allTargetNamesInCurProduct.contains($0.key) }
-
-            if let childTargetsAliases = childTargetsAliases,
-               let directTargets = productToDirectTargets[product] {
-                // Keep track of all targets in this product that directly
-                // or indirectly depend on the child product
-                let directRelevantTargets = directTargets.filter {$0.dependsOn(product: child)}
-                var relevantTargets = directTargets.map{$0.dependentTargets()}.flatMap{$0}.filter {$0.dependsOn(product: child)}
-                relevantTargets.append(contentsOf: directTargets)
-                relevantTargets.append(contentsOf: directRelevantTargets)
-                let relevantTargetSet = Set(relevantTargets)
-
-                // Used to compare with aliases defined in other child products
-                // and detect a conflict if any.
-                let allTargetsInOtherChildProducts = childProducts.filter{$0 != child }.compactMap{productToAllTargets[$0]}.flatMap{$0}
-                let allTargetNamesInChildProduct = productToAllTargets[child]?.map{$0.name} ?? []
-                for curTarget in relevantTargetSet {
-                    for (nameToBeAliased, aliasInChild) in childTargetsAliases {
-                        // If there are targets in other child products that
-                        // have the same name that's being aliased here, but
-                        // targets in this child product don't, we need to use
-                        // alias values of those targets as they take a precedence
-                        let otherAliasesInChildProducts = allTargetsInOtherChildProducts.filter{$0.name == nameToBeAliased}.compactMap{$0.moduleAliases}.flatMap{$0}.filter{$0.key == nameToBeAliased}
-                        if !otherAliasesInChildProducts.isEmpty,
-                           !allTargetNamesInChildProduct.contains(curTarget.name) {
-                            for (aliasKey, aliasValue) in otherAliasesInChildProducts {
-                                // Reset the old alias value with this aliasValue
-                                if curTarget.moduleAliases?[aliasKey] != aliasValue {
-                                    curTarget.addModuleAlias(for: aliasKey, as: aliasValue)
-                                }
-                            }
-                        } else {
-                            // If there are no aliases or conflicting aliases
-                            // for the same key defined in other child products,
-                            // those aliases should be removed from this target.
-                            let hasConflict = allTargetsInOtherChildProducts.contains{ otherTarget in
-                                if let otherAlias = otherTarget.moduleAliases?[nameToBeAliased] {
-                                    return otherAlias != aliasInChild
-                                } else {
-                                    return otherTarget.name == nameToBeAliased
-                                }
-                            }
-                            if hasConflict {
-                                // If there are aliases, remove as aliasing should
-                                // not be applied
-                                curTarget.removeModuleAlias(for: nameToBeAliased)
-                            } else if curTarget.moduleAliases?[nameToBeAliased] == nil {
-                                // Otherwise add the alias if none exists
-                                curTarget.addModuleAlias(for: nameToBeAliased, as: aliasInChild)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Used to keep track of module alias info for each package
-private class ModuleAliasModel {
-    let name: String
-    var alias: String
-    let originPackage: PackageIdentity
-    let consumingPackage: PackageIdentity
-
-    init(name: String, alias: String, originPackage: PackageIdentity, consumingPackage: PackageIdentity) {
-        self.name = name
-        self.alias = alias
-        self.originPackage = originPackage
-        self.consumingPackage = consumingPackage
-    }
-}
-
-private extension Target {
-    func dependsOn(product: String) -> Bool {
-        return dependencies.contains { dep in
-            if case let .product(prodRef, _) = dep {
-                return prodRef.name == product
-            }
-            return false
-        }
-    }
-
-    func dependentTargets() -> [Target] {
-        return dependencies.compactMap{$0.target}
-    }
+    return true
 }
 
 /// A generic builder for `Resolved` models.
