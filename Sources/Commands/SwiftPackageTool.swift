@@ -62,7 +62,9 @@ public struct SwiftPackageTool: ParsableCommand {
             GenerateXcodeProject.self,
             ComputeChecksum.self,
             ArchiveSource.self,
-            Install.self,
+            InstallPackage.self,
+            RemovePackage.self,
+            UpdatePackage.self,
             CompletionTool.self,
             PluginCommand.self,
             
@@ -894,14 +896,13 @@ extension SwiftPackageTool {
         }
     }
 
-    struct Install: SwiftCommand {
+    struct InstallPackage: SwiftCommand {
         static let configuration: CommandConfiguration = CommandConfiguration(
-            commandName: "install",
             abstract: "Clone, compile, and copy a remote executable target"
         )
         
         @Argument(help: "URL of the remote target.")
-        var remoteTarget: String
+        var repoRemoteURL: String
         
         @OptionGroup(_hiddenFromHelp: true)
         var globalOptions: GlobalOptions
@@ -913,32 +914,51 @@ extension SwiftPackageTool {
         var targetName: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            let spmBinPath = URL(fileURLWithPath: NSHomeDirectory())
+            let spmHomeDir = URL(fileURLWithPath: NSHomeDirectory())
                 .appendingPathComponent(".swiftpm")
-                .appendingPathComponent("bin")
+            
+            let spmBinPath = spmHomeDir.appendingPathComponent("bin")
+            if !FileManager.default.fileExists(atPath: spmBinPath.path) {
+                try FileManager.default.createDirectory(at: spmBinPath, withIntermediateDirectories: true)
+            }
             
             // If ~/.swiftpm/bin isn't in the user PATH, emit a warning.
             if let userPATH = ProcessInfo.processInfo.environment["PATH"], !userPATH.contains(spmBinPath.path) {
                 swiftTool.observabilityScope.emit(warning: "User PATH doesn't include \(spmBinPath.path)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
             }
             
-            let buildTmpDir = URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent(".swiftpm")
+            let buildTmpDir = spmHomeDir
                 .appendingPathComponent("tmp")
                 .appendingPathComponent("swiftpm-install-\(String(UUID().uuidString.prefix(5)))")
             try FileManager.default.createDirectory(at: buildTmpDir, withIntermediateDirectories: true)
+            defer {
+                // Cleanup: remove the temporary directory
+                try? FileManager.default.removeItem(at: buildTmpDir)
+            }
             let buildTmpDirAbsolute = AbsolutePath(buildTmpDir.path)
             
-#if DEBUG
-            print("buildTmpDir: \(buildTmpDir)")
-#endif
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-            task.standardError = FileHandle.nullDevice
-            task.standardOutput = FileHandle.nullDevice
-            task.arguments = ["clone", remoteTarget, buildTmpDir.path]
-            try task.run()
-            task.waitUntilExit()
+            let gitCloneResult = try tsc_await {
+                Process.popen(arguments: ["git", "clone", repoRemoteURL, buildTmpDirAbsolute.pathString], completion: $0)
+            }
+            
+            guard gitCloneResult.exitStatus == .terminated(code: 0) else {
+                throw StringError("Failed to clone remote target.")
+            }
+            
+            let gitRepo = GitRepository(path: buildTmpDirAbsolute)
+            
+            let commitHash = try gitRepo.getCurrentRevision().identifier
+            let branch = try tsc_await {
+                Process.popen(arguments: [
+                    "git",
+                    "--git-dir",
+                    buildTmpDirAbsolute.appending(component: ".git").pathString,
+                    "branch",
+                    "--show-current"], completion: $0)
+            }
+                .utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            
             
             var globalOpts = globalOptions
             globalOpts.locations._packageDirectory = buildTmpDirAbsolute
@@ -985,7 +1005,8 @@ extension SwiftPackageTool {
                 to: spmBinPath.appendingPathComponent(binName)
             )
             
-            try FileManager.default.removeItem(at: buildTmpDir)
+            try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: repoRemoteURL)
+                .writeToFile()
         }
         
         enum InstallErrors: Swift.Error, LocalizedError {
@@ -1009,6 +1030,51 @@ extension SwiftPackageTool {
                     return "Multiple executable targets found, but the target to install wasn't specified. Please specify one with --target."
                 }
             }
+        }
+    }
+    
+    struct RemovePackage: SwiftCommand {
+        
+        static var configuration: CommandConfiguration = CommandConfiguration(
+            abstract: "Remove a package previously installed with `swift package install-package`"
+        )
+        
+        @OptionGroup(_hiddenFromHelp: true)
+        var globalOptions: GlobalOptions
+
+        @Argument(help: "Name of the installed package to remove")
+        var name: String
+        
+        func run(_ swiftTool: SwiftTool) throws {
+            guard let package = InstalledPackage.InstalledPackages.first(where: { installedPkg in
+                installedPkg.name == name
+            }) else {
+                throw StringError("No installed packages with the name \"\(name)\" found.")
+            }
+            
+            try package.remove()
+        }
+    }
+    
+    struct UpdatePackage: SwiftCommand {
+        static var configuration: CommandConfiguration = CommandConfiguration(
+            abstract: "Update a package previously installed with `swift package install-package`"
+        )
+        
+        @OptionGroup(_hiddenFromHelp: true)
+        var globalOptions: GlobalOptions
+        
+        @Argument(help: "The name of the installed package to update")
+        var name: String
+        
+        func run(_ swiftTool: SwiftTool) throws {
+            guard let package = InstalledPackage.InstalledPackages.first(where: { installedPkg in
+                installedPkg.name == name
+            }) else {
+                throw StringError("No installed packages with the name \"\(name)\" found")
+            }
+            
+            try package.update(globalOptions: self.globalOptions)
         }
     }
     
@@ -2111,6 +2177,131 @@ extension BuildOperation {
             return true
         } catch {
             return false
+        }
+    }
+}
+
+struct InstalledPackage: Codable, Equatable {
+    let name: String
+    let branch: String
+    let commitSHA: String
+    let installedPath: String
+    let remoteRepoURL: String
+    
+    static private var InstalledPackagesFileURL = URL(fileURLWithPath: NSHomeDirectory())
+        .appendingPathComponent(".swiftpm")
+        .appendingPathComponent("installed-packages.json")
+
+    static public var InstalledPackages: [InstalledPackage] {
+        guard let data = try? Data(contentsOf: self.InstalledPackagesFileURL),
+              let decoded = try? JSONDecoder().decode([InstalledPackage].self, from: data) else {
+            return []
+        }
+        
+        return decoded
+    }
+    
+    /// Registers the item to the installed-packages.json file
+    func writeToFile() throws {
+        let installedPackagesFileURL = InstalledPackage.InstalledPackagesFileURL
+        
+        var array: [InstalledPackage] = InstalledPackage.InstalledPackages
+        
+        // Make sure the item doesn't already exist
+        guard !array.contains(self) || array.map(\.name).contains(self.name) else {
+            throw Errors.itemAlreadyExists(item: self)
+        }
+        
+        array.append(self)
+        
+        if FileManager.default.fileExists(atPath: installedPackagesFileURL.path) {
+            try FileManager.default.removeItem(at: installedPackagesFileURL)
+        }
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        
+        let didCreateFile = FileManager.default.createFile(atPath: installedPackagesFileURL.path, contents: try encoder.encode(array))
+        
+        guard didCreateFile else {
+            throw Errors.failedToCreatePackagesJSONFile
+        }
+    }
+    
+    /// Removes the installed binary of the installed package,
+    /// and removes the item from the installed-packages.json file
+    func remove() throws {
+        // Get rid of the installed binary
+        if FileManager.default.fileExists(atPath: self.installedPath) {
+            try FileManager.default.removeItem(at: URL(fileURLWithPath: self.installedPath))
+        }
+        
+        var installedPackages = Self.InstalledPackages
+        
+        installedPackages.removeAll {
+            $0 == self
+        }
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        
+        try FileManager.default.removeItem(at: Self.InstalledPackagesFileURL)
+        let didCreateFile = FileManager.default.createFile(atPath: Self.InstalledPackagesFileURL.path, contents: try encoder.encode(installedPackages))
+        
+        guard didCreateFile else {
+            throw Errors.failedToCreatePackagesJSONFile
+        }
+    }
+    
+    func update(globalOptions: GlobalOptions) throws {
+        let updateTmpDir = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent(".swiftpm")
+            .appendingPathComponent("tmp")
+            .appendingPathComponent("spm-update-\(name)-\(String(UUID().uuidString.prefix(5)))")
+        
+        let gitCloneResult = try tsc_await {
+            Process.popen(arguments: ["git", "clone", self.remoteRepoURL, updateTmpDir.path, "-b", self.branch], completion: $0)
+        }
+        
+        guard gitCloneResult.exitStatus == .terminated(code: 0) else {
+            throw StringError("Failed to clone remote target.")
+        }
+        
+        let gitRepo = GitRepository(path: .init(updateTmpDir.path))
+        let commitHash = try gitRepo.getCurrentRevision().identifier
+        if commitHash == self.commitSHA && FileManager.default.fileExists(atPath: installedPath) {
+            print("Commit hash of latest commit from remote repositery is the same, no need to update. Exiting gracefully")
+            exit(0)
+        }
+        
+        var globalOpts = globalOptions
+        globalOpts.locations._packageDirectory = AbsolutePath(updateTmpDir.path)
+        let tool = try SwiftTool(options: globalOpts)
+        try tool.createBuildSystem().build()
+        
+        // The path to which the executable that was just built is placed in
+        let executableBuiltPath = try tool.buildParameters().buildPath.appending(component: self.name)
+        
+        // Replace the old instance in the JSON file
+        try self.remove()
+        
+        try FileManager.default.moveItem(at: URL(fileURLWithPath: executableBuiltPath.pathString), to: URL(fileURLWithPath: installedPath))
+        
+        let newInstance = InstalledPackage(name: self.name, branch: self.branch, commitSHA: commitHash, installedPath: self.installedPath, remoteRepoURL: self.remoteRepoURL)
+        try newInstance.writeToFile()
+    }
+    
+    enum Errors: Swift.Error, LocalizedError {
+        case failedToCreatePackagesJSONFile
+        case itemAlreadyExists(item: InstalledPackage)
+        
+        var errorDescription: String? {
+            switch self {
+            case .failedToCreatePackagesJSONFile:
+                return "Failed to create installed-packages.json file."
+            case .itemAlreadyExists(let package):
+                return "Cannot add \(package) to installed-packages.json because it already exists there."
+            }
         }
     }
 }
