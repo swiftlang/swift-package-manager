@@ -843,7 +843,6 @@ public class SwiftTool {
                 useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                printManifestGraphviz: options.build.printManifestGraphviz,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info

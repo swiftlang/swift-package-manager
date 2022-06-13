@@ -9,8 +9,7 @@
 add_library(LLBuildManifest STATIC
   BuildManifest.swift
   Command.swift
-  ManifestWriter.swift
-  DOTManifestSerializer.swift
+  ManifestWriter.swift  
   Node.swift
   Target.swift
   Tools.swift)

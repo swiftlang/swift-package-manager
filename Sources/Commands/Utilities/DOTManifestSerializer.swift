@@ -10,16 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+import LLBuildManifest
 import TSCBasic
 
 /// Serializes an LLBuildManifest graph to a .dot file
 public struct DOTManifestSerializer {
     var kindCounter = [String: Int]()
     var hasEmittedStyling = Set<String>()
-    let manifest: BuildManifest
+    let manifest: LLBuildManifest.BuildManifest
 
     /// Creates a serializer that will serialize the given manifest.
-    public init(manifest: BuildManifest) {
+    public init(manifest: LLBuildManifest.BuildManifest) {
         self.manifest = manifest
     }
 
