@@ -302,7 +302,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             fileSystem: self.fileSystem
         )
 
-
         // Surface any diagnostics from build tool plugins.
         for (target, results) in buildToolPluginInvocationResults {
             // There is one result for each plugin that gets applied to a target.
