@@ -901,8 +901,15 @@ extension SwiftPackageTool {
             abstract: "Clone, compile, and copy a remote executable target"
         )
         
-        @Argument(help: "URL of the remote target.")
-        var repoRemoteURL: String
+        enum RepoAccessType: String, EnumerableFlag {
+            case url, path
+        }
+        
+        @Flag(help: "The way to access the given repo, either by a remote git URL or a on-disk path")
+        var accessType: RepoAccessType
+        
+        @Argument(help: "URL of the remote target if using --url, or path to the repo when using --path")
+        var repoPathOrURL: String
         
         @OptionGroup(_hiddenFromHelp: true)
         var globalOptions: GlobalOptions
@@ -927,32 +934,35 @@ extension SwiftPackageTool {
                 swiftTool.observabilityScope.emit(warning: "User PATH doesn't include \(spmBinPath.path)! This means you won't be able to access the installed executables by default, and will need to specify the full path.")
             }
             
-            let buildTmpDir = spmHomeDir
-                .appendingPathComponent("tmp")
-                .appendingPathComponent("swiftpm-install-\(String(UUID().uuidString.prefix(5)))")
-            try FileManager.default.createDirectory(at: buildTmpDir, withIntermediateDirectories: true)
-            defer {
-                // Cleanup: remove the temporary directory
-                try? FileManager.default.removeItem(at: buildTmpDir)
+            let repoPath: AbsolutePath
+            switch accessType {
+            case .url:
+                let buildTmpDir = spmHomeDir
+                    .appendingPathComponent("tmp")
+                    .appendingPathComponent("swiftpm-install-\(String(UUID().uuidString.prefix(5)))")
+                try FileManager.default.createDirectory(at: buildTmpDir, withIntermediateDirectories: true)
+                
+                repoPath = AbsolutePath(buildTmpDir.path)
+                
+                let gitCloneResult = try tsc_await {
+                    Process.popen(arguments: ["git", "clone", repoPathOrURL, repoPath.pathString], completion: $0)
+                }
+                
+                guard gitCloneResult.exitStatus == .terminated(code: 0) else {
+                    throw StringError("Failed to clone remote target.")
+                }
+            case .path:
+                repoPath = AbsolutePath(URL(fileURLWithPath: repoPathOrURL).path)
             }
-            let buildTmpDirAbsolute = AbsolutePath(buildTmpDir.path)
             
-            let gitCloneResult = try tsc_await {
-                Process.popen(arguments: ["git", "clone", repoRemoteURL, buildTmpDirAbsolute.pathString], completion: $0)
-            }
-            
-            guard gitCloneResult.exitStatus == .terminated(code: 0) else {
-                throw StringError("Failed to clone remote target.")
-            }
-            
-            let gitRepo = GitRepository(path: buildTmpDirAbsolute)
+            let gitRepo = GitRepository(path: repoPath)
             
             let commitHash = try gitRepo.getCurrentRevision().identifier
             let branch = try tsc_await {
                 Process.popen(arguments: [
                     "git",
                     "--git-dir",
-                    buildTmpDirAbsolute.appending(component: ".git").pathString,
+                    repoPath.appending(component: ".git").pathString,
                     "branch",
                     "--show-current"], completion: $0)
             }
@@ -961,12 +971,12 @@ extension SwiftPackageTool {
             
             
             var globalOpts = globalOptions
-            globalOpts.locations._packageDirectory = buildTmpDirAbsolute
+            globalOpts.locations._packageDirectory = repoPath
             let tool = try SwiftTool(options: globalOpts)
             let workspace = try tool.getActiveWorkspace()
             
             let packageGraph = try tsc_await {
-                workspace.loadRootPackage(at: buildTmpDirAbsolute, observabilityScope: tool.observabilityScope, completion: $0)
+                workspace.loadRootPackage(at: repoPath, observabilityScope: tool.observabilityScope, completion: $0)
             }
             
             let executableTargets = packageGraph.targets.filter { $0.type == .executable }
@@ -1004,9 +1014,17 @@ extension SwiftPackageTool {
                 at: URL(fileURLWithPath: binFullPath.pathString),
                 to: spmBinPath.appendingPathComponent(binName)
             )
-            
-            try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: repoRemoteURL)
-                .writeToFile()
+  
+            switch accessType {
+            case .url:
+                try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: repoPathOrURL)
+                    .writeToFile()
+            case .path:
+                // if the user is installing a package from a local repo path,
+                // don't include a remote repo URL
+                try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: nil)
+                    .writeToFile()
+            }
         }
         
         enum InstallErrors: Swift.Error, LocalizedError {
@@ -2186,7 +2204,7 @@ struct InstalledPackage: Codable, Equatable {
     let branch: String
     let commitSHA: String
     let installedPath: String
-    let remoteRepoURL: String
+    let remoteRepoURL: String?
     
     static private var InstalledPackagesFileURL = URL(fileURLWithPath: NSHomeDirectory())
         .appendingPathComponent(".swiftpm")
@@ -2261,13 +2279,17 @@ struct InstalledPackage: Codable, Equatable {
     }
     
     func update(globalOptions: GlobalOptions) throws {
+        guard let remoteRepoURL = self.remoteRepoURL else {
+            throw StringError("Can't update package because there is no git repo URL set for it.")
+        }
+        
         let updateTmpDir = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent(".swiftpm")
             .appendingPathComponent("tmp")
             .appendingPathComponent("spm-update-\(name)-\(String(UUID().uuidString.prefix(5)))")
         
         let gitCloneResult = try tsc_await {
-            Process.popen(arguments: ["git", "clone", self.remoteRepoURL, updateTmpDir.path, "-b", self.branch], completion: $0)
+            Process.popen(arguments: ["git", "clone", remoteRepoURL, updateTmpDir.path, "-b", self.branch], completion: $0)
         }
         
         guard gitCloneResult.exitStatus == .terminated(code: 0) else {
