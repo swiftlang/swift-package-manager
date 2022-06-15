@@ -957,8 +957,8 @@ extension SwiftPackageTool {
             
             let gitRepo = GitRepository(path: repoPath)
             
-            let commitHash = try gitRepo.getCurrentRevision().identifier
-            let branch = try tsc_await {
+            let commitHash = try? gitRepo.getCurrentRevision().identifier
+            var branch = try? tsc_await {
                 Process.popen(arguments: [
                     "git",
                     "--git-dir",
@@ -967,7 +967,10 @@ extension SwiftPackageTool {
                     "--show-current"], completion: $0)
             }
                 .utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
-            
+            // if empty, just nil it.
+            if branch == "" {
+                branch = nil
+            }
             
             
             var globalOpts = globalOptions
@@ -1021,8 +1024,22 @@ extension SwiftPackageTool {
                     .writeToFile()
             case .path:
                 // if the user is installing a package from a local repo path,
-                // don't include a remote repo URL
-                try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: nil)
+                // don't include a remote repo URL if we can't can't get it
+                var repoRemoteURL = try? tsc_await {
+                    Process.popen(arguments: [
+                        "git",
+                        "--git-dir",
+                        repoPath.appending(component: ".git").pathString,
+                        "config",
+                        "--get",
+                        "remote.origin.url"], completion: $0)
+                }
+                    .utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+                if repoRemoteURL == "" {
+                    repoRemoteURL = nil
+                }
+                
+                try InstalledPackage(name: binName, branch: branch, commitSHA: commitHash, installedPath: spmBinPath.appendingPathComponent(binName).path, remoteRepoURL: repoRemoteURL)
                     .writeToFile()
             }
         }
@@ -1085,6 +1102,9 @@ extension SwiftPackageTool {
         @Argument(help: "The name of the installed package to update")
         var name: String
         
+        @Flag(help: "Force update the installed package")
+        var force: Bool = false
+        
         func run(_ swiftTool: SwiftTool) throws {
             guard let package = try InstalledPackage.getInstalledPackages().first(where: { installedPkg in
                 installedPkg.name == name
@@ -1092,7 +1112,7 @@ extension SwiftPackageTool {
                 throw StringError("No installed packages with the name \"\(name)\" found")
             }
             
-            try package.update(globalOptions: self.globalOptions)
+            try package.update(globalOptions: self.globalOptions, force: force)
         }
     }
     
@@ -2201,8 +2221,8 @@ extension BuildOperation {
 
 struct InstalledPackage: Codable, Equatable {
     let name: String
-    let branch: String
-    let commitSHA: String
+    let branch: String?
+    let commitSHA: String?
     let installedPath: String
     let remoteRepoURL: String?
     
@@ -2278,9 +2298,11 @@ struct InstalledPackage: Codable, Equatable {
         }
     }
     
-    func update(globalOptions: GlobalOptions) throws {
-        guard let remoteRepoURL = self.remoteRepoURL else {
-            throw StringError("Can't update package because there is no git repo URL set for it.")
+    func update(globalOptions: GlobalOptions, force: Bool) throws {
+        guard let remoteRepoURL = self.remoteRepoURL,
+        let branch = self.branch,
+        let instanceCommitSHA = self.commitSHA else {
+            throw StringError("Can't update package because there is no git repo URL, branch, or commit SHA set for it, this probably means the package was installed with --path, meaning it does not support updates.")
         }
         
         let updateTmpDir = URL(fileURLWithPath: NSHomeDirectory())
@@ -2289,7 +2311,7 @@ struct InstalledPackage: Codable, Equatable {
             .appendingPathComponent("spm-update-\(name)-\(String(UUID().uuidString.prefix(5)))")
         
         let gitCloneResult = try tsc_await {
-            Process.popen(arguments: ["git", "clone", remoteRepoURL, updateTmpDir.path, "-b", self.branch], completion: $0)
+            Process.popen(arguments: ["git", "clone", remoteRepoURL, updateTmpDir.path, "-b", branch], completion: $0)
         }
         
         guard gitCloneResult.exitStatus == .terminated(code: 0) else {
@@ -2298,7 +2320,7 @@ struct InstalledPackage: Codable, Equatable {
         
         let gitRepo = GitRepository(path: .init(updateTmpDir.path))
         let commitHash = try gitRepo.getCurrentRevision().identifier
-        if commitHash == self.commitSHA && FileManager.default.fileExists(atPath: installedPath) {
+        if commitHash == instanceCommitSHA && FileManager.default.fileExists(atPath: installedPath) && !force {
             print("Commit hash of latest commit from remote repositery is the same, no need to update. Exiting gracefully")
             exit(0)
         }
