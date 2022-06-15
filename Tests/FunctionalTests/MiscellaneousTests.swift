@@ -817,4 +817,20 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
         }
     }
+    
+    func testNoJSONOutputWithFlatPackageStructure() throws {
+        try fixture(name: "Miscellaneous/FlatPackage") { package in
+            // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+            let (stdout1, stderr1) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: package)
+            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertNoMatch(stdout1, .contains("command_arguments"))
+            XCTAssertNoMatch(stderr1, .contains("command_arguments"))
+            
+            // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+            let (stdout2, stderr2) = try SwiftPMProduct.SwiftTest.execute([], packagePath: package)
+            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertNoMatch(stdout2, .contains("command_arguments"))
+            XCTAssertNoMatch(stderr2, .contains("command_arguments"))
+        }
+    }
 }
