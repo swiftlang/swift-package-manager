@@ -100,4 +100,94 @@ final class RunToolTests: CommandsTestCase {
             }
         }
     }
+
+    func testSwiftRunSIGINT() throws {
+        try XCTSkipIfCI()
+        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            let mainFilePath = fixturePath.appending(component: "main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(mainFilePath) {
+                """
+                import Foundation
+
+                print("sleeping")
+                fflush(stdout)
+
+                sleep(10)
+                print("done")
+                """
+            }
+
+            let sync = DispatchGroup()
+            let outputHandler = OutputHandler(sync: sync)
+            let process = Process(
+                arguments: [SwiftPMProduct.SwiftRun.path.pathString, "--package-path", fixturePath.pathString],
+                outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
+            )
+
+            sync.enter()
+            try process.launch()
+
+            // wait for the process to start
+            if case .timedOut = sync.wait(timeout: .now() + 60) {
+                return XCTFail("timeout waiting for process to start")
+            }
+
+            // interrupt the process
+            print("interrupting")
+            process.signal(SIGINT)
+
+            // check for interrupt result
+            let result = try process.waitUntilExit()
+#if os(Windows)
+            XCTAssertEqual(result.exitStatus, .abnormal(exception: 2))
+#else
+            XCTAssertEqual(result.exitStatus, .signalled(signal: 2))
+#endif
+        }
+
+        class OutputHandler {
+            let sync: DispatchGroup
+            var state = State.idle
+            let lock = NSLock()
+
+            init(sync: DispatchGroup) {
+                self.sync = sync
+            }
+
+            func handle(bytes: [UInt8]) {
+                guard let output = String(bytes: bytes, encoding: .utf8) else {
+                    return
+                }
+                print(output, terminator: "")
+                self.lock.withLock {
+                    switch self.state {
+                    case .idle:
+                        self.state = processOutput(output)
+                    case .buffering(let buffer):
+                        let newBuffer = buffer + output
+                        self.state = processOutput(newBuffer)
+                    case .done:
+                        break //noop
+                    }
+                }
+
+                func processOutput(_ output: String) -> State {
+                    if output.contains("sleeping") {
+                        self.sync.leave()
+                        return .done
+                    } else {
+                        return .buffering(output)
+                    }
+                }
+            }
+
+            enum State {
+                case idle
+                case buffering(String)
+                case done
+            }
+        }
+    }
+
 }
