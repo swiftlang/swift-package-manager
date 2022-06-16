@@ -209,10 +209,21 @@ protocol SwiftCommand: ParsableCommand {
 extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: globalOptions)
-        try self.run(swiftTool)
-        swiftTool.waitForObservabilityEvents(timeout: .now() + 5)  // wait for all observability items to process
-        if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
-            throw ExitCode.failure
+        var toolError: Error? = .none
+        do {
+            try self.run(swiftTool)
+            if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
+                throw ExitCode.failure
+            }
+        } catch {
+            toolError = error
+        }
+
+        // wait for all observability items to process
+        swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
+
+        if let error = toolError {
+            throw error
         }
     }
 
