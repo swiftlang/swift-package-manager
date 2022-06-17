@@ -128,6 +128,8 @@ class ModuleAliasTracker {
         fillInRest(package: rootPkg)
     }
 
+    // Propagate defined aliases upstream. If they are chained, the final
+    // alias value will be applied
     func propagate(productID: String,
                    aliasBuffer: inout [String: ModuleAliasModel]) {
         let productAliases = aliasMap[productID] ?? []
@@ -170,6 +172,7 @@ class ModuleAliasTracker {
         }
     }
 
+    // Merge all the upstream aliases and override them if necessary
     func merge(productID: String,
                aliasBuffer: inout [String: ModuleAliasModel],
                observabilityScope: ObservabilityScope) {
@@ -273,7 +276,6 @@ class ModuleAliasTracker {
                                 }
                             }
                         }
-                        
                         // Check if pre-chain aliases need to be added
                         let unusedAliases = aliases.filter{!existingAliases.contains($0)}
                         for alias in unusedAliases {
@@ -375,7 +377,7 @@ class ModuleAliasTracker {
         }
         return next == key ? nil : next
     }
-    
+
     private func lookupAlias(value: String, in buffer: [String: ModuleAliasModel]) -> [String] {
         let keys = buffer.filter{$0.value.alias == value}.map{$0.key}
         return keys
