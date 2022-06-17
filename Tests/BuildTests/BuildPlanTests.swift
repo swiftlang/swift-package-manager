@@ -2376,7 +2376,7 @@ final class BuildPlanTests: XCTestCase {
 
         let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
       #if os(macOS)
-        XCTAssertMatch(bTarget, [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.12")), .anySequence])
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence])
       #else
         XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif
