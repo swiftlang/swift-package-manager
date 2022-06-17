@@ -45,7 +45,7 @@ extension AbsolutePath {
 
 let hostTriple = UserToolchain.default.triple
 #if os(macOS)
-    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
+    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
