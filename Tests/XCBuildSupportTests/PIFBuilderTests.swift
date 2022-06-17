@@ -186,10 +186,10 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
+                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.13")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
@@ -201,9 +201,9 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Onone")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "2.0")
+                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
@@ -232,10 +232,10 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
-                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
+                        XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.13")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
                         XCTAssertEqual(settings[.PRODUCT_NAME], "$(TARGET_NAME)")
                         XCTAssertEqual(settings[.SDK_VARIANT], "auto")
@@ -246,9 +246,9 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.SWIFT_INSTALL_OBJC_HEADER], "NO")
                         XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "")
                         XCTAssertEqual(settings[.SWIFT_OPTIMIZATION_LEVEL], "-Owholemodule")
-                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], "11.0")
                         XCTAssertEqual(settings[.USE_HEADERMAP], "NO")
-                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "2.0")
+                        XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], "4.0")
 
                         let frameworksSearchPaths = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
                         for platform in [PIF.BuildSettings.Platform.macOS, .iOS, .tvOS] {
