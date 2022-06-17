@@ -1909,12 +1909,12 @@ class PackageGraphTests: XCTestCase {
 
         let defaultDerivedPlatforms = [
             "linux": "0.0",
-            "macos": "10.10",
+            "macos": "10.13",
             "maccatalyst": "13.0",
-            "ios": "9.0",
-            "tvos": "9.0",
+            "ios": "11.0",
+            "tvos": "11.0",
             "driverkit": "19.0",
-            "watchos": "2.0",
+            "watchos": "4.0",
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
@@ -1926,7 +1926,7 @@ class PackageGraphTests: XCTestCase {
             let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 platforms: [
-                    PlatformDescription(name: "macos", version: "10.12", options: ["option1"]),
+                    PlatformDescription(name: "macos", version: "10.14", options: ["option1"]),
                 ],
                 products: [
                     try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -1944,9 +1944,9 @@ class PackageGraphTests: XCTestCase {
 
             let customXCTestMinimumDeploymentTargets = [
                 PackageModel.Platform.macOS: PlatformVersion("10.15"),
-                PackageModel.Platform.iOS: PlatformVersion("9.0"),
-                PackageModel.Platform.tvOS: PlatformVersion("9.0"),
-                PackageModel.Platform.watchOS: PlatformVersion("2.0"),
+                PackageModel.Platform.iOS: PlatformVersion("11.0"),
+                PackageModel.Platform.tvOS: PlatformVersion("11.0"),
+                PackageModel.Platform.watchOS: PlatformVersion("4.0"),
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -1960,7 +1960,7 @@ class PackageGraphTests: XCTestCase {
 
             PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "macos": "10.12"
+                    "macos": "10.14"
                 ]
 
                 // default platforms will be auto-added during package build
@@ -2030,8 +2030,8 @@ class PackageGraphTests: XCTestCase {
             let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 platforms: [
-                    PlatformDescription(name: "macos", version: "10.12"),
-                    PlatformDescription(name: "tvos", version: "10.0"),
+                    PlatformDescription(name: "macos", version: "10.14"),
+                    PlatformDescription(name: "tvos", version: "12.0"),
                 ],
                 products: [
                     try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -2055,8 +2055,8 @@ class PackageGraphTests: XCTestCase {
 
             PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "macos": "10.12",
-                    "tvos": "10.0",
+                    "macos": "10.14",
+                    "tvos": "12.0",
                 ]
 
                 // default platforms will be auto-added during package build
@@ -2097,12 +2097,12 @@ class PackageGraphTests: XCTestCase {
 
         let defaultDerivedPlatforms = [
             "linux": "0.0",
-            "macos": "10.10",
+            "macos": "10.13",
             "maccatalyst": "13.0",
-            "ios": "9.0",
-            "tvos": "9.0",
+            "ios": "11.0",
+            "tvos": "11.0",
             "driverkit": "19.0",
-            "watchos": "2.0",
+            "watchos": "4.0",
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",

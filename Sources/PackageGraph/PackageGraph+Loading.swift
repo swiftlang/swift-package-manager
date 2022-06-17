@@ -599,6 +599,11 @@ private func computePlatforms(
             version = xcTestMinimumDeploymentTarget
         }
 
+        // If the declared version is smaller than the oldest supported one, we raise the derived version to that.
+        if version < declaredPlatform.oldestSupportedVersion {
+            version = declaredPlatform.oldestSupportedVersion
+        }
+
         let supportedPlatform = SupportedPlatform(
             platform: declaredPlatform,
             version: version,
