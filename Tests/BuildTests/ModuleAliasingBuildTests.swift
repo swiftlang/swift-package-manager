@@ -1126,7 +1126,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                          "Math",
                                                          .product(name: "Utils",
                                                                   package: "fooPkg",
-                                                                  moduleAliases: ["Logging": "FooLogging", "Math": "FooMath"])
+                                                                  moduleAliases: ["BarLogging": "FooLogging", "BarMath": "FooMath"])
                                                         ]),
                         TargetDescription(name: "Logging", dependencies: []),
                         TargetDescription(name: "Math", dependencies: []),
@@ -1146,13 +1146,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
 
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "FooLogging" && $0.target.moduleAliases?["Math"] == "FooMath" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
-        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooMath" && $0.target.moduleAliases?["Math"] == "FooMath" })
-        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarMath" && $0.target.moduleAliases?["Math"] == "BarMath" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "FooLogging" && $0.target.moduleAliases?["Math"] == "FooMath" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Math" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "exe" && $0.target.moduleAliases == nil})
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "BarLogging" })
     }
 
     func testModuleAliasingAliasSkipUpstreamTargets() throws {
@@ -1419,7 +1419,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                             .product(name: "B",
                                                      package: "bPkg",
                                                      moduleAliases: ["Utils": "XUtils",
-                                                                     "Log": "XLog"]
+                                                                     "YLog": "XLog"]
                                                     ),
                                           ]
                                          ),
@@ -1439,7 +1439,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         result.checkProductsCount(1)
         result.checkTargetsCount(9)
-        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "XUtils" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "B" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?["Log"] == "XLog" && $0.target.moduleAliases?.count == 2 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?.count == 1 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "C" && $0.target.moduleAliases?["Log"] == "XLog" && $0.target.moduleAliases?["Utils"] == "YUtils" && $0.target.moduleAliases?.count == 2 })
@@ -1539,7 +1539,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                             .product(name: "C",
                                                      package: "cPkg",
                                                      moduleAliases: ["Utils": "YUtils",
-                                                                     "Log": "YLog"
+                                                                     "ZLog": "YLog"
                                                                     ]
                                             ),
                                           ]),
@@ -1556,13 +1556,12 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                           dependencies: [
                                             .product(name: "B",
                                                      package: "bPkg",
-                                                     moduleAliases: ["Utils": "XUtils",
-                                                                     "Log": "XLog"]
+                                                     moduleAliases: ["YUtils": "XUtils",
+                                                                     "YLog": "XLog"]
                                                     ),
                                             .product(name: "G",
                                                      package: "gPkg",
-                                                     moduleAliases: ["Utils": "GUtils",
-                                                                     "Log": "GLog"]),
+                                                     moduleAliases: ["Utils": "GUtils"]),
                                           ]
                                          ),
                     ]
@@ -1689,7 +1688,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                             .product(name: "C",
                                                      package: "cPkg",
                                                      moduleAliases: ["Utils": "YUtils",
-                                                                     "Log": "YLog"
+                                                                     "ZLog": "YLog"
                                                                     ]
                                             ),
                                           ]),
@@ -1708,8 +1707,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                      package: "gPkg"),
                                             .product(name: "B",
                                                      package: "bPkg",
-                                                     moduleAliases: ["Utils": "XUtils",
-                                                                     "Log": "XLog"]
+                                                     moduleAliases: ["YUtils": "XUtils",
+                                                                     "YLog": "XLog"]
                                                     ),
                                             ]
                                          ),
@@ -1736,6 +1735,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?.count == 1 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XLog" && $0.target.moduleAliases?["Log"] == "XLog" && $0.target.moduleAliases?.count == 1 })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "G" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?["Log"] == "XLog" && $0.target.moduleAliases?.count == 2})
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "H" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?["Log"] == "XLog" && $0.target.moduleAliases?.count == 2})
     }
 
     func testModuleAliasingOverrideSameNameTargetAndDepWithAliases() throws {
@@ -1795,11 +1795,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "Lib",
-                                          dependencies: [.product(name: "Game",
-                                                                  package: "gamePkg",
-                                                                  moduleAliases: ["Utils": "GameUtils"]
-                                                                 ),
-                                                         .product(name: "UtilsProd",
+                                          dependencies: [
+                                            .product(name: "Game",
                                                                   package: "gamePkg",
                                                                   moduleAliases: ["Utils": "GameUtils"]
                                                                  ),
@@ -1821,7 +1818,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                          "Render",
                                                          .product(name: "LibProd",
                                                                   package: "libPkg",
-                                                                  moduleAliases: ["Utils": "LibUtils", "Render": "LibRender"]
+                                                                  moduleAliases: ["GameUtils": "LibUtils", "GameRender": "LibRender"]
                                                         )]),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -1849,6 +1846,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "GameUtils"})
+
     }
 
     func testModuleAliasingAddOverrideAliasesUpstream() throws {
@@ -2148,7 +2147,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                          "Render",
                                                          .product(name: "LibProd",
                                                                   package: "libPkg",
-                                                                  moduleAliases: ["Utils": "LibUtils", "Render": "LibRender"]
+                                                                  moduleAliases: ["GameUtils": "LibUtils", "GameRender": "LibRender"]
                                                         )]),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2172,9 +2171,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibRender" && $0.target.moduleAliases?["Render"] == "LibRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibUtils" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "DrawRender" || $0.target.moduleAliases?["Render"] == "DrawRender" })
-        XCTAssertTrue(result.targetMap.values.contains {  $0.target.name == "Game" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Game" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 
     func testModuleAliasingOverrideUpstreamTargetsWithAliasesDownstream() throws {
@@ -2262,7 +2262,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                                          "Render",
                                                          .product(name: "LibProd",
                                                                   package: "libPkg",
-                                                                  moduleAliases: ["Utils": "LibUtils", "Render": "LibRender"]
+                                                                  moduleAliases: ["GameUtils": "LibUtils", "GameRender": "LibRender"]
                                                         )]),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2453,5 +2453,115 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "CarLogging" && $0.target.moduleAliases?["Logging"] == "CarLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "MyLogging" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingChainedAliases() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/apkg/Sources/Utils/file.swift",
+                                    "/bpkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/xpkg/Sources/Utils/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            "Utils",
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    )
+                                            ]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "bpkg",
+                    path: .init("/bpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A",
+                                          dependencies: [
+                                            "Utils",
+                                            .product(name: "Utils",
+                                                     package: "bpkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    )
+                                            ]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [.product(name: "A",
+                                                                  package: "apkg",
+                                                                  moduleAliases: ["Utils": "AUtils", "FooUtils": "AFooUtils"]),
+                                                         .product(name: "X",
+                                                                  package: "xpkg",
+                                                                  moduleAliases: ["Utils": "XUtils", "FooUtils": "XFooUtils"])
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "AUtils" && $0.target.moduleAliases?["FooUtils"] == "AFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases?["Utils"] == "XUtils" && $0.target.moduleAliases?["FooUtils"] == "XFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AFooUtils" && $0.target.moduleAliases?["Utils"] == "AFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XFooUtils" && $0.target.moduleAliases?["Utils"] == "XFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
     }
 }

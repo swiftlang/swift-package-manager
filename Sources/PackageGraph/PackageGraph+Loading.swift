@@ -246,7 +246,7 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for targets and their dependencies
     // across packages. Aliasing will result in target renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders)
+    let moduleAliasingUsed = try resolveModuleAliases(packageBuilders: packageBuilders, observabilityScope: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -641,8 +641,8 @@ private func computePlatforms(
 }
 
 // Track and override module aliases specified for targets in a package graph
-private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) throws -> Bool {
-
+private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
+                                  observabilityScope: ObservabilityScope) throws -> Bool {
     // If there are no module aliases specified, return early
     let hasAliases = packageBuilders.contains { $0.package.targets.contains {
             $0.dependencies.contains { dep in
@@ -670,7 +670,7 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder]) thr
     }
 
     // Override module aliases upstream if needed
-    aliasTracker.propagateAliases()
+    aliasTracker.propagateAliases(observabilityScope: observabilityScope)
 
     // Validate sources (Swift files only) for modules being aliased.
     // Needs to be done after `propagateAliases` since aliases defined
