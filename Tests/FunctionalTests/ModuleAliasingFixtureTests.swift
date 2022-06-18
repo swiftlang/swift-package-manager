@@ -20,28 +20,98 @@ import XCTest
  
 class ModuleAliasingFixtureTests: XCTestCase {
 
-    func testModuleRenaming() throws {
-        #if swift(<5.6)
-        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.6+")
+    func testModuleDirectDeps1() throws {
+        #if swift(<5.7)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
         #endif
 
-        try fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { fixturePath in
-            let app = fixturePath.appending(components: "AppPkg")
-            XCTAssertBuilds(app, extraArgs: ["--vv"])
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "App"))
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "GameUtils.swiftmodule"))
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Utils.swiftmodule"))
-            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "Utils.swiftmodule"))
-            
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+        try fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: "App"))
+            XCTAssertFileExists(buildPath.appending(components: "GameUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Utils.swiftmodule"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
             let output = try result.utf8Output() + result.utf8stderrOutput()
-           
-            // FIXME: rdar://88722540
-            // The process from above crashes in a certain env, so print
-            // the output for further investigation
-            try XCTSkipIf(result.exitStatus != .terminated(code: 0), "Skipping due to an expected failure being investigated in rdar://88722540\nResult: \(result.exitStatus)\nOutput: \(output)")
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+        }
+    }
+
+    func testModuleDirectDeps2() throws {
+        #if swift(<5.7)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
+        #endif
+
+        try fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: "App"))
+            XCTAssertFileExists(buildPath.appending(components: "AUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "BUtils.swiftmodule"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+        }
+    }
+
+    func testModuleNestedDeps1() throws {
+        #if swift(<5.7)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
+        #endif
+
+        try fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: "App"))
+            XCTAssertFileExists(buildPath.appending(components: "A.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "AFooUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "X.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "XFooUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "XUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "CarUtils.swiftmodule"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+        }
+    }
+
+    func testModuleNestedDeps2() throws {
+        #if swift(<5.7)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
+        #endif
+
+        try fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: "App"))
+            XCTAssertFileExists(buildPath.appending(components: "BUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "CUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "XUtils.swiftmodule"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+        }
+    }
+
+    func testModuleNestedDeps3() throws {
+        #if swift(<5.7)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
+        #endif
+
+        try fixture(name: "ModuleAliasing/NestedDeps3") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: "App"))
+            XCTAssertFileExists(buildPath.appending(components: "AFUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "XFUtils.swiftmodule"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: pkgPath)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
         }
     }
 }
