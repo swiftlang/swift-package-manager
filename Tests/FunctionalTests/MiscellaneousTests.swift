@@ -827,4 +827,21 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoMatch(stderr2, .contains("command_arguments"))
         }
     }
+
+    func testNoWarningFromRemoteDependencies() throws {
+        try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
+            // prepare the deps as git sources
+            let dependency1Path = path.appending(component: "dep1")
+            initGitRepo(dependency1Path, tag: "1.0.0")
+            let dependency2Path = path.appending(component: "dep2")
+            initGitRepo(dependency2Path, tag: "1.0.0")
+
+            let appPath = path.appending(component: "app")
+            let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: appPath)
+            XCTAssertDirectoryExists(appPath.appending(component: ".build"))
+            XCTAssertMatch(stdout + stderr, .contains("'DeprecatedApp' is deprecated"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
+        }
+    }
 }
