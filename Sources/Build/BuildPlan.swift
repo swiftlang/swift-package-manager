@@ -530,6 +530,8 @@ public final class ClangTargetBuildDescription {
 
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {
+    /// The package this target belongs to.
+    public let package: ResolvedPackage
 
     /// The target described by this target.
     public let target: ResolvedTarget
@@ -661,6 +663,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(
+        package: ResolvedPackage,
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
@@ -675,6 +678,7 @@ public final class SwiftTargetBuildDescription {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
+        self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -867,6 +871,11 @@ public final class SwiftTargetBuildDescription {
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other way.
         if buildParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
             args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
+        }
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-suppress-warnings"]
         }
 
         args += buildParameters.toolchain.extraSwiftCFlags
@@ -1608,6 +1617,9 @@ public class BuildPlan {
         var generateRedundant = generate
         var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
+            guard let package = graph.package(for: testProduct) else {
+                throw InternalError("package not found for \(testProduct)")
+            }
             generateRedundant = generateRedundant && nil == testProduct.testManifestTarget
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
@@ -1615,6 +1627,7 @@ public class BuildPlan {
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
             if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
+                    package: package,
                     target: testManifestTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
@@ -1651,6 +1664,7 @@ public class BuildPlan {
                 )
 
                 let target = try SwiftTargetBuildDescription(
+                    package: package,
                     target: testManifestTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
@@ -1716,7 +1730,11 @@ public class BuildPlan {
 
             switch target.underlyingTarget {
             case is SwiftTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
+                    package: package,
                     target: target,
                     toolsVersion: toolsVersion,
                     additionalFileRules: additionalFileRules,
@@ -2303,8 +2321,19 @@ private func generateResourceInfoPlist(
     return true
 }
 
-fileprivate extension TSCUtility.Triple {
-    var isSupportingStaticStdlib: Bool {
+extension TSCUtility.Triple {
+    fileprivate var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
+    }
+}
+
+extension ResolvedPackage {
+    fileprivate var isRemote: Bool {
+        switch self.underlyingPackage.manifest.packageKind {
+        case .registry, .remoteSourceControl, .localSourceControl:
+            return true
+        case .root, .fileSystem:
+            return false
+        }
     }
 }
