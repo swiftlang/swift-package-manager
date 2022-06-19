@@ -83,7 +83,7 @@ extension ModuleError: CustomStringConvertible {
         switch self {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: "', '")
-            return "multiple targets named '\(name)' in: '\(packages)'"
+            return "multiple targets named '\(name)' in: '\(packages)'; consider using the `moduleAliases` parameter in manifest to provide unique names"
         case .moduleNotFound(let target, let type):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
