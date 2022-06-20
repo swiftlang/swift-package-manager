@@ -312,7 +312,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
+        TSCBasic.Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
@@ -359,7 +359,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? Process.checkNonZeroExit(
+        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {

@@ -124,7 +124,7 @@ public struct Destination: Encodable, Equatable {
             sdkPath = value
         } else {
             // No value in env, so search for it.
-            let sdkPathStr = try Process.checkNonZeroExit(
+            let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
                 arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw DestinationError.invalidInstallation("default SDK not found")
@@ -177,7 +177,7 @@ public struct Destination: Encodable, Equatable {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
-        let platformPath = try? Process.checkNonZeroExit(
+        let platformPath = try? TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
             environment: environment).spm_chomp()
 

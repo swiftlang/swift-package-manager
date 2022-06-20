@@ -234,7 +234,7 @@ public struct SwiftAPIDigester {
 
     private func runTool(_ args: [String]) throws {
         let arguments = [tool.pathString] + args
-        let process = Process(
+        let process = TSCBasic.Process(
             arguments: arguments,
             outputRedirection: .collect
         )

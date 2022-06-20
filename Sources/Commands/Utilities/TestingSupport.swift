@@ -88,7 +88,7 @@ enum TestingSupport {
                 env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
                 env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
             }
-            try Process.checkNonZeroExit(arguments: args, environment: env)
+            try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try swiftTool.fileSystem.readFileContents(tempFile.path)
         }

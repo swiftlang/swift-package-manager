@@ -51,7 +51,7 @@ public class Cancellator: Cancellable {
     }
 
     public func register(_ process: TSCBasic.Process) -> RegistrationKey? {
-        self.register(name: "\(process.arguments.joined(separator: " "))", handler:  process.terminate)
+        self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
     }
 
     #if !os(iOS) && !os(watchOS) && !os(tvOS)
