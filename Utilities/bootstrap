@@ -549,6 +549,14 @@ def add_rpath_for_cmake_build(args, rpath):
     note(' '.join(add_rpath_cmd))
     subprocess.call(add_rpath_cmd, stderr=subprocess.PIPE)
 
+def get_swift_backdeploy_library_paths(args):
+    if platform.system() == 'Darwin':
+        # Need to include backwards compatibility libraries for Concurrency
+        # FIXME: Would be nice if we could get this from `swiftc -print-target-info`
+        return ['/usr/lib/swift', args.target_info["paths"]["runtimeLibraryPaths"][0] + '/../../swift-5.5/macosx']
+    else:
+        return []
+
 def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
@@ -576,6 +584,10 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-argument-parser"], "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
+
+        # rpaths for compatibility libraries
+        for lib_path in get_swift_backdeploy_library_paths(args):
+            add_rpath_for_cmake_build(args, lib_path)
 
 def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
@@ -672,7 +684,7 @@ def get_swiftpm_env_cmd(args):
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     if args.bootstrap:
-        libs_joined = ":".join([
+        library_paths = [
             os.path.join(args.bootstrap_dir,                       "lib"),
             os.path.join(args.build_dirs["tsc"],                   "lib"),
             os.path.join(args.build_dirs["llbuild"],               "lib"),
@@ -680,11 +692,14 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-argument-parser"], "lib"),
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
             os.path.join(args.build_dirs["swift-crypto"],          "lib"),
-        ] + args.target_info["paths"]["runtimeLibraryPaths"])
+        ]
 
         if platform.system() == 'Darwin':
+            # Does not include Swift runtime library paths because of rdar://75752698
+            libs_joined = ":".join(library_paths)
             env_cmd.append("DYLD_LIBRARY_PATH=%s" % libs_joined)
         else:
+            libs_joined = ":".join(library_paths + args.target_info["paths"]["runtimeLibraryPaths"])
             env_cmd.append("LD_LIBRARY_PATH=%s" % libs_joined)
 
     return env_cmd
@@ -724,6 +739,10 @@ def get_swiftpm_flags(args):
     # toolchains that include libraries not part of the OS (e.g. PythonKit or
     # TensorFlow).
     if platform.system() == "Darwin":
+        # rpaths for compatibility libraries
+        for lib_path in get_swift_backdeploy_library_paths(args):
+            build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", lib_path])
+
         swift_library_rpath_prefix = "@executable_path/../"
     elif platform.system() == 'Linux' or platform.system() == 'OpenBSD':
         # `$ORIGIN` is an ELF construct.
