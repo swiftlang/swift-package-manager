@@ -873,14 +873,19 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
         }
 
-        // suppress warnings if the package is remote
-        if self.package.isRemote {
-            args += ["-suppress-warnings"]
-        }
-
         args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-suppress-warnings"]
+            // suppress-warnings and warnings-as-errors are mutually exclusive
+            if let index = args.firstIndex(of: "-warnings-as-errors") {
+                args.remove(at: index)
+            }
+        }
+
         return args
     }
 
