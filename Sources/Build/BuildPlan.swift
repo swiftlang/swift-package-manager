@@ -2175,7 +2175,7 @@ public class BuildPlan {
     /// importing the modules in the package graph.
     public func createREPLArguments() -> [String] {
         let buildPath = buildParameters.buildPath.pathString
-        var arguments = ["-I" + buildPath, "-L" + buildPath]
+        var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
         let replProductName = graph.rootPackages[0].identity.description + Product.replProductSuffix
