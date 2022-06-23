@@ -636,7 +636,8 @@ public class SwiftTool {
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain(),
-            enableSandbox: !self.options.security.shouldDisableSandbox
+            enableSandbox: !self.options.security.shouldDisableSandbox,
+            verboseOutput: self.logLevel <= .info
         )
         // register the plugin runner system with the cancellation handler
         self.cancellator.register(name: "plugin runner", handler: pluginScriptRunner)
