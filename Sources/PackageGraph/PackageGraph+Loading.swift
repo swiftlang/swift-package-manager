@@ -617,14 +617,19 @@ private func computePlatforms(
     for platformName in remainingPlatforms.sorted() {
         let platform = platformRegistry.platformByName[platformName]!
 
-        let oldestSupportedVersion: PlatformVersion
+        let minimumSupportedVersion: PlatformVersion
         if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform] {
-            oldestSupportedVersion = xcTestMinimumDeploymentTarget
-        } else if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
-            // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-            oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
+            minimumSupportedVersion = xcTestMinimumDeploymentTarget
         } else {
-            oldestSupportedVersion = platform.oldestSupportedVersion
+            minimumSupportedVersion = platform.oldestSupportedVersion
+        }
+
+        let oldestSupportedVersion: PlatformVersion
+        if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
+            // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+            oldestSupportedVersion = max(minimumSupportedVersion, iOS.version)
+        } else {
+            oldestSupportedVersion = minimumSupportedVersion
         }
 
         let supportedPlatform = SupportedPlatform(

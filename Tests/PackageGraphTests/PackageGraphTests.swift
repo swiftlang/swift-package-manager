@@ -1926,6 +1926,13 @@ class PackageGraphTests: XCTestCase {
             "openbsd": "0.0"
         ]
 
+        let customXCTestMinimumDeploymentTargets = [
+            PackageModel.Platform.macOS: PlatformVersion("10.15"),
+            PackageModel.Platform.iOS: PlatformVersion("11.0"),
+            PackageModel.Platform.tvOS: PlatformVersion("11.0"),
+            PackageModel.Platform.watchOS: PlatformVersion("4.0"),
+        ]
+
         do {
             // One platform with an override.
             let manifest = Manifest.createRootManifest(
@@ -1946,13 +1953,6 @@ class PackageGraphTests: XCTestCase {
                     try TargetDescription(name: "test", type: .test)
                 ]
             )
-
-            let customXCTestMinimumDeploymentTargets = [
-                PackageModel.Platform.macOS: PlatformVersion("10.15"),
-                PackageModel.Platform.iOS: PlatformVersion("11.0"),
-                PackageModel.Platform.tvOS: PlatformVersion("11.0"),
-                PackageModel.Platform.watchOS: PlatformVersion("4.0"),
-            ]
 
             let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
@@ -2086,6 +2086,59 @@ class PackageGraphTests: XCTestCase {
                 result.checkProduct("bar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
+                }
+                result.checkProduct("cbar") { product in
+                    product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
+                    product.checkDerivedPlatforms(expectedDerivedPlatforms)
+                }
+            }
+        }
+
+        do {
+            // Test MacCatalyst overriding behavior.
+            let manifest = Manifest.createRootManifest(
+                name: "pkg",
+                platforms: [
+                    PlatformDescription(name: "ios", version: "15.0"),
+                ],
+                products: [
+                    try ProductDescription(name: "cbar", type: .library(.automatic), targets: ["cbar"]),
+                ],
+                targets: [
+                    try TargetDescription(name: "cbar"),
+                    try TargetDescription(name: "test", type: .test)
+                ]
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fileSystem: fs,
+                manifests: [manifest],
+                customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            PackageGraphTester(graph) { result in
+                let expectedDeclaredPlatforms = [
+                    "ios": "15.0",
+                ]
+
+                var expectedDerivedPlatforms = defaultDerivedPlatforms.merging(expectedDeclaredPlatforms, uniquingKeysWith: { lhs, rhs in rhs })
+                var expectedDerivedPlatformsForTests = defaultDerivedPlatforms.merging(customXCTestMinimumDeploymentTargets.map { ($0.name, $1.versionString) }, uniquingKeysWith: { lhs, rhs in rhs })
+                expectedDerivedPlatformsForTests["ios"] = expectedDeclaredPlatforms["ios"]
+
+                // Gets derived to be the same as the declared iOS deployment target.
+                expectedDerivedPlatforms["maccatalyst"] = expectedDeclaredPlatforms["ios"]
+                expectedDerivedPlatformsForTests["maccatalyst"] = expectedDeclaredPlatforms["ios"]
+
+                result.checkTarget("test") { target in
+                    target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
+                    target.checkDerivedPlatforms(expectedDerivedPlatformsForTests)
+                }
+                result.checkTarget("cbar") { target in
+                    target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
+                    target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
                 result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
