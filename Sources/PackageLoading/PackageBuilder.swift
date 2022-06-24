@@ -1222,6 +1222,13 @@ public final class PackageBuilder {
             self.observabilityScope.emit(.nonPluginProductWithPluginTargets(product: product.name, type: product.type, pluginTargets: pluginTargets.map{ $0.name }))
             return false
         }
+        if manifest.toolsVersion >= .v5_7 {
+            let executableTargets = targets.filter { $0.type == .executable }
+            guard executableTargets.isEmpty else {
+                self.observabilityScope.emit(.libraryProductWithExecutableTarget(product: product.name, executableTargets: executableTargets.map{ $0.name }))
+                return false
+            }
+        }
         return true
     }
 
