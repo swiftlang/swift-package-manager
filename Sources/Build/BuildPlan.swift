@@ -43,6 +43,54 @@ extension AbsolutePath {
     }
 }
 
+extension Triple {
+    public var platform: Platform {
+        switch os {
+        case .macOS, .darwin:
+            return Platform.macOS
+        case .ios:
+            return Platform.iOS
+        case .watchos:
+            return Platform.watchOS
+        case .tvos:
+            return Platform.tvOS
+        case .driverkit:
+            return Platform.driverKit
+        case .linux:
+            return Platform.linux
+        case .windows:
+            return Platform.windows
+        case .wasi:
+            return Platform.wasi
+        case .openbsd:
+            return Platform.openbsd
+        }
+    }
+
+    public var platformDisplayString: String {
+        switch os {
+        case .macOS, .darwin:
+            return "macOS"
+        case .ios:
+            return "iOS"
+        case .watchos:
+            return "watchOS"
+        case .tvos:
+            return "tvOS"
+        case .driverkit:
+            return "driverKit"
+        case .linux:
+            return "Linux"
+        case .windows:
+            return "Windows"
+        case .wasi:
+            return "WebAssembly"
+        case .openbsd:
+            return "OpenBSD"
+        }
+    }
+}
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -123,7 +171,37 @@ extension BuildParameters {
     public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
-        if triple.isDarwin() {
+        if triple.isIOS() || triple.isWatchOS() || triple.isTVOS() || triple.isDriverKit() || triple.isDarwin() {
+            if let supportedPlatform = target.platforms.getDerived(for: triple.platform) {
+                args += [triple.tripleString(forPlatformVersion: supportedPlatform.version.versionString)]
+            } else {
+                throw StringError("the target \(target) doesn't support building for \(triple.platformDisplayString)")
+            }
+        } else {
+            args += [triple.tripleString]
+        }
+        /*
+        if triple.isIOS() {
+            guard let iOSSupportedPlatform = target.platforms.getDerived(for: .iOS) else {
+                throw StringError("the target \(target) doesn't support building for iOS")
+            }
+            args += [triple.tripleString(forPlatformVersion: iOSSupportedPlatform.version.versionString)]
+        } else if triple.isWatchOS() {
+            guard let watchOSSupportedPlatform = target.platforms.getDerived(for: .watchOS) else {
+                throw StringError("the target \(target) doesn't support building for watchOS")
+            }
+            args += [triple.tripleString(forPlatformVersion: watchOSSupportedPlatform.version.versionString)]
+        } else if triple.isTVOS() {
+            guard let tvOSSupportedPlatform = target.platforms.getDerived(for: .tvOS) else {
+                throw StringError("the target \(target) doesn't support building for tvOS")
+            }
+            args += [triple.tripleString(forPlatformVersion: tvOSSupportedPlatform.version.versionString)]
+        } else if triple.isDriverKit() {
+            guard let driverKitSupportedPlatform = target.platforms.getDerived(for: .driverKit) else {
+                throw StringError("the target \(target) doesn't support building for DriverKit")
+            }
+            args += [triple.tripleString(forPlatformVersion: driverKitSupportedPlatform.version.versionString)]
+        } else if triple.isDarwin() {
             guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
                 throw StringError("the target \(target) doesn't support building for macOS")
             }
@@ -131,6 +209,7 @@ extension BuildParameters {
         } else {
             args += [triple.tripleString]
         }
+        */
         return args
     }
 

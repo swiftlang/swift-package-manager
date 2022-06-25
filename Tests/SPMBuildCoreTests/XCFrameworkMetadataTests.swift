@@ -54,6 +54,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                                libraryPath: "MyFramework.framework",
                                headersPath: nil,
                                platform: "macos",
+                               platformVariant: "",
                                architectures: ["x86_64"]
                            ),
                        ]))
@@ -101,6 +102,7 @@ final class XCFrameworkMetadataTests: XCTestCase {
                                    libraryPath: "MyLibrary.a",
                                    headersPath: "Headers",
                                    platform: "macos",
+                                   platformVariant: "",
                                    architectures: ["x86_64"]
                                ),
                            ]))

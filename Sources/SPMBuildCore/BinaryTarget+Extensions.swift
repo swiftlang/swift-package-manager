@@ -46,7 +46,7 @@ extension BinaryTarget {
         // Filter the libraries that are relevant to the triple.
         // FIXME: this filter needs to become more sophisticated
         guard let library = metadata.libraries.first(where: {
-            $0.platform == triple.os.asXCFrameworkPlatformString &&
+            ($0.platform, $0.platformVariant ?? "") == triple.asXCFrameworkPlatformString ?? ("", "") &&
             $0.architectures.contains(triple.arch.rawValue)
         }) else {
             return []
@@ -89,14 +89,41 @@ fileprivate extension Triple {
     }
 }
 
-fileprivate extension Triple.OS {
-    /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
-    var asXCFrameworkPlatformString: String? {
-        switch self {
-        case .darwin, .linux, .wasi, .windows, .openbsd:
-            return nil // XCFrameworks do not support any of these platforms today.
-        case .macOS:
-            return "macos"
+fileprivate extension Triple {
+    var asXCFrameworkPlatformString: (String, String)? {
+        switch (os, abi) {
+        case (.macOS, .unknown):
+            return ("macos", "")
+        case (.ios, .other(name: "macabi")), (.ios, .other(name: "maccatalyst")):
+            return ("ios", "maccatalyst")
+        case (.ios, .unknown):
+            return ("ios", "")
+        case (.ios, .other(name: "simulator")):
+            return ("ios", "simulator")
+        case (.tvos, .unknown):
+            return ("tvos", "")
+        case (.tvos, .other(name: "simulator")):
+            return ("tvos", "simulator")
+        case (.watchos, .unknown):
+            return ("watchos", "")
+        case (.watchos, .other(name: "simulator")):
+            return ("watchos", "simulator")
+        case (.driverkit, .unknown):
+            return ("driverkit", "")
+        case (.darwin, .unknown):
+            return nil
+        case (.linux, .unknown):
+            return nil
+        case (.windows, .unknown):
+            return nil
+        case (.wasi, .unknown):
+            return nil
+        case (.openbsd, .unknown):
+            return nil
+        case (_, .android):
+            return nil
+        case (_, .other(name: let name)):
+            return nil
         }
     }
 }

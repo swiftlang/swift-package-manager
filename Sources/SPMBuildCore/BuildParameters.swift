@@ -141,7 +141,15 @@ public struct BuildParameters: Encodable {
 
     /// The current platform we're building for.
     var currentPlatform: PackageModel.Platform {
-        if self.triple.isDarwin() {
+        if self.triple.isIOS() {
+            return .iOS
+        } else if self.triple.isWatchOS() {
+            return .watchOS
+        } else if self.triple.isTVOS() {
+            return .tvOS
+        } else if self.triple.isDriverKit() {
+            return .driverKit
+        } else if self.triple.isDarwin() {
             return .macOS
         } else if self.triple.isAndroid() {
             return .android
