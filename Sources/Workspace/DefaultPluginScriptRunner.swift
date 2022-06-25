@@ -26,15 +26,17 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let toolchain: UserToolchain
     private let enableSandbox: Bool
     private let cancellator: Cancellator
+    private let verboseOutput: Bool
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true, verboseOutput: Bool = false) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
         self.cancellator = Cancellator(observabilityScope: .none)
+        self.verboseOutput = verboseOutput
     }
     
     /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
@@ -198,6 +200,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Finally add the output path of the compiled executable.
         commandLine += ["-o", execFilePath.pathString]
+
+        if (verboseOutput) {
+            commandLine.append("-v")
+        }
 
         // First try to create the output directory.
         do {
