@@ -78,7 +78,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
         } else {
-            let xcodeSelectOutput = try Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
+            let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
             xcbuildPath = AbsolutePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild", relativeTo: xcodeDirectory)
         }
@@ -122,7 +122,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var hasStdout = false
         var stdoutBuffer: [UInt8] = []
         var stderrBuffer: [UInt8] = []
-        let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
+        let redirection: TSCBasic.Process.OutputRedirection = .stream(stdout: { bytes in
             hasStdout = hasStdout || !bytes.isEmpty
             delegate.parse(bytes: bytes)
 
@@ -133,7 +133,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             stderrBuffer.append(contentsOf: bytes)
         })
 
-        let process = Process(arguments: arguments, outputRedirection: redirection)
+        let process = TSCBasic.Process(arguments: arguments, outputRedirection: redirection)
         try process.launch()
         let result = try process.waitUntilExit()
 

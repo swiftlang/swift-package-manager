@@ -436,7 +436,7 @@ public struct SwiftTestTool: SwiftCommand {
         }
         args += ["-o", buildParameters.codeCovDataFile.pathString]
 
-        try Process.checkNonZeroExit(arguments: args)
+        try TSCBasic.Process.checkNonZeroExit(arguments: args)
     }
 
     private func codeCovAsJSONPath(buildParameters: BuildParameters, packageName: String) -> AbsolutePath {
@@ -454,7 +454,7 @@ public struct SwiftTestTool: SwiftCommand {
             "-instr-profile=\(buildParameters.codeCovDataFile)",
             testBinary.pathString
         ]
-        let result = try Process.popen(arguments: args)
+        let result = try TSCBasic.Process.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -621,7 +621,7 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let process = TSCBasic.Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return false // terminating
             }

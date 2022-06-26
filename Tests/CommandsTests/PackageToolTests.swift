@@ -793,7 +793,7 @@ final class PackageToolTests: CommandsTestCase {
 
             XCTAssertMatch(stderr, .contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
-            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
+            XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
@@ -943,7 +943,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Build and check.
             _ = try build()
-            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
+            XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
             let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)

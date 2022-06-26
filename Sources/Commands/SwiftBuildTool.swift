@@ -139,9 +139,9 @@ public struct SwiftBuildTool: SwiftCommand {
 
     private func checkClangVersion(observabilityScope: ObservabilityScope) {
         // We only care about this on Ubuntu 14.04
-        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
+        guard let uname = try? TSCBasic.Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
               uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
+              let clangVersionOutput = try? TSCBasic.Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
               let clang = getClangVersion(versionOutput: clangVersionOutput) else {
             return
         }

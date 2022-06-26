@@ -588,7 +588,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     cmd += ["-o", compiledManifestFile.pathString]
 
                     // Compile the manifest.
-                    Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
+                    TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
@@ -648,7 +648,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
+                        TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                             defer { cleanupAfterRunning.perform() }
@@ -697,7 +697,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var sdkRootPath: AbsolutePath? = nil
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? Process.checkNonZeroExit(
+        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil

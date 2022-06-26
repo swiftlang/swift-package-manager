@@ -45,7 +45,7 @@ public struct SymbolGraphExtract {
     public func extractSymbolGraph(
         target: ResolvedTarget,
         buildPlan: BuildPlan,
-        outputRedirection: Process.OutputRedirection = .none,
+        outputRedirection: TSCBasic.Process.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
     ) throws {
@@ -80,7 +80,7 @@ public struct SymbolGraphExtract {
         commandLine += ["-output-dir", outputDirectory.pathString]
 
         // Run the extraction.
-        let process = Process(
+        let process = TSCBasic.Process(
             arguments: commandLine,
             outputRedirection: outputRedirection
         )
