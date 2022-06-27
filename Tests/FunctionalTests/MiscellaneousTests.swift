@@ -690,6 +690,18 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testLibraryTriesToIncludeExecutableTarget() throws {
+        try fixture(name: "Miscellaneous/PackageWithMalformedLibraryProduct") { path in
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(path)) { error in
+                // if our code crashes we'll get an exit code of 256
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    return XCTFail("failed in an unexpected manner: \(error)")
+                }
+                XCTAssertMatch(error.stdout + error.stderr, .contains("library product 'PackageWithMalformedLibraryProduct' should not contain executable targets (it has 'PackageWithMalformedLibraryProduct')"))
+            }
+        }
+    }
+
     func testEditModeEndToEnd() throws {
         try fixture(name: "Miscellaneous/Edit") { fixturePath in
             let prefix = resolveSymlinks(fixturePath)
