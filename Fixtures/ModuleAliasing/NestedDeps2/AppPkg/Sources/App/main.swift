@@ -8,15 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import A
 import Utils
 
-public struct Game: Equatable {
-    public var levels: [LevelDetector]
+print("START")
 
-    public static func startGame(for user: String) -> Int {
-        if user.isEmpty {
-            return -1
-        }
-        return LevelDetector.detect(for: user)
-    }
-}
+funcA()
+funcX()
