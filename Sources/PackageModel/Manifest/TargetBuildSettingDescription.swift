@@ -29,6 +29,8 @@ public enum TargetBuildSettingDescription {
         case linkedFramework(String)
 
         case unsafeFlags([String])
+        case futureFeatures([String])
+        case experimentalFeatures([String])
     }
 
     /// An individual build setting.

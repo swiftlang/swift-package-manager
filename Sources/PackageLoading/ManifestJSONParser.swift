@@ -425,6 +425,10 @@ enum ManifestJSONParser {
             kind = .linkedFramework(value)
         case "unsafeFlags":
             kind = .unsafeFlags(values)
+        case "futureFeatures":
+            kind = .futureFeatures(values)
+        case "experimentalFeatures":
+            kind = .experimentalFeatures(values)
         default:
             throw InternalError("invalid build setting \(name)")
         }

@@ -296,6 +296,53 @@ public struct SwiftSetting: Encodable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
+
+    /// Enable an future feature with the given name.
+    ///
+    /// A future feature is one that has been accepted into Swift as of a
+    /// certain language version, but is not available by default in prior
+    /// language modes because it has some impact on source compatibility.
+    ///
+    /// Multiple future features can be added to a given target, and can
+    /// be used in a target without affecting its dependencies. An unknown
+    /// future feature will be ignored by the implementation.
+    ///
+    /// - Since: First available in PackageDescription 5.7.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the future feature, e.g., ConciseMagicFile.
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    public static func enableFutureFeature(
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "futureFeatures", value: [name], condition: condition)
+    }
+
+    /// Enable an experimental feature with the given name.
+    ///
+    /// An experimental feature is one that has is in development, but
+    /// has not been accepted into Swift as a language feature.
+    ///
+    /// Multiple experimental features can be added to a given target, and can
+    /// be used in a target without affecting its dependencies. An unknown
+    /// experimental feature will be ignored by the implementation.
+    ///
+    /// - Since: First available in PackageDescription 5.7.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the experimental feature, e.g., VariadicGenerics.
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    public static func enableExperimentalFeature(
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "experimentalFeatures", value: [name], condition: condition)
+    }
 }
 
 /// A linker build setting.

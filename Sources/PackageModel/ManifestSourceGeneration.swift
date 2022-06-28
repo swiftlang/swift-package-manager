@@ -487,7 +487,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .unsafeFlags(let values):
+        case .unsafeFlags(let values), .futureFeatures(let values), .experimentalFeatures(let values):
             params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -639,6 +639,10 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedFramework"
         case .unsafeFlags:
             return "unsafeFlags"
+        case .futureFeatures:
+            return "futureFeatures"
+        case .experimentalFeatures:
+            return "experimentalFeatures"
         }
     }
 }
