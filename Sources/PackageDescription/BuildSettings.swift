@@ -313,6 +313,7 @@ public struct SwiftSetting: Encodable {
     ///   - name: The name of the future feature, e.g., ConciseMagicFile.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.7)
     public static func enableFutureFeature(
         _ name: String,
         _ condition: BuildSettingCondition? = nil
@@ -336,6 +337,7 @@ public struct SwiftSetting: Encodable {
     ///   - name: The name of the experimental feature, e.g., VariadicGenerics.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.7)
     public static func enableExperimentalFeature(
         _ name: String,
         _ condition: BuildSettingCondition? = nil
