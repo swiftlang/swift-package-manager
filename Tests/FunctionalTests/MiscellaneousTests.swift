@@ -817,4 +817,25 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
         }
     }
+
+    func testCompileCXX17CrashWithFModules() throws {
+        // We disabled fmodules for macOS, thus, this only crash on Linux.
+        #if os(Linux)
+        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_6") { fixturePath in
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(fixturePath)) { error in
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    return XCTFail("failed in an unexpected manner: \(error)")
+                }
+                // Make sure it contains both std=c++17 and fmodules
+                XCTAssertMatch(error.stdout + error.stderr, .contains("-std=c++17"))
+                XCTAssertMatch(error.stdout + error.stderr, .contains("-fmodules"))
+                // Check for clang crash, which will manifest itself into "PLEASE submit a bug report to"
+                XCTAssertMatch(error.stdout + error.stderr, .contains("PLEASE submit a bug report to"))
+            }
+        }
+        #endif
+        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_7") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+        }
+    }
 }
