@@ -98,7 +98,7 @@ public final class UserToolchain: Toolchain {
     private static func findTool(_ name: String, envSearchPaths: [AbsolutePath], useXcrun: Bool) throws -> AbsolutePath {
         if useXcrun {
 #if os(macOS)
-            let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
+            let foundPath = try TSCBasic.Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
             return try AbsolutePath(validating: foundPath)
 #endif
         }
@@ -477,7 +477,7 @@ public final class UserToolchain: Toolchain {
         if triple.isDarwin() {
             // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
-            if let path = try? Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp() {
+            if let path = try? TSCBasic.Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp() {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {

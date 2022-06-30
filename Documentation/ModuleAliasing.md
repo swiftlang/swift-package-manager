@@ -23,7 +23,20 @@ Package manifest `swift-game`
 {
     name: "swift-game",
     products: [
-        .library(name: "UtilsProduct", targets: ["Utils"]),
+        .library(name: "Utils", targets: ["Utils"]),
+    ],
+    targets: [
+        .target(name: "Utils", dependencies: [])
+    ]
+}
+```
+
+Package manifest `swift-draw`
+```
+{
+    name: "swift-draw",
+    products: [
+        .library(name: "Utils", targets: ["Utils"]),
     ],
     targets: [
         .target(name: "Utils", dependencies: [])
@@ -33,6 +46,7 @@ Package manifest `swift-game`
 
 Both `swift-draw` and `swift-game` vend modules with the same name `Utils`, thus causing a conflict. To resolve the collision, a new parameter `moduleAliases` can now be used to disambiguate them.
 
+Package manifest `App`
 ```
     targets: [
         .executableTarget(
@@ -40,7 +54,7 @@ Both `swift-draw` and `swift-game` vend modules with the same name `Utils`, thus
             dependencies: [
                 .product(name: "Utils",
                          package: "swift-draw"),
-                .product(name: "UtilsProduct",
+                .product(name: "Utils",
                          package: "swift-game",
                          moduleAliases: ["Utils": "GameUtils"]),
             ])
@@ -51,7 +65,7 @@ The value for the `moduleAliases` parameter is a dictionary where the key is the
 
 To use the aliased module, `App` needs to reference the the new name, i.e. `import GameUtils`. Its existing `import Utils` statement will continue to reference the `Utils` module from package `swift-draw`, as expected.
 
-Note that the names being disambiguated here are the conflicting module names, not the product names, thus the product names of each package are still required to be unique. If the vended product name of `swift-game` is `Utils` instead of `UtilsProduct` in the example above, it will throw a `multiple products named "Utils"' error as it does today.   
+Note that the dependency product names are duplicate, i.e. both have the same name `Utils`, which is by default not allowed. However, this is allowed when module aliasing is used as long as no multiple files with the same product name are created. This means they must all be automatic library types, or at most one of them can be a static library, dylib, an executable, or any other type that creates a file or a directory with the product name. 
 
 ### Example 2
 
@@ -82,6 +96,7 @@ Similar to Example 1, both packages contain modules with the same name `Utils`, 
 
 We can use `moduleAliases` again, as follows.
 
+Package manifest `App`
 ```
     targets: [
         .executableTarget(
@@ -106,15 +121,41 @@ If more aliases need to be defined, they can be added with a comma delimiter, pe
 
 ## Override Module Aliases
 
-The `moduleAliases` defined in a downstream package will override the `moduleAliases` values defined in an upstream package. This may be useful if the upstream aliases themselves result in a conflict. 
+If module alias values defined upstream are conflicting downstream, they can be overriden by chaining; add an entry to the `moduleAliases` parameter downstream using the conflicting alias value as a key and provide a unique value. 
 
-To illustrate, the `swift-game` package is modified to have the following package dependency. 
+To illustrate, the `swift-draw` and `swift-game` packages are modified to have the following dependencies and module aliases. 
 
+Package manifest `swift-draw`
+```
+{
+    name: "swift-draw",
+    dependencies: [
+        .package(url: https://.../a-utils.git),
+        .package(url: https://.../b-utils.git),
+    ],
+    products: [
+        .library(name: "Draw", targets: ["Draw"]),
+    ],
+    targets: [
+               .target(name: "Draw",
+                       dependencies: [
+                            .product(name: "Utils",
+                                     package: "a-utils",
+                                     moduleAliases: ["Utils": "FooUtils"]),
+                            .product(name: "Utils",
+                                     package: "b-utils",
+                                     moduleAliases: ["Utils": "BarUtils"]),
+               ])
+    ]
+}
+```
+Package manifest `swift-game`
 ```
 {
     name: "swift-game",
     dependencies: [
-        .package(url: https://.../swift-utils.git),
+        .package(url: https://.../c-utils.git),
+        .package(url: https://.../d-utils.git),
     ],
     products: [
         .library(name: "Game", targets: ["Game"]),
@@ -122,29 +163,34 @@ To illustrate, the `swift-game` package is modified to have the following packag
     targets: [
                .target(name: "Game",
                        dependencies: [
-                            .product(name: "UtilsInSwift",
-                                     package: "swift-utils",
-                                     moduleAliases: ["Utils": "SwiftUtils"]),
+                            .product(name: "Utils",
+                                     package: "c-utils",
+                                     moduleAliases: ["Utils": "FooUtils"]),
+                            .product(name: "Utils",
+                                     package: "d-utils",
+                                     moduleAliases: ["Utils": "BazUtils"]),
                ])
     ]
 }
 ```
-The `App` manifest is same as before:
+
+Both packages define `FooUtils` as an alias, thus causing a conflict downstream.
+To override it, the `App` manifest can define its own module aliases per below.
 ```
     targets: [
         .executableTarget(
             name: "App",
             dependencies: [
-                .product(name: "Utils",
-                         package: "swift-draw"),
+                .product(name: "Draw",
+                         package: "swift-draw",
+                         moduleAliases: ["FooUtils": "DrawUtils"]),
                 .product(name: "Game",
                          package: "swift-game",
-                         moduleAliases: ["Utils": "GameUtils"]),
+                         moduleAliases: ["FooUtils": "GameUtils"]),
             ])
     ]
 ```
-
-The alias `SwiftUtils` defined in `swift-game` will be overridden by the value `GameUtils` defined in `App` for the `Utils` module vended by `swift-utils`. The module will be renamed as `GameUtils` and all of the targets that depend on the module will treat it as `GameUtils`.
+The `Utils` module from package `a-utils` will be renamed as `DrawUtils`, and `Utils` from package `c-utils` will be renamed as `GameUtils`. Each overriden alias will be applied to all of the targets that depend on each module.
 
 ## Requirements
 
@@ -153,4 +199,4 @@ The alias `SwiftUtils` defined in `swift-game` will be overridden by the value `
 * A module being aliased cannot be a prebuilt binary due to the impact on mangling and serialization, i.e. source-based only.
 * A module being aliased should not be passed to a runtime call such as `NSClassFromString(...)` that converts (directly or indirectly) String to a type in a module since such call will fail.
 * If a target mapped to a module being aliased contains resources, they should be asset catalogs, localized strings, or resources that do not require explicit module names.
-* Module aliasing disambiguates conflicting module names which affect the corresponding target names, thus the product names of each package are still required to be unique.
+* If a product that a module being aliased belongs to has a conflicting name with another product, at most one of the products can be a non-automatic library type.

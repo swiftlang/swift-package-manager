@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageModel
@@ -435,7 +436,7 @@ public struct SwiftTestTool: SwiftCommand {
         }
         args += ["-o", buildParameters.codeCovDataFile.pathString]
 
-        try Process.checkNonZeroExit(arguments: args)
+        try TSCBasic.Process.checkNonZeroExit(arguments: args)
     }
 
     private func codeCovAsJSONPath(buildParameters: BuildParameters, packageName: String) -> AbsolutePath {
@@ -453,7 +454,7 @@ public struct SwiftTestTool: SwiftCommand {
             "-instr-profile=\(buildParameters.codeCovDataFile)",
             testBinary.pathString
         ]
-        let result = try Process.popen(arguments: args)
+        let result = try TSCBasic.Process.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -620,7 +621,7 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let process = TSCBasic.Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return false // terminating
             }
@@ -769,7 +770,7 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope
                     )
                     var output = ""
-                    let outputLock = Lock()
+                    let outputLock = NSLock()
                     let start = DispatchTime.now()
                     let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
                     let duration = start.distance(to: .now())

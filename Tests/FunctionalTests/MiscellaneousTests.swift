@@ -431,7 +431,7 @@ class MiscellaneousTestCase: XCTestCase {
         class OutputHandler {
             let sync: DispatchGroup
             var state = State.idle
-            let lock = Lock()
+            let lock = NSLock()
 
             init(sync: DispatchGroup) {
                 self.sync = sync
@@ -690,6 +690,18 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testLibraryTriesToIncludeExecutableTarget() throws {
+        try fixture(name: "Miscellaneous/PackageWithMalformedLibraryProduct") { path in
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(path)) { error in
+                // if our code crashes we'll get an exit code of 256
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    return XCTFail("failed in an unexpected manner: \(error)")
+                }
+                XCTAssertMatch(error.stdout + error.stderr, .contains("library product 'PackageWithMalformedLibraryProduct' should not contain executable targets (it has 'PackageWithMalformedLibraryProduct')"))
+            }
+        }
+    }
+
     func testEditModeEndToEnd() throws {
         try fixture(name: "Miscellaneous/Edit") { fixturePath in
             let prefix = resolveSymlinks(fixturePath)
@@ -836,6 +848,55 @@ class MiscellaneousTestCase: XCTestCase {
         #endif
         try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_7") { fixturePath in
             XCTAssertBuilds(fixturePath)
+        }
+    }
+    
+    func testNoJSONOutputWithFlatPackageStructure() throws {
+        try fixture(name: "Miscellaneous/FlatPackage") { package in
+            // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+            let (stdout1, stderr1) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: package)
+            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertNoMatch(stdout1, .contains("command_arguments"))
+            XCTAssertNoMatch(stderr1, .contains("command_arguments"))
+            
+            // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+            let (stdout2, stderr2) = try SwiftPMProduct.SwiftTest.execute([], packagePath: package)
+            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertNoMatch(stdout2, .contains("command_arguments"))
+            XCTAssertNoMatch(stderr2, .contains("command_arguments"))
+        }
+    }
+
+    func testNoWarningFromRemoteDependencies() throws {
+        try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
+            // prepare the deps as git sources
+            let dependency1Path = path.appending(component: "dep1")
+            initGitRepo(dependency1Path, tag: "1.0.0")
+            let dependency2Path = path.appending(component: "dep2")
+            initGitRepo(dependency2Path, tag: "1.0.0")
+
+            let appPath = path.appending(component: "app")
+            let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: appPath)
+            XCTAssertDirectoryExists(appPath.appending(component: ".build"))
+            XCTAssertMatch(stdout + stderr, .contains("'DeprecatedApp' is deprecated"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
+        }
+    }
+
+    func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() throws {
+        try fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
+            // prepare the deps as git sources
+            let dependency1Path = path.appending(component: "dep1")
+            initGitRepo(dependency1Path, tag: "1.0.0")
+            let dependency2Path = path.appending(component: "dep2")
+            initGitRepo(dependency2Path, tag: "1.0.0")
+
+            let appPath = path.appending(component: "app")
+            let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute(["-Xswiftc", "-warnings-as-errors"], packagePath: appPath)
+            XCTAssertDirectoryExists(appPath.appending(component: ".build"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
+            XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
         }
     }
 }

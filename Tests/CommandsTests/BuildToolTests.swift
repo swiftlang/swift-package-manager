@@ -334,4 +334,10 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testPrintLLBuildManifestJobGraph() throws {
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let output = try execute(["--print-manifest-job-graph"], packagePath: fixturePath).stdout
+            XCTAssertMatch(output, .prefix("digraph Jobs {"))
+        }
+    }
 }

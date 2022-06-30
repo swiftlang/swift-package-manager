@@ -174,7 +174,7 @@ extension SystemPackageProviderDescription {
                 // to the latest version. Instead use the version as symlinked
                 // in /usr/local/opt/(NAME)/lib/pkgconfig.
                 struct Static {
-                    static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                    static let value = { try? TSCBasic.Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
                 }
                 if let value = Static.value {
                     brewPrefix = value

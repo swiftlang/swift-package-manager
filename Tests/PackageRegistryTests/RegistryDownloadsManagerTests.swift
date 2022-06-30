@@ -365,7 +365,7 @@ private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
     private var _willFetch = [(packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)]()
     private var _didFetch = [(packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)]()
 
-    private let lock = Lock()
+    private let lock = NSLock()
     private var group = DispatchGroup()
 
     public func prepare(fetchExpected: Bool) {

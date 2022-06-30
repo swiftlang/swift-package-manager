@@ -539,6 +539,8 @@ public final class ClangTargetBuildDescription {
 
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {
+    /// The package this target belongs to.
+    public let package: ResolvedPackage
 
     /// The target described by this target.
     public let target: ResolvedTarget
@@ -670,6 +672,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(
+        package: ResolvedPackage,
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription] = [],
@@ -684,6 +687,7 @@ public final class SwiftTargetBuildDescription {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
+        self.package = package
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -881,6 +885,16 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
+
+        // suppress warnings if the package is remote
+        if self.package.isRemote {
+            args += ["-suppress-warnings"]
+            // suppress-warnings and warnings-as-errors are mutually exclusive
+            if let index = args.firstIndex(of: "-warnings-as-errors") {
+                args.remove(at: index)
+            }
+        }
+
         return args
     }
 
@@ -1617,6 +1631,9 @@ public class BuildPlan {
         var generateRedundant = generate
         var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
+            guard let package = graph.package(for: testProduct) else {
+                throw InternalError("package not found for \(testProduct)")
+            }
             generateRedundant = generateRedundant && nil == testProduct.testManifestTarget
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
@@ -1624,6 +1641,7 @@ public class BuildPlan {
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
             if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
+                    package: package,
                     target: testManifestTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
@@ -1660,6 +1678,7 @@ public class BuildPlan {
                 )
 
                 let target = try SwiftTargetBuildDescription(
+                    package: package,
                     target: testManifestTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
@@ -1725,7 +1744,11 @@ public class BuildPlan {
 
             switch target.underlyingTarget {
             case is SwiftTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
+                    package: package,
                     target: target,
                     toolsVersion: toolsVersion,
                     additionalFileRules: additionalFileRules,
@@ -2161,7 +2184,7 @@ public class BuildPlan {
     /// importing the modules in the package graph.
     public func createREPLArguments() -> [String] {
         let buildPath = buildParameters.buildPath.pathString
-        var arguments = ["-I" + buildPath, "-L" + buildPath]
+        var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
         let replProductName = graph.rootPackages[0].identity.description + Product.replProductSuffix
@@ -2312,8 +2335,19 @@ private func generateResourceInfoPlist(
     return true
 }
 
-fileprivate extension TSCUtility.Triple {
-    var isSupportingStaticStdlib: Bool {
+extension TSCUtility.Triple {
+    fileprivate var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
+    }
+}
+
+extension ResolvedPackage {
+    fileprivate var isRemote: Bool {
+        switch self.underlyingPackage.manifest.packageKind {
+        case .registry, .remoteSourceControl, .localSourceControl:
+            return true
+        case .root, .fileSystem:
+            return false
+        }
     }
 }

@@ -52,6 +52,7 @@ final class LLBuildManifestTests: XCTestCase {
             nodes:
               "\(root.appending(components: "dir", "structure"))/":
                 is-directory-structure: true
+                content-exclusion-patterns: [".git",".build"]
             commands:
               "C.Foo":
                 tool: phony
