@@ -625,7 +625,7 @@ extension LLBuildManifestBuilder {
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
                     description: displayName,
-                    inputs: [.file(execPath)] + command.inputFiles.map{ .file($0) },
+                    inputs: command.inputFiles.map{ .file($0) },
                     outputs: command.outputFiles.map{ .file($0) },
                     arguments: commandLine,
                     environment: command.configuration.environment,
