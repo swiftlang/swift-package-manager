@@ -212,7 +212,7 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
         XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
         XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
-        XCTAssertEqual(evalFirstCommand.inputFiles, [])
+        XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending(component: "FooTool")])
         XCTAssertEqual(evalFirstCommand.outputFiles, [])
 
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
