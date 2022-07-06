@@ -79,18 +79,33 @@ final class BuildToolTests: CommandsTestCase {
         #if swift(<5.5)
         try XCTSkipIf(true, "skipping because host compiler doesn't support '-import-prescan'")
         #endif
+        // Verify the warning flow
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = resolveSymlinks(path)
-            XCTAssertThrowsError(try build(["--enable-explicit-target-dependency-import-checking"], packagePath: fullPath)) { error in
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=warn"], packagePath: fullPath)) { error in
                 guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
                     XCTFail()
                     return
                 }
+
                 XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
             }
         }
 
-        // Verify that the disable toggle works as expected
+        // Verify the error flow
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = resolveSymlinks(path)
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=error"], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+
+        // Verify that the default does not run the check
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = resolveSymlinks(path)
             XCTAssertThrowsError(try build([], packagePath: fullPath)) { error in

@@ -228,7 +228,7 @@ public struct BuildDescription: Codable {
 
     /// A flag that inidcates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
-    let enableExplicitTargetDependencyImportChecking: Bool
+    let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
 
     /// Every target's set of dependencies.
     let targetDependencyMap: [TargetName: [TargetName]]
@@ -257,7 +257,7 @@ public struct BuildDescription: Codable {
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
-        self.enableExplicitTargetDependencyImportChecking = plan.buildParameters.enableExplicitTargetDependencyImportChecking
+        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
             let deps = try $1.target.recursiveTargetDependencies().map { $0.c99name }
             $0[$1.target.c99name] = deps

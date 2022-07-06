@@ -337,8 +337,8 @@ struct BuildOptions: ParsableArguments {
 
     /// A flag that inidcates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Flag()
-    var enableExplicitTargetDependencyImportChecking: Bool = false    
+    @Option()
+    var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
@@ -374,6 +374,12 @@ struct BuildOptions: ParsableArguments {
     enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
         case native
         case xcode
+    }
+
+    enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
+        case none
+        case warn
+        case error
     }
 }
 
