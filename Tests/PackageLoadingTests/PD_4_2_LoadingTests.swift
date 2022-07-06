@@ -875,6 +875,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // platforms just getting lucky?  I'm feeling lucky.
         throw XCTSkip("Foundation Process.terminationStatus race condition (apple/swift-corelibs-foundation#4589")
 #else
+        try XCTSkipIfCI()
+
         try testWithTemporaryDirectory { path in
             let total = 100
             let observability = ObservabilitySystem.makeForTesting()

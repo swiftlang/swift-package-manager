@@ -385,7 +385,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        try XCTSkipIf(true, "rdar://96290746")
+        try XCTSkipIfCI()
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending(component: "main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
