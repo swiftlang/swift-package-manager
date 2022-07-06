@@ -25,6 +25,8 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
+@_implementationOnly import SwiftDriver
+
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
     /// The delegate used by the build system.
@@ -156,12 +158,80 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildSystem?.cancel()
     }
 
+    // Emit a warning if a target imports another target in this build
+    // without specifying it as a dependency in the manifest
+    private func verifyTargetImports(in description: BuildDescription) throws {
+        let checkingMode = description.explicitTargetDependencyImportCheckingMode
+        guard checkingMode != .none else {
+            return
+        }
+        // Ensure the compiler supports the import-scan operation
+        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
+            return
+        }
+
+        for (target, commandLine) in description.swiftTargetScanArgs {
+            do {
+                guard let dependencies = description.targetDependencyMap[target] else {
+                    // Skip target if no dependency information is present
+                    continue
+                }
+                let targetDependenciesSet = Set(dependencies)
+                guard !description.generatedSourceTargetSet.contains(target),
+                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty else {
+                    // Skip targets which contain, or depend-on-targets, with generated source-code.
+                    // Such as test discovery targets and targets with plugins.
+                    continue
+                }
+                let resolver = try ArgsResolver(fileSystem: localFileSystem)
+                let executor = SPMSwiftDriverExecutor(resolver: resolver,
+                                                      fileSystem: localFileSystem,
+                                                      env: ProcessEnv.vars)
+
+                let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
+                var driver = try Driver(args: commandLine,
+                                        diagnosticsEngine: consumeDiagnostics,
+                                        fileSystem: localFileSystem,
+                                        executor: executor)
+                guard !consumeDiagnostics.hasErrors else {
+                  // If we could not init the driver with this command, something went wrong,
+                  // proceed without checking this target.
+                  continue
+                }
+                let imports = try driver.performImportPrescan().imports
+                let nonDependencyTargetsSet =
+                    Set(description.targetDependencyMap.keys.filter { !targetDependenciesSet.contains($0) })
+                let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
+                if let missedDependency = importedTargetsMissingDependency.first {
+                    switch checkingMode {
+                        case .error:
+                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .warn:
+                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .none:
+                            fatalError("Explicit import checking is disabled.")
+                    }
+                }
+            } catch {
+                // The above verification is a best-effort attempt to warn the user about a potential manifest
+                // error. If something went wrong during the import-prescan, proceed silently.
+                return
+            }
+        }
+    }
+
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
+
         let buildStartTime = DispatchTime.now()
 
         // Get the build description (either a cached one or newly created).
-        let buildDescription = try self.getBuildDescription()
+
+        // Get the build description
+        let buildDescription = try getBuildDescription()
+
+        // Verify dependency imports on the described targers
+        try verifyTargetImports(in: buildDescription)
 
         // Create the build system.
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)

@@ -795,6 +795,7 @@ public class SwiftTool {
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info
             )
@@ -1183,6 +1184,19 @@ extension BuildOptions.StoreMode {
             return .on
         case .disableIndexStore:
             return .off
+        }
+    }
+}
+
+extension BuildOptions.TargetDependencyImportCheckingMode {
+    fileprivate var modeParameter: BuildParameters.TargetDependencyImportCheckingMode {
+        switch self {
+        case .none:
+            return .none
+        case .warn:
+            return .warn
+        case .error:
+            return .error
         }
     }
 }
