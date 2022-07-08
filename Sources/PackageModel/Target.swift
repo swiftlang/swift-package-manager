@@ -129,6 +129,10 @@ public class Target: PolymorphicCodableProtocol {
     /// dependent target and the value is a new unique name mapped to the name
     /// of its .swiftmodule binary.
     public private(set) var moduleAliases: [String: String]?
+    /// Used to store pre-chained / pre-overriden module aliases
+    public private(set) var prechainModuleAliases: [String: String]?
+    /// Used to store aliases that should be referenced directly in source code
+    public private(set) var directRefAliases: [String: [String]]?
 
     /// Add module aliases (if applicable) for dependencies of this target.
     ///
@@ -147,10 +151,26 @@ public class Target: PolymorphicCodableProtocol {
             moduleAliases?[name] = alias
         }
     }
+
     public func removeModuleAlias(for name: String) {
         moduleAliases?.removeValue(forKey: name)
         if moduleAliases?.isEmpty ?? false {
             moduleAliases = nil
+        }
+    }
+
+    public func addPrechainModuleAlias(for name: String, as alias: String) {
+        if prechainModuleAliases == nil {
+            prechainModuleAliases = [name: alias]
+        } else {
+            prechainModuleAliases?[name] = alias
+        }
+    }
+    public func addDirectRefAliases(for name: String, as aliases: [String]) {
+        if directRefAliases == nil {
+            directRefAliases = [name: aliases]
+        } else {
+            directRefAliases?[name] = aliases
         }
     }
 
