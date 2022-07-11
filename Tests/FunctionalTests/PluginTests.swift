@@ -897,4 +897,16 @@ class PluginTests: XCTestCase {
         }
 
     }
+
+    func testTransitivePluginOnlyDependency() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "TransitivePluginOnlyDependency"))
+            XCTAssert(stdout.contains("Compiling plugin MyPlugin..."), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling Library Library.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }
