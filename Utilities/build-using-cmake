@@ -29,6 +29,86 @@ if (uname | grep -qi darwin); then
     CMAKE_Swift_FLAGS="-sdk $(xcrun --sdk macosx --show-sdk-path)"
 fi
 
+echo "Building yams"
+mkdir -p yams
+cd yams
+
+Yams_SRCROOT="`cd "${SRCROOT}/../yams";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $Yams_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building swift system"
+mkdir -p swiftsystem
+cd swiftsystem
+
+SwiftSystem_SRCROOT="`cd "${SRCROOT}/../swift-system";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $SwiftSystem_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building swift collections"
+mkdir -p swiftcollections
+cd swiftcollections
+
+SwiftCollections_SRCROOT="`cd "${SRCROOT}/../swift-collections";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $SwiftCollections_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building swift crypto"
+mkdir -p crypto
+cd crypto
+
+SwiftCrypto_SRCROOT="`cd "${SRCROOT}/../swift-crypto";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $SwiftCrypto_SRCROOT
+ninja
+cd ..
+set +x
+
+echo "Building argument parser"
+mkdir -p argumentparser
+cd argumentparser
+
+ArgumentParser_SRCROOT="`cd "${SRCROOT}/../swift-argument-parser";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $ArgumentParser_SRCROOT
+ninja libArgumentParser.dylib
+cd ..
+set +x
+
 echo "Building tools support core"
 mkdir -p tsc
 cd tsc
@@ -40,6 +120,7 @@ cmake \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    -DSwiftSystem_DIR=$BUILD_DIR/swiftsystem/cmake/modules \
     $TSC_SRCROOT
 ninja
 cd ..
@@ -62,6 +143,27 @@ ninja
 cd ..
 set +x
 
+echo "Building swift driver"
+mkdir -p driver
+cd driver
+
+SwiftDriver_SRCROOT="`cd "${SRCROOT}/../swift-driver";pwd`"
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    -DTSC_DIR=$BUILD_DIR/tsc/cmake/modules \
+    -DLLBuild_DIR=$BUILD_DIR/llbuild/cmake/modules \
+    -DYams_DIR=$BUILD_DIR/yams/cmake/modules \
+    -DArgumentParser_DIR=$BUILD_DIR/argumentparser/cmake/modules \
+    -DSwiftSystem_DIR=$BUILD_DIR/swiftsystem/cmake/modules \
+    $SwiftDriver_SRCROOT
+ninja
+cd ..
+set +x
+
 echo "Building swiftpm"
 
 mkdir -p swiftpm
@@ -73,6 +175,11 @@ cmake \
     -DCMAKE_BUILD_TYPE=Debug \
     -DTSC_DIR=$BUILD_DIR/tsc/cmake/modules \
     -DLLBuild_DIR=$BUILD_DIR/llbuild/cmake/modules \
+    -DSwiftSystem_DIR=$BUILD_DIR/swiftsystem/cmake/modules \
+    -DArgumentParser_DIR=$BUILD_DIR/argumentparser/cmake/modules \
+    -DSwiftCrypto_DIR=$BUILD_DIR/crypto/cmake/modules \
+    -DSwiftDriver_DIR=$BUILD_DIR/driver/cmake/modules \
+    -DSwiftCollections_DIR=$BUILD_DIR/swiftcollections/cmake/modules \
     -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
     -DUSE_VENDORED_TSC=OFF \
     $SRCROOT
