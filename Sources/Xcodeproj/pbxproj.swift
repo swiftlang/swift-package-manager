@@ -742,6 +742,12 @@ private extension SupportedLanguageExtension {
             return "sourcecode.cpp.objcpp"
         case .swift:
             return "sourcecode.swift"
+        case .md:
+            return "net.daringfireball.markdown"
+        case .rst:
+            return "org.python.restructuredtext"
+        case .tex:
+            return "org.tug.tex"
         case .s, .S:
             return "sourcecode.assembly"
         }

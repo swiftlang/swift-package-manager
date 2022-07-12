@@ -389,6 +389,9 @@ public struct TargetSourcesBuilder {
             // Ignore dot files.
             if path.basename.hasPrefix(".") { continue }
 
+            // Ignore backup files.
+            if path.basename.hasSuffix("~") { continue }
+
             if let ext = path.extension, ignoredDirectoryExtensions.contains(ext) {
                 continue
             }
@@ -403,6 +406,9 @@ public struct TargetSourcesBuilder {
                     continue
                 }
             }
+
+            // Ignore README files.
+            if path.basename.hasPrefix("README") { continue}
 
             // Ignore if this is an excluded path.
             if self.excludedPaths.contains(path) { continue }
@@ -585,7 +591,7 @@ public struct FileRuleDescription {
         .init(
             rule: .compile,
             toolsVersion: .minimumRequired,
-            fileTypes: ["swift"]
+            fileTypes: ["swift", "md", "rst", "tex"]
         )
     }()
 
