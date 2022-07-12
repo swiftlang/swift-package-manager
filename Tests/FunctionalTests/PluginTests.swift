@@ -909,4 +909,30 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    func testMissingPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try executeSwiftBuild(fixturePath.appending(component: "MissingPlugin"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
+            }
+        }
+    }
+
+    func testPluginCanBeReferencedByProductName() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "PluginCanBeReferencedByProductName"))
+            XCTAssert(stdout.contains("Compiling plugin MyPlugin..."), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName PluginCanBeReferencedByProductName.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }
