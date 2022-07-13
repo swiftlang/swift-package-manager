@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.7
 -----------
 
+* [SE-0292]
+
+  SwiftPM can now resolve deepndencies from a server compliant with the package registry server API defined in SE-0292. 
+  
 * [SE-0339]
 
   Module aliases can now be defined in the package manifest to disambiguate between modules with the same name originating from different packages. 
@@ -213,6 +217,7 @@ Swift 3.0
 [SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0292]: https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md
 [SE-0303]: https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 [SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md

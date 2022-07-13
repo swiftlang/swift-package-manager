@@ -205,7 +205,7 @@ public final class Target {
     ///
     /// If you make a remote binary framework available as a Swift package,
     /// declare a remote, or _URL-based_, binary target in your package manifest
-    /// with ``Target/binaryTarget(name:url:checksum:)``. Aways run `swift
+    /// with ``Target/binaryTarget(name:url:checksum:)``. Always run `swift
     /// package compute-checksum path/to/MyFramework.zip` at the command line to
     /// make sure you create a correct SHA256 checksum.
     ///

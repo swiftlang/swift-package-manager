@@ -225,6 +225,12 @@ public final class Manifest {
                     requiredDependencies.insert(dependency.identity)
                 }
             }
+
+            target.pluginUsages?.forEach {
+                if let dependency = self.packageDependency(referencedBy: $0) {
+                    requiredDependencies.insert(dependency.identity)
+                }
+            }
         }
 
         return self.dependencies.filter { requiredDependencies.contains($0.identity) }
@@ -333,6 +339,19 @@ public final class Manifest {
 
         return packageDependency(referencedBy: packageName)
     }
+
+    /// Finds the package dependency referenced by the specified plugin usage.
+    /// - Returns: Returns `nil` if  the used plugin is from the same package or if the package the used plugin is from cannot be found.
+    public func packageDependency(
+        referencedBy pluginUsage: TargetDescription.PluginUsage) -> PackageDependency? {
+        switch pluginUsage {
+        case .plugin(_, let .some(package)):
+            return packageDependency(referencedBy: package)
+        default:
+            return nil
+        }
+    }
+
     private func packageDependency(
         referencedBy packageName: String
     ) -> PackageDependency? {

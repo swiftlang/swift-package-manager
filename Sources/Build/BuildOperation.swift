@@ -25,6 +25,8 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
 
+@_implementationOnly import SwiftDriver
+
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
     /// The delegate used by the build system.
@@ -143,8 +145,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
             }
             // We need to perform actual planning if we reach here.
-            return try self.plan()
+            return try self.plan().description
         }
+    }
+
+    public func getBuildManifest() throws -> LLBuildManifest.BuildManifest {
+        return try self.plan().manifest
     }
 
     /// Cancel the active build operation.
@@ -152,12 +158,80 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildSystem?.cancel()
     }
 
+    // Emit a warning if a target imports another target in this build
+    // without specifying it as a dependency in the manifest
+    private func verifyTargetImports(in description: BuildDescription) throws {
+        let checkingMode = description.explicitTargetDependencyImportCheckingMode
+        guard checkingMode != .none else {
+            return
+        }
+        // Ensure the compiler supports the import-scan operation
+        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
+            return
+        }
+
+        for (target, commandLine) in description.swiftTargetScanArgs {
+            do {
+                guard let dependencies = description.targetDependencyMap[target] else {
+                    // Skip target if no dependency information is present
+                    continue
+                }
+                let targetDependenciesSet = Set(dependencies)
+                guard !description.generatedSourceTargetSet.contains(target),
+                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty else {
+                    // Skip targets which contain, or depend-on-targets, with generated source-code.
+                    // Such as test discovery targets and targets with plugins.
+                    continue
+                }
+                let resolver = try ArgsResolver(fileSystem: localFileSystem)
+                let executor = SPMSwiftDriverExecutor(resolver: resolver,
+                                                      fileSystem: localFileSystem,
+                                                      env: ProcessEnv.vars)
+
+                let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
+                var driver = try Driver(args: commandLine,
+                                        diagnosticsEngine: consumeDiagnostics,
+                                        fileSystem: localFileSystem,
+                                        executor: executor)
+                guard !consumeDiagnostics.hasErrors else {
+                  // If we could not init the driver with this command, something went wrong,
+                  // proceed without checking this target.
+                  continue
+                }
+                let imports = try driver.performImportPrescan().imports
+                let nonDependencyTargetsSet =
+                    Set(description.targetDependencyMap.keys.filter { !targetDependenciesSet.contains($0) })
+                let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
+                if let missedDependency = importedTargetsMissingDependency.first {
+                    switch checkingMode {
+                        case .error:
+                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .warn:
+                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                        case .none:
+                            fatalError("Explicit import checking is disabled.")
+                    }
+                }
+            } catch {
+                // The above verification is a best-effort attempt to warn the user about a potential manifest
+                // error. If something went wrong during the import-prescan, proceed silently.
+                return
+            }
+        }
+    }
+
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
+
         let buildStartTime = DispatchTime.now()
 
         // Get the build description (either a cached one or newly created).
-        let buildDescription = try self.getBuildDescription()
+
+        // Get the build description
+        let buildDescription = try getBuildDescription()
+
+        // Verify dependency imports on the described targers
+        try verifyTargetImports(in: buildDescription)
 
         // Create the build system.
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
@@ -283,7 +357,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Create the build plan and return the build description.
-    private func plan() throws -> BuildDescription {
+    private func plan() throws -> (description: BuildDescription, manifest: LLBuildManifest.BuildManifest) {
         // Load the package graph.
         let graph = try getPackageGraph()
 
@@ -297,7 +371,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem
         )
-
 
         // Surface any diagnostics from build tool plugins.
         for (target, results) in buildToolPluginInvocationResults {
@@ -372,18 +445,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             observabilityScope: self.observabilityScope
         )
 
-        // FIXME: ideally this would be done outside of the planning phase,
-        // but it would require deeper changes in how we serialize BuildDescription
-        // Output a dot graph
-        if buildParameters.printManifestGraphviz {
-            // FIXME: this seems like the wrong place to print
-            var serializer = DOTManifestSerializer(manifest: buildManifest)
-            serializer.writeDOT(to: self.outputStream)
-            self.outputStream.flush()
-        }
-
         // Finally create the llbuild manifest from the plan.
-        return buildDescription
+        return (buildDescription, buildManifest)
     }
 
     /// Build the package structure target.
@@ -461,7 +524,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if !self.disableSandboxForPluginCommands {
                     commandLine = Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
-                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
+                let processResult = try TSCBasic.Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
@@ -519,7 +582,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, LLBuildManifest.BuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)

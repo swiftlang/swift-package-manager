@@ -12,6 +12,7 @@
 
 import Basics
 import Dispatch
+import class Foundation.NSLock
 import TSCBasic
 
 import enum TSCUtility.Git
@@ -30,8 +31,8 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: Process.OutputRedirection = .collect) throws -> String {
-        let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
+    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+        let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
@@ -331,7 +332,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private let git: GitShellHelper
 
     // lock top protect concurrent modifications to the repository
-    private let lock = Lock()
+    private let lock = NSLock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool

@@ -1175,7 +1175,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope,
         completion: @escaping(Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
-        let lock = Lock()
+        let lock = NSLock()
         let sync = DispatchGroup()
         var rootManifests = [AbsolutePath: Manifest]()
         Set(packages).forEach { package in
@@ -1910,15 +1910,17 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(input) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            // pre-populate managed dependencies if we are asked to do so
-            // FIXME: this seems like hack, needs further investigation why this is needed
+            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
+            // pre-populate managed dependencies if we are asked to do so (this happens when resolving to a resolved file)
             if automaticallyAddManagedDependencies {
-                try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
-                    try self.state.dependencies.add(.fileSystem(packageRef: dependency.createPackageRef()))
+                try dependenciesToLoad.forEach { ref in
+                    // Since we are creating managed dependencies based on the resolved file in this mode, but local packages aren't part of that file, they will be missing from it. So we're eagerly adding them here, but explicitly don't add any that are overridden by a root with the same identity since that would lead to loading the given package twice, once as a root and once as a dependency  which violates various assumptions.
+                    if case .fileSystem = ref.kind, !root.manifests.keys.contains(ref.identity) {
+                        try self.state.dependencies.add(.fileSystem(packageRef: ref))
+                    }
                 }
                 observabilityScope.trap { try self.state.save() }
             }
-            let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return dependenciesRequired.compactMap { dependency in
@@ -2072,17 +2074,11 @@ extension Workspace {
         // Load the manifest, bracketed by the calls to the delegate callbacks.
         delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
 
-        let observabilityScope = observabilityScope.makeChildScope(description: "Loading manifest") {
+        let manifestLoadingScope = observabilityScope.makeChildScope(description: "Loading manifest") {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-        let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-            observabilityScope.emit(diagnostic)
-            manifestLoadingDiagnostics.append(diagnostic)
-        }).topScope.makeChildScope(description: "Loading manifest") {
-            .packageMetadata(identity: packageIdentity, kind: packageKind)
-        }
+        var manifestLoadingDiagnostics = [Basics.Diagnostic]()
 
         self.manifestLoader.load(
             packagePath: packagePath,
@@ -2097,61 +2093,25 @@ extension Workspace {
             delegateQueue: .sharedConcurrent,
             callbackQueue: .sharedConcurrent
         ) { result in
+            var result = result
             switch result {
-            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-            case .failure(Diagnostics.fatalError):
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
             case .failure(let error):
-                manifestLoadingScope.emit(error)
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+                manifestLoadingDiagnostics.append(.error(error))
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics)
             case .success(let manifest):
-                manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
+                let validator = ManifestValidator(manifest: manifest, sourceControlValidator: self.repositoryManager, fileSystem: self.fileSystem)
+                let validationIssues = validator.validate()
+                if !validationIssues.isEmpty {
+                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                    result = .failure(Diagnostics.fatalError)
+                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
+                }
+                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics)
             }
+            manifestLoadingScope.emit(manifestLoadingDiagnostics)
             completion(result)
         }
     }
-
-    // TODO: move more manifest validation in here from other parts of the code, e.g. from ManifestLoader
-    private func validateManifest(_ manifest: Manifest) throws {
-        // validate dependency requirements
-        for dependency in manifest.dependencies {
-            switch dependency {
-            case .sourceControl(let sourceControl):
-                try validateSourceControlDependency(sourceControl)
-            default:
-                break
-            }
-        }
-
-        func validateSourceControlDependency(_ dependency: PackageDependency.SourceControl) throws {
-            // validate source control ref
-            switch dependency.requirement {
-            case .branch(let name):
-                guard self.repositoryManager.isValidRefFormat(name) else {
-                    throw StringError("Invalid branch name: '\(name)'")
-                }
-            case .revision(let revision):
-                guard self.repositoryManager.isValidRefFormat(revision) else {
-                    throw StringError("Invalid revision: '\(revision)'")
-                }
-            default:
-                break
-            }
-            // if a location is on file system, validate it is in fact a git repo
-            // there is a case to be made to throw early (here) if the path does not exists
-            // but many of our tests assume they can pass a non existent path
-            if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
-                guard self.repositoryManager.isValidDirectory(localPath) else {
-                    // Provides better feedback when mistakingly using url: for a dependency that
-                    // is a local package. Still allows for using url with a local package that has
-                    // also been initialized by git
-                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
-                }
-            }
-        }
-    }
-
 
     /// Validates that all the edited dependencies are still present in the file system.
     /// If some checkout dependency is removed form the file system, clone it again.
@@ -4065,3 +4025,6 @@ fileprivate func warnToStderr(_ message: String) {
     TSCBasic.stderrStream.write("warning: \(message)\n")
     TSCBasic.stderrStream.flush()
 }
+
+// used for manifest validation
+extension RepositoryManager: ManifestSourceControlValidator {}

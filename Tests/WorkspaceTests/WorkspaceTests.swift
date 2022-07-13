@@ -4146,6 +4146,57 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testForceResolveToResolvedVersionsDuplicateLocalDependency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .fileSystem(path: "./Bar"),
+                    ]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0", "1.3.2"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root", "Bar"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        try workspace.checkPackageGraph(roots: ["Root", "Bar"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testForceResolveWithNoResolvedFile() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -7003,7 +7054,7 @@ final class WorkspaceTests: XCTestCase {
 
         let maxConcurrentRequests = 2
         var concurrentRequests = 0
-        let concurrentRequestsLock = Lock()
+        let concurrentRequestsLock = NSLock()
 
         var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
@@ -8569,7 +8620,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BarProduct", package: "foo"),
                         ]),
                     ],
                     products: [],
@@ -9669,22 +9720,6 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            // Diagnostics.fatalError
-            let delegate = MockWorkspaceDelegate()
-            let workspace = try Workspace(
-                fileSystem: fs,
-                forRootPackage: .root,
-                customManifestLoader: TestLoader(error: Diagnostics.fatalError),
-                delegate: delegate
-            )
-            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: observability.topScope)
-
-            XCTAssertNil(delegate.manifest)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(delegate.manifestLoadingDiagnostics ?? [])
-        }
-
-        do {
             // actual error
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
@@ -10108,7 +10143,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -10506,7 +10541,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -10780,8 +10815,8 @@ final class WorkspaceTests: XCTestCase {
                     path: "root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "FooProduct", package: "org.foo"),
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -10923,8 +10958,8 @@ final class WorkspaceTests: XCTestCase {
                     path: "root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "FooProduct", package: "org.foo"),
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -11055,8 +11090,8 @@ final class WorkspaceTests: XCTestCase {
                     path: "root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "FooProduct", package: "org.foo"),
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -11220,8 +11255,8 @@ final class WorkspaceTests: XCTestCase {
                     path: "root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "FooProduct", package: "org.foo"),
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],
@@ -11369,7 +11404,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
                             .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar")
+                            .product(name: "BarProduct", package: "org.bar")
                         ]),
                     ],
                     products: [],

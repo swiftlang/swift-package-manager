@@ -32,15 +32,15 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         fatalError("implement in subclass")
     }
 
-    func loadManifest(
+    func loadAndValidateManifest(
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind? = nil,
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> Manifest {
-        try self.loadManifest(
+    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic])  {
+        try self.loadAndValidateManifest(
             ByteString(encodingAsUTF8: contents),
             toolsVersion: toolsVersion,
             packageKind: packageKind,
@@ -48,14 +48,14 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         )
     }
 
-    func loadManifest(
+    func loadAndValidateManifest(
         _ bytes: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind? = nil,
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
-    ) throws -> Manifest {
+    ) throws -> (manifest: Manifest, diagnostics: [Basics.Diagnostic]) {
         let packageKind = packageKind ?? .fileSystem(.root)
         let packagePath: AbsolutePath
         switch packageKind {
@@ -82,9 +82,21 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         )
 
         if manifest.toolsVersion != toolsVersion {
-            XCTFail("Invalid manifest version", file: file, line: line)
+            throw StringError("Invalid manifest version")
         }
 
-        return manifest
+        let validator = ManifestValidator(manifest: manifest, sourceControlValidator: NOOPManifestSourceControlValidator(), fileSystem: fileSystem)
+        let diagnostics = validator.validate()
+        return (manifest: manifest, diagnostics: diagnostics)
+    }
+}
+
+fileprivate struct NOOPManifestSourceControlValidator: ManifestSourceControlValidator {
+    func isValidRefFormat(_ revision: String) -> Bool {
+        true
+    }
+
+    func isValidDirectory(_ path: AbsolutePath) -> Bool {
+        true
     }
 }

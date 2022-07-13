@@ -7,12 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
-  APIDigester.swift
-  Describe.swift
-  GenerateLinuxMain.swift
-  MultiRootSupport.swift
+
   Options.swift
-  show-dependencies.swift
   Snippets/CardEvent.swift
   Snippets/Cards/SnippetCard.swift
   Snippets/Cards/SnippetGroupCard.swift
@@ -27,9 +23,15 @@ add_library(Commands
   SwiftRunTool.swift
   SwiftTestTool.swift
   SwiftTool.swift
-  SymbolGraphExtract.swift
-  TestingSupport.swift
-  WatchmanHelper.swift)
+  Utilities/APIDigester.swift
+  Utilities/DependenciesSerializer.swift
+  Utilities/Describe.swift
+  Utilities/DOTManifestSerializer.swift
+  Utilities/GenerateLinuxMain.swift
+  Utilities/MultiRootSupport.swift
+  Utilities/SymbolGraphExtract.swift
+  Utilities/TestingSupport.swift
+  Utilities/WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics

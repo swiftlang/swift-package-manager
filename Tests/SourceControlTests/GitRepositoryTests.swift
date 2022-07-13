@@ -113,10 +113,17 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() throws {
+#if os(Windows)
+        try XCTSkipIf(true, "test repository has non-portable file names")
+#endif
         try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
+#if os(Windows)
+            try systemQuietly(["tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
+#else
             try systemQuietly(["tar", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
+#endif
             let testRepoPath = path.appending(component: "TestRepo")
 
             // Check hash resolution.
@@ -205,7 +212,7 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
             try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-3.sh"), bytes: test3FileContents)
-            try! Process.checkNonZeroExit(args: "chmod", "+x", testRepoPath.appending(component: "test-file-3.sh").pathString)
+            try localFileSystem.chmod(.executable, path: testRepoPath.appending(component: "test-file-3.sh"), options: [])
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt", "test-file-3.sh")
             try testRepo.commit()
@@ -230,7 +237,9 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(view.isFile(AbsolutePath("/test-file-1.txt")))
             XCTAssert(!view.isSymlink(AbsolutePath("/test-file-1.txt")))
             XCTAssert(!view.isExecutableFile(AbsolutePath("/does-not-exist")))
+#if !os(Windows)
             XCTAssert(view.isExecutableFile(AbsolutePath("/test-file-3.sh")))
+#endif
 
             // Check read of a directory.
             let subdirPath = AbsolutePath("/subdir")

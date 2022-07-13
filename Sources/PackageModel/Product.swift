@@ -19,6 +19,9 @@ public class Product: Codable {
     /// The name of the product.
     public let name: String
 
+    /// Fully qualified name for this product: package ID + name of this product
+    public let ID: String
+
     /// The type of product to create.
     public let type: ProductType
 
@@ -35,7 +38,7 @@ public class Product: Codable {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) throws {
+    public init(package: PackageIdentity, name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) throws {
         guard !targets.isEmpty else {
             throw InternalError("Targets cannot be empty")
         }
@@ -51,6 +54,7 @@ public class Product: Codable {
         }
         self.name = name
         self.type = type
+        self.ID = package.description.lowercased() + "_" + name
         self._targets = .init(wrappedValue: targets)
         self.testManifest = testManifest
     }

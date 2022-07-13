@@ -15,6 +15,7 @@ import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
 import class Foundation.NSError
+import class Foundation.NSLock
 import class Foundation.OperationQueue
 import struct Foundation.URL
 import struct Foundation.UUID
@@ -56,7 +57,7 @@ public struct HTTPClient: Cancellable {
     private var outstandingRequests = ThreadSafeKeyValueStore<UUID, (url: URL, completion: CompletionHandler, progress: ProgressHandler?, queue: DispatchQueue)>()
 
     // static to share across instances of the http client
-    private static var hostsErrorsLock = Lock()
+    private static var hostsErrorsLock = NSLock()
     private static var hostsErrors = [String: [Date]]()
 
     public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil) {

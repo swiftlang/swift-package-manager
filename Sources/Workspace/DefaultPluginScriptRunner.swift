@@ -26,15 +26,17 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let toolchain: UserToolchain
     private let enableSandbox: Bool
     private let cancellator: Cancellator
+    private let verboseOutput: Bool
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true, verboseOutput: Bool = false) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
         self.cancellator = Cancellator(observabilityScope: .none)
+        self.verboseOutput = verboseOutput
     }
     
     /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
@@ -199,6 +201,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Finally add the output path of the compiled executable.
         commandLine += ["-o", execFilePath.pathString]
 
+        if (verboseOutput) {
+            commandLine.append("-v")
+        }
+
         // First try to create the output directory.
         do {
             observabilityScope.emit(debug: "Plugin compilation output directory '\(execFilePath.parentDirectory)'")
@@ -312,13 +318,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
+        TSCBasic.Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
                 // Emit the compiler output as observable info.
                 let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
-                observabilityScope.emit(info: compilerOutput)
+                if !compilerOutput.isEmpty {
+                    observabilityScope.emit(info: compilerOutput)
+                }
 
                 // Save the persisted compilation state for possible reuse next time.
                 let compilationState = PersistedCompilationState(
@@ -357,7 +365,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? Process.checkNonZeroExit(
+        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
@@ -411,7 +419,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Set up a pipe for receiving messages from the plugin on its stdout.
         let stdoutPipe = Pipe()
-        let stdoutLock = Lock()
+        let stdoutLock = NSLock()
         stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Receive the next message and pass it on to the delegate.
             stdoutLock.withLock {
@@ -446,7 +454,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Set up a pipe for receiving free-form text output from the plugin on its stderr.
         let stderrPipe = Pipe()
-        let stderrLock = Lock()
+        let stderrLock = NSLock()
         var stderrData = Data()
         let stderrHandler = { (data: Data) in
             // Pass on any available data to the delegate.

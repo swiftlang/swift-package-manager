@@ -12,6 +12,7 @@
 
 import Basics
 import Dispatch
+import class Foundation.NSLock
 import OrderedCollections
 import PackageModel
 import TSCBasic
@@ -39,7 +40,7 @@ public struct PubgrubDependencyResolver {
         /// The current best guess for a solution satisfying all requirements.
         public private(set) var solution: PartialSolution
 
-        private let lock = Lock()
+        private let lock = NSLock()
 
         init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
@@ -526,6 +527,11 @@ public struct PubgrubDependencyResolver {
         var incompatibility = conflict
         var createdIncompatibility = false
 
+        // rdar://93335995
+        // hard protection from infinite loops
+        let maxIterations = 1000
+        var iterations: Int = 0
+
         while !isCompleteFailure(incompatibility, root: state.root) {
             var mostRecentTerm: Term?
             var mostRecentSatisfier: Assignment?
@@ -578,7 +584,11 @@ public struct PubgrubDependencyResolver {
             newTerms += priorCause.terms.filter { $0.node != _mostRecentSatisfier.term.node }
 
             if let _difference = difference {
-                newTerms.append(_difference.inverse)
+                // rdar://93335995
+                // do not add the exact inverse of a requirement as it can lead to endless loops
+                if _difference.inverse != mostRecentTerm {
+                    newTerms.append(_difference.inverse)
+                }
             }
 
             incompatibility = try Incompatibility(
@@ -594,6 +604,13 @@ public struct PubgrubDependencyResolver {
                 } else {
                     self.delegate?.satisfied(term: term, by: _mostRecentSatisfier, incompatibility: incompatibility)
                 }
+            }
+
+            // rdar://93335995
+            // hard protection from infinite loops
+            iterations = iterations + 1
+            if iterations >= maxIterations {
+                break
             }
         }
 

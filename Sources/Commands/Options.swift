@@ -335,15 +335,14 @@ struct BuildOptions: ParsableArguments {
     @Flag()
     var useIntegratedSwiftDriver: Bool = false
 
+    /// A flag that inidcates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    @Option()
+    var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false
-
-    /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    @Flag(
-        name: .customLong("print-manifest-job-graph"),
-        help: "Write the command graph for the build manifest as a graphviz file")
-    var printManifestGraphviz: Bool = false
 
     /// The build system to use.
     @Option(name: .customLong("build-system"))
@@ -375,6 +374,12 @@ struct BuildOptions: ParsableArguments {
     enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
         case native
         case xcode
+    }
+
+    enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
+        case none
+        case warn
+        case error
     }
 }
 

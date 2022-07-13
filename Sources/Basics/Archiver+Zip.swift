@@ -47,9 +47,9 @@ public struct ZipArchiver: Archiver, Cancellable {
             }
 
 #if os(Windows)
-            let process = Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
+            let process = TSCBasic.Process(arguments: ["tar.exe", "xf", archivePath.pathString, "-C", destinationPath.pathString])
 #else
-            let process = Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
+            let process = TSCBasic.Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
 #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")
@@ -77,9 +77,9 @@ public struct ZipArchiver: Archiver, Cancellable {
             }
 
 #if os(Windows)
-            let process = Process(arguments: ["tar.exe", "tf", path.pathString])
+            let process = TSCBasic.Process(arguments: ["tar.exe", "tf", path.pathString])
 #else
-            let process = Process(arguments: ["unzip", "-t", path.pathString])
+            let process = TSCBasic.Process(arguments: ["unzip", "-t", path.pathString])
 #endif
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")

@@ -353,6 +353,9 @@ extension PackageGraph {
                         dict[name] = path
                     }
                 })
+                
+                // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
+                let toolPaths = toolNamesToPaths.values.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -367,13 +370,15 @@ extension PackageGraph {
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
                 class PluginDelegate: PluginInvocationDelegate {
                     let delegateQueue: DispatchQueue
+                    let toolPaths: [AbsolutePath]
                     var outputData = Data()
                     var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(delegateQueue: DispatchQueue) {
+                    init(delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
                         self.delegateQueue = delegateQueue
+                        self.toolPaths = toolPaths
                     }
                     
                     func pluginEmittedOutput(_ data: Data) {
@@ -395,7 +400,7 @@ extension PackageGraph {
                                 arguments: arguments,
                                 environment: environment,
                                 workingDirectory: workingDirectory),
-                            inputFiles: inputFiles,
+                            inputFiles: toolPaths + inputFiles,
                             outputFiles: outputFiles))
                     }
                     
@@ -411,7 +416,7 @@ extension PackageGraph {
                             outputFilesDirectory: outputFilesDirectory))
                     }
                 }
-                let delegate = PluginDelegate(delegateQueue: delegateQueue)
+                let delegate = PluginDelegate(delegateQueue: delegateQueue, toolPaths: toolPaths)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()

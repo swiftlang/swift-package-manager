@@ -31,7 +31,7 @@ public class MockRegistry {
     private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
     private var packagesSourceControlURLs = [PackageIdentity: [URL]]()
     private var sourceControlURLs = [URL: PackageIdentity]()
-    private let packagesLock = Lock()
+    private let packagesLock = NSLock()
 
     public init(
         filesystem: FileSystem,

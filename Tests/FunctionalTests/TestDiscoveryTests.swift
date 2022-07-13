@@ -130,9 +130,25 @@ class TestDiscoveryTests: XCTestCase {
             // in "swift test" build output goes to stderr
             XCTAssertMatch(stderr, .contains("Build complete!"))
             // in "swift test" test output goes to stdout
-            XCTAssertMatch(stdout, .contains("SubclassTestsBase.test1"))
-            XCTAssertMatch(stdout, .contains("SubclassTestsDerived.test1"))
-            XCTAssertMatch(stdout, .contains("Executed 2 tests"))
+            XCTAssertMatch(stdout, .contains("Tests3.test11"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests1::test11"))
+            XCTAssertMatch(stdout, .contains("Tests3.test12"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests1::test12"))
+            XCTAssertMatch(stdout, .contains("Tests3.test13"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests1::test13"))
+            XCTAssertMatch(stdout, .contains("Tests3.test21"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests2::test21"))
+            XCTAssertMatch(stdout, .contains("Tests3.test22"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests2::test22"))
+            XCTAssertMatch(stdout, .contains("Tests3.test31"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests3::test31"))
+            XCTAssertMatch(stdout, .contains("Tests3.test32"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests3::test32"))
+            XCTAssertMatch(stdout, .contains("Tests3.test33"))
+            XCTAssertMatch(stdout, .contains("->Module1::Tests3::test33"))
+
+            XCTAssertMatch(stdout, .contains("->Module2::Tests1::test11"))
+            XCTAssertMatch(stdout, .contains("->Module2::Tests1::test12"))
         }
     }
 }

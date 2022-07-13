@@ -11,13 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import OrderedCollections
 import TSCBasic
 
 /// A collection of dependency mirrors.
 public final class DependencyMirrors: Equatable {
     private var index: [String: String]
-    private var reverseIndex: [String: String]
-    private let lock = Lock()
+    private var reverseIndex: [String: [String]]
+    private var visited: OrderedCollections.OrderedSet<String>
+    private let lock = NSLock()
 
     public var mapping: [String: String] {
         self.lock.withLock {
@@ -27,7 +29,11 @@ public final class DependencyMirrors: Equatable {
 
     public init(_ mirrors: [String: String]) {
         self.index = mirrors
-        self.reverseIndex = Dictionary(mirrors.map({ ($0.1, $0.0) }), uniquingKeysWith: { first, _ in first })
+        self.reverseIndex = [String: [String]]()
+        for entry in mirrors {
+            self.reverseIndex[entry.value, default: []].append(entry.key)
+        }
+        self.visited = .init()
     }
 
     @available(*, deprecated)
@@ -46,7 +52,7 @@ public final class DependencyMirrors: Equatable {
     public func set(mirrorURL: String, forURL url: String) {
         self.lock.withLock {
             self.index[url] = mirrorURL
-            self.reverseIndex[mirrorURL] = url
+            self.reverseIndex[mirrorURL, default: []].append(url)
         }
     }
 
@@ -105,7 +111,12 @@ public final class DependencyMirrors: Equatable {
     /// - Returns: The mirrored URL, if one exists.
     public func mirrorURL(for url: String) -> String? {
         self.lock.withLock {
-            return self.index[url]
+            let value = self.index[url]
+            if value != nil {
+                // record visited mirrors for reverse index lookup sorting
+                self.visited.append(url)
+            }
+            return value
         }
     }
 
@@ -123,7 +134,23 @@ public final class DependencyMirrors: Equatable {
     /// - Returns: The original URL, if one exists.
     public func originalURL(for url: String) -> String? {
         self.lock.withLock {
-            return self.reverseIndex[url]
+            let alternatives = self.reverseIndex[url]
+            // since there are potentially multiple mapping, we need to sort them to produce deterministic results
+            let sorted = alternatives?.sorted(by: { lhs, rhs in
+                // check if it was visited (which means it used by the package)
+                switch (self.visited.firstIndex(of: lhs), self.visited.firstIndex(of: rhs)) {
+                case (.some(let lhsIndex), .some(let rhsIndex)):
+                    return lhsIndex < rhsIndex
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    // otherwise sort alphabetically
+                    return lhs < rhs
+                }
+            })
+            return sorted?.first
         }
     }
 }

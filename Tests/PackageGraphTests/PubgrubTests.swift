@@ -61,7 +61,7 @@ let aRef = PackageReference.localSourceControl(identity: .plain("a"), path: .roo
 let bRef = PackageReference.localSourceControl(identity: .plain("b"), path: .root)
 let cRef = PackageReference.localSourceControl(identity: .plain("c"), path: .root)
 
-let rootRef = PackageReference.root(identity: PackageIdentity("root"), path: .root)
+let rootRef = PackageReference.root(identity: .plain("root"), path: .root)
 let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
@@ -409,9 +409,137 @@ final class PubgrubTests: XCTestCase {
         solution.decide(.product("a", package: aRef), at: v2)
         solution.derive("b^1.0.0", cause: _cause)
 
-        XCTAssertEqual(try solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
+        XCTAssertEqual(try solution.satisfier(for: Term("b^1.0.0")).term, "b^1.0.0")
         XCTAssertEqual(try solution.satisfier(for: Term("¬a^1.0.0")).term, "a@2.0.0")
         XCTAssertEqual(try solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
+    }
+
+    // this test reconstruct the conditions described in radar/93335995
+    func testRadar93335995() throws  {
+        let observability = ObservabilitySystem.makeForTesting()
+        let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
+        let solver = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
+        let state = PubgrubDependencyResolver.State(root: rootNode)
+
+        state.decide(.root(package: aRef), at: "1.1.0")
+
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.1.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.1.0" ..< "2.0.0"), isPositive: true), cause: cause)
+        }
+
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.3.1" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.3.1" ..< "2.0.0"), isPositive: false), cause: cause)
+            // order here matters to reproduce the issue
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.3.1"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.2.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
+        }
+
+        let conflict = Incompatibility(
+            terms: .init([
+                Term(node: .root(package: aRef),
+                     requirement: .exact("1.1.0"),
+                     isPositive: true
+                ),
+                Term(node: .root(package: bRef),
+                     requirement: .ranges(["1.1.1" ..< "1.2.0", "1.2.1" ..< "1.3.0"]),
+                     isPositive: true
+                )
+            ]),
+            cause: .noAvailableVersion
+        )
+
+        _ = try solver.resolve(state: state, conflict: conflict)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testNoInfiniteLoop() throws  {
+        let observability = ObservabilitySystem.makeForTesting()
+        let delegate = ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope)
+        let solver = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: observability.topScope, delegate: delegate)
+        let state = PubgrubDependencyResolver.State(root: rootNode)
+
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.1.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: aRef), requirement: .exact("1.1.0"), isPositive: true), cause: cause) // no decision available on this which will throw it into an infinite loop
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.1.0" ..< "2.0.0"), isPositive: true), cause: cause)
+        }
+
+        do {
+            let cause = Incompatibility(
+                terms: .init([
+                    Term(node: .root(package: aRef),
+                         requirement: .exact("1.1.0"),
+                         isPositive: true
+                    ),
+                    Term(node: .root(package: bRef),
+                         requirement: .range("1.2.0" ..< "2.0.0"),
+                         isPositive: true
+                    )
+                ]),
+                cause: .noAvailableVersion
+            )
+            state.derive(Term(node: .root(package: bRef), requirement: .range("1.2.0" ..< "2.0.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.2.0"), isPositive: false), cause: cause)
+            state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
+        }
+
+        let conflict = Incompatibility(
+            terms: .init([
+                Term(node: .root(package: aRef),
+                     requirement: .exact("1.1.0"),
+                     isPositive: true
+                ),
+                Term(node: .root(package: bRef),
+                     requirement: .ranges(["1.1.1" ..< "1.2.0"]),
+                     isPositive: true
+                )
+            ]),
+            cause: .noAvailableVersion
+        )
+
+        XCTAssertThrowsError(try solver.resolve(state: state, conflict: conflict)) { error in
+            XCTAssertTrue(error is PubgrubDependencyResolver.PubgrubError)
+        }
     }
 
     func testResolutionNoConflicts() {
@@ -497,6 +625,58 @@ final class PubgrubTests: XCTestCase {
         AssertResult(result, [
             ("foo", .version(v1)),
             ("target", .version(v2))
+        ])
+    }
+
+    func testUsecase1() throws {
+        builder.serve("a",
+                      at: "1.0.0",
+                      with: [
+                        "a": [
+                            "b": (.versionSet(.range("1.1.0" ..< "2.0.0")), .everything),
+                            "c": (.versionSet(.range("1.2.1" ..< "2.0.0")), .everything)
+                        ],
+                      ]
+        )
+
+        builder.serve("b",
+                      at: "1.0.0",
+                      with: [
+                        "b": [
+                            "c": (.versionSet(.range("1.3.1" ..< "2.0.0")), .everything),
+                        ],
+                      ]
+        )
+        builder.serve("b",
+                      at: "1.1.0",
+                      with: [
+                        "b": [
+                            "c": (.versionSet(.range("1.4.1" ..< "2.0.0")), .everything),
+                        ],
+                      ]
+        )
+
+        builder.serve("c",
+                      at: ["1.0.0", "1.1.0", "1.2.0", "1.2.1", "1.3.0", "1.3.1", "1.4.0", "1.4.1", "2.0.0", "2.1.0"],
+                      with: [
+                        "c": ["d": (.versionSet(v1Range), .everything)],
+                      ]
+        )
+
+        builder.serve("d", at: ["1.0.0", "1.1.0", "1.1.1", "1.1.2", "1.2.0", "1.2.1"])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "a": (.versionSet(v1Range), .everything),
+            "c": (.versionSet(v1Range), .everything)
+        ])
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version("1.1.0")),
+            ("c", .version("1.4.1")),
+            ("d", .version("1.2.1"))
         ])
     }
 
@@ -1326,7 +1506,7 @@ final class PubgrubTests: XCTestCase {
     func testDelegate() {
         class TestDelegate: DependencyResolverDelegate {
             var events = [String]()
-            let lock = Lock()
+            let lock = NSLock()
 
             func willResolve(term: Term) {
                 self.lock.withLock {
@@ -2823,11 +3003,35 @@ class DependencyGraphBuilder {
 
     func serve(
         _ package: String,
+        at versions: [Version],
+        toolsVersion: ToolsVersion? = nil,
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+    ) {
+        self.serve(package, at: versions.map{ .version($0) }, toolsVersion: toolsVersion, with: dependencies)
+    }
+
+    func serve(
+        _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
         with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         self.serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
+    }
+
+    func serve(
+        _ package: String,
+        at versions: [BoundVersion],
+        toolsVersion: ToolsVersion? = nil,
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+    ) {
+        let packageReference = reference(for: package)
+        self.serve(
+            packageReference,
+            at: versions,
+            toolsVersion: toolsVersion,
+            with: dependencies
+        )
     }
 
     func serve(
@@ -2843,6 +3047,17 @@ class DependencyGraphBuilder {
             toolsVersion: toolsVersion,
             with: dependencies
         )
+    }
+
+    func serve(
+        _ packageReference: PackageReference,
+        at versions: [BoundVersion],
+        toolsVersion: ToolsVersion? = nil,
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+    ) {
+        for version in versions {
+            serve(packageReference, at: version, toolsVersion: toolsVersion, with: dependencies)
+        }
     }
 
     func serve(

@@ -1056,7 +1056,7 @@ final class BuildPlanTests: XCTestCase {
 
         let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "debug")
 
-        XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I\(Dep.appending(components: "Sources", "CDep", "include"))", "-I\(buildPath)", "-I\(buildPath.appending(components: "lib.build"))", "-L\(buildPath)", "-lpkg__REPL"])
+        XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I\(Dep.appending(components: "Sources", "CDep", "include"))", "-I\(buildPath)", "-I\(buildPath.appending(components: "lib.build"))", "-L\(buildPath)", "-lpkg__REPL", "repl"])
 
         XCTAssertEqual(plan.graph.allProducts.map({ $0.name }).sorted(), [
             "Dep",
@@ -2376,7 +2376,7 @@ final class BuildPlanTests: XCTestCase {
 
         let bTarget = try result.target(for: "BTarget").swiftTarget().compileArguments()
       #if os(macOS)
-        XCTAssertMatch(bTarget, [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.12")), .anySequence])
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence])
       #else
         XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif

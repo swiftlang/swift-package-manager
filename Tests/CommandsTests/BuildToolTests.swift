@@ -75,6 +75,49 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testImportOfMissedDepWarning() throws {
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-import-prescan'")
+        #endif
+        // Verify the warning flow
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = resolveSymlinks(path)
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=warn"], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+
+        // Verify the error flow
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = resolveSymlinks(path)
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=error"], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+
+        // Verify that the default does not run the check
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = resolveSymlinks(path)
+            XCTAssertThrowsError(try build([], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+    }
+
     func testBinPathAndSymlink() throws {
         try fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = resolveSymlinks(fixturePath)
@@ -334,4 +377,10 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testPrintLLBuildManifestJobGraph() throws {
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let output = try execute(["--print-manifest-job-graph"], packagePath: fixturePath).stdout
+            XCTAssertMatch(output, .prefix("digraph Jobs {"))
+        }
+    }
 }

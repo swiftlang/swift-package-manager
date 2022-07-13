@@ -331,7 +331,7 @@ extension SwiftPackageTool {
             let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
             print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
 
-            let result = try Process.popen(arguments: args)
+            let result = try TSCBasic.Process.popen(arguments: args)
             let output = try (result.utf8Output() + result.utf8stderrOutput())
 
             if result.exitStatus != .terminated(code: 0) {
@@ -1358,7 +1358,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
-            try Process.checkNonZeroExit(arguments: llvmProfCommand)
+            try TSCBasic.Process.checkNonZeroExit(arguments: llvmProfCommand)
 
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
@@ -1368,7 +1368,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
-            let jsonOutput = try Process.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonOutput = try TSCBasic.Process.checkNonZeroExit(arguments: llvmCovCommand)
             let jsonCovFile = buildParameters.codeCovDataFile.parentDirectory.appending(component: buildParameters.codeCovDataFile.basenameWithoutExt + ".json")
             try swiftTool.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 

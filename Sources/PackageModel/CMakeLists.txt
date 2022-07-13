@@ -23,7 +23,7 @@ add_library(PackageModel
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
   ModuleMapType.swift
-  Package.swift
+  PackageModel.swift
   PackageIdentity.swift
   PackageReference.swift
   Platform.swift

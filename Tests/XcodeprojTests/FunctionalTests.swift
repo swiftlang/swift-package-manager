@@ -116,7 +116,7 @@ class FunctionalTests: XCTestCase {
         try write(path: AbsolutePath("/tmp/fake.c")) { stream in
             stream <<< "const char * GetFakeString(void) { return \"abc\"; }\n"
         }
-        try Process.checkNonZeroExit(
+        try TSCBasic.Process.checkNonZeroExit(
             args: "env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib")
         // Now we use a fixture for both the system library wrapper and the text executable.
         try fixture(name: "Miscellaneous/SystemModules") { fixturePath in
@@ -167,7 +167,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         let scheme = packageName + "-Package"
 
         let buildDir = project.parentDirectory.appending(component: "build")
-        try Process.checkNonZeroExit(
+        try TSCBasic.Process.checkNonZeroExit(
             args: "xcodebuild",
               "-project", project.pathString,
               "-scheme", scheme,
