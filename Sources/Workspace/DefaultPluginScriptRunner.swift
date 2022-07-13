@@ -17,6 +17,7 @@ import PackageModel
 import SPMBuildCore
 import TSCBasic
 
+import struct TSCUtility.SerializedDiagnostics
 import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
@@ -121,6 +122,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // We use the toolchain's Swift compiler for compiling the plugin.
         var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
+        
+        observabilityScope.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
@@ -165,6 +168,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Add any extra flags required as indicated by the ManifestLoader.
         commandLine += self.toolchain.swiftCompilerFlags
+
+        commandLine.append("-g")
 
         // Add the Swift language version implied by the package tools version.
         commandLine += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
