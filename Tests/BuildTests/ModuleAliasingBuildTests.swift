@@ -2165,13 +2165,21 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
 
         result.checkProductsCount(1)
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        result.checkTargetsCount(6)
+        #else
         result.checkTargetsCount(7)
+        #endif
 
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases?["Utils"] == "LibUtils" && $0.target.moduleAliases?["Render"] == "LibRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibRender" && $0.target.moduleAliases?["Render"] == "LibRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibUtils" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "DrawRender" || $0.target.moduleAliases?["Render"] == "DrawRender" })
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Game" })
+        #else
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Game" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        #endif
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
@@ -2280,12 +2288,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
         ))
 
         result.checkProductsCount(1)
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        result.checkTargetsCount(8)
+        #else
         result.checkTargetsCount(9)
+        #endif
 
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" && $0.target.moduleAliases?["Utils"] == "LibUtils" && $0.target.moduleAliases?["Render"] == "LibRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibRender" && $0.target.moduleAliases?["Render"] == "LibRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "LibUtils" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Game" })
+        #else
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Game" && $0.target.moduleAliases?["Utils"] == "LibUtils" })
+        #endif
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Scene" && $0.target.moduleAliases?["Render"] == "DrawRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "DrawRender" && $0.target.moduleAliases?["Render"] == "DrawRender" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Render" && $0.target.moduleAliases == nil })
