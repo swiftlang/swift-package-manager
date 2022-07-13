@@ -37,7 +37,7 @@ def main():
         This script will build a bootstrapped copy of the Swift Package Manager, and optionally perform extra
         actions like installing the result (with 'install') to a location ('--prefix').
         """)
-    subparsers = parser.add_subparsers(dest='command')
+    subparsers = parser.add_subparsers(dest='command', required=True)
 
     # clean
     parser_clean = subparsers.add_parser("clean", help="cleans build artifacts")
