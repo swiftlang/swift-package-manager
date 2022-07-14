@@ -409,6 +409,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         process.executableURL = URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment
+#if os(Windows)
+        let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
+        var env = ProcessInfo.processInfo.environment
+        if let Path = env["Path"] {
+            env["Path"] = "\(pluginLibraryPath);\(Path)"
+        } else {
+            env["Path"] = pluginLibraryPath
+        }
+        process.environment = env
+#endif
         process.currentDirectoryURL = workingDirectory.asURL
         
         // Set up a pipe for sending structured messages to the plugin on its stdin.
