@@ -557,6 +557,17 @@ public final class PackageBuilder {
             throw ModuleError.moduleNotFound(missingModuleName, type)
         }
 
+        let products = Dictionary(manifest.products.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+
+        // If there happens to be a plugin product with the right name in the same package, we want to use that automatically.
+        func pluginTargetName(for productName: String) -> String? {
+            if let product = products[productName], product.type == .plugin {
+                return product.targets.first
+            } else {
+                return nil
+            }
+        }
+
         let potentialModuleMap = Dictionary(potentialModules.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
@@ -580,8 +591,16 @@ public final class PackageBuilder {
             if let pluginUsages = target.pluginUsages {
                 successors += pluginUsages.compactMap({
                     switch $0 {
-                    case .plugin(let name, let package):
-                        return (package == nil) ? potentialModuleMap[name] : nil
+                    case .plugin(_, .some(_)):
+                        return nil
+                    case .plugin(let name, nil):
+                        if let potentialModule = potentialModuleMap[name] {
+                            return potentialModule
+                        } else if let targetName = pluginTargetName(for: name), let potentialModule = potentialModuleMap[targetName] {
+                            return potentialModule
+                        } else {
+                            return nil
+                        }
                     }
                 })
             }
@@ -649,8 +668,15 @@ public final class PackageBuilder {
                             return .product(Target.ProductReference(name: name, package: package), conditions: [])
                         }
                         else {
-                            guard let target = targets[name] else { return nil }
-                            return .target(target, conditions: [])
+                            if let target = targets[name] {
+                                return .target(target, conditions: [])
+                            } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
+                                return .target(target, conditions: [])
+                            } else {
+                                self.observabilityScope.emit(.pluginNotFound(name: name))
+                                return nil
+                            }
+
                         }
                     }
                 }
