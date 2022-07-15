@@ -103,20 +103,20 @@ final class AuthorizationProviderTests: XCTestCase {
 
         do {
             // providerOne's password is returned first
-            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, observabilityScope: ObservabilitySystem.NOOP)
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, diagnosticsEmitter: ObservabilitySystem.NOOP)
             self.assertAuthentication(provider, for: url, expected: (user, passwordOne))
         }
 
         do {
             // providerTwo's password is returned first
-            let provider = CompositeAuthorizationProvider(providerTwo, providerOne, observabilityScope: ObservabilitySystem.NOOP)
+            let provider = CompositeAuthorizationProvider(providerTwo, providerOne, diagnosticsEmitter: ObservabilitySystem.NOOP)
             self.assertAuthentication(provider, for: url, expected: (user, passwordTwo))
         }
 
         do {
             // Neither has password
             let unknownURL = URL(string: "http://\(UUID().uuidString)")!
-            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, observabilityScope: ObservabilitySystem.NOOP)
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, diagnosticsEmitter: ObservabilitySystem.NOOP)
             XCTAssertNil(provider.authentication(for: unknownURL))
         }
     }

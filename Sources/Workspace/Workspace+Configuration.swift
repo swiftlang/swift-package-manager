@@ -336,7 +336,7 @@ extension Workspace.Configuration {
                 break
             }
 
-            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: observabilityScope)
+            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, diagnosticsEmitter: observabilityScope)
         }
 
         private func loadOptionalNetrc(

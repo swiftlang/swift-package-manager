@@ -255,15 +255,15 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
     // marked internal for testing
     internal let providers: [AuthorizationProvider]
-    private let observabilityScope: ObservabilityScope
+    private let diagnosticsEmitter: DiagnosticsEmitterProtocol
 
-    public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {
-        self.init(providers, observabilityScope: observabilityScope)
+    public init(_ providers: AuthorizationProvider..., diagnosticsEmitter: DiagnosticsEmitterProtocol) {
+        self.init(providers, diagnosticsEmitter: diagnosticsEmitter)
     }
 
-    public init(_ providers: [AuthorizationProvider], observabilityScope: ObservabilityScope) {
+    public init(_ providers: [AuthorizationProvider], diagnosticsEmitter: DiagnosticsEmitterProtocol) {
         self.providers = providers
-        self.observabilityScope = observabilityScope
+        self.diagnosticsEmitter = diagnosticsEmitter
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
@@ -271,13 +271,13 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
             if let authentication = provider.authentication(for: url) {
                 switch provider {
                 case let provider as NetrcAuthorizationProvider:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
+                    self.diagnosticsEmitter.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
                 #if canImport(Security)
                 case is KeychainAuthorizationProvider:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in keychain")
+                    self.diagnosticsEmitter.emit(info: "Credentials for \(url) found in keychain")
                 #endif
                 default:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in \(provider)")
+                    self.diagnosticsEmitter.emit(info: "Credentials for \(url) found in \(provider)")
                 }
                 return authentication
             }
