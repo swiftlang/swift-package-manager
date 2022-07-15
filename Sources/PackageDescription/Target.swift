@@ -41,7 +41,7 @@ public final class Target {
 
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
-        /// A denpendency on a target.
+        /// A dependency on a target.
         ///
         ///  - Parameters:
         ///    - name: The name of the target.
