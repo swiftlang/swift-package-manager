@@ -121,6 +121,20 @@ final class AuthorizationProviderTests: XCTestCase {
         }
     }
 
+    func testCompositeAuthenticationEmitsCorrectDiagnosticMessage() throws {
+        let url = URL(string: "http://\(UUID().uuidString)")!
+        let user = UUID().uuidString
+        let password = UUID().uuidString
+
+        let diagnosticsEmitter = DiagnosticsEmitterSpy()
+        let provider = TestProvider(map: [url: (user: user, password: password)])
+        let compositeProvider = CompositeAuthorizationProvider(provider, diagnosticsEmitter: diagnosticsEmitter)
+
+        _ = compositeProvider.authentication(for: url)
+
+        XCTAssertEqual(diagnosticsEmitter.receivedMessages, [.emit(message: "Credentials for \(url) found in \(provider)")])
+    }
+
     private func assertAuthentication(_ provider: AuthorizationProvider, for url: URL, expected: (user: String, password: String)) {
         let authentication = provider.authentication(for: url)
         XCTAssertEqual(authentication?.user, expected.user)
@@ -134,5 +148,17 @@ private struct TestProvider: AuthorizationProvider {
 
     func authentication(for url: URL) -> (user: String, password: String)? {
         return self.map[url]
+    }
+}
+
+private class DiagnosticsEmitterSpy: DiagnosticsEmitterProtocol {
+    enum Message: Equatable {
+        case emit(message: String)
+    }
+
+    var receivedMessages: [Message] = []
+
+    func emit(_ diagnostic: Diagnostic) {
+        receivedMessages.append(.emit(message: diagnostic.message))
     }
 }
