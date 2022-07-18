@@ -72,7 +72,7 @@ class ModuleAliasTracker {
     func trackTargetsPerProduct(product: Product,
                                 package: PackageIdentity) {
         let targetDeps = product.targets.map{$0.dependencies}.flatMap{$0}
-        var allTargetDeps = product.targets.map{$0.recurisveDependentTargets().map{$0.dependencies}}.flatMap{$0}.flatMap{$0}
+        var allTargetDeps = product.targets.map{$0.recursiveDependentTargets().map{$0.dependencies}}.flatMap{$0}.flatMap{$0}
         allTargetDeps.append(contentsOf: targetDeps)
         for dep in allTargetDeps {
             if case let .product(depRef, _) = dep {
@@ -144,7 +144,7 @@ class ModuleAliasTracker {
         }
 
         if let curDirectTargets = productToDirectTargets[productID] {
-            var relevantTargets = curDirectTargets.map{$0.recurisveDependentTargets()}.flatMap{$0}
+            var relevantTargets = curDirectTargets.map{$0.recursiveDependentTargets()}.flatMap{$0}
             relevantTargets.append(contentsOf: curDirectTargets)
 
             for relTarget in relevantTargets {
@@ -184,7 +184,7 @@ class ModuleAliasTracker {
         }
 
         if let curDirectTargets = productToDirectTargets[productID] {
-            let depTargets = curDirectTargets.map{$0.recurisveDependentTargets()}.flatMap{$0}
+            let depTargets = curDirectTargets.map{$0.recursiveDependentTargets()}.flatMap{$0}
             let depTargetAliases = toDictionary(depTargets.compactMap{$0.moduleAliases})
             let depChildTargets = dependencyProductTargets(of: depTargets)
             let depChildAliases = toDictionary(depChildTargets.compactMap{$0.moduleAliases})
@@ -241,7 +241,7 @@ class ModuleAliasTracker {
                 let unAliased = productTargets.contains{$0.moduleAliases == nil}
                 if unAliased {
                     for target in productTargets {
-                        let depAliases = target.recurisveDependentTargets().compactMap{$0.moduleAliases}.flatMap{$0}
+                        let depAliases = target.recursiveDependentTargets().compactMap{$0.moduleAliases}.flatMap{$0}
                         for (key, alias) in depAliases {
                             target.addModuleAlias(for: key, as: alias)
                         }
@@ -406,7 +406,7 @@ extension Target {
         }
     }
 
-    func recurisveDependentTargets() -> [Target] {
+    func recursiveDependentTargets() -> [Target] {
         var list = [Target]()
         var nextDeps = dependencies
         while !nextDeps.isEmpty {
