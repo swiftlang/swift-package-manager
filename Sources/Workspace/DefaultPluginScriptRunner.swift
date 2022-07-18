@@ -164,6 +164,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Add any extra flags required as indicated by the ManifestLoader.
         commandLine += self.toolchain.swiftCompilerFlags
 
+        commandLine.append("-g")
+
         // Add the Swift language version implied by the package tools version.
         commandLine += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
 
