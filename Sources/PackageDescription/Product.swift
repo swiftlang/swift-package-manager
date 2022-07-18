@@ -179,7 +179,7 @@ public class Product: Encodable {
     /// this package to use the package's functionality.
     ///
     /// A library's product can be either statically or dynamically linked. It's recommended
-    /// that you don't explicity declare the type of library, so Swift Package Manager can
+    /// that you don't explicitly declare the type of library, so Swift Package Manager can
     /// choose between static or dynamic linking based on the preference of the
     /// package's consumer.
     ///
