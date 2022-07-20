@@ -252,6 +252,11 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.6)
     public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
+        do {
+            try CustomPlatformVersion.validateVersion(versionString)
+        } catch {
+            errors.append("\(error)")
+        }
         return SupportedPlatform(platform: .custom(platformName), version: versionString)
     }
 }
@@ -574,6 +579,14 @@ extension SupportedPlatform {
         /// The value that represents DriverKit 22.0.
         @available(_PackageDescription, introduced: 5.7)
         public static let v22: DriverKitVersion = .init(string: "22.0")
+    }
+
+    public struct CustomPlatformVersion: AppleOSVersion {
+        static var name: String = "custom platform"
+        static var minimumMajorVersion = 0
+
+        fileprivate init(uncheckedVersion version: String) {
+        }
     }
 }
 
