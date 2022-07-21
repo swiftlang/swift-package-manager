@@ -1206,14 +1206,40 @@ final class BuildPlanTests: XCTestCase {
 
     func testParseAsLibraryFlagForExe() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            // First executable has a single source file not named `main.swift`.
+            // executable has a single source file not named `main.swift`, without @main.
             "/Pkg/Sources/exe1/foo.swift",
-            // Second executable has a single source file named `main.swift`.
+            // executable has a single source file named `main.swift`, without @main.
             "/Pkg/Sources/exe2/main.swift",
-            // Third executable has multiple source files.
-            "/Pkg/Sources/exe3/bar.swift",
-            "/Pkg/Sources/exe3/main.swift"
+            // executable has a single source file not named `main.swift`, with @main.
+            "/Pkg/Sources/exe3/foo.swift",
+            // executable has a single source file named `main.swift`, with @main
+            "/Pkg/Sources/exe4/main.swift",
+            // executable has multiple source files.
+            "/Pkg/Sources/exe5/bar.swift",
+            "/Pkg/Sources/exe5/main.swift"
         )
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe3/foo.swift")) {
+            """
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe4/main.swift")) {
+            """
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
@@ -1227,6 +1253,8 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "exe1", type: .executable),
                         TargetDescription(name: "exe2", type: .executable),
                         TargetDescription(name: "exe3", type: .executable),
+                        TargetDescription(name: "exe4", type: .executable),
+                        TargetDescription(name: "exe5", type: .executable),
                     ]),
             ],
             observabilityScope: observability.topScope
@@ -1240,22 +1268,30 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        result.checkProductsCount(3)
-        result.checkTargetsCount(3)
+        result.checkProductsCount(5)
+        result.checkTargetsCount(5)
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        // Check that the first target (single source file not named main) has -parse-as-library.
+        // single source file not named main, and without @main should not have -parse-as-library.
         let exe1 = try result.target(for: "exe1").swiftTarget().emitCommandLine()
-        XCTAssertMatch(exe1, ["-parse-as-library"])
+        XCTAssertNoMatch(exe1, ["-parse-as-library"])
 
-        // Check that the second target (single source file named main) does not have -parse-as-library.
+         // single source file named main, and without @main should not have -parse-as-library.
         let exe2 = try result.target(for: "exe2").swiftTarget().emitCommandLine()
         XCTAssertNoMatch(exe2, ["-parse-as-library"])
 
-        // Check that the third target (multiple source files) does not have -parse-as-library.
+        // single source file not named main, with @main should have -parse-as-library.
         let exe3 = try result.target(for: "exe3").swiftTarget().emitCommandLine()
-        XCTAssertNoMatch(exe3, ["-parse-as-library"])
+        XCTAssertMatch(exe3, ["-parse-as-library"])
+
+        // single source file named main, with @main should have -parse-as-library.
+        let exe4 = try result.target(for: "exe4").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe4, ["-parse-as-library"])
+
+        // multiple source files should not have -parse-as-library.
+        let exe5 = try result.target(for: "exe5").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe5, ["-parse-as-library"])
     }
 
     func testCModule() throws {
