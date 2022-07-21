@@ -423,7 +423,7 @@ def install_swiftpm(prefix, args):
     # Install the swift-package tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
     install_binary(args, "swift-package", cli_tool_dest)
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection"]:
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         note("Creating tool symlink from %s to %s" % (src, dest))

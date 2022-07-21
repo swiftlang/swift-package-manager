@@ -28,6 +28,8 @@ case "swift-run":
     SwiftRunTool.main()
 case "swift-package-collection":
     SwiftPackageCollectionsTool.main()
+case "swift-package-registry":
+    SwiftPackageRegistryTool.main()
 default:
     fatalError("swift-package launched with unexpected name: \(execName ?? "(unknown)")")
 }
