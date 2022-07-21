@@ -626,21 +626,26 @@ public final class SwiftTargetBuildDescription {
     public let isTestDiscoveryTarget: Bool
 
     /// True if this module needs to be parsed as a library based on the target type and the configuration
-    /// of the source code (for example because it has a single source file whose name isn't "main.swift").
-    /// This deactivates heuristics in the Swift compiler that treats single-file modules and source files
-    /// named "main.swift" specially w.r.t. whether they can have an entry point.
-    ///
-    /// See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
-    /// convey the intent to build an executable module to the compiler regardless of the number of files
-    /// in the module or their names.
+    /// of the source code
     var needsToBeParsedAsLibrary: Bool {
-        switch target.type {
+        switch self.target.type {
         case .library, .test:
             return true
         case .executable:
-            guard toolsVersion >= .v5_5 else { return false }
-            let sources = self.sources
-            return sources.count == 1 && sources.first?.basename != "main.swift"
+            // This deactivates heuristics in the Swift compiler that treats single-file modules and source files
+            // named "main.swift" specially w.r.t. whether they can have an entry point.
+            //
+            // See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
+            // convey the intent to build an executable module to the compiler regardless of the number of files
+            // in the module or their names.
+            if self.toolsVersion < .v5_5 || self.sources.count != 1 {
+                return false
+            }
+            // looking into the file content to see if it is using the @main annotation which requires parse-as-library
+            // this is not bullet-proof since theoretically the file can contain the @main string for other reasons
+            // but it is the closest to accurate we can do at this point
+            let content: String = self.sources.first.flatMap({ try? self.fileSystem.readFileContents($0) }) ?? ""
+            return content.contains("@main")
         default:
             return false
         }
