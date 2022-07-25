@@ -1214,9 +1214,25 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/exe3/foo.swift",
             // executable has a single source file named `main.swift`, with @main
             "/Pkg/Sources/exe4/main.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments
+            "/Pkg/Sources/exe5/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments
+            "/Pkg/Sources/exe6/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments
+            "/Pkg/Sources/exe7/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments
+            "/Pkg/Sources/exe8/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments
+            "/Pkg/Sources/exe9/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments and not in comments
+            "/Pkg/Sources/exe10/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments and not in comments
+            "/Pkg/Sources/exe11/comments.swift",
+            // executable has a single source file named `comments.swift`, with @main in comments and not in comments
+            "/Pkg/Sources/exe12/comments.swift",
             // executable has multiple source files.
-            "/Pkg/Sources/exe5/bar.swift",
-            "/Pkg/Sources/exe5/main.swift"
+            "/Pkg/Sources/exe13/bar.swift",
+            "/Pkg/Sources/exe13/main.swift"
         )
 
         try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe3/foo.swift")) {
@@ -1241,6 +1257,96 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe5/comments.swift")) {
+            """
+            // @main in comment
+            print("hello world")
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe6/comments.swift")) {
+            """
+            /* @main in comment */
+            print("hello world")
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe7/comments.swift")) {
+            """
+            /*
+            @main in comment
+            */
+            print("hello world")
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe8/comments.swift")) {
+            """
+            /*
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            */
+            print("hello world")
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe9/comments.swift")) {
+            """
+            /*@main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }*/
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe10/comments.swift")) {
+            """
+            // @main in comment
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe11/comments.swift")) {
+            """
+            /* @main in comment */
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe12/comments.swift")) {
+            """
+            /*
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }*/
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
+
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fileSystem: fs,
@@ -1255,6 +1361,14 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "exe3", type: .executable),
                         TargetDescription(name: "exe4", type: .executable),
                         TargetDescription(name: "exe5", type: .executable),
+                        TargetDescription(name: "exe6", type: .executable),
+                        TargetDescription(name: "exe7", type: .executable),
+                        TargetDescription(name: "exe8", type: .executable),
+                        TargetDescription(name: "exe9", type: .executable),
+                        TargetDescription(name: "exe10", type: .executable),
+                        TargetDescription(name: "exe11", type: .executable),
+                        TargetDescription(name: "exe12", type: .executable),
+                        TargetDescription(name: "exe13", type: .executable),
                     ]),
             ],
             observabilityScope: observability.topScope
@@ -1268,8 +1382,8 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        result.checkProductsCount(5)
-        result.checkTargetsCount(5)
+        result.checkProductsCount(13)
+        result.checkTargetsCount(13)
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1292,6 +1406,38 @@ final class BuildPlanTests: XCTestCase {
         // multiple source files should not have -parse-as-library.
         let exe5 = try result.target(for: "exe5").swiftTarget().emitCommandLine()
         XCTAssertNoMatch(exe5, ["-parse-as-library"])
+
+        // @main in comment should not have -parse-as-library.
+        let exe6 = try result.target(for: "exe6").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe6, ["-parse-as-library"])
+
+        // @main in comment should not have -parse-as-library.
+        let exe7 = try result.target(for: "exe7").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe7, ["-parse-as-library"])
+
+        // @main in comment should not have -parse-as-library.
+        let exe8 = try result.target(for: "exe8").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe8, ["-parse-as-library"])
+
+        // @main in comment should not have -parse-as-library.
+        let exe9 = try result.target(for: "exe9").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe9, ["-parse-as-library"])
+
+        // @main in comment + non-comment should have -parse-as-library.
+        let exe10 = try result.target(for: "exe10").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe10, ["-parse-as-library"])
+
+        // @main in comment + non-comment should have -parse-as-library.
+        let exe11 = try result.target(for: "exe11").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe11, ["-parse-as-library"])
+
+        // @main in comment + non-comment should have -parse-as-library.
+        let exe12 = try result.target(for: "exe12").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe12, ["-parse-as-library"])
+
+        // multiple source files should not have -parse-as-library.
+        let exe13 = try result.target(for: "exe13").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe13, ["-parse-as-library"])
     }
 
     func testCModule() throws {
