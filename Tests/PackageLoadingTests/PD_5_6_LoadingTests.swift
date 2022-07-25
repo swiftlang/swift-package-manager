@@ -190,7 +190,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
             do {
                 _  = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
-                XCTFail("manifest loading unexepctedly did not throw an error")
+                XCTFail("manifest loading unexpectedly did not throw an error")
             } catch ManifestParseError.runtimeManifestErrors(let errors) {
                 XCTAssertEqual(errors, ["invalid custom platform version xx; xx should be a positive integer"])
             }
