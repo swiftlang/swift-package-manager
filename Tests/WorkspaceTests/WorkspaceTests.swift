@@ -4887,7 +4887,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            binaryArtifactsManager: .init(archiver: archiver)
+            binaryArtifactsManager: .init(
+                httpClient: .init(),
+                archiver: archiver
+            )
         )
 
         // Create dummy xcframework/artifactbundle zip files
@@ -5254,6 +5257,7 @@ final class WorkspaceTests: XCTestCase {
                 )
             ],
             binaryArtifactsManager: .init(
+                httpClient: .init(),
                 archiver: archiver
             )
         )
@@ -5298,6 +5302,7 @@ final class WorkspaceTests: XCTestCase {
                 )
             ],
             binaryArtifactsManager: .init(
+                httpClient: .init(),
                 archiver: archiver
             )
         )
@@ -5354,6 +5359,7 @@ final class WorkspaceTests: XCTestCase {
                 )
             ],
             binaryArtifactsManager: .init(
+                httpClient: HTTPClient(),
                 archiver: archiver
             )
         )
@@ -5421,7 +5427,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             binaryArtifactsManager: .init(
-                archiver: archiver
+                httpClient: HTTPClient(), archiver: archiver
             )
         )
 
@@ -5530,6 +5536,7 @@ final class WorkspaceTests: XCTestCase {
                 )
             ],
             binaryArtifactsManager: .init(
+                httpClient: .init(),
                 archiver: archiver
             )
         )
@@ -6502,7 +6509,7 @@ final class WorkspaceTests: XCTestCase {
             authorizationProvider: .none,
             hostToolchain: UserToolchain(destination: .hostDestination()),
             checksumAlgorithm: checksumAlgorithm,
-            customHTTPClient: .none,
+            customHTTPClient: HTTPClient(),
             customArchiver: .none,
             delegate: .none
         )

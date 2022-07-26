@@ -22,10 +22,10 @@ import PackageLoading
 extension Workspace {
     // marked public for testing
     public struct CustomBinaryArtifactsManager {
-        let httpClient: HTTPClient?
+        let httpClient: HTTPClient
         let archiver: Archiver?
 
-        public init(httpClient: HTTPClient? = .none, archiver: Archiver? = .none) {
+        public init(httpClient: HTTPClient, archiver: Archiver? = .none) {
             self.httpClient = httpClient
             self.archiver = archiver
         }
@@ -48,7 +48,7 @@ extension Workspace {
             authorizationProvider: AuthorizationProvider?,
             hostToolchain: UserToolchain,
             checksumAlgorithm: HashAlgorithm,
-            customHTTPClient: HTTPClient?,
+            customHTTPClient: HTTPClient,
             customArchiver: Archiver?,
             delegate: Delegate?
         ) {
@@ -56,7 +56,7 @@ extension Workspace {
             self.authorizationProvider = authorizationProvider
             self.hostToolchain = hostToolchain
             self.checksumAlgorithm = checksumAlgorithm
-            self.httpClient = customHTTPClient ?? HTTPClient()
+            self.httpClient = customHTTPClient
             self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
             self.delegate = delegate
         }

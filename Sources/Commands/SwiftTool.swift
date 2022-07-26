@@ -516,12 +516,14 @@ public class SwiftTool {
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
-                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
+                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                disableNetworkRequests: self.options.resolver.disableNetworkRequests
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
             customManifestLoader: self.getManifestLoader(),
+            customBinaryArtifactsManager: .init(httpClient: HTTPClient(configuration: .init(isEnabled: !self.options.resolver.disableNetworkRequests)), archiver: .none),
             delegate: delegate
         )
         _workspace = workspace
@@ -657,6 +659,10 @@ public class SwiftTool {
 
     func getManifestLoader() throws -> ManifestLoader {
         return try _manifestLoader.get()
+    }
+    
+    func getCustomHTTPClient() -> HTTPClient {
+        return _customHTTPClient
     }
 
     private func canUseCachedBuildManifest() throws -> Bool {
@@ -888,6 +894,9 @@ public class SwiftTool {
                 extraManifestFlags: extraManifestFlags
             )
         })
+    }()
+    private lazy var _customHTTPClient: HTTPClient = {
+        HTTPClient(configuration: .init(isEnabled: self.options.resolver.disableNetworkRequests))
     }()
 
     /// An enum indicating the execution status of run commands.

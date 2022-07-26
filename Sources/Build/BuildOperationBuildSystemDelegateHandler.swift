@@ -112,7 +112,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store.listTests(in: tool.inputs.map{ AbsolutePath($0.name) })
+      let tests = try tool.inputs.flatMap {
+          try store.listTests(inObjectFile: AbsolutePath($0.name))
+      }
 
         let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })

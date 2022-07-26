@@ -655,6 +655,27 @@ final class HTTPClientTest: XCTestCase {
         // wait for outstanding threads that would be cancelled and completion handlers thrown away
         XCTAssertEqual(.success, outstandingGroup.wait(timeout: .now() + .seconds(5)), "timeout waiting for outstanding tasks")
     }
+    
+    func testDisabledNetworkRequests() {
+        let url = URL(string: "http://test")!
+
+        let configuration = HTTPClientConfiguration(isEnabled: false)
+        
+        let httpClient = HTTPClient(configuration: configuration)
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.head(url) { result in
+            switch result {
+            case .failure(let error):
+                XCTAssert(error is CancellationError, "expected error to be CancellationError, but was \(type(of: error)) '\(error)'")
+            case .success:
+                XCTFail("expected failure, but received success")
+            }
+            promise.fulfill()
+
+        }
+        wait(for: [promise], timeout: 1)
+    }
 
     private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
         let noAgent = HTTPClientHeaders(headers.filter { $0.name != "User-Agent" })

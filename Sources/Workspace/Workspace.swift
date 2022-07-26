@@ -330,6 +330,7 @@ public class Workspace {
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
+        customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
         // delegate
         delegate: Delegate? = .none
     ) throws {
@@ -350,7 +351,7 @@ public class Workspace {
             customRepositoryManager: .none,
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: .none,
-            customBinaryArtifactsManager: .none,
+            customBinaryArtifactsManager: customBinaryArtifactsManager,
             customIdentityResolver: .none,
             customChecksumAlgorithm: .none,
             delegate: delegate
@@ -385,6 +386,7 @@ public class Workspace {
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
+        customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
         // delegate
         delegate: Delegate? = .none
     ) throws {
@@ -398,6 +400,7 @@ public class Workspace {
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
+            customBinaryArtifactsManager: customBinaryArtifactsManager,
             delegate: delegate
         )
     }
@@ -430,6 +433,7 @@ public class Workspace {
         customHostToolchain: UserToolchain,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
+        customBinaryArtifactsManager: CustomBinaryArtifactsManager,
         // delegate
         delegate: Delegate? = .none
     ) throws {
@@ -450,6 +454,7 @@ public class Workspace {
             customManifestLoader: manifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
+            customBinaryArtifactsManager: customBinaryArtifactsManager,
             delegate: delegate
         )
     }
@@ -470,7 +475,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         customRegistryClient: RegistryClient? = .none,
         customIdentityResolver: IdentityResolver? = .none,
-        customHTTPClient: HTTPClient? = .none,
+        customHTTPClient: HTTPClient,
         customArchiver: Archiver? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
         customFingerprintStorage: PackageFingerprintStorage? = .none,
@@ -487,7 +492,8 @@ public class Workspace {
             additionalFileRules: additionalFileRules ?? WorkspaceConfiguration.default.additionalFileRules,
             sharedDependenciesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
             fingerprintCheckingMode: resolverFingerprintCheckingMode,
-            sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.default.sourceControlToRegistryDependencyTransformation
+            sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.default.sourceControlToRegistryDependencyTransformation,
+            disableNetworkRequests: WorkspaceConfiguration.default.disableNetworkRequests
         )
         try self.init(
             fileSystem: fileSystem,
@@ -673,7 +679,7 @@ public class Workspace {
             authorizationProvider: authorizationProvider,
             hostToolchain: hostToolchain,
             checksumAlgorithm: checksumAlgorithm,
-            customHTTPClient: customBinaryArtifactsManager?.httpClient,
+            customHTTPClient: customBinaryArtifactsManager?.httpClient ?? HTTPClient(configuration: .init(isEnabled: !configuration.disableNetworkRequests)),
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
         )

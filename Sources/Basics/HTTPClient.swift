@@ -87,6 +87,9 @@ public struct HTTPClient: Cancellable {
         progress: ProgressHandler? = nil,
         completion: @escaping CompletionHandler
     ) {
+        guard configuration.isEnabled else {
+            return completion(.failure(CancellationError()))
+        }
         // merge configuration
         var request = request
         if request.options.callbackQueue == nil {
@@ -319,6 +322,7 @@ public extension HTTPClient {
 public typealias HTTPClientAuthorizationProvider = (URL) -> String?
 
 public struct HTTPClientConfiguration {
+    public var isEnabled: Bool
     public var requestHeaders: HTTPClientHeaders?
     public var requestTimeout: DispatchTimeInterval?
     public var authorizationProvider: HTTPClientAuthorizationProvider?
@@ -327,14 +331,24 @@ public struct HTTPClientConfiguration {
     public var maxConcurrentRequests: Int?
     public var callbackQueue: DispatchQueue
 
-    public init() {
-        self.requestHeaders = .none
-        self.requestTimeout = .none
-        self.authorizationProvider = .none
-        self.retryStrategy = .none
-        self.circuitBreakerStrategy = .none
-        self.maxConcurrentRequests = .none
-        self.callbackQueue = .sharedConcurrent
+    public init(
+        isEnabled: Bool = true,
+        requestHeaders: HTTPClientHeaders? = nil,
+        requestTimeout: DispatchTimeInterval? = nil,
+        authorizationProvider: HTTPClientAuthorizationProvider? = nil,
+        retryStrategy: HTTPClientRetryStrategy? = nil,
+        circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy? = nil,
+        maxConcurrentRequests: Int? = nil,
+        callbackQueue: DispatchQueue = .sharedConcurrent
+    ) {
+        self.isEnabled = isEnabled
+        self.requestHeaders = requestHeaders
+        self.requestTimeout = requestTimeout
+        self.authorizationProvider = authorizationProvider
+        self.retryStrategy = retryStrategy
+        self.circuitBreakerStrategy = circuitBreakerStrategy
+        self.maxConcurrentRequests = maxConcurrentRequests
+        self.callbackQueue = callbackQueue
     }
 }
 

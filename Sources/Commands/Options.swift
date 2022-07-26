@@ -204,6 +204,9 @@ struct ResolverOptions: ParsableArguments {
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
 
+    @Flag(name: .customLong("no-network"), help: "Disable all outgouing network requests")
+    var disableNetworkRequests: Bool = false
+    
     /// Write dependency resolver trace to a file.
     @Flag(name: .customLong("trace-resolver"), help: .hidden)
     var _deprecated_enableResolverTrace: Bool = false

@@ -699,13 +699,17 @@ public struct WorkspaceConfiguration {
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
 
+    /// When disabled all network requests are cancelled before starting. Disabled by default
+    public var disableNetworkRequests: Bool
+    
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        disableNetworkRequests: Bool
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -713,6 +717,7 @@ public struct WorkspaceConfiguration {
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
+        self.disableNetworkRequests = disableNetworkRequests
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -723,7 +728,8 @@ public struct WorkspaceConfiguration {
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
-            sourceControlToRegistryDependencyTransformation: .disabled
+            sourceControlToRegistryDependencyTransformation: .disabled,
+            disableNetworkRequests: false
         )
     }
 

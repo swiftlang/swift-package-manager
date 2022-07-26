@@ -884,7 +884,7 @@ extension SwiftPackageTool {
                 authorizationProvider: swiftTool.getAuthorizationProvider(),
                 hostToolchain: swiftTool.getHostToolchain(),
                 checksumAlgorithm: SHA256(),
-                customHTTPClient: .none,
+                customHTTPClient: swiftTool.getCustomHTTPClient(),
                 customArchiver: .none,
                 delegate: .none
             )
