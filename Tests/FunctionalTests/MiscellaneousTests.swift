@@ -572,7 +572,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testCompileCXX17CrashWithFModules() throws {
         // We disabled fmodules for macOS, thus, this only crash on Linux.
         #if os(Linux)
-        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_6") { fixturePath in
+        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_7") { fixturePath in
             XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(fixturePath)) { error in
                 guard error.result.exitStatus == .terminated(code: 1) else {
                     return XCTFail("failed in an unexpected manner: \(error)")
@@ -585,7 +585,7 @@ class MiscellaneousTestCase: XCTestCase {
             }
         }
         #endif
-        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_7") { fixturePath in
+        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_8") { fixturePath in
             XCTAssertBuilds(fixturePath)
         }
     }

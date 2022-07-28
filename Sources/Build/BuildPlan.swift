@@ -380,14 +380,14 @@ public final class ClangTargetBuildDescription {
 
         // Enable Clang module flags, if appropriate.
         let enableModules: Bool
-        if toolsVersion < .v5_7 {
-          // For version < 5.7, we enable them except in these cases:
+        if toolsVersion < .vNext {
+          // For version < 5.8, we enable them except in these cases:
           // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
           // 2. on Windows when compiling for any language, because of issues with the Windows SDK
           // 3. on Android when compiling for any language, because of issues with the Android SDK
           enableModules = !(buildParameters.triple.isDarwin() && isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
         } else {
-          // For version >= 5.7, we disable them when compiling for C++ regardless of platforms, see:
+          // For version >= 5.8, we disable them when compiling for C++ regardless of platforms, see:
           // https://github.com/llvm/llvm-project/issues/55980 for clang frontend crash when module
           // enabled for C++ on c++17 standard and above.
           enableModules = !isCXX && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
