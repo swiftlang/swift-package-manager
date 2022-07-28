@@ -82,6 +82,10 @@ extension Basics.Diagnostic {
         .error("executable product '\(product)' should not have more than one executable target")
     }
 
+    static func pluginNotFound(name: String) -> Self {
+        .error("no plugin named '\(name)' found")
+    }
+
     static func pluginProductWithNoTargets(product: String) -> Self {
         .error("plugin product '\(product)' should have at least one plugin target")
     }

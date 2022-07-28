@@ -20,6 +20,12 @@ import XCTest
 
 import struct TSCUtility.Version
 
+public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
+    if let ci = ProcessInfo.processInfo.environment["CI"] as? NSString, ci.boolValue {
+        throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
+    }
+}
+
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
     configurations: Set<Configuration> = [.Debug, .Release],

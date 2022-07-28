@@ -2455,7 +2455,519 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "MyLogging" && $0.target.moduleAliases == nil })
     }
 
-    func testModuleAliasingChainedAliases() throws {
+    func testModuleAliasingTargetAndProductTargetWithSameName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                    "/appPkg/Sources/App/main.swift",
+                                    "/appPkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/xpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: ["Utils",
+                                                         .product(name: "X",
+                                                                  package: "xpkg",
+                                                                  moduleAliases: ["Utils": "XUtils"])
+                                          ]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingProductTargetsWithSameName1() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                    "/appPkg/Sources/App/main.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/bpkg/Sources/B/file.swift",
+                                    "/cpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "cpkg",
+                    path: .init("/cpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "bpkg",
+                    path: .init("/bpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "B",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "cpkg"
+                                                    ),
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A",
+                                          dependencies: [
+                                            .product(name: "B",
+                                                     package: "bpkg"
+                                                    ),
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "ypkg"
+                                                    ),
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [
+                                            .product(name: "X",
+                                                     package: "xpkg",
+                                                     moduleAliases: ["Utils": "XUtils"]
+                                                    ),
+                                            .product(name: "A",
+                                                     package: "apkg",
+                                                     moduleAliases: ["Utils": "AUtils"]
+                                                     )
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(6)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "B" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingUpstreamProductTargetsWithSameName2() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                    "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/bpkg/Sources/Utils/file.swift",
+                                    "/cpkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "zpkg"),
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils": "YUtils"]
+                                                     )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "cpkg",
+                    path: .init("/cpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "bpkg",
+                    path: .init("/bpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "cpkg"),
+                                            .product(name: "Utils",
+                                                     package: "bpkg",
+                                                     moduleAliases: ["Utils": "BUtils"]
+                                                     )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [
+                                            .product(name: "X",
+                                                     package: "xpkg",
+                                                     moduleAliases: ["Utils": "XUtils"]
+                                                    ),
+                                            .product(name: "A",
+                                                     package: "apkg",
+                                                     moduleAliases: ["Utils": "AUtils"]
+                                                    )
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" && $0.target.moduleAliases?["Utils"] == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BUtils" && $0.target.moduleAliases?["Utils"] == "BUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+    func testModuleAliasingUpstreamProductTargetsWithSameName3() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                    "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/apkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "zpkg"),
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils": "YUtils"]
+                                                     )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A", dependencies: ["Utils"]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [
+                                            .product(name: "X",
+                                                     package: "xpkg"
+                                                    ),
+                                            .product(name: "A",
+                                                     package: "apkg",
+                                                     moduleAliases: ["Utils": "AUtils"]
+                                                    )
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(6)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" && $0.target.moduleAliases?["Utils"] == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingUpstreamProductTargetsWithSameName4() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                    "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/apkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "zpkg"),
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils": "YUtils"]
+                                                     )
+                                          ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [
+                                            .product(name: "X",
+                                                     package: "xpkg",
+                                                     moduleAliases: ["Utils": "XUtils"]
+                                                    ),
+                                            .product(name: "A",
+                                                     package: "apkg",
+                                                     moduleAliases: ["Utils": "AUtils"]
+                                                    )
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(5)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" && $0.target.moduleAliases?["Utils"] == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingChainedAliases1() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                                         "/appPkg/Sources/App/main.swift",
                                     "/apkg/Sources/A/file.swift",
@@ -2563,5 +3075,374 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AFooUtils" && $0.target.moduleAliases?["Utils"] == "AFooUtils" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XFooUtils" && $0.target.moduleAliases?["Utils"] == "XFooUtils" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingChainedAliases2() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/apkg/Sources/Utils/file.swift",
+                                    "/bpkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/xpkg/Sources/Utils/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    ),
+                                            .product(name: "Utils",
+                                                     package: "zpkg"
+                                                    )
+                                            ]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "bpkg",
+                    path: .init("/bpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A",
+                                          dependencies: [
+                                            "Utils",
+                                            .product(name: "Utils",
+                                                     package: "bpkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    )
+                                            ]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [.product(name: "A",
+                                                                  package: "apkg",
+                                                                  moduleAliases: ["Utils": "AUtils", "FooUtils": "AFUtils"]),
+                                                         .product(name: "X",
+                                                                  package: "xpkg",
+                                                                  moduleAliases: ["FooUtils": "XFUtils"])
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "AUtils" && $0.target.moduleAliases?["FooUtils"] == "AFUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AFUtils" && $0.target.moduleAliases?["Utils"] == "AFUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases?["FooUtils"] == "XFUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XFUtils" && $0.target.moduleAliases?["Utils"] == "XFUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingChainedAliases3() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/apkg/Sources/A/file.swift",
+                                    "/apkg/Sources/Utils/file.swift",
+                                    "/bpkg/Sources/Utils/file.swift",
+                                    "/xpkg/Sources/X/file.swift",
+                                    "/xpkg/Sources/Utils/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "X",
+                                          dependencies: [
+                                            .product(name: "Utils",
+                                                     package: "ypkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    ),
+                                            .product(name: "Utils",
+                                                     package: "zpkg",
+                                                     moduleAliases: ["Utils" : "ZUtils"]
+                                                    )
+                                            ]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "bpkg",
+                    path: .init("/bpkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "apkg",
+                    path: .init("/apkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A",
+                                          dependencies: [
+                                            "Utils",
+                                            .product(name: "Utils",
+                                                     package: "bpkg",
+                                                     moduleAliases: ["Utils" : "FooUtils"]
+                                                    )
+                                            ]),
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [.product(name: "A",
+                                                                  package: "apkg",
+                                                                  moduleAliases: ["Utils": "AUtils", "FooUtils": "AFooUtils"]),
+                                                         .product(name: "X",
+                                                                  package: "xpkg",
+                                                                  moduleAliases: ["ZUtils": "XUtils", "FooUtils": "XFooUtils"])
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(7)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "A" && $0.target.moduleAliases?["Utils"] == "AUtils" && $0.target.moduleAliases?["FooUtils"] == "AFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AFooUtils" && $0.target.moduleAliases?["Utils"] == "AFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "X" && $0.target.moduleAliases?["ZUtils"] == "XUtils" && $0.target.moduleAliases?["FooUtils"] == "XFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XFooUtils" && $0.target.moduleAliases?["Utils"] == "XFooUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases == nil })
+    }
+
+    func testModuleAliasingChainedAliases5() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/appPkg/Sources/App/main.swift",
+                                    "/xpkg/Sources/Utils/file.swift",
+                                    "/ypkg/Sources/Utils/file.swift",
+                                    "/zpkg/Sources/Utils/file.swift",
+                                    "/wpkg/Sources/Utils/file.swift",
+                                    "/apkg/Sources/Utils/file.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                name: "apkg",
+                path: .init("/apkg"),
+                products: [
+                    ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
+                ],
+                targets: [
+                    TargetDescription(name: "Utils", dependencies: []),
+                ]),
+                Manifest.createFileSystemManifest(
+                    name: "wpkg",
+                    path: .init("/wpkg"),
+                    products: [
+                        ProductDescription(name: "W", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "zpkg",
+                    path: .init("/zpkg"),
+                    products: [
+                        ProductDescription(name: "Z", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "ypkg",
+                    path: .init("/ypkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    products: [
+                        ProductDescription(name: "Y", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils",
+                                          dependencies: [
+                                            .product(name: "Z",
+                                                     package: "zpkg", // import ZUtils
+                                                     moduleAliases: ["Utils" : "ZUtils"]
+                                                    )
+                                          ]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "xpkg",
+                    path: .init("/xpkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/wpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils",
+                                          dependencies: [
+                                            .product(name: "Y",
+                                                     package: "ypkg", // import YUtils
+                                                     moduleAliases: ["ZUtils" : "YUtils"]
+                                                    ),
+                                            .product(name: "W",
+                                                     package: "wpkg", // import WUtils
+                                                     moduleAliases: ["Utils" : "WUtils"]
+                                                    )
+                                            ]),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "appPkg",
+                    path: .init("/appPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App",
+                                          dependencies: [.product(name: "X",
+                                                                  package: "xpkg",
+                                                                  moduleAliases: [
+                                                                    "Utils": "XUtils",
+                                                                  ]),
+                                                         .product(name: "A",
+                                                                  package: "apkg",
+                                                                  moduleAliases: [
+                                                                    "Utils": "AUtils"
+                                                                  ])
+                                          ]),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(6)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["ZUtils"] == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "XUtils" && $0.target.moduleAliases?["Utils"] == "XUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "YUtils" && $0.target.moduleAliases?["Utils"] == "YUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "WUtils" && $0.target.moduleAliases?["Utils"] == "WUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "AUtils" && $0.target.moduleAliases?["Utils"] == "AUtils" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "App" && $0.target.moduleAliases == nil })
+        XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "ZUtils" || $0.target.moduleAliases?["Utils"] == "ZUtils" })
     }
 }

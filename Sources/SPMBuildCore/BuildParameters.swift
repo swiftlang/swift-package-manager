@@ -72,6 +72,13 @@ public struct BuildParameters: Encodable {
         }
     }
 
+    /// A mode for explicit import checking
+    public enum TargetDependencyImportCheckingMode : Codable {
+        case none
+        case warn
+        case error
+    }
+
     /// The path to the data directory.
     public var dataPath: AbsolutePath
 
@@ -127,6 +134,10 @@ public struct BuildParameters: Encodable {
 
     /// Whether to use the explicit module build flow (with the integrated driver)
     public var useExplicitModuleBuild: Bool
+
+    /// A flag that inidcates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
@@ -199,6 +210,7 @@ public struct BuildParameters: Encodable {
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
+        explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false
@@ -236,6 +248,7 @@ public struct BuildParameters: Encodable {
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
+        self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
         self.verboseOutput = verboseOutput

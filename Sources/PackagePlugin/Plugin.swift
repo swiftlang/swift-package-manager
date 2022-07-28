@@ -84,8 +84,16 @@ extension Plugin {
         }
         
         // Turn off full buffering so printed text appears as soon as possible.
+        // Windows is much less forgiving than other platforms.  If line
+        // buffering is enabled, we must provide a buffer and the size of the
+        // buffer.  As a result, on Windows, we completely disable all
+        // buffering, which means that partial writes are possible.
+#if os(Windows)
+        setvbuf(stdout, nil, _IONBF, 0)
+#else
         setvbuf(stdout, nil, _IOLBF, 0)
-        
+#endif
+
         // Open a message channel for communicating with the plugin host.
         pluginHostConnection = PluginHostConnection(
             inputStream: FileHandle(fileDescriptor: inputFD),

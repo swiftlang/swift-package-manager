@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Foundation
 import TSCBasic
 

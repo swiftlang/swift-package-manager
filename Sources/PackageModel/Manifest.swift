@@ -200,6 +200,12 @@ public final class Manifest {
                     requiredDependencies.insert(dependency.identity)
                 }
             }
+
+            target.pluginUsages?.forEach {
+                if let dependency = self.packageDependency(referencedBy: $0) {
+                    requiredDependencies.insert(dependency.identity)
+                }
+            }
         }
 
         return self.dependencies.filter { requiredDependencies.contains($0.identity) }
@@ -208,6 +214,7 @@ public final class Manifest {
 
     /// Returns the targets required for building the provided products.
     public func targetsRequired(for products: [ProductDescription]) -> [TargetDescription] {
+        let productsByName = Dictionary(products.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let targetsByName = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let productTargetNames = products.flatMap({ $0.targets })
 
@@ -227,7 +234,13 @@ public final class Manifest {
                 let plugins: [String] = target.pluginUsages?.compactMap { pluginUsage in
                     switch pluginUsage {
                     case .plugin(name: let name, package: nil):
-                        return targetsByName.keys.contains(name) ? name : nil
+                        if targetsByName.keys.contains(name) {
+                            return name
+                        } else if let targetName = productsByName[name]?.targets.first {
+                            return targetName
+                        } else {
+                            return nil
+                        }
                     default:
                         return nil
                     }
@@ -307,6 +320,19 @@ public final class Manifest {
 
         return packageDependency(referencedBy: packageName)
     }
+
+    /// Finds the package dependency referenced by the specified plugin usage.
+    /// - Returns: Returns `nil` if  the used plugin is from the same package or if the package the used plugin is from cannot be found.
+    public func packageDependency(
+        referencedBy pluginUsage: TargetDescription.PluginUsage) -> PackageDependency? {
+        switch pluginUsage {
+        case .plugin(_, let .some(package)):
+            return packageDependency(referencedBy: package)
+        default:
+            return nil
+        }
+    }
+
     private func packageDependency(
         referencedBy packageName: String
     ) -> PackageDependency? {

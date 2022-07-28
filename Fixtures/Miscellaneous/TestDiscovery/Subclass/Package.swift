@@ -5,6 +5,7 @@ let package = Package(
     name: "Subclass",
     targets: [
         .target(name: "Subclass"),
-        .testTarget(name: "SubclassTests", dependencies: ["Subclass"]),
+        .testTarget(name: "Module1Tests", dependencies: ["Subclass"]),
+        .testTarget(name: "Module2Tests", dependencies: ["Subclass"]),
     ]
 )

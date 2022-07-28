@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import OrderedCollections
 import PackageGraph
@@ -56,11 +57,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     /// The progress of binary downloads.
     private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
-    private let binaryDownloadProgressLock = Lock()
+    private let binaryDownloadProgressLock = NSLock()
 
     /// The progress of package  fetch operations.
     private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
-    private let fetchProgressLock = Lock()
+    private let fetchProgressLock = NSLock()
 
     private let observabilityScope: ObservabilityScope
 
@@ -795,6 +796,7 @@ public class SwiftTool {
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info
             )
@@ -1183,6 +1185,19 @@ extension BuildOptions.StoreMode {
             return .on
         case .disableIndexStore:
             return .off
+        }
+    }
+}
+
+extension BuildOptions.TargetDependencyImportCheckingMode {
+    fileprivate var modeParameter: BuildParameters.TargetDependencyImportCheckingMode {
+        switch self {
+        case .none:
+            return .none
+        case .warn:
+            return .warn
+        case .error:
+            return .error
         }
     }
 }

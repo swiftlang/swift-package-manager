@@ -635,25 +635,56 @@ public final class SwiftTargetBuildDescription {
     public let isTestDiscoveryTarget: Bool
 
     /// True if this module needs to be parsed as a library based on the target type and the configuration
-    /// of the source code (for example because it has a single source file whose name isn't "main.swift").
-    /// This deactivates heuristics in the Swift compiler that treats single-file modules and source files
-    /// named "main.swift" specially w.r.t. whether they can have an entry point.
-    ///
-    /// See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
-    /// convey the intent to build an executable module to the compiler regardless of the number of files
-    /// in the module or their names.
+    /// of the source code
     var needsToBeParsedAsLibrary: Bool {
-        switch target.type {
+        switch self.target.type {
         case .library, .test:
             return true
         case .executable:
-            guard toolsVersion >= .v5_5 else { return false }
-            let sources = self.sources
-            return sources.count == 1 && sources.first?.basename != "main.swift"
+            // This deactivates heuristics in the Swift compiler that treats single-file modules and source files
+            // named "main.swift" specially w.r.t. whether they can have an entry point.
+            //
+            // See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
+            // convey the intent to build an executable module to the compiler regardless of the number of files
+            // in the module or their names.
+            if self.toolsVersion < .v5_5 || self.sources.count != 1 {
+                return false
+            }
+            // looking into the file content to see if it is using the @main annotation which requires parse-as-library
+            return (try? self.containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
         default:
             return false
         }
     }
+
+    // looking into the file content to see if it is using the @main annotation
+    // this is not bullet-proof since theoretically the file can contain the @main string for other reasons
+    // but it is the closest to accurate we can do at this point
+    func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -> Bool {
+        let content: String = try self.fileSystem.readFileContents(path)
+        let lines = content.split(separator: "\n").compactMap { String($0).spm_chuzzle() }
+
+        var multilineComment = false
+        for line in lines {
+            if line.hasPrefix("//") {
+                continue
+            }
+            if line.hasPrefix("/*") {
+                multilineComment = true
+            }
+            if line.hasSuffix("*/") {
+                multilineComment = false
+            }
+            if multilineComment {
+                continue
+            }
+            if line.hasPrefix("@main") {
+                return true
+            }
+        }
+        return false
+    }
+
 
     /// The filesystem to operate on.
     let fileSystem: FileSystem
@@ -898,23 +929,27 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
-    public func emitCommandLine() throws -> [String] {
+    /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
+    /// such as emitting a module or supplementary outputs.
+    public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
         var result: [String] = []
         result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
 
         result.append("-module-name")
         result.append(target.c99name)
 
-        result.append("-emit-dependencies")
+        if !scanInvocation {
+            result.append("-emit-dependencies")
 
-        // FIXME: Do we always have a module?
-        result.append("-emit-module")
-        result.append("-emit-module-path")
-        result.append(moduleOutputPath.pathString)
+            // FIXME: Do we always have a module?
+            result.append("-emit-module")
+            result.append("-emit-module-path")
+            result.append(moduleOutputPath.pathString)
 
-        result.append("-output-file-map")
-        // FIXME: Eliminate side effect.
-        result.append(try writeOutputFileMap().pathString)
+            result.append("-output-file-map")
+            // FIXME: Eliminate side effect.
+            result.append(try writeOutputFileMap().pathString)
+        }
 
         if buildParameters.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
@@ -1299,6 +1334,15 @@ public final class ProductBuildDescription {
                 return ["-Xlinker", "-dead_strip"]
             } else if buildParameters.triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
+            } else if buildParameters.triple.arch == .wasm32 {
+                // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
+                // during GC, and it removes Swift metadata sections like swift5_protocols
+                // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
+                // to LLVM and wasm-ld
+                // This workaround is required for not only WASI but also all WebAssembly archs
+                // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
+                // arch == .wasm32
+                return []
             } else {
                 return ["-Xlinker", "--gc-sections"]
             }
