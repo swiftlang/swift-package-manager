@@ -239,3 +239,9 @@ extension Workspace.ManagedDependencies: CustomStringConvertible {
         "<ManagedDependencies: \(Array(self.dependencies.values))>"
     }
 }
+
+extension Workspace.ManagedDependencies: Equatable {
+    public static func == (lhs: Workspace.ManagedDependencies, rhs: Workspace.ManagedDependencies) -> Bool {
+        lhs.dependencies == rhs.dependencies
+    }
+}

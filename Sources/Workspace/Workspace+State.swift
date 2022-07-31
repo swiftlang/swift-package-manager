@@ -29,7 +29,7 @@ public final class WorkspaceState {
     public let storagePath: AbsolutePath
 
     /// storage
-    private let storage: WorkspaceStateStorage
+    private var storage: WorkspaceStateStorage
 
     init(
         fileSystem: FileSystem,
@@ -90,13 +90,15 @@ fileprivate struct WorkspaceStateStorage {
     private let fileSystem: FileSystem
     private let encoder = JSONEncoder.makeWithDefaults()
     private let decoder = JSONDecoder.makeWithDefaults()
+    private var managedDependencies: Workspace.ManagedDependencies?
+    private var managedArtifacts: Workspace.ManagedArtifacts?
 
     init(path: AbsolutePath, fileSystem: FileSystem) {
         self.path = path
         self.fileSystem = fileSystem
     }
 
-    func load() throws -> (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
+    mutating func load() throws -> (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
         if !self.fileSystem.exists(self.path) {
             return (dependencies: .init(), artifacts: .init())
         }
@@ -108,12 +110,20 @@ fileprivate struct WorkspaceStateStorage {
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
                 let dependencies = try v4.object.dependencies.map{ try Workspace.ManagedDependency($0) }
                 let artifacts = try v4.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
-                return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
+                let managedDependencies = try Workspace.ManagedDependencies(dependencies)
+                let managedArtifacts = try Workspace.ManagedArtifacts(artifacts)
+                self.managedDependencies = managedDependencies
+                self.managedArtifacts = managedArtifacts
+                return (dependencies: managedDependencies, artifacts: managedArtifacts)
             case 5:
                 let v5 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V5.self)
                 let dependencies = try v5.object.dependencies.map{ try Workspace.ManagedDependency($0) }
                 let artifacts = try v5.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
-                return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
+                let managedDependencies = try Workspace.ManagedDependencies(dependencies)
+                let managedArtifacts = try Workspace.ManagedArtifacts(artifacts)
+                self.managedDependencies = managedDependencies
+                self.managedArtifacts = managedArtifacts
+                return (dependencies: managedDependencies, artifacts: managedArtifacts)
             default:
                 throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
             }
@@ -125,6 +135,10 @@ fileprivate struct WorkspaceStateStorage {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
 
+        if self.managedDependencies == dependencies && self.managedArtifacts == artifacts {
+            return
+        }
+        
         try self.fileSystem.withLock(on: self.path, type: .exclusive) {
             let storage = V5(dependencies: dependencies, artifacts: artifacts)
 
@@ -133,7 +147,9 @@ fileprivate struct WorkspaceStateStorage {
         }
     }
 
-    func reset() throws {
+    mutating func reset() throws {
+        self.managedDependencies = nil
+        self.managedArtifacts = nil
         if !self.fileSystem.exists(self.path.parentDirectory) {
             return
         }

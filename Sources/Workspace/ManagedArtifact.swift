@@ -93,6 +93,11 @@ extension Workspace.ManagedArtifact: CustomStringConvertible {
     }
 }
 
+extension Workspace.ManagedArtifact: Equatable {
+    
+}
+
+
 extension Workspace.ManagedArtifact.Source: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -170,5 +175,11 @@ extension Workspace.ManagedArtifacts: Collection {
 extension Workspace.ManagedArtifacts: CustomStringConvertible {
     public var description: String {
         "<ManagedArtifacts: \(Array(self.artifacts))>"
+    }
+}
+
+extension Workspace.ManagedArtifacts: Equatable {
+    public static func == (lhs: Workspace.ManagedArtifacts, rhs: Workspace.ManagedArtifacts) -> Bool {
+        lhs.artifactMap == rhs.artifactMap
     }
 }
