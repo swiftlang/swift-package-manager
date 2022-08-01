@@ -1232,7 +1232,11 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/exe12/comments.swift",
             // executable has multiple source files.
             "/Pkg/Sources/exe13/bar.swift",
-            "/Pkg/Sources/exe13/main.swift"
+            "/Pkg/Sources/exe13/main.swift",
+            // Snippet with top-level code
+            "/Pkg/Snippets/TopLevelCodeSnippet.swift",
+            // Snippet with @main
+            "/Pkg/Snippets/AtMainSnippet.swift"
         )
 
         try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe3/foo.swift")) {
@@ -1347,6 +1351,28 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
+        try fs.writeFileContents(AbsolutePath("/Pkg/Snippets/TopLevelCodeSnippet.swift")) {
+            """
+            struct Foo {
+              init() {}
+              func foo() {}
+            }
+            let foo = Foo()
+            foo.foo()
+            """
+        }
+
+        try fs.writeFileContents(AbsolutePath("/Pkg/Snippets/AtMainSnippet.swift")) {
+            """
+            @main
+            struct Runner {
+              static func main() {
+                print("hello world")
+              }
+            }
+            """
+        }
+
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fileSystem: fs,
@@ -1382,8 +1408,8 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
 
-        result.checkProductsCount(13)
-        result.checkTargetsCount(13)
+        result.checkProductsCount(15)
+        result.checkTargetsCount(15)
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1438,6 +1464,14 @@ final class BuildPlanTests: XCTestCase {
         // multiple source files should not have -parse-as-library.
         let exe13 = try result.target(for: "exe13").swiftTarget().emitCommandLine()
         XCTAssertNoMatch(exe13, ["-parse-as-library"])
+
+        // A snippet with top-level code should not have -parse-as-library.
+        let topLevelCodeSnippet = try result.target(for: "TopLevelCodeSnippet").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(topLevelCodeSnippet, ["-parse-as-library"])
+
+        // A snippet with @main should have -parse-as-library
+        let atMainSnippet = try result.target(for: "AtMainSnippet").swiftTarget().emitCommandLine()
+        XCTAssertMatch(atMainSnippet, ["-parse-as-library"])
     }
 
     func testCModule() throws {
