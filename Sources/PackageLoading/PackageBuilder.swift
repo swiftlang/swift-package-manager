@@ -1395,7 +1395,7 @@ extension PackageBuilder {
             return []
         }
 
-        return try walk(snippetsDirectory)
+        return try walk(snippetsDirectory, fileSystem: self.fileSystem)
             .filter { fileSystem.isFile($0) && $0.extension == "swift" }
             .map { sourceFile in
                 let name = sourceFile.basenameWithoutExt
