@@ -640,7 +640,7 @@ public final class SwiftTargetBuildDescription {
         switch self.target.type {
         case .library, .test:
             return true
-        case .executable:
+        case .executable, .snippet:
             // This deactivates heuristics in the Swift compiler that treats single-file modules and source files
             // named "main.swift" specially w.r.t. whether they can have an entry point.
             //
