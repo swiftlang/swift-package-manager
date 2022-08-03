@@ -456,6 +456,10 @@ public class SwiftTool {
         }
         #endif
 
+        if options.build.allowCustomTestManifest && !options.build.enableTestDiscovery {
+            observabilityScope.emit(error: "'--experimental-allow-custom-test-manifest' option requires '--enable-test-discovery'")
+        }
+
         if options.caching.shouldDisableManifestCaching {
             observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
@@ -797,6 +801,7 @@ public class SwiftTool {
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                allowCustomTestManifest: options.build.allowCustomTestManifest,
                 explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info

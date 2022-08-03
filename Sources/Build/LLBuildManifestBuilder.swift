@@ -86,6 +86,7 @@ public class LLBuildManifestBuilder {
             }
         }
 
+        try self.addTestDiscoveryGenerationCommand()
         try self.addTestManifestGenerationCommand()
 
         // Create command for all products in the plan.
@@ -821,14 +822,8 @@ extension LLBuildManifestBuilder {
 // MARK:- Test File Generation
 
 extension LLBuildManifestBuilder {
-    fileprivate func addTestManifestGenerationCommand() throws {
-        for target in plan.targets {
-            guard case .swift(let target) = target,
-                target.isTestTarget,
-                target.isTestDiscoveryTarget else { continue }
-
-            let testDiscoveryTarget = target
-
+    fileprivate func addTestDiscoveryGenerationCommand() throws {
+        for testDiscoveryTarget in testDiscoveryTargets {
             let testTargets = testDiscoveryTarget.target.dependencies
                 .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
             let objectFiles = testTargets.flatMap{ $0.objects }.sorted().map(Node.file)
@@ -843,6 +838,38 @@ extension LLBuildManifestBuilder {
                 inputs: objectFiles,
                 outputs: outputs.map(Node.file)
             )
+        }
+    }
+
+    fileprivate func addTestManifestGenerationCommand() throws {
+        for target in plan.targets {
+            guard case .swift(let target) = target,
+                  target.isTestTarget,
+                  target.isSynthesizedTestManifestTarget else { continue }
+
+            let testManifestTarget = target
+            let inputs = testDiscoveryTargets.map { $0.moduleOutputPath }
+            let outputs = testManifestTarget.target.sources.paths
+
+            guard let mainOutput = (outputs.first{ $0.basename == TestManifestTool.mainFileName }) else {
+                throw InternalError("main output (\(TestManifestTool.mainFileName)) not found")
+            }
+            let cmdName = mainOutput.pathString
+            manifest.addTestManifestCmd(
+                name: cmdName,
+                inputs: inputs.map(Node.file),
+                outputs: outputs.map(Node.file)
+            )
+        }
+    }
+
+    /// Returns all `SwiftTargetBuildDescription` instances in this plan which are for test discovery.
+    private var testDiscoveryTargets: [SwiftTargetBuildDescription] {
+        plan.targets.compactMap { target in
+            guard case .swift(let target) = target,
+                target.isTestTarget,
+                target.isTestDiscoveryTarget else { return nil }
+            return target
         }
     }
 }

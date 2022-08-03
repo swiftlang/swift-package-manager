@@ -46,9 +46,11 @@ public struct BuildParameters: Encodable {
         // Rely on objective C runtime
         case objectiveC
         // Use a test-manifest that lists the tests
-        // generate: Whether test-manifest generation is forced
+        // generate: Whether test discovery generation is forced
         //           This flag is or backwards compatibility, remove with --enable-test-discovery
-        case manifest(generate: Bool)
+        // allowCustom: Whether having a custom test manifest (e.g. XCTMain.swift) file is allowed
+        //              in conjunction with test discovery.
+        case manifest(generate: Bool, allowCustom: Bool)
 
         public enum DiscriminatorKeys: String, Codable {
             case objectiveC
@@ -58,6 +60,7 @@ public struct BuildParameters: Encodable {
         public enum CodingKeys: CodingKey {
             case _case
             case generate
+            case allowCustom
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -65,9 +68,10 @@ public struct BuildParameters: Encodable {
             switch self {
             case .objectiveC:
                 try container.encode(DiscriminatorKeys.objectiveC, forKey: ._case)
-            case .manifest(let generate):
+            case .manifest(let generate, let allowCustom):
                 try container.encode(DiscriminatorKeys.manifest, forKey: ._case)
                 try container.encode(generate, forKey: .generate)
+                try container.encode(allowCustom, forKey: .allowCustom)
             }
         }
     }
@@ -210,6 +214,7 @@ public struct BuildParameters: Encodable {
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
+        allowCustomTestManifest: Bool = false,
         explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
@@ -247,7 +252,7 @@ public struct BuildParameters: Encodable {
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
-        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
+        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery, allowCustom: allowCustomTestManifest)
         self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput

@@ -362,6 +362,11 @@ struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     var enableTestDiscovery: Bool = false
 
+    /// Whether to allow having a custom test manifest, even if test discovery is enabled and ordinarily a test manifest would be generated automatically.
+    @Flag(name: .customLong("experimental-allow-custom-test-manifest"),
+          help: .hidden)
+    var allowCustomTestManifest: Bool = false
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
