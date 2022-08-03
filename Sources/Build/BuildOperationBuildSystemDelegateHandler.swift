@@ -155,17 +155,16 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
         stream <<< "import XCTest" <<< "\n\n"
 
-        stream <<< "@main" <<< "\n"
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
-        stream <<< "struct Runner" <<< " {" <<< "\n"
-        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n"
+        stream <<< "public func __allModuleTests() -> [XCTestCaseEntry] {" <<< "\n"
+        stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
+
         for module in testsByModule.keys {
-            stream <<< indent(8) <<< "tests += __\(module)__allTests()" <<< "\n"
+            stream <<< indent(4) <<< "tests += __\(module)__allTests()" <<< "\n"
         }
-        stream <<< indent(8) <<< "\n"
-        stream <<< indent(8) <<< "XCTMain(tests)" <<< "\n"
-        stream <<< indent(4) <<< "}" <<< "\n"
+
+        stream <<< "\n"
+        stream <<< indent(4) <<< "return tests" <<< "\n"
         stream <<< "}" <<< "\n"
 
         stream.flush()
@@ -185,6 +184,67 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
                 throw InternalError("unknown build description")
             }
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
+                throw StringError("command \(command.name) not registered")
+            }
+            try execute(fileSystem: self.context.fileSystem, tool: tool)
+            return true
+        } catch {
+            self.context.observabilityScope.emit(error)
+            return false
+        }
+    }
+}
+
+final class TestManifestCommand: CustomLLBuildCommand {
+
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestManifestTool) throws {
+        // Find the inputs, which are the names of the test discovery module(s)
+        let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
+        let discoveryModuleNames = inputs.map { $0.basenameWithoutExt }
+
+        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
+
+        // Find the main output file
+        guard let mainFile = outputs.first(where: { path in
+            path.basename == LLBuildManifest.TestManifestTool.mainFileName
+        }) else {
+            throw InternalError("main file output (\(LLBuildManifest.TestManifestTool.mainFileName)) not found")
+        }
+
+        // Write the main file.
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream <<< "import XCTest" <<< "\n"
+        for discoveryModuleName in discoveryModuleNames {
+            stream <<< "import \(discoveryModuleName)" <<< "\n"
+        }
+        stream <<< "\n"
+
+        stream <<< "@main" <<< "\n"
+        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<< "struct Runner" <<< " {" <<< "\n"
+        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(__allModuleTests())" <<< "\n"
+        stream <<< indent(4) <<< "}" <<< "\n"
+        stream <<< "}" <<< "\n"
+
+        stream.flush()
+    }
+
+    private func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.testManifestCommands[command.name] else {
                 throw StringError("command \(command.name) not registered")
             }
             try execute(fileSystem: self.context.fileSystem, tool: tool)
@@ -230,6 +290,9 @@ public struct BuildDescription: Codable {
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
+    /// The map of test manifest commands.
+    let testManifestCommands: [BuildManifest.CmdName: LLBuildManifest.TestManifestTool]
+
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
@@ -257,12 +320,14 @@ public struct BuildDescription: Codable {
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        testManifestCommands: [BuildManifest.CmdName: LLBuildManifest.TestManifestTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
+        self.testManifestCommands = testManifestCommands
         self.copyCommands = copyCommands
         self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
@@ -500,6 +565,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+        case TestManifestTool.name:
+            return InProcessTool(buildExecutionContext, type: TestManifestCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:

@@ -611,6 +611,7 @@ extension BuildDescription {
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
         let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
+        let testManifestCommands = llbuild.manifest.getCmdToolMap(kind: TestManifestTool.self)
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
 
         // Create the build description.
@@ -619,6 +620,7 @@ extension BuildDescription {
             swiftCommands: swiftCommands,
             swiftFrontendCommands: swiftFrontendCommands,
             testDiscoveryCommands: testDiscoveryCommands,
+            testManifestCommands: testManifestCommands,
             copyCommands: copyCommands,
             pluginDescriptions: plan.pluginDescriptions
         )

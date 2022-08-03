@@ -320,9 +320,23 @@ public final class SwiftTarget: Target {
 
         super.init(
             name: name,
-            type: .executable,
+            type: .library,
             path: .root,
             sources: testDiscoverySrc,
+            dependencies: dependencies,
+            buildSettings: .init(),
+            pluginUsages: []
+        )
+    }
+
+    public init(name: String, dependencies: [Target.Dependency], testManifestSrc sources: Sources) {
+        self.swiftVersion = .v5
+
+        super.init(
+            name: name,
+            type: .executable,
+            path: .root,
+            sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
             pluginUsages: []
