@@ -371,6 +371,7 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertEqual(Set(result.targetMap.keys), [
             "APackageTests",
+            "APackageDiscoveredTests",
             "ATarget",
             "ATargetTests",
             "BTarget"
@@ -1098,8 +1099,8 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         result.checkTargetsCount(2)
       #else
-        // We have an extra test discovery target on linux.
-        result.checkTargetsCount(3)
+        // There are two additional targets on non-Apple platforms, for test discovery and test manifest
+        result.checkTargetsCount(4)
       #endif
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
@@ -2379,7 +2380,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
-        result.checkTargetsCount(4)
+        result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test manifest
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 
