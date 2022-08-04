@@ -63,7 +63,7 @@ public struct SwiftVersion {
 extension SwiftVersion {
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
-        version: (5, 6, 2),
+        version: (5, 6, 3),
         isDevelopment: false,
         buildIdentifier: getBuildIdentifier()
     )
