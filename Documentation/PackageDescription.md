@@ -476,7 +476,7 @@ A package version is a three period-separated integer, for example `1.0.0`. It m
 that your package behaves in a predictable manner once developers update their
 package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
-[semver.org](www.semver.org).
+[semver.org](https://semver.org).
 
 **The Major Version**
 
