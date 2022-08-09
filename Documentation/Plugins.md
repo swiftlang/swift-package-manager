@@ -346,7 +346,7 @@ SwiftPM doesn't currently have any specific support for debugging and testing pl
 
 When invoked in Apple’s Xcode IDE, plugins have access to a library module provided by Xcode called *XcodeProjectPlugin* — this module extends the *PackagePlugin* APIs to let plugins work on Xcode targets in addition to packages.
 
-In order to write a plugin that works with packages in every environment and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.  For exampe:
+In order to write a plugin that works with packages in every environment and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.  For example:
 
 ```swift
 import PackagePlugin
