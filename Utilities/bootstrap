@@ -562,8 +562,13 @@ def add_rpath_for_cmake_build(args, rpath):
 def get_swift_backdeploy_library_paths(args):
     if platform.system() == 'Darwin':
         # Need to include backwards compatibility libraries for Concurrency
-        # FIXME: Would be nice if we could get this from `swiftc -print-target-info`
-        return ['/usr/lib/swift', args.target_info["paths"]["runtimeLibraryPaths"][0] + '/../../swift-5.5/macosx']
+        if args.release:
+            # For release builds, we need a relative path that finds the compatibility libs in the current toolchain.
+            backdeploy_path = '@executable_path/../lib/swift-5.5/macosx'
+        else:
+            # FIXME: Would be nice if we could get this from `swiftc -print-target-info`
+            backdeploy_path = args.target_info["paths"]["runtimeLibraryPaths"][0] + '/../../swift-5.5/macosx'
+        return ['/usr/lib/swift', backdeploy_path]
     else:
         return []
 
