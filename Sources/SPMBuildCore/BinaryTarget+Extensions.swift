@@ -23,8 +23,8 @@ public struct LibraryInfo: Equatable {
     /// The path to the binary.
     public let libraryPath: AbsolutePath
 
-    /// The path to the headers directory, if one exists.
-    public let headersPath: AbsolutePath?
+    /// The paths to the headers directories.
+    public let headersPaths: [AbsolutePath]
 }
 
 
@@ -54,8 +54,8 @@ extension BinaryTarget {
         // Construct a LibraryInfo for the library.
         let libraryDir = self.artifactPath.appending(component: library.libraryIdentifier)
         let libraryFile = try AbsolutePath(validating: library.libraryPath, relativeTo: libraryDir)
-        let headersDir = try library.headersPath.map { try AbsolutePath(validating: $0, relativeTo: libraryDir) }
-        return [LibraryInfo(libraryPath: libraryFile, headersPath: headersDir)]
+        let headersDirs = try library.headersPath.map({ [try AbsolutePath(validating: $0, relativeTo: libraryDir)] }) ?? [] + [libraryDir]
+        return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs)]
     }
 
     public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {

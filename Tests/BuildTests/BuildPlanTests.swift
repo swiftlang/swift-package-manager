@@ -4121,6 +4121,7 @@ final class BuildPlanTests: XCTestCase {
 
         let exeCompileArguments = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exeCompileArguments, [.anySequence, "-F", "\(buildPath)", .anySequence])
+        XCTAssertMatch(exeCompileArguments, [.anySequence, "-I", "\(Pkg.appending(components: "Framework.xcframework", "\(platform)-\(arch)"))", .anySequence])
 
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
         XCTAssertMatch(exeLinkArguments, [.anySequence, "-F", "\(buildPath)", .anySequence])
