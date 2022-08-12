@@ -54,6 +54,21 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
+    func testDiscovery_whenNoTests() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #endif
+        try fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // we are expecting that no warning is produced
+            XCTAssertNoMatch(stderr, .contains("warning:"))
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("Executed 0 tests"))
+        }
+    }
+
     func testManifestOverride() throws {
         #if os(macOS)
         try XCTSkipIf(true)
