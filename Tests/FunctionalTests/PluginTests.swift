@@ -374,6 +374,15 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
+                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                }
+                
+                func pluginCompilationEnded(result: PluginCompilationResult) {
+                }
+                    
+                func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+                }
+
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -601,6 +610,15 @@ class PluginTests: XCTestCase {
 
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
+                }
+                
+                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                }
+                
+                func pluginCompilationEnded(result: PluginCompilationResult) {
+                }
+                    
+                func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
                 }
                 
                 func pluginEmittedOutput(_ data: Data) {

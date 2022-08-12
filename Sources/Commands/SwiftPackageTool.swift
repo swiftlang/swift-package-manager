@@ -1149,6 +1149,15 @@ final class PluginDelegate: PluginInvocationDelegate {
         self.lineBufferedOutput = Data()
     }
 
+    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+    }
+    
+    func pluginCompilationEnded(result: PluginCompilationResult) {
+    }
+        
+    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+    }
+
     func pluginEmittedOutput(_ data: Data) {
         lineBufferedOutput += data
         while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {

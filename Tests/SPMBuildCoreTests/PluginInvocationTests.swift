@@ -100,6 +100,7 @@ class PluginInvocationTests: XCTestCase {
                 toolsVersion: ToolsVersion,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate,
                 completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
             ) {
                 callbackQueue.sync {
@@ -118,7 +119,7 @@ class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptRunnerDelegate,
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
                 completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
@@ -306,9 +307,30 @@ class PluginInvocationTests: XCTestCase {
                 cacheDir: pluginCacheDir,
                 toolchain: UserToolchain.default
             )
+            
+            // Define a plugin compilation delegate that just captures the passed information.
+            class Delegate: PluginScriptCompilerDelegate {
+                var commandLine: [String]? 
+                var environment: EnvironmentVariables?
+                var compiledResult: PluginCompilationResult?
+                var cachedResult: PluginCompilationResult?
+                init() {
+                }
+                func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                    self.commandLine = commandLine
+                    self.environment = environment
+                }
+                func didCompilePlugin(result: PluginCompilationResult) {
+                    self.compiledResult = result
+                }
+                func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
+                    self.cachedResult = cachedResult
+                }
+            }
 
             // Try to compile the broken plugin script.
             do {
+                let delegate = Delegate()
                 let result = try tsc_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
@@ -316,6 +338,7 @@ class PluginInvocationTests: XCTestCase {
                         toolsVersion: buildToolPlugin.apiVersion,
                         observabilityScope: observability.topScope,
                         callbackQueue: DispatchQueue.sharedConcurrent,
+                        delegate: delegate,
                         completion: $0)
                 }
 
@@ -327,6 +350,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.compilerOutput.contains("error: missing return"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
+                // Check the delegate callbacks.
+                XCTAssertEqual(delegate.commandLine, result.commandLine)
+                XCTAssertNotNil(delegate.environment)
+                XCTAssertEqual(delegate.compiledResult, result)
+                XCTAssertNil(delegate.cachedResult)
+                
                 // Check the serialized diagnostics. We should have an error.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -355,6 +384,7 @@ class PluginInvocationTests: XCTestCase {
             // Try to compile the fixed plugin.
             let firstExecModTime: Date
             do {
+                let delegate = Delegate()
                 let result = try tsc_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
@@ -362,6 +392,7 @@ class PluginInvocationTests: XCTestCase {
                         toolsVersion: buildToolPlugin.apiVersion,
                         observabilityScope: observability.topScope,
                         callbackQueue: DispatchQueue.sharedConcurrent,
+                        delegate: delegate,
                         completion: $0)
                 }
 
@@ -372,6 +403,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check the delegate callbacks.
+                XCTAssertEqual(delegate.commandLine, result.commandLine)
+                XCTAssertNotNil(delegate.environment)
+                XCTAssertEqual(delegate.compiledResult, result)
+                XCTAssertNil(delegate.cachedResult)
 
                 // Check the serialized diagnostics. We should no longer have an error but now have a warning.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
@@ -390,6 +427,7 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the command plugin again without changing its source code.
             let secondExecModTime: Date
             do {
+                let delegate = Delegate()
                 let result = try tsc_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
@@ -397,6 +435,7 @@ class PluginInvocationTests: XCTestCase {
                         toolsVersion: buildToolPlugin.apiVersion,
                         observabilityScope: observability.topScope,
                         callbackQueue: DispatchQueue.sharedConcurrent,
+                        delegate: delegate,
                         completion: $0)
                 }
 
@@ -407,6 +446,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check the delegate callbacks. Note that the nil command line and environment indicates that we didn't get the callback saying that compilation will start; this is expected when the cache is reused. This is a behaviour of our test delegate. The command line is available in the cached result.
+                XCTAssertNil(delegate.commandLine)
+                XCTAssertNil(delegate.environment)
+                XCTAssertNil(delegate.compiledResult)
+                XCTAssertEqual(delegate.cachedResult, result)
 
                 // Check that the diagnostics still have the same warning as before.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
@@ -439,6 +484,7 @@ class PluginInvocationTests: XCTestCase {
             // Recompile the plugin again.
             let thirdExecModTime: Date
             do {
+                let delegate = Delegate()
                 let result = try tsc_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
@@ -446,6 +492,7 @@ class PluginInvocationTests: XCTestCase {
                         toolsVersion: buildToolPlugin.apiVersion,
                         observabilityScope: observability.topScope,
                         callbackQueue: DispatchQueue.sharedConcurrent,
+                        delegate: delegate,
                         completion: $0)
                 }
 
@@ -457,6 +504,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssert(!result.compilerOutput.contains("warning:"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
+                // Check the delegate callbacks.
+                XCTAssertEqual(delegate.commandLine, result.commandLine)
+                XCTAssertNotNil(delegate.environment)
+                XCTAssertEqual(delegate.compiledResult, result)
+                XCTAssertNil(delegate.cachedResult)
+                
                 // Check that the diagnostics no longer have a warning.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -486,6 +539,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Recompile the plugin again.
             do {
+                let delegate = Delegate()
                 let result = try tsc_await {
                     pluginScriptRunner.compilePluginScript(
                         sourceFiles: buildToolPlugin.sources.paths,
@@ -493,6 +547,7 @@ class PluginInvocationTests: XCTestCase {
                         toolsVersion: buildToolPlugin.apiVersion,
                         observabilityScope: observability.topScope,
                         callbackQueue: DispatchQueue.sharedConcurrent,
+                        delegate: delegate,
                         completion: $0)
                 }
 
@@ -504,7 +559,13 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.compilerOutput.contains("error: 'nil' is incompatible with return type"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
 
-                // Check that the diagnostics. We should have a different error than the original one.
+                // Check the delegate callbacks.
+                XCTAssertEqual(delegate.commandLine, result.commandLine)
+                XCTAssertNotNil(delegate.environment)
+                XCTAssertEqual(delegate.compiledResult, result)
+                XCTAssertNil(delegate.cachedResult)
+                
+                // Check the diagnostics. We should have a different error than the original one.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                 XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
