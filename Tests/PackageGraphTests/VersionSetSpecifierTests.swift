@@ -59,6 +59,7 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.0.0")), .range("1.0.1"..<"2.0.0"))
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.5.0")), .ranges(["1.0.0"..<"1.5.0", "1.5.1"..<"2.0.0"]))
         XCTAssertEqual(VersionSetSpecifier.range("2.0.0"..<"2.0.0").difference(.exact("2.0.0")), .empty)
+        XCTAssertEqual(VersionSetSpecifier.range("2.0.0"..<"2.0.1").difference(.exact("2.0.0")), .empty)
 
         XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").difference(.range("1.0.0"..<"2.0.0")), .empty)
         XCTAssertEqual(VersionSetSpecifier.exact("3.0.0").difference(.range("1.0.0"..<"2.0.0")), .exact("3.0.0"))
@@ -98,5 +99,36 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"]).difference(.range("1.0.0"..<"2.0.0")), .range("2.0.1"..<"5.0.0"))
         XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.3", "3.2.4"..<"4.0.0"]).difference(.exact("3.2.2")), .ranges(["3.2.0"..<"3.2.2", "3.2.4"..<"4.0.0"]))
         XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.1", "3.2.3"..<"4.0.0"]).difference(.exact("3.2.0")), .range("3.2.3"..<"4.0.0"))
+    }
+
+    func testEquality() {
+        // Basic cases.
+        XCTAssertTrue(VersionSetSpecifier.any == VersionSetSpecifier.any)
+        XCTAssertTrue(VersionSetSpecifier.empty == VersionSetSpecifier.empty)
+        XCTAssertTrue(VersionSetSpecifier.range("1.0.0"..<"5.0.0") == VersionSetSpecifier.range("1.0.0"..<"5.0.0"))
+        XCTAssertTrue(VersionSetSpecifier.exact("1.2.3") == VersionSetSpecifier.exact("1.2.3"))
+        XCTAssertTrue(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.1", "3.2.3"..<"4.0.0"]) == VersionSetSpecifier.ranges(["3.2.0"..<"3.2.1", "3.2.3"..<"4.0.0"]))
+
+        // Empty is equivalent to an empty list of ranges or if the list contains one range where the lower bound equals the upper bound./
+        XCTAssertTrue(VersionSetSpecifier.empty == VersionSetSpecifier.ranges([]))
+        XCTAssertTrue(VersionSetSpecifier.ranges([]) == VersionSetSpecifier.empty)
+        XCTAssertTrue(VersionSetSpecifier.empty == VersionSetSpecifier.ranges(["2.0.0"..<"2.0.0"]))
+        XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.0"..<"2.0.0"]) == VersionSetSpecifier.empty)
+
+        // Empty is equivalent to a range where the lower bound equals the upper bound.
+        XCTAssertTrue(VersionSetSpecifier.empty == VersionSetSpecifier.range("2.0.0"..<"2.0.0"))
+        XCTAssertTrue(VersionSetSpecifier.range("2.0.0"..<"2.0.0") == VersionSetSpecifier.empty)
+
+        // Exact is equal to a range that spans a single patch.
+        XCTAssertTrue(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
+        XCTAssertTrue(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.exact("2.0.1"))
+
+        // Exact is also equal to a list of ranges with one entry that spans a single patch.
+        XCTAssertTrue(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
+        XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.exact("2.0.1"))
+
+        // A range is equal to a list of ranges with that one range.
+        XCTAssertTrue(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
+        XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
     }
 }
