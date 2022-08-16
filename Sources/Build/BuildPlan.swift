@@ -1344,6 +1344,19 @@ public final class ProductBuildDescription {
         }
     }
 
+    /// The arguments to the librarian to create a static library.
+    public func archiveArguments() throws -> [String] {
+        let librarian = buildParameters.toolchain.librarianPath.pathString
+        let triple = buildParameters.triple
+        if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
+            return [librarian, "/LIB", "/OUT:\(binary.pathString)", "@\(linkFileListPath.pathString)"]
+        }
+        if triple.isDarwin(), librarian.hasSuffix("libtool") {
+            return [librarian, "-o", binary.pathString, "@\(linkFileListPath.pathString)"]
+        }
+        return [librarian, "crs", binary.pathString, "@\(linkFileListPath.pathString)"]
+    }
+
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompilerPath.pathString]

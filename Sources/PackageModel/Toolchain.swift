@@ -13,6 +13,9 @@
 import TSCBasic
 
 public protocol Toolchain {
+    /// Path of the librarian.
+    var librarianPath: AbsolutePath { get }
+
     /// Path of the `swiftc` compiler.
     var swiftCompilerPath: AbsolutePath { get }
 

@@ -3227,6 +3227,77 @@ final class BuildPlanTests: XCTestCase {
             """))
     }
 
+    func testArchiving() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Package/Sources/rary/rary.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Package",
+                    path: .init("/Package"),
+                    products: [
+                        ProductDescription(name: "rary", type: .library(.static), targets: ["rary"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "rary", dependencies: []),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+
+        let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+
+        let contents: String = try fs.readFileContents(yaml)
+
+        if result.plan.buildParameters.triple.isWindows() {
+            XCTAssertMatch(contents, .contains("""
+              "C.rary-debug.a":
+                tool: shell
+                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())"]
+                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","/LIB","/OUT:\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+            """))
+        } else if result.plan.buildParameters.triple.isDarwin() {
+            XCTAssertMatch(contents, .contains("""
+              "C.rary-debug.a":
+                tool: shell
+                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())"]
+                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+            """))
+        } else {    // assume Unix `ar` is the librarian
+            XCTAssertMatch(contents, .contains("""
+              "C.rary-debug.a":
+                tool: shell
+                inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())","\(buildPath.appending(components: "rary.build", "rary.swiftmodule.o").escapedPathString())"]
+                outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
+                description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
+                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","crs","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+            """))
+        }
+    }
+
     func testSwiftBundleAccessor() throws {
         // This has a Swift and ObjC target in the same package.
         let fs = InMemoryFileSystem(emptyFiles:
