@@ -791,7 +791,7 @@ public final class SwiftTargetBuildDescription {
 
         let stream = BufferedOutputByteStream()
         stream <<< """
-        import class Foundation.Bundle
+        \(toolsVersion > .v5_7 ? "@_implementationOnly import" : "import") class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
