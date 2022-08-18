@@ -88,16 +88,6 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addArchiveCmd(
-        name: String,
-        inputs: [Node],
-        outputs: [Node]
-    ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
-        let tool = ArchiveTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
-    }
-
     public mutating func addShellCmd(
         name: String,
         description: String,

@@ -148,6 +148,8 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             throw InternalError("main output (\(LLBuildManifest.TestDiscoveryTool.mainFileName)) not found")
         }
 
+        let testsKeyword = tests.isEmpty ? "let" : "var"
+
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
@@ -157,7 +159,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
         stream <<< "struct Runner" <<< " {" <<< "\n"
         stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+        stream <<< indent(8) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n"
         for module in testsByModule.keys {
             stream <<< indent(8) <<< "tests += __\(module)__allTests()" <<< "\n"
         }

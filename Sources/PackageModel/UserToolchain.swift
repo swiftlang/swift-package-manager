@@ -28,6 +28,9 @@ public final class UserToolchain: Toolchain {
     /// The toolchain configuration.
     private let configuration: ToolchainConfiguration
 
+    /// Path of the librarian.
+    public let librarianPath: AbsolutePath
+
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
 
@@ -112,6 +115,43 @@ public final class UserToolchain: Toolchain {
     }
 
     // MARK: - public API
+
+    public static func determineLibrarian(triple: Triple, binDir: AbsolutePath,
+                                          useXcrun: Bool,
+                                          environment: EnvironmentVariables,
+                                          searchPaths: [AbsolutePath]) throws
+            -> AbsolutePath {
+        let variable: String = triple.isDarwin() ? "LIBTOOL" : "AR"
+        let tool: String = {
+            if triple.isDarwin() { return "libtool" }
+            if triple.isWindows() {
+                if let librarian: AbsolutePath =
+                        UserToolchain.lookup(variable: "AR",
+                                             searchPaths: searchPaths,
+                                             environment: environment) {
+                    return librarian.basename
+                }
+                // TODO(5719) use `lld-link` if the build requests lld.
+                return "link"
+            }
+            // TODO(compnerd) consider defaulting to `llvm-ar` universally with
+            // a fallback to `ar`.
+            return triple.isAndroid() ? "llvm-ar" : "ar"
+        }()
+
+        if let librarian: AbsolutePath = UserToolchain.lookup(variable: variable,
+                                                              searchPaths: searchPaths,
+                                                              environment: environment) {
+            if localFileSystem.isExecutableFile(librarian) {
+                return librarian
+            }
+        }
+
+        if let librarian = try? UserToolchain.getTool(tool, binDir: binDir) {
+            return librarian
+        }
+        return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+    }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
     public static func determineSwiftCompilers(binDir: AbsolutePath, useXcrun: Bool, environment: EnvironmentVariables, searchPaths: [AbsolutePath]) throws -> SwiftCompilers {
@@ -339,6 +379,8 @@ public final class UserToolchain: Toolchain {
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
+        self.librarianPath = try UserToolchain.determineLibrarian(triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
+
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
         if archs.count == 1 {
@@ -400,6 +442,7 @@ public final class UserToolchain: Toolchain {
         }
 
         self.configuration = .init(
+            librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
             swiftCompilerFlags: self.extraSwiftCFlags,
             swiftCompilerEnvironment: environment,
