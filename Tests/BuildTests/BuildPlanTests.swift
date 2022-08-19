@@ -446,6 +446,7 @@ final class BuildPlanTests: XCTestCase {
             "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe",
             "-emit-executable",
+            "-Xlinker", "--gc-sections",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-target", defaultTargetTriple,

@@ -1334,12 +1334,17 @@ public final class ProductBuildDescription {
                 return ["-Xlinker", "-dead_strip"]
             } else if buildParameters.triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else {
-                // FIXME: wasm-ld / ld.lld strips data segments referenced through __start/__stop symbols
+            } else if buildParameters.triple.arch == .wasm32 {
+                // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
                 // during GC, and it removes Swift metadata sections like swift5_protocols
                 // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
                 // to LLVM and wasm-ld
+                // This workaround is required for not only WASI but also all WebAssembly archs
+                // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
+                // arch == .wasm32
                 return []
+            } else {
+                return ["-Xlinker", "--gc-sections"]
             }
         }
     }
