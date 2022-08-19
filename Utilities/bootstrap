@@ -634,6 +634,9 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
 
+    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-concurrency-module-import"]
+    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-string-processing-module-import"]
+
     # Build SwiftPM, including libSwiftPM, all the command line tools, and the current variant of PackageDescription.
     call_swiftpm(args, swiftpm_args)
 
