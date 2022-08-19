@@ -794,7 +794,7 @@ public final class SwiftTargetBuildDescription {
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
-            static var module: Bundle = {
+            static let module: Bundle = {
                 let mainPath = \(mainPathSubstitution)
                 let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
