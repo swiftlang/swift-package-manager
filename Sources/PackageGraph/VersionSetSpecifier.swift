@@ -276,8 +276,12 @@ extension VersionSetSpecifier {
             }
 
             if lhs.lowerBound == rhs {
-                // Return empty if the range represents the exact version or the range is empty.
-                if lhs.lowerBound == lhs.upperBound || lhs.lowerBound.nextPatch() == lhs.upperBound {
+                // Return empty if the range is empty. This means upper and lower bounds are equal since the range is half-open and there are no negative results here.
+                if lhs.lowerBound == lhs.upperBound {
+                    return .empty
+                }
+                // If there is exactly one patch between lower and upper bound, the range represent the lower bound as an exact version. So the range is empty in this case as well.
+                if lhs.lowerBound.nextPatch() == lhs.upperBound {
                     return .empty
                 }
                 return .range(rhs.nextPatch()..<lhs.upperBound)
