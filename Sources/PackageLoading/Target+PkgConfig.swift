@@ -126,8 +126,6 @@ extension SystemPackageProviderDescription {
             return "    apt-get install \(packages.joined(separator: " "))\n"
         case .yum(let packages):
             return "    yum install \(packages.joined(separator: " "))\n"
-        case .nuget(let packages):
-            return "    nuget install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -149,13 +147,6 @@ extension SystemPackageProviderDescription {
         case .yum:
             if case .linux(.fedora) = platform {
                 return true
-            }
-        case .nuget:
-            switch platform {
-            case .darwin, .windows, .linux:
-                return true
-            case .android:
-                return false
             }
         }
         return false
@@ -186,8 +177,6 @@ extension SystemPackageProviderDescription {
         case .apt:
             return []
         case .yum:
-            return []
-        case .nuget:
             return []
         }
     }
