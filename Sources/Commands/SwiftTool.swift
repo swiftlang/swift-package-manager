@@ -486,7 +486,7 @@ public class SwiftTool {
     }
 
     /// Returns the currently active workspace.
-    func getActiveWorkspace() throws -> Workspace {
+    func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
@@ -506,7 +506,8 @@ public class SwiftTool {
                 localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
                 sharedConfigurationDirectory: self.sharedConfigurationDirectory,
                 sharedSecurityDirectory: self.sharedSecurityDirectory,
-                sharedCacheDirectory: self.sharedCacheDirectory
+                sharedCacheDirectory: self.sharedCacheDirectory,
+                emitDeprecatedConfigurationWarning: emitDeprecatedConfigurationWarning
             ),
             authorizationProvider: self.getAuthorizationProvider(),
             configuration: .init(

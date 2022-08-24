@@ -59,6 +59,9 @@ extension Workspace {
         /// Path to the shared cache directory
         public var sharedCacheDirectory: AbsolutePath?
 
+        /// Whether or not to emit a warning about the existence of deprecated configuration files
+        public var emitDeprecatedConfigurationWarning: Bool
+
         // working directories
 
         /// Path to the repositories clones.
@@ -154,6 +157,7 @@ extension Workspace {
             self.sharedConfigurationDirectory = sharedConfigurationDirectory
             self.sharedSecurityDirectory = sharedSecurityDirectory
             self.sharedCacheDirectory = sharedCacheDirectory
+            self.emitDeprecatedConfigurationWarning = true
         }
 
         /// Create a new workspace location.
@@ -172,7 +176,8 @@ extension Workspace {
             localConfigurationDirectory: AbsolutePath,
             sharedConfigurationDirectory: AbsolutePath?,
             sharedSecurityDirectory: AbsolutePath?,
-            sharedCacheDirectory: AbsolutePath?
+            sharedCacheDirectory: AbsolutePath?,
+            emitDeprecatedConfigurationWarning: Bool = true
         ) {
             self.scratchDirectory = scratchDirectory
             self.editsDirectory = editsDirectory
@@ -181,6 +186,7 @@ extension Workspace {
             self.sharedConfigurationDirectory = sharedConfigurationDirectory
             self.sharedSecurityDirectory = sharedSecurityDirectory
             self.sharedCacheDirectory = sharedCacheDirectory
+            self.emitDeprecatedConfigurationWarning = emitDeprecatedConfigurationWarning
         }
 
         /// Create a new workspace location.
