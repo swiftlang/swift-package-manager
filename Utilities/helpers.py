@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##===----------------------------------------------------------------------===##
 ##
 ## This source file is part of the Swift open source project
