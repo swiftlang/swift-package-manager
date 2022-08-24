@@ -384,6 +384,7 @@ private extension JSONEncoder {
 
 private extension ParsableCommand {
     func with<T>(_ swiftTool: SwiftTool, handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
+        _ = try? swiftTool.getActiveWorkspace(emitDeprecatedConfigurationWarning: true)
         let collections = PackageCollections(
             configuration: .init(
                 configurationDirectory: swiftTool.sharedConfigurationDirectory,
