@@ -3679,7 +3679,7 @@ extension Workspace.Location {
         if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
             // It may not always be possible to create default location (for example de to restricted sandbox),
             // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
             if defaultDirectory != nil, sharedConfigurationDirectory != defaultDirectory {
                 // custom location _must_ be writable, throw if we cannot access it
                 guard fileSystem.isWritable(sharedConfigurationDirectory) else {
