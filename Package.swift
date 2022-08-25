@@ -31,7 +31,6 @@ let swiftPMDataModelProduct = (
         "PackageModel",
         "SourceControl",
         "Workspace",
-        "Xcodeproj",
     ]
 )
 
@@ -316,12 +315,6 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .target(
-            /** Generates Xcode projects */
-            name: "Xcodeproj",
-            dependencies: ["Basics", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "TODO.md"]
-        ),
-        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: [
@@ -331,7 +324,6 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
                 "SPMBuildCore",
-                "Xcodeproj"
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -350,7 +342,6 @@ let package = Package(
                 "PackageGraph",
                 "SourceControl",
                 "Workspace",
-                "Xcodeproj",
                 "XCBuildSupport",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
@@ -414,7 +405,6 @@ let package = Package(
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",
-                "Xcodeproj",
                 "XCBuildSupport",
             ]
         ),
@@ -538,10 +528,6 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
-        ),
-        .testTarget(
-            name: "XcodeprojTests",
-            dependencies: ["Xcodeproj", "SPMTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",

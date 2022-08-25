@@ -30,8 +30,7 @@ add_library(Commands
   Utilities/GenerateLinuxMain.swift
   Utilities/MultiRootSupport.swift
   Utilities/SymbolGraphExtract.swift
-  Utilities/TestingSupport.swift
-  Utilities/WatchmanHelper.swift)
+  Utilities/TestingSupport.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics
@@ -43,8 +42,7 @@ target_link_libraries(Commands PUBLIC
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport
-  Xcodeproj)
+  XCBuildSupport)
 target_link_libraries(Commands PRIVATE
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

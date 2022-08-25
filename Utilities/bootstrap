@@ -404,7 +404,7 @@ def install(args):
             "SPMLLBuild", "LLBuildManifest",
             "PackageModel", "PackageLoading",
             "PackageGraph", "SPMBuildCore", "Build",
-            "Xcodeproj", "Workspace"
+            "Workspace"
         ]
         install_dylib(args, "SwiftPM", args.libswiftpm_install_dir, libswiftpm_modules)
 
@@ -415,7 +415,7 @@ def install(args):
             "TSCUtility", "SourceControl",
             "PackageModel", "PackageLoading",
             "PackageGraph", "SPMBuildCore",
-            "Xcodeproj", "Workspace"
+            "Workspace"
         ]
         install_dylib(args, "SwiftPMDataModel", args.libswiftpmdatamodel_install_dir, libswiftpmdatamodel_modules)
 
