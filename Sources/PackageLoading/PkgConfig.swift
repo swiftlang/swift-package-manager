@@ -271,7 +271,7 @@ internal struct PkgConfigParser {
                         \(pcFile)
                         """)
                 }
-            } else {
+            } else if !arg.isEmpty {
                 // Otherwise it is a dependency.
                 deps.append(arg)
             }

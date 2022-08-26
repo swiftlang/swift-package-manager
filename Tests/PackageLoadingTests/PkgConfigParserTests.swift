@@ -105,6 +105,20 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testDummyDependency() throws {
+        try loadPCFile("dummy_dependency.pc") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": AbsolutePath.root.pathString
+            ])
+            XCTAssertEqual(parser.dependencies, ["pango", "fontconfig"])
+            XCTAssertEqual(parser.cFlags, [])
+            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lpangoft2-1.0"])
+        }
+    }
+
     /// Test custom search path get higher priority for locating pc files.
     func testCustomPcFileSearchPath() throws {
         let observability = ObservabilitySystem.makeForTesting()
