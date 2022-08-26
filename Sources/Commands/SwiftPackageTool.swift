@@ -19,7 +19,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import Xcodeproj
 import XCBuildSupport
 import Workspace
 import Foundation
@@ -59,7 +58,6 @@ public struct SwiftPackageTool: ParsableCommand {
 
             ShowDependencies.self,
             ToolsVersionCommand.self,
-            GenerateXcodeProject.self,
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
@@ -1524,104 +1522,6 @@ extension SwiftPackageTool {
                 options: pluginOptions,
                 arguments: Array( remaining.dropFirst()),
                 swiftTool: swiftTool)
-        }
-    }
-}
-
-extension SwiftPackageTool {
-    struct GenerateXcodeProject: SwiftCommand {
-        static let configuration = CommandConfiguration(
-            commandName: "generate-xcodeproj",
-            abstract: "Generates an Xcode project. This command will be deprecated soon.")
-
-        struct Options: ParsableArguments {
-            @Option(help: "Path to xcconfig file", completion: .file())
-            var xcconfigOverrides: AbsolutePath?
-
-            @Option(name: .customLong("output"),
-                    help: "Path where the Xcode project should be generated")
-            var outputPath: AbsolutePath?
-
-            @Flag(name: .customLong("legacy-scheme-generator"),
-                  help: "Use the legacy scheme generator")
-            var useLegacySchemeGenerator: Bool = false
-
-            @Flag(name: .customLong("watch"),
-                  help: "Watch for changes to the Package manifest to regenerate the Xcode project")
-            var enableAutogeneration: Bool = false
-
-            @Flag(help: "Do not add file references for extra files to the generated Xcode project")
-            var skipExtraFiles: Bool = false
-
-            /// Whether to enable code coverage.
-            @Flag(name: .customLong("code-coverage"),
-                  inversion: .prefixedEnableDisable,
-                  help: "Enable code coverage")
-            var enableCodeCoverage: Bool = false
-        }
-
-        @OptionGroup(_hiddenFromHelp: true)
-        var globalOptions: GlobalOptions
-
-        @OptionGroup()
-        var options: Options
-
-        func xcodeprojOptions() -> XcodeprojOptions {
-            XcodeprojOptions(
-                flags: globalOptions.build.buildFlags,
-                xcconfigOverrides: options.xcconfigOverrides,
-                isCodeCoverageEnabled: options.enableCodeCoverage,
-                useLegacySchemeGenerator: options.useLegacySchemeGenerator,
-                enableAutogeneration: options.enableAutogeneration,
-                addExtraFiles: !options.skipExtraFiles)
-        }
-
-        func run(_ swiftTool: SwiftTool) throws {
-            swiftTool.observabilityScope.emit(warning: "Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon.")
-
-            let graph = try swiftTool.loadPackageGraph()
-
-            let projectName: String
-            let dstdir: AbsolutePath
-
-            switch options.outputPath {
-            case let outpath? where outpath.suffix == ".xcodeproj":
-                // if user specified path ending with .xcodeproj, use that
-                projectName = String(outpath.basename.dropLast(10))
-                dstdir = outpath.parentDirectory
-            case let outpath?:
-                dstdir = outpath
-                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
-            case _:
-                dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
-            }
-            let xcodeprojPath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
-
-            var genOptions = xcodeprojOptions()
-            genOptions.manifestLoader = try swiftTool.getManifestLoader()
-
-            try XcodeProject.generate(
-                projectName: projectName,
-                xcodeprojPath: xcodeprojPath,
-                graph: graph,
-                repositoryProvider: GitRepositoryProvider(),
-                options: genOptions,
-                fileSystem: swiftTool.fileSystem,
-                observabilityScope: swiftTool.observabilityScope
-            )
-
-            print("generated:", xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))
-
-            // Run the file watcher if requested.
-            if options.enableAutogeneration {
-                try WatchmanHelper(
-                    watchmanScriptsDir: swiftTool.scratchDirectory.appending(component: "watchman"),
-                    packageRoot: swiftTool.packageRoot!,
-                    fileSystem: swiftTool.fileSystem,
-                    observabilityScope: swiftTool.observabilityScope
-                ).runXcodeprojWatcher(xcodeprojOptions())
-            }
         }
     }
 }
