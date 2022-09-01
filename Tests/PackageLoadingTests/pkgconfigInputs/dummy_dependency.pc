@@ -1,0 +1,7 @@
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+
+#some comment
+
+Requires: pango, , fontconfig >=  2.13.0
+Libs:-L${prefix} -lpangoft2-1.0
