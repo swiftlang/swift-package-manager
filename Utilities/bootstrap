@@ -213,7 +213,7 @@ def parse_build_args(args):
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
     if args.cross_compile_hosts:
-        if "macosx-arm64" in args.cross_compile_hosts:
+        if re.match("macosx-", args.cross_compile_hosts):
             # Use XCBuild target directory when building for multiple arches.
             args.target_dir = os.path.join(args.build_dir, "apple/Products")
         elif re.match('android-', args.cross_compile_hosts):
