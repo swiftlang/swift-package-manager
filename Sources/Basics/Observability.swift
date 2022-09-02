@@ -470,21 +470,6 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible {
         }
     }
 
-    @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-    public func droppingLegacyKeys() -> ObservabilityMetadata? {
-        var metadata = ObservabilityMetadata()
-        self.forEach { (key, value) in
-            if key.keyType == LegacyLocationKey.self {
-                return
-            }
-            if key.keyType == LegacyDataKey.self {
-                return
-            }
-            metadata._storage[key] = value
-        }
-        return metadata.isEmpty ? .none : metadata
-    }
-
     /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
     public struct AnyKey {
         /// The key's type represented erased to an `Any.Type`.
@@ -567,53 +552,6 @@ extension Diagnostic {
             self = .info(diagnostic.message.text, metadata: metadata)
         case .ignored:
             return nil
-        }
-    }
-}
-
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-extension ObservabilitySystem {
-    public convenience init(diagnosticEngine: DiagnosticsEngine) {
-        self.init(DiagnosticsEngineAdapter(diagnosticEngine: diagnosticEngine))
-    }
-
-    private struct DiagnosticsEngineAdapter: ObservabilityHandlerProvider, DiagnosticsHandler {
-        let diagnosticEngine: DiagnosticsEngine
-
-        var diagnosticsHandler: DiagnosticsHandler { self }
-
-        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
-            diagnosticEngine.emit(.init(diagnostic))
-        }
-    }
-}
-
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-extension TSCBasic.Diagnostic {
-    public init(_ diagnostic: Diagnostic) {
-        let location: DiagnosticLocation
-        if let legacyLocation = diagnostic.metadata?.legacyDiagnosticLocation {
-            location = legacyLocation.underlying
-        } else {
-            location = UnknownLocation.location
-        }
-
-        let data: DiagnosticData
-        if let legacyData = diagnostic.metadata?.legacyDiagnosticData {
-            data = legacyData.underlying
-        } else {
-            data = StringDiagnostic(diagnostic.message)
-        }
-
-        switch diagnostic.severity {
-        case .error:
-            self = .init(message: .error(data), location: location)
-        case .warning:
-            self = .init(message: .warning(data), location: location)
-        case .info:
-            self = .init(message: .note(data), location: location)
-        case .debug:
-            self = .init(message: .note(data), location: location)
         }
     }
 }
