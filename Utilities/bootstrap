@@ -815,7 +815,7 @@ def get_swiftpm_flags(args):
 
     build_target = get_build_target(args)
     cross_compile_hosts = args.cross_compile_hosts
-    if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
+    if cross_compile_hosts and re.match('macosx-', cross_compile_hosts):
         build_flags += ["--arch", "x86_64", "--arch", "arm64"]
     elif cross_compile_hosts and re.match('android-', cross_compile_hosts):
         build_flags.extend(["--destination", args.cross_compile_config])
