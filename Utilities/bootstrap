@@ -815,12 +815,13 @@ def get_swiftpm_flags(args):
 
     build_target = get_build_target(args)
     cross_compile_hosts = args.cross_compile_hosts
-    if cross_compile_hosts and re.match('macosx-', cross_compile_hosts):
-        build_flags += ["--arch", "x86_64", "--arch", "arm64"]
-    elif cross_compile_hosts and re.match('android-', cross_compile_hosts):
-        build_flags.extend(["--destination", args.cross_compile_config])
-    elif cross_compile_hosts:
-        error("cannot cross-compile for %s" % cross_compile_hosts)
+    if cross_compile_hosts:
+        if re.search('-apple-macosx', build_target) and re.match('macosx-', cross_compile_hosts):
+            build_flags += ["--arch", "x86_64", "--arch", "arm64"]
+        elif re.match('android-', cross_compile_hosts):
+            build_flags.extend(["--destination", args.cross_compile_config])
+        else:
+            error("cannot cross-compile for %s" % cross_compile_hosts)
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")
