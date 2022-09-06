@@ -313,8 +313,32 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // fails.
     func compilePlugin(_ plugin: PluginDescription) throws {
         // Compile the plugin, getting back a PluginCompilationResult.
-        let preparationStepName = "Compiling plugin \(plugin.targetName)..."
-        self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+        class Delegate: PluginScriptCompilerDelegate {
+            let preparationStepName: String
+            let buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
+            init(preparationStepName: String, buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?) {
+                self.preparationStepName = preparationStepName
+                self.buildSystemDelegate = buildSystemDelegate
+            }
+            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+            }
+            func didCompilePlugin(result: PluginCompilationResult) {
+                if !result.description.isEmpty {
+                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
+                }
+                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
+            }
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
+                // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
+                self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+                if !cachedResult.description.isEmpty {
+                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: cachedResult.description)
+                }
+                self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
+            }
+        }
+        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)...", buildSystemDelegate: self.buildSystemDelegate)
         let result = try tsc_await {
             self.pluginScriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
@@ -322,12 +346,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 toolsVersion: plugin.toolsVersion,
                 observabilityScope: self.observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: delegate,
                 completion: $0)
         }
-        if !result.description.isEmpty {
-            self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
-        }
-        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.cached ? .skipped : (result.succeeded ? .succeeded : .failed))
 
         // Throw an error on failure; we will already have emitted the compiler's output in this case.
         if !result.succeeded {
