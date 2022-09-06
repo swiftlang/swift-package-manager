@@ -660,22 +660,30 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
-        self.outputStream <<< name <<< "\n"
-        self.outputStream.flush()
+        queue.async {
+            self.taskTracker.buildPreparationStepStarted(name)
+            self.updateProgress()
+        }
     }
 
     /// Invoked when an action taken before building emits output.
     func preparationStepHadOutput(_ name: String, output: String) {
         queue.async {
             self.progressAnimation.clear()
-            self.outputStream <<< output.spm_chomp() <<< "\n"
-            self.outputStream.flush()
+            if self.logLevel.isVerbose {
+                self.outputStream <<< output.spm_chomp() <<< "\n"
+                self.outputStream.flush()
+            }
         }
     }
 
     /// Invoked right after running an action taken before building. The result
     /// indicates whether the action succeeded, failed, or was cancelled.
     func preparationStepFinished(_ name: String, result: CommandResult) {
+        queue.async {
+            self.taskTracker.buildPreparationStepFinished(name)
+            self.updateProgress()
+        }
     }
 
     // MARK: SwiftCompilerOutputParserDelegate
@@ -846,6 +854,15 @@ fileprivate struct CommandTaskTracker {
         }
 
         return nil
+    }
+    
+    mutating func buildPreparationStepStarted(_ name: String) {
+        self.totalCount += 1
+    }
+
+    mutating func buildPreparationStepFinished(_ name: String) {
+        latestFinishedText = name
+        self.finishedCount += 1
     }
 }
 
