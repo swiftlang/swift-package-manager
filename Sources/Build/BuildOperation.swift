@@ -338,7 +338,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
         }
-        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)...", buildSystemDelegate: self.buildSystemDelegate)
+        let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
         let result = try tsc_await {
             self.pluginScriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,

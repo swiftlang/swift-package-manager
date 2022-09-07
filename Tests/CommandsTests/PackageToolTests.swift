@@ -2510,8 +2510,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertMatch(output, .contains("Building for debugging..."))
             }
 
@@ -2520,8 +2520,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--target", "MyCommandPlugin"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
 
@@ -2545,8 +2545,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 #if false // sometimes this line isn't emitted; being investigated in https://bugs.swift.org/browse/SR-15831
                     XCTAssertMatch(output, .contains("MyCommandPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
                 #endif
