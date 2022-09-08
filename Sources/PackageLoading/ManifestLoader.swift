@@ -290,18 +290,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
-            // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
-            if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
-                    var metadata = ObservabilityMetadata()
-                    metadata.manifestLoadingDiagnosticFile = diagnosticFile
-                    return metadata
-                }
-                observabilityScope.emit(warning: compilerOutput, metadata: metadata)
-
-                // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-                //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
+            let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                var metadata = ObservabilityMetadata()
+                metadata.manifestLoadingDiagnosticFile = diagnosticFile
+                return metadata
             }
+            observabilityScope.emit(warning: compilerOutput, metadata: metadata)
+
+            // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
+            //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
         }
 
         return try ManifestJSONParser.parse(
