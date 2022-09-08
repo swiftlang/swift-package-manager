@@ -290,7 +290,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
-            if !compilerOutput.isEmpty {
+            // FIXME: Isn't the judgement too naive?
+            var outputIndicatesWarning = !compilerOutput.isEmpty
+            #if os(Windows)
+            // Filter out link.exe note when creating manifest executable.
+            if let compiledManifestName = result.compiledManifestFile?.basenameWithoutExt,
+               !compilerOutput.contains(where: \.isNewline) {
+                if compilerOutput.contains("\(compiledManifestName).lib") && compilerOutput.contains("\(compiledManifestName).exp") {
+                    outputIndicatesWarning = false
+                }
+            }
+            #endif
+            if outputIndicatesWarning {
                 let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
