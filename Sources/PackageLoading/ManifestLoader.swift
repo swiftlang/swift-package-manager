@@ -291,23 +291,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
             // FIXME: Isn't the judgement too naive?
-            var outputIndicatesWarning = !compilerOutput.isEmpty
+            var outputSeverity: Basics.Diagnostic.Severity = .warning
             #if os(Windows)
             // Filter out link.exe note when creating manifest executable.
             if let compiledManifestName = result.compiledManifestFile?.basenameWithoutExt,
                !compilerOutput.contains(where: \.isNewline) {
                 if compilerOutput.contains("\(compiledManifestName).lib") && compilerOutput.contains("\(compiledManifestName).exp") {
-                    outputIndicatesWarning = false
+                    outputSeverity = .debug
                 }
             }
             #endif
-            if outputIndicatesWarning {
+            if !compilerOutput.isEmpty {
                 let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
                     return metadata
                 }
-                observabilityScope.emit(warning: compilerOutput, metadata: metadata)
+                observabilityScope.emit(severity: outputSeverity, message: compilerOutput, metadata: metadata)
 
                 // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
                 //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
