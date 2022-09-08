@@ -585,6 +585,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     #endif
                     let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
                     cmd += ["-o", compiledManifestFile.pathString]
+                    evaluationResult.compiledManifestFile = compiledManifestFile
 
                     // Compile the manifest.
                     TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
@@ -806,6 +807,9 @@ extension ManifestLoader {
 
 extension ManifestLoader {
     struct EvaluationResult: Codable {
+        /// The path to the compiled manifest.
+        var compiledManifestFile: AbsolutePath?
+
         /// The path to the diagnostics file (.dia).
         ///
         /// This is only present if serialized diagnostics are enabled.
