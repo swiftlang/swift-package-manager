@@ -42,7 +42,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
     
     func execute(job: Job,
                  forceResponseFiles: Bool,
-                 recordedInputModificationDates: [TypedVirtualPath : Date]) throws -> ProcessResult {
+                 recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
         let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                    forceResponseFiles: forceResponseFiles)
         
@@ -63,7 +63,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
     func execute(workload: DriverExecutorWorkload,
                  delegate: JobExecutionDelegate,
                  numParallelJobs: Int, forceResponseFiles: Bool,
-                 recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
+                 recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
         throw InternalError("Multi-job build plans should be lifted into the SPM build graph.")
     }
     

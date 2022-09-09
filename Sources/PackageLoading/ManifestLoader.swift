@@ -307,9 +307,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return metadata
             }
             observabilityScope.emit(severity: outputSeverity, message: compilerOutput, metadata: metadata)
-
-            // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-            //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
         }
 
         return try ManifestJSONParser.parse(
