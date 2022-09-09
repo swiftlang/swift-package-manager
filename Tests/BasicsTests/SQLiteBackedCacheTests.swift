@@ -16,8 +16,6 @@ import TSCTestSupport
 import tsan_utils
 import XCTest
 
-import struct TSCUtility.SQLite
-
 final class SQLiteBackedCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
