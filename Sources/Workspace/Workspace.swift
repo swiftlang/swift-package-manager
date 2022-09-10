@@ -1378,8 +1378,8 @@ extension Workspace {
                                   completion: $0)
             }
 
-            guard manifest.displayName == packageName else {
-                return observabilityScope.emit(error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)")
+            if manifest.displayName.lowercased() != packageName.lowercased() {
+                observabilityScope.emit(warning: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)")
             }
 
             // Emit warnings for branch and revision, if they're present.
