@@ -362,10 +362,10 @@ struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     var enableTestDiscovery: Bool = false
 
-    /// Whether to allow having a custom test manifest, even if test discovery is enabled and ordinarily a test manifest would be generated automatically.
-    @Flag(name: .customLong("experimental-allow-custom-test-manifest"),
-          help: .hidden)
-    var allowCustomTestManifest: Bool = false
+    /// Path of custom test manifest file to use, instead of synthesizing a test manifest. This implies `--enable-test-discovery`
+    @Option(name: .customLong("experimental-test-manifest-path"),
+            help: .hidden)
+    var customTestManifestPath: AbsolutePath?
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed

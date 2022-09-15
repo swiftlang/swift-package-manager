@@ -48,9 +48,8 @@ public struct BuildParameters: Encodable {
         // Use a test-manifest that lists the tests
         // generate: Whether test discovery generation is forced
         //           This flag is or backwards compatibility, remove with --enable-test-discovery
-        // allowCustom: Whether having a custom test manifest (e.g. XCTMain.swift) file is allowed
-        //              in conjunction with test discovery.
-        case manifest(generate: Bool, allowCustom: Bool)
+        // isCustom: Whether the test manifest file is custom, specified via --experimental-test-manifest-path
+        case manifest(generate: Bool, isCustom: Bool)
 
         public enum DiscriminatorKeys: String, Codable {
             case objectiveC
@@ -60,7 +59,7 @@ public struct BuildParameters: Encodable {
         public enum CodingKeys: CodingKey {
             case _case
             case generate
-            case allowCustom
+            case isCustom
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -68,10 +67,10 @@ public struct BuildParameters: Encodable {
             switch self {
             case .objectiveC:
                 try container.encode(DiscriminatorKeys.objectiveC, forKey: ._case)
-            case .manifest(let generate, let allowCustom):
+            case .manifest(let generate, let isCustom):
                 try container.encode(DiscriminatorKeys.manifest, forKey: ._case)
                 try container.encode(generate, forKey: .generate)
-                try container.encode(allowCustom, forKey: .allowCustom)
+                try container.encode(isCustom, forKey: .isCustom)
             }
         }
     }
@@ -183,6 +182,9 @@ public struct BuildParameters: Encodable {
     // What strategy to use to discover tests
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
+    /// Path to custom test manifest file, if specified.
+    public var customTestManifestPath: AbsolutePath?
+
     /// Whether to disable dead code stripping by the linker
     public var linkerDeadStrip: Bool
 
@@ -214,7 +216,7 @@ public struct BuildParameters: Encodable {
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        allowCustomTestManifest: Bool = false,
+        customTestManifestPath: AbsolutePath? = nil,
         explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
@@ -252,7 +254,8 @@ public struct BuildParameters: Encodable {
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
-        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery, allowCustom: allowCustomTestManifest)
+        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery, isCustom: customTestManifestPath != nil)
+        self.customTestManifestPath = customTestManifestPath
         self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput

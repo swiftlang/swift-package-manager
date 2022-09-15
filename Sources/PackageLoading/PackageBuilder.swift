@@ -244,6 +244,9 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
+    /// Path to custom test manifest file, if specified.
+    private let customTestManifestPath: AbsolutePath?
+
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
@@ -286,6 +289,7 @@ public final class PackageBuilder {
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
         shouldCreateMultipleTestProducts: Bool = false,
+        customTestManifestPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
         fileSystem: FileSystem,
@@ -298,6 +302,7 @@ public final class PackageBuilder {
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
+        self.customTestManifestPath = customTestManifestPath
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
@@ -1024,6 +1029,10 @@ public final class PackageBuilder {
 
     /// Find the test manifest file for the package.
     private func findTestManifest(in testTargets: [Target]) throws -> AbsolutePath? {
+        if let customTestManifestPath {
+            return customTestManifestPath
+        }
+
         var testManifestFiles = Set<AbsolutePath>()
         var pathsSearched = Set<AbsolutePath>()
 
