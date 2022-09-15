@@ -1029,7 +1029,7 @@ public final class PackageBuilder {
 
     /// Find the test manifest file for the package.
     private func findTestManifest(in testTargets: [Target]) throws -> AbsolutePath? {
-        if let customTestManifestPath {
+        if let customTestManifestPath = customTestManifestPath {
             return customTestManifestPath
         }
 
