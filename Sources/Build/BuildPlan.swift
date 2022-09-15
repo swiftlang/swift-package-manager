@@ -1690,31 +1690,31 @@ public class BuildPlan {
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, manifestTargetBuildDescription: SwiftTargetBuildDescription)] {
-        guard case .manifest(let enableDiscovery, let allowCustomManifest) = buildParameters.testDiscoveryStrategy else {
+        guard case .manifest(let enableDiscovery, let isCustomManifest) = buildParameters.testDiscoveryStrategy else {
             throw InternalError("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
-        var isDiscoveryEnabledRedundantly = enableDiscovery && !allowCustomManifest
+        var isDiscoveryEnabledRedundantly = enableDiscovery && !isCustomManifest
         var result: [(ResolvedProduct, SwiftTargetBuildDescription?, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
             guard let package = graph.package(for: testProduct) else {
                 throw InternalError("package not found for \(testProduct)")
             }
             isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testManifestTarget
-            // if test manifest exists, prefer that over test detection,
+            // If a non-custom test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
 
             let defaultTestManifestFilename = SwiftTarget.testManifestNames.first!
-            if testProduct.testManifestTarget != nil && enableDiscovery && !allowCustomManifest {
+            if testProduct.testManifestTarget != nil && enableDiscovery && !isCustomManifest {
                 let testManifestFileName = testProduct.underlyingProduct.testManifest?.basename ?? defaultTestManifestFilename
-                observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testManifestFileName)' manifest file for '\(testProduct.name)' will be ignored and a manifest will be generated automatically. To use test discovery with a custom manifest, pass '--experimental-allow-custom-test-manifest'.")
-            } else if testProduct.testManifestTarget == nil && enableDiscovery && allowCustomManifest {
-                observabilityScope.emit(warning: "Both '--enable-test-discovery' and '--experimental-allow-custom-test-manifest' were specified but no \(defaultTestManifestFilename) file was found for '\(testProduct.name)', so a manifest will be generated automatically.")
+                observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testManifestFileName)' manifest file for '\(testProduct.name)' will be ignored and a manifest will be generated automatically. To use test discovery with a custom manifest, pass '--experimental-test-manifest-path <file>'.")
+            } else if testProduct.testManifestTarget == nil, isCustomManifest, let customTestManifestPath = testProduct.underlyingProduct.testManifest {
+                observabilityScope.emit(error: "'--experimental-test-manifest-path' was specified but the file '\(customTestManifestPath)' could not be found.")
             }
 
-            /// Generates a test discovery targets, which contain derived sources listing the discovered tests.
+            /// Generates test discovery targets, which contain derived sources listing the discovered tests.
             func generateDiscoveryTargets() throws -> (target: SwiftTarget, resolved: ResolvedTarget, buildDescription: SwiftTargetBuildDescription) {
                 let discoveryTargetName = "\(package.manifest.displayName)PackageDiscoveredTests"
                 let discoveryDerivedDir = buildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
@@ -1787,7 +1787,7 @@ public class BuildPlan {
                 if enableDiscovery {
                     let discoveryTargets = try generateDiscoveryTargets()
 
-                    if allowCustomManifest {
+                    if isCustomManifest {
                         // Allow using the custom test manifest target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let manifestTarget = SwiftTarget(
                             name: manifestResolvedTarget.underlyingTarget.name,
@@ -1812,12 +1812,12 @@ public class BuildPlan {
 
                         result.append((testProduct, discoveryTargets.buildDescription, manifestTargetBuildDescription))
                     } else {
-                        // Ignore custom test manifest and synthesize one, declaring a dependency on the test discovery targets created above.
+                        // Ignore test manifest and synthesize one, declaring a dependency on the test discovery targets created above.
                         let manifestTargetBuildDescription = try generateSynthesizedManifestTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
                         result.append((testProduct, discoveryTargets.buildDescription, manifestTargetBuildDescription))
                     }
                 } else {
-                    // Use the custom test manifest as-is, without performing test discovery.
+                    // Use the test manifest as-is, without performing test discovery.
                     let manifestTargetBuildDescription = try SwiftTargetBuildDescription(
                         package: package,
                         target: manifestResolvedTarget,
