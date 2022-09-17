@@ -844,8 +844,8 @@ extension LLBuildManifestBuilder {
     fileprivate func addTestManifestGenerationCommand() throws {
         for target in plan.targets {
             guard case .swift(let target) = target,
-                  target.isTestTarget,
-                  target.isSynthesizedTestManifestTarget else { continue }
+                  case .manifest(let isSynthesized) = target.testTargetRole,
+                  isSynthesized else { continue }
 
             let testManifestTarget = target
             let inputs = testDiscoveryTargets.map { $0.moduleOutputPath }
@@ -867,8 +867,7 @@ extension LLBuildManifestBuilder {
     private var testDiscoveryTargets: [SwiftTargetBuildDescription] {
         plan.targets.compactMap { target in
             guard case .swift(let target) = target,
-                target.isTestTarget,
-                target.isTestDiscoveryTarget else { return nil }
+                  case .discovery = target.testTargetRole else { return nil }
             return target
         }
     }
