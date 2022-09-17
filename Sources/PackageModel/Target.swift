@@ -329,12 +329,12 @@ public final class SwiftTarget: Target {
         )
     }
 
-    public init(name: String, dependencies: [Target.Dependency], testManifestSrc sources: Sources) {
+    public init(name: String, type: Target.Kind? = nil, dependencies: [Target.Dependency], testManifestSrc sources: Sources) {
         self.swiftVersion = .v5
 
         super.init(
             name: name,
-            type: .executable,
+            type: type ?? .executable,
             path: .root,
             sources: sources,
             dependencies: dependencies,

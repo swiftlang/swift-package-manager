@@ -156,7 +156,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream <<< "import XCTest" <<< "\n\n"
 
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
-        stream <<< "public func __allModuleTests() -> [XCTestCaseEntry] {" <<< "\n"
+        stream <<< "public func __allDiscoveredTests() -> [XCTestCaseEntry] {" <<< "\n"
         stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
 
         for module in testsByModule.keys {
@@ -224,7 +224,7 @@ final class TestManifestCommand: CustomLLBuildCommand {
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
         stream <<< "struct Runner" <<< " {" <<< "\n"
         stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "XCTMain(__allModuleTests())" <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(__allDiscoveredTests())" <<< "\n"
         stream <<< indent(4) <<< "}" <<< "\n"
         stream <<< "}" <<< "\n"
 
@@ -343,7 +343,7 @@ public struct BuildDescription: Codable {
             targetCommandLines[target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
                                                                   plan.buildParameters.toolchain.swiftCompilerPath.pathString]
-            if desc.isTestDiscoveryTarget {
+            if case .discovery = desc.testTargetRole {
                 generatedSourceTargets.append(target.c99name)
             }
         }

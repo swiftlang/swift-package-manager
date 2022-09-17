@@ -628,15 +628,27 @@ public final class SwiftTargetBuildDescription {
         return (target.underlyingTarget as! SwiftTarget).swiftVersion
     }
 
+    /// Describes the purpose of a test target, including any special roles such as containing a list of discovered tests or
+    /// serving as the manifest target which contains the main entry point.
+    public enum TestTargetRole {
+        /// An ordinary test target, defined explicitly in a package, containing test code.
+        case `default`
+
+        /// A test target which was synthesized automatically, containing a list of discovered tests
+        /// from `plain` test targets.
+        case discovery
+
+        /// A test target which was synthesized automatically, containing a manifest file which was either provided
+        /// explicitly in the package, specified via a CLI flag, or else synthesized automatically to run all discovered tests.
+        case manifest(isSynthesized: Bool)
+    }
+
+    public let testTargetRole: TestTargetRole?
+
     /// If this target is a test target.
-    public let isTestTarget: Bool
-
-    /// True if this is the test discovery target.
-    public let isTestDiscoveryTarget: Bool
-
-    /// True if this is a synthesized test manifest target, meaning it describes how to build a test manifest
-    /// which was synthesized automatically (not a custom test manifest provided in a package).
-    public let isSynthesizedTestManifestTarget: Bool
+    public var isTestTarget: Bool {
+        testTargetRole != nil
+    }
 
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
@@ -651,9 +663,6 @@ public final class SwiftTargetBuildDescription {
             // See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
             // convey the intent to build an executable module to the compiler regardless of the number of files
             // in the module or their names.
-            if self.isSynthesizedTestManifestTarget {
-                return true
-            }
             if self.toolsVersion < .v5_5 || self.sources.count != 1 {
                 return false
             }
@@ -717,9 +726,7 @@ public final class SwiftTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        isTestTarget: Bool? = nil,
-        isTestDiscoveryTarget: Bool = false,
-        isSynthesizedTestManifestTarget: Bool = false,
+        testTargetRole: TestTargetRole? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -731,9 +738,13 @@ public final class SwiftTargetBuildDescription {
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
-        self.isTestTarget = isTestTarget ?? (target.type == .test)
-        self.isTestDiscoveryTarget = isTestDiscoveryTarget
-        self.isSynthesizedTestManifestTarget = isSynthesizedTestManifestTarget
+        if let testTargetRole = testTargetRole {
+            self.testTargetRole = testTargetRole
+        } else if target.type == .test {
+            self.testTargetRole = .default
+        } else {
+            self.testTargetRole = nil
+        }
         self.fileSystem = fileSystem
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
@@ -1744,8 +1755,7 @@ public class BuildPlan {
                     target: discoveryResolvedTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    isTestTarget: true,
-                    isTestDiscoveryTarget: true,
+                    testTargetRole: .discovery,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -1762,6 +1772,7 @@ public class BuildPlan {
 
                 let manifestTarget = SwiftTarget(
                     name: testProduct.name,
+                    type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
                     testManifestSrc: manifestSources
                 )
@@ -1776,8 +1787,7 @@ public class BuildPlan {
                     target: manifestResolvedTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    isTestTarget: true,
-                    isSynthesizedTestManifestTarget: true,
+                    testTargetRole: .manifest(isSynthesized: true),
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -1805,7 +1815,7 @@ public class BuildPlan {
                             target: manifestResolvedTarget,
                             toolsVersion: toolsVersion,
                             buildParameters: buildParameters,
-                            isTestTarget: true,
+                            testTargetRole: .manifest(isSynthesized: false),
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
@@ -1823,7 +1833,7 @@ public class BuildPlan {
                         target: manifestResolvedTarget,
                         toolsVersion: toolsVersion,
                         buildParameters: buildParameters,
-                        isTestTarget: true,
+                        testTargetRole: .manifest(isSynthesized: false),
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
@@ -2208,8 +2218,8 @@ public class BuildPlan {
 
         // add test manifest targets
         if case .manifest = buildParameters.testDiscoveryStrategy {
-            if product.type == .test, let testManifestTarget = derivedTestTargetsMap[product] {
-                staticTargets.append(contentsOf: testManifestTarget)
+            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product] {
+                staticTargets.append(contentsOf: derivedTestTargets)
             }
         }
 
