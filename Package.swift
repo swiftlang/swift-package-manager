@@ -574,23 +574,23 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch(relatedDependenciesBranch)),
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.3"),
-        .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: minimumCryptoVersion),
-        .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: minimumCryptoVersion),
+        .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
+        .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch(relatedDependenciesBranch)),
     ]
 } else {
     package.dependencies += [
-        .package(path: "../swift-tools-support-core"),
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
+        .package(path: "../swift-collections"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
-        .package(path: "../swift-collections"),
+        .package(path: "../swift-tools-support-core"),
     ]
 }
