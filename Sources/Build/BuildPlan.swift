@@ -1717,7 +1717,15 @@ public class BuildPlan {
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
 
-            let defaultTestManifestFilename = SwiftTarget.testManifestNames.first!
+            guard let defaultTestManifestFilename = SwiftTarget.testManifestNames.first else {
+                throw InternalError("No default test manifest file name found")
+            }
+
+            // If `testProduct.testManifestTarget` is non-nil, it may either represent an `XCTestMain.swift` (formerly `LinuxMain.swift`) file
+            // if such a file is located in the package, or it may represent a test manifest file found at a path specified by the option
+            // `--experimental-test-manifest-path <file>`. The latter is useful because it still performs test discovery and places the discovered
+            // tests into a separate target/module named "<Package>DiscoveredTests". The custom file may import that module and obtain that list
+            // to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
             if testProduct.testManifestTarget != nil && enableDiscovery && !isCustomManifest {
                 let testManifestFileName = testProduct.underlyingProduct.testManifest?.basename ?? defaultTestManifestFilename
                 observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testManifestFileName)' manifest file for '\(testProduct.name)' will be ignored and a manifest will be generated automatically. To use test discovery with a custom manifest, pass '--experimental-test-manifest-path <file>'.")
@@ -1737,12 +1745,11 @@ public class BuildPlan {
                     let path = discoveryDerivedDir.appending(components: testTarget.name + ".swift")
                     discoveryPaths.append(path)
                 }
-                let discoverySources = Sources(paths: discoveryPaths, root: discoveryDerivedDir)
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
-                    testDiscoverySrc: discoverySources
+                    testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
                 let discoveryResolvedTarget = ResolvedTarget(
                     target: discoveryTarget,

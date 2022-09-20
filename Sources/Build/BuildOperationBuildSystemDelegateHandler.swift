@@ -59,7 +59,7 @@ private extension IndexStore.TestCaseClass.TestMethod {
     }
 }
 
-final class TestDiscoveryCommand: CustomLLBuildCommand {
+final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
     private func write(
         tests: [IndexStore.TestCaseClass],
@@ -170,10 +170,6 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func indent(_ spaces: Int) -> ByteStreamable {
-        return Format.asRepeating(string: " ", count: spaces)
-    }
-
     override func execute(
         _ command: SPMLLBuild.Command,
         _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
@@ -184,7 +180,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
                 throw InternalError("unknown build description")
             }
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
+                throw InternalError("command \(command.name) not registered")
             }
             try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
@@ -195,7 +191,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     }
 }
 
-final class TestManifestCommand: CustomLLBuildCommand {
+final class TestManifestCommand: CustomLLBuildCommand, TestBuildCommand {
 
     private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestManifestTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
@@ -231,10 +227,6 @@ final class TestManifestCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func indent(_ spaces: Int) -> ByteStreamable {
-        return Format.asRepeating(string: " ", count: spaces)
-    }
-
     override func execute(
         _ command: SPMLLBuild.Command,
         _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
@@ -254,6 +246,19 @@ final class TestManifestCommand: CustomLLBuildCommand {
             return false
         }
     }
+}
+
+private protocol TestBuildCommand {}
+
+/// Functionality common to all build commands related to test targets.
+extension TestBuildCommand {
+
+    /// Returns a value containing `spaces` number of space characters.
+    /// Intended to facilitate indenting generated code a specified number of levels.
+    fileprivate func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
 }
 
 private final class InProcessTool: Tool {
