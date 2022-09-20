@@ -49,16 +49,18 @@ extension TestError: CustomStringConvertible {
     }
 }
 
-struct TestToolOptions: ParsableArguments {
+struct SharedOptions: ParsableArguments {
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
     var shouldSkipBuilding: Bool = false
 
-    /// If the test target should be built before testing.
-    var shouldBuildTests: Bool {
-        !shouldSkipBuilding
-    }
+    /// The test product to use. This is useful when there are multiple test products
+    /// to choose from (usually in multiroot packages).
+    @Option(help: "Test the specified product.")
+    var testProduct: String?
+}
 
+struct TestToolOptions: ParsableArguments {
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
           help: "Run the tests in parallel.")
@@ -109,11 +111,6 @@ struct TestToolOptions: ParsableArguments {
             help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
 
-    /// The test product to use. This is useful when there are multiple test products
-    /// to choose from (usually in multiroot packages).
-    @Option(help: "Test the specified product.")
-    var testProduct: String?
-
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
     var enableTestableImports: Bool = true
@@ -155,6 +152,9 @@ public struct SwiftTestTool: SwiftCommand {
 
     @OptionGroup()
     var globalOptions: GlobalOptions
+
+    @OptionGroup()
+    var sharedOptions: SharedOptions
 
     @OptionGroup()
     var options: TestToolOptions
@@ -397,8 +397,8 @@ public struct SwiftTestTool: SwiftCommand {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
-        if options.shouldBuildTests {
-            let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
+        if !self.sharedOptions.shouldSkipBuilding {
+            let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
             try buildSystem.build(subset: subset)
         }
 
@@ -408,7 +408,7 @@ public struct SwiftTestTool: SwiftCommand {
             throw TestError.testsExecutableNotFound
         }
 
-        if let testProductName = options.testProduct {
+        if let testProductName = self.sharedOptions.testProduct {
             guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
                 throw TestError.testsExecutableNotFound
             }
@@ -461,17 +461,15 @@ extension SwiftTestTool {
         @OptionGroup(_hiddenFromHelp: true)
         var globalOptions: GlobalOptions
 
-        /// The test product to use. This is useful when there are multiple test products
-        /// to choose from (usually in multiroot packages).
-        @Option(help: "Test the specified product.")
-        var testProduct: String?
+        @OptionGroup()
+        var sharedOptions: SharedOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
         var _deprecated_passthrough: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let testProducts = try buildTests(swiftTool: swiftTool)
+            let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(
                 in: testProducts,
                 swiftTool: swiftTool,
@@ -485,12 +483,14 @@ extension SwiftTestTool {
             }
         }
 
-        private func buildTests(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
+        private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
             let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: false)
             let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
-            let subset = self.testProduct.map(BuildSubset.product) ?? .allIncludingTests
-            try buildSystem.build(subset: subset)
+            if !self.sharedOptions.shouldSkipBuilding {
+                let subset = self.sharedOptions.testProduct.map(BuildSubset.product) ?? .allIncludingTests
+                try buildSystem.build(subset: subset)
+            }
 
             // Find the test product.
             let testProducts = buildSystem.builtTestProducts
@@ -498,7 +498,7 @@ extension SwiftTestTool {
                 throw TestError.testsExecutableNotFound
             }
 
-            if let testProductName = self.testProduct {
+            if let testProductName = self.sharedOptions.testProduct {
                 guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
                     throw TestError.testsExecutableNotFound
                 }
