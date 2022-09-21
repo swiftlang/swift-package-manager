@@ -1100,8 +1100,8 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         result.checkTargetsCount(2)
       #else
-        // There are two additional targets on non-Apple platforms, for test discovery and test entry point
-        result.checkTargetsCount(4)
+        // On non-Apple platforms, when a custom entry point file is present (e.g. XCTMain.swift), there is one additional target for the synthesized test entry point.
+        result.checkTargetsCount(3)
       #endif
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
