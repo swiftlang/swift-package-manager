@@ -312,8 +312,13 @@ extension Target: CustomStringConvertible {
 
 public final class SwiftTarget: Target {
 
-    /// The list of supported names for the test entry point file located in a package.
-    public static let testEntryPointNames = ["XCTMain.swift", "LinuxMain.swift"]
+    /// The default name for the test entry point file located in a package.
+    public static let defaultTestEntryPointName = "XCTMain.swift"
+
+    /// The list of all supported names for the test entry point file located in a package.
+    public static var testEntryPointNames: [String] {
+        [defaultTestEntryPointName, "LinuxMain.swift"]
+    }
 
     public init(name: String, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
@@ -323,20 +328,6 @@ public final class SwiftTarget: Target {
             type: .library,
             path: .root,
             sources: testDiscoverySrc,
-            dependencies: dependencies,
-            buildSettings: .init(),
-            pluginUsages: []
-        )
-    }
-
-    public init(name: String, type: Target.Kind? = nil, dependencies: [Target.Dependency], testEntryPointSources sources: Sources) {
-        self.swiftVersion = .v5
-
-        super.init(
-            name: name,
-            type: type ?? .executable,
-            path: .root,
-            sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
             pluginUsages: []

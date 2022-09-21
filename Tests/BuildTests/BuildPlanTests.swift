@@ -1067,10 +1067,9 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testTestModule() throws {
-        let defaultEntryPointName = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
-            "/Pkg/Tests/\(defaultEntryPointName)",
+            "/Pkg/Tests/\(SwiftTarget.defaultTestEntryPointName)",
             "/Pkg/Tests/FooTests/foo.swift"
         )
 

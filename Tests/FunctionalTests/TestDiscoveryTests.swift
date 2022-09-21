@@ -92,9 +92,8 @@ class TestDiscoveryTests: XCTestCase {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        let name = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let manifestPath = fixturePath.appending(components: "Tests", name)
+            let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
             let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
             // in "swift test" build output goes to stderr

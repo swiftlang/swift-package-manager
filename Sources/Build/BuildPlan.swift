@@ -1722,17 +1722,13 @@ public class BuildPlan {
             // compatibility for projects that have existing test entry point files (e.g. XCTMain.swift, LinuxMain.swift).
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
 
-            guard let defaultTestEntryPointFilename = SwiftTarget.testEntryPointNames.first else {
-                throw InternalError("No default test manifest file name found")
-            }
-
             // If `testProduct.testEntryPointTarget` is non-nil, it may either represent an `XCTMain.swift` (formerly `LinuxMain.swift`) file
             // if such a file is located in the package, or it may represent a test entry point file at a path specified by the option
             // `--experimental-test-entry-point-path <file>`. The latter is useful because it still performs test discovery and places the discovered
             // tests into a separate target/module named "<PackageName>PackageDiscoveredTests". Then, that entry point file may import that module and
             // obtain that list to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
             if testProduct.testEntryPointTarget != nil && explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly {
-                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? defaultTestEntryPointFilename
+                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? SwiftTarget.defaultTestEntryPointName
                 observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testEntryPointName)' entry point file for '\(testProduct.name)' will be ignored and an entry point will be generated automatically. To use test discovery with a custom entry point file, pass '--experimental-test-entry-point-path <file>'.")
             } else if testProduct.testEntryPointTarget == nil, let testEntryPointPath = explicitlySpecifiedPath, !fileSystem.exists(testEntryPointPath) {
                 observabilityScope.emit(error: "'--experimental-test-entry-point-path' was specified but the file '\(testEntryPointPath)' could not be found.")
@@ -2432,6 +2428,25 @@ public class BuildPlan {
         try self.externalExecutablesCache.memoize(key: target) {
             return try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
         }
+    }
+}
+
+private extension PackageModel.SwiftTarget {
+    /// Initialize a SwiftTarget representing a test entry point.
+    convenience init(
+        name: String,
+        type: PackageModel.Target.Kind? = nil,
+        dependencies: [PackageModel.Target.Dependency],
+        testEntryPointSources sources: Sources
+    ) {
+        self.init(
+            name: name,
+            type: type ?? .executable,
+            path: .root,
+            sources: sources,
+            dependencies: dependencies,
+            swiftVersion: .v5
+        )
     }
 }
 
