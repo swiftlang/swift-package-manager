@@ -1,5 +1,10 @@
+#if swift(>=5.7)
+@preconcurrency import Basics
+@preconcurrency import TSCBasic
+#else
 import Basics
 import TSCBasic
+#endif
 import Workspace
 
 @main
