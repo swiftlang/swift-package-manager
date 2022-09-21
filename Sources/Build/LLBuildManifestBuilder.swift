@@ -87,7 +87,7 @@ public class LLBuildManifestBuilder {
         }
 
         try self.addTestDiscoveryGenerationCommand()
-        try self.addTestManifestGenerationCommand()
+        try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
         for (_, description) in plan.productMap {
@@ -841,21 +841,21 @@ extension LLBuildManifestBuilder {
         }
     }
 
-    fileprivate func addTestManifestGenerationCommand() throws {
+    fileprivate func addTestEntryPointGenerationCommand() throws {
         for target in plan.targets {
             guard case .swift(let target) = target,
-                  case .manifest(let isSynthesized) = target.testTargetRole,
+                  case .entryPoint(let isSynthesized) = target.testTargetRole,
                   isSynthesized else { continue }
 
-            let testManifestTarget = target
+            let testEntryPointTarget = target
             let inputs = testDiscoveryTargets.map { $0.moduleOutputPath }
-            let outputs = testManifestTarget.target.sources.paths
+            let outputs = testEntryPointTarget.target.sources.paths
 
-            guard let mainOutput = (outputs.first{ $0.basename == TestManifestTool.mainFileName }) else {
-                throw InternalError("main output (\(TestManifestTool.mainFileName)) not found")
+            guard let mainOutput = (outputs.first{ $0.basename == TestEntryPointTool.mainFileName }) else {
+                throw InternalError("main output (\(TestEntryPointTool.mainFileName)) not found")
             }
             let cmdName = mainOutput.pathString
-            manifest.addTestManifestCmd(
+            manifest.addTestEntryPointCmd(
                 name: cmdName,
                 inputs: inputs.map(Node.file),
                 outputs: outputs.map(Node.file)

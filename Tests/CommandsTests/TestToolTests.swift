@@ -181,6 +181,8 @@ final class TestToolTests: CommandsTestCase {
 
     func testEnableTestDiscoveryDeprecation() throws {
         let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
+        let defaultTestEntryPointName = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
+
         #if canImport(Darwin)
         // should emit when LinuxMain is present
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
@@ -190,7 +192,7 @@ final class TestToolTests: CommandsTestCase {
 
         // should emit when LinuxMain is not present
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
@@ -202,7 +204,7 @@ final class TestToolTests: CommandsTestCase {
         }
         // should not emit when LinuxMain is present
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }

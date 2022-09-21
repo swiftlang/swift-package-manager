@@ -191,9 +191,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
     }
 }
 
-final class TestManifestCommand: CustomLLBuildCommand, TestBuildCommand {
+final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
-    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestManifestTool) throws {
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
         let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let discoveryModuleNames = inputs.map { $0.basenameWithoutExt }
@@ -202,9 +202,9 @@ final class TestManifestCommand: CustomLLBuildCommand, TestBuildCommand {
 
         // Find the main output file
         guard let mainFile = outputs.first(where: { path in
-            path.basename == LLBuildManifest.TestManifestTool.mainFileName
+            path.basename == LLBuildManifest.TestEntryPointTool.mainFileName
         }) else {
-            throw InternalError("main file output (\(LLBuildManifest.TestManifestTool.mainFileName)) not found")
+            throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
         }
 
         // Write the main file.
@@ -236,8 +236,8 @@ final class TestManifestCommand: CustomLLBuildCommand, TestBuildCommand {
             guard let buildDescription = self.context.buildDescription else {
                 throw InternalError("unknown build description")
             }
-            guard let tool = buildDescription.testManifestCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
+            guard let tool = buildDescription.testEntryPointCommands[command.name] else {
+                throw InternalError("command \(command.name) not registered")
             }
             try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
@@ -295,8 +295,8 @@ public struct BuildDescription: Codable {
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
-    /// The map of test manifest commands.
-    let testManifestCommands: [BuildManifest.CmdName: LLBuildManifest.TestManifestTool]
+    /// The map of test entry point commands.
+    let testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
 
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
@@ -325,14 +325,14 @@ public struct BuildDescription: Codable {
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
-        testManifestCommands: [BuildManifest.CmdName: LLBuildManifest.TestManifestTool],
+        testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
-        self.testManifestCommands = testManifestCommands
+        self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
@@ -570,8 +570,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
-        case TestManifestTool.name:
-            return InProcessTool(buildExecutionContext, type: TestManifestCommand.self)
+        case TestEntryPointTool.name:
+            return InProcessTool(buildExecutionContext, type: TestEntryPointCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:

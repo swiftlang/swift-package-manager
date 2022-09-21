@@ -69,11 +69,11 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
-    func testManifestOverride() throws {
+    func testEntryPointOverride() throws {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        try SwiftTarget.testManifestNames.forEach { name in
+        try SwiftTarget.testEntryPointNames.forEach { name in
             try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
@@ -88,11 +88,11 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
-    func testManifestOverrideIgnored() throws {
+    func testEntryPointOverrideIgnored() throws {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        let name = SwiftTarget.testManifestNames.first!
+        let name = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let manifestPath = fixturePath.appending(components: "Tests", name)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))

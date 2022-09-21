@@ -57,8 +57,8 @@ public struct TestDiscoveryTool: ToolProtocol {
     }
 }
 
-public struct TestManifestTool: ToolProtocol {
-    public static let name: String = "test-manifest-tool"
+public struct TestEntryPointTool: ToolProtocol {
+    public static let name: String = "test-entry-point-tool"
     public static let mainFileName: String = "runner.swift"
 
     public var inputs: [Node]

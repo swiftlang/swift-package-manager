@@ -638,9 +638,10 @@ public final class SwiftTargetBuildDescription {
         /// from `plain` test targets.
         case discovery
 
-        /// A test target which was synthesized automatically, containing a manifest file which was either provided
-        /// explicitly in the package, specified via a CLI flag, or else synthesized automatically to run all discovered tests.
-        case manifest(isSynthesized: Bool)
+        /// A test target which was either synthesized automatically and contains an entry point file configured to run all discovered
+        /// tests, or contains a custom entry point file. In the latter case, the custom entry point file may have been discovered in
+        /// the package automatically (e.g. `XCTMain.swift`) or may have been provided explicitly via a CLI flag.
+        case entryPoint(isSynthesized: Bool)
     }
 
     public let testTargetRole: TestTargetRole?
@@ -1421,11 +1422,11 @@ public final class ProductBuildDescription {
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test manifests.
-            switch buildParameters.testDiscoveryStrategy {
-            case .objectiveC:
+            // Test products are bundle when using objectiveC, executable when using test entry point.
+            switch buildParameters.testProductStyle {
+            case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
-            case .manifest:
+            case .entryPointExecutable:
                 args += ["-emit-executable"]
             }
             args += deadStripArguments
@@ -1695,42 +1696,46 @@ public class BuildPlan {
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
-    private static func makeTestManifestTargets(
+    private static func makeDerivedTestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
-    ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, manifestTargetBuildDescription: SwiftTargetBuildDescription)] {
-        guard case .manifest(let enableDiscovery, let isCustomManifest) = buildParameters.testDiscoveryStrategy else {
-            throw InternalError("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
+    ) throws -> [(product: ResolvedProduct, discoveryTargetBuildDescription: SwiftTargetBuildDescription?, entryPointTargetBuildDescription: SwiftTargetBuildDescription)] {
+        guard buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets,
+              case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath) = buildParameters.testProductStyle
+        else {
+            throw InternalError("makeTestManifestTargets should not be used for build plan which does not require additional derived test targets")
         }
 
-        var isDiscoveryEnabledRedundantly = enableDiscovery && !isCustomManifest
+        let isEntryPointPathSpecifiedExplicitly = explicitlySpecifiedPath != nil
+
+        var isDiscoveryEnabledRedundantly = explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly
         var result: [(ResolvedProduct, SwiftTargetBuildDescription?, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
             guard let package = graph.package(for: testProduct) else {
                 throw InternalError("package not found for \(testProduct)")
             }
-            isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testManifestTarget
-            // If a non-custom test manifest exists, prefer that over test detection,
-            // this is designed as an escape hatch when test discovery is not appropriate
-            // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
+            isDiscoveryEnabledRedundantly = isDiscoveryEnabledRedundantly && nil == testProduct.testEntryPointTarget
+            // If a non-explicitly specified test entry point file exists, prefer that over test discovery.
+            // This is designed as an escape hatch when test discovery is not appropriate and for backwards
+            // compatibility for projects that have existing test entry point files (e.g. XCTMain.swift, LinuxMain.swift).
             let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
 
-            guard let defaultTestManifestFilename = SwiftTarget.testManifestNames.first else {
+            guard let defaultTestEntryPointFilename = SwiftTarget.testEntryPointNames.first else {
                 throw InternalError("No default test manifest file name found")
             }
 
-            // If `testProduct.testManifestTarget` is non-nil, it may either represent an `XCTestMain.swift` (formerly `LinuxMain.swift`) file
-            // if such a file is located in the package, or it may represent a test manifest file found at a path specified by the option
-            // `--experimental-test-manifest-path <file>`. The latter is useful because it still performs test discovery and places the discovered
-            // tests into a separate target/module named "<Package>DiscoveredTests". The custom file may import that module and obtain that list
-            // to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
-            if testProduct.testManifestTarget != nil && enableDiscovery && !isCustomManifest {
-                let testManifestFileName = testProduct.underlyingProduct.testManifest?.basename ?? defaultTestManifestFilename
-                observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testManifestFileName)' manifest file for '\(testProduct.name)' will be ignored and a manifest will be generated automatically. To use test discovery with a custom manifest, pass '--experimental-test-manifest-path <file>'.")
-            } else if testProduct.testManifestTarget == nil, isCustomManifest, let customTestManifestPath = testProduct.underlyingProduct.testManifest {
-                observabilityScope.emit(error: "'--experimental-test-manifest-path' was specified but the file '\(customTestManifestPath)' could not be found.")
+            // If `testProduct.testEntryPointTarget` is non-nil, it may either represent an `XCTMain.swift` (formerly `LinuxMain.swift`) file
+            // if such a file is located in the package, or it may represent a test entry point file at a path specified by the option
+            // `--experimental-test-entry-point-path <file>`. The latter is useful because it still performs test discovery and places the discovered
+            // tests into a separate target/module named "<PackageName>PackageDiscoveredTests". Then, that entry point file may import that module and
+            // obtain that list to pass it to the `XCTMain(...)` function and avoid needing to maintain a list of tests itself.
+            if testProduct.testEntryPointTarget != nil && explicitlyEnabledDiscovery && !isEntryPointPathSpecifiedExplicitly {
+                let testEntryPointName = testProduct.underlyingProduct.testEntryPointPath?.basename ?? defaultTestEntryPointFilename
+                observabilityScope.emit(warning: "'--enable-test-discovery' was specified so the '\(testEntryPointName)' entry point file for '\(testProduct.name)' will be ignored and an entry point will be generated automatically. To use test discovery with a custom entry point file, pass '--experimental-test-entry-point-path <file>'.")
+            } else if testProduct.testEntryPointTarget == nil, let testEntryPointPath = explicitlySpecifiedPath, !fileSystem.exists(testEntryPointPath) {
+                observabilityScope.emit(error: "'--experimental-test-entry-point-path' was specified but the file '\(testEntryPointPath)' could not be found.")
             }
 
             /// Generates test discovery targets, which contain derived sources listing the discovered tests.
@@ -1770,87 +1775,87 @@ public class BuildPlan {
                 return (discoveryTarget, discoveryResolvedTarget, discoveryTargetBuildDescription)
             }
 
-            /// Generates a synthesized test manifest target, consisting of a single "main" file which calls the test entry
+            /// Generates a synthesized test entry point target, consisting of a single "main" file which calls the test entry
             /// point API and leverages the test discovery target to reference which tests to run.
-            func generateSynthesizedManifestTarget(discoveryTarget: SwiftTarget, discoveryResolvedTarget: ResolvedTarget) throws -> SwiftTargetBuildDescription {
-                let manifestDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let manifestMainFile = manifestDerivedDir.appending(component: LLBuildManifest.TestManifestTool.mainFileName)
-                let manifestSources = Sources(paths: [manifestMainFile], root: manifestDerivedDir)
+            func generateSynthesizedEntryPointTarget(discoveryTarget: SwiftTarget, discoveryResolvedTarget: ResolvedTarget) throws -> SwiftTargetBuildDescription {
+                let entryPointDerivedDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
+                let entryPointMainFile = entryPointDerivedDir.appending(component: LLBuildManifest.TestEntryPointTool.mainFileName)
+                let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
-                let manifestTarget = SwiftTarget(
+                let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
-                    testManifestSrc: manifestSources
+                    testEntryPointSources: entryPointSources
                 )
-                let manifestResolvedTarget = ResolvedTarget(
-                    target: manifestTarget,
+                let entryPointResolvedTarget = ResolvedTarget(
+                    target: entryPointTarget,
                     dependencies: testProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryResolvedTarget, conditions: [])],
                     defaultLocalization: .none, // safe since this is a derived target
                     platforms: .init(declared: [], derived: []) // safe since this is a derived target
                 )
                 return try SwiftTargetBuildDescription(
                     package: package,
-                    target: manifestResolvedTarget,
+                    target: entryPointResolvedTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    testTargetRole: .manifest(isSynthesized: true),
+                    testTargetRole: .entryPoint(isSynthesized: true),
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
             }
 
-            if let manifestResolvedTarget = testProduct.testManifestTarget {
-                if enableDiscovery {
+            if let entryPointResolvedTarget = testProduct.testEntryPointTarget {
+                if isEntryPointPathSpecifiedExplicitly || explicitlyEnabledDiscovery {
                     let discoveryTargets = try generateDiscoveryTargets()
 
-                    if isCustomManifest {
-                        // Allow using the custom test manifest target, but still perform test discovery and thus declare a dependency on the discovery targets.
-                        let manifestTarget = SwiftTarget(
-                            name: manifestResolvedTarget.underlyingTarget.name,
-                            dependencies: manifestResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
-                            testManifestSrc: manifestResolvedTarget.underlyingTarget.sources
+                    if isEntryPointPathSpecifiedExplicitly {
+                        // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
+                        let entryPointTarget = SwiftTarget(
+                            name: entryPointResolvedTarget.underlyingTarget.name,
+                            dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
+                            testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )
-                        let manifestResolvedTarget = ResolvedTarget(
-                            target: manifestTarget,
-                            dependencies: manifestResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
+                        let entryPointResolvedTarget = ResolvedTarget(
+                            target: entryPointTarget,
+                            dependencies: entryPointResolvedTarget.dependencies + [.target(discoveryTargets.resolved, conditions: [])],
                             defaultLocalization: .none, // safe since this is a derived target
                             platforms: .init(declared: [], derived: []) // safe since this is a derived target
                         )
-                        let manifestTargetBuildDescription = try SwiftTargetBuildDescription(
+                        let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                             package: package,
-                            target: manifestResolvedTarget,
+                            target: entryPointResolvedTarget,
                             toolsVersion: toolsVersion,
                             buildParameters: buildParameters,
-                            testTargetRole: .manifest(isSynthesized: false),
+                            testTargetRole: .entryPoint(isSynthesized: false),
                             fileSystem: fileSystem,
                             observabilityScope: observabilityScope
                         )
 
-                        result.append((testProduct, discoveryTargets.buildDescription, manifestTargetBuildDescription))
+                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
                     } else {
-                        // Ignore test manifest and synthesize one, declaring a dependency on the test discovery targets created above.
-                        let manifestTargetBuildDescription = try generateSynthesizedManifestTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                        result.append((testProduct, discoveryTargets.buildDescription, manifestTargetBuildDescription))
+                        // Ignore test entry point and synthesize one, declaring a dependency on the test discovery targets created above.
+                        let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
+                        result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
                     }
                 } else {
-                    // Use the test manifest as-is, without performing test discovery.
-                    let manifestTargetBuildDescription = try SwiftTargetBuildDescription(
+                    // Use the test entry point as-is, without performing test discovery.
+                    let entryPointTargetBuildDescription = try SwiftTargetBuildDescription(
                         package: package,
-                        target: manifestResolvedTarget,
+                        target: entryPointResolvedTarget,
                         toolsVersion: toolsVersion,
                         buildParameters: buildParameters,
-                        testTargetRole: .manifest(isSynthesized: false),
+                        testTargetRole: .entryPoint(isSynthesized: false),
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
-                    result.append((testProduct, nil, manifestTargetBuildDescription))
+                    result.append((testProduct, nil, entryPointTargetBuildDescription))
                 }
             } else {
-                // Synthesize a test manifest, declaring a dependency on the test discovery targets.
+                // Synthesize a test entry point target, declaring a dependency on the test discovery targets.
                 let discoveryTargets = try generateDiscoveryTargets()
-                let manifestTargetBuildDescription = try generateSynthesizedManifestTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
-                result.append((testProduct, discoveryTargets.buildDescription, manifestTargetBuildDescription))
+                let entryPointTargetBuildDescription = try generateSynthesizedEntryPointTarget(discoveryTarget: discoveryTargets.target, discoveryResolvedTarget: discoveryTargets.resolved)
+                result.append((testProduct, discoveryTargets.buildDescription, entryPointTargetBuildDescription))
             }
         }
 
@@ -1953,13 +1958,13 @@ public class BuildPlan {
             throw Diagnostics.fatalError
         }
 
-        // Plan the test manifest target.
-        if case .manifest = buildParameters.testDiscoveryStrategy {
-            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
-            for item in testManifestTargets {
-                var derivedTestTargets = [item.manifestTargetBuildDescription.target]
+        // Plan the derived test targets, if necessary.
+        if buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
+            let derivedTestTargets = try Self.makeDerivedTestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
+            for item in derivedTestTargets {
+                var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-                targetMap[item.manifestTargetBuildDescription.target] = .swift(item.manifestTargetBuildDescription)
+                targetMap[item.entryPointTargetBuildDescription.target] = .swift(item.entryPointTargetBuildDescription)
 
                 if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                     targetMap[discoveryTargetBuildDescription.target] = .swift(discoveryTargetBuildDescription)
@@ -2223,8 +2228,8 @@ public class BuildPlan {
             }
         }
 
-        // add test manifest targets
-        if case .manifest = buildParameters.testDiscoveryStrategy {
+        // Add derived test targets, if necessary
+        if buildParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
             if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product] {
                 staticTargets.append(contentsOf: derivedTestTargets)
             }

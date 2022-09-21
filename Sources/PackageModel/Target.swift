@@ -312,8 +312,8 @@ extension Target: CustomStringConvertible {
 
 public final class SwiftTarget: Target {
 
-    /// The file name of test manifest.
-    public static let testManifestNames = ["XCTMain.swift", "LinuxMain.swift"]
+    /// The list of supported names for the test entry point file located in a package.
+    public static let testEntryPointNames = ["XCTMain.swift", "LinuxMain.swift"]
 
     public init(name: String, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
@@ -329,7 +329,7 @@ public final class SwiftTarget: Target {
         )
     }
 
-    public init(name: String, type: Target.Kind? = nil, dependencies: [Target.Dependency], testManifestSrc sources: Sources) {
+    public init(name: String, type: Target.Kind? = nil, dependencies: [Target.Dependency], testEntryPointSources sources: Sources) {
         self.swiftVersion = .v5
 
         super.init(
@@ -376,8 +376,8 @@ public final class SwiftTarget: Target {
         )
     }
 
-    /// Create an executable Swift target from test manifest file.
-    public init(name: String, dependencies: [Target.Dependency], testManifest: AbsolutePath) {
+    /// Create an executable Swift target from test entry point file.
+    public init(name: String, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -391,7 +391,7 @@ public final class SwiftTarget: Target {
         // satisfy the current tools version but there is not a good way to
         // do that currently.
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
-        let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
+        let sources = Sources(paths: [testEntryPointPath], root: testEntryPointPath.parentDirectory)
 
         super.init(
             name: name,

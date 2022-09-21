@@ -56,8 +56,8 @@ public enum ModuleError: Swift.Error {
     /// The sources of a target are overlapping with another target.
     case overlappingSources(target: String, sources: [AbsolutePath])
 
-    /// We found multiple test manifest  files.
-    case multipleTestManifestFilesFound(package: String, files: [AbsolutePath])
+    /// We found multiple test entry point files.
+    case multipleTestEntryPointFilesFound(package: String, files: [AbsolutePath])
 
     /// The tools version in use is not compatible with target's sources.
     case incompatibleToolsVersions(package: String, required: [SwiftLanguageVersion], current: ToolsVersion)
@@ -104,8 +104,8 @@ extension ModuleError: CustomStringConvertible {
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
-        case .multipleTestManifestFilesFound(let package, let files):
-            return "package '\(package)' has multiple test manifest files: " +
+        case .multipleTestEntryPointFilesFound(let package, let files):
+            return "package '\(package)' has multiple test entry point files: " +
                 files.map({ $0.description }).sorted().joined(separator: ", ")
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
@@ -244,8 +244,8 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
-    /// Path to custom test manifest file, if specified.
-    private let customTestManifestPath: AbsolutePath?
+    /// Path to test entry point file, if specified explicitly.
+    private let testEntryPointPath: AbsolutePath?
 
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
@@ -289,7 +289,7 @@ public final class PackageBuilder {
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
         shouldCreateMultipleTestProducts: Bool = false,
-        customTestManifestPath: AbsolutePath? = nil,
+        testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
         fileSystem: FileSystem,
@@ -302,7 +302,7 @@ public final class PackageBuilder {
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.customTestManifestPath = customTestManifestPath
+        self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
@@ -366,8 +366,8 @@ public final class PackageBuilder {
         // Ignore dotfiles.
         if basename.hasPrefix(".") { return false }
 
-        // Ignore test manifest.
-        if SwiftTarget.testManifestNames.contains(basename) { return false }
+        // Ignore test entry point files.
+        if SwiftTarget.testEntryPointNames.contains(basename) { return false }
 
         // Ignore paths which are not valid files.
         if !fileSystem.isFile(path) {
@@ -1027,16 +1027,16 @@ public final class PackageBuilder {
         }
     }
 
-    /// Find the test manifest file for the package.
-    private func findTestManifest(in testTargets: [Target]) throws -> AbsolutePath? {
-        if let customTestManifestPath = customTestManifestPath {
-            return customTestManifestPath
+    /// Find the test entry point file for the package.
+    private func findTestEntryPoint(in testTargets: [Target]) throws -> AbsolutePath? {
+        if let testEntryPointPath = testEntryPointPath {
+            return testEntryPointPath
         }
 
-        var testManifestFiles = Set<AbsolutePath>()
+        var testEntryPointFiles = Set<AbsolutePath>()
         var pathsSearched = Set<AbsolutePath>()
 
-        // Look for linux main file adjacent to each test target root, iterating upto package root.
+        // Look for entry point file adjacent to each test target root, iterating upto package root.
         for target in testTargets {
 
             // Form the initial search path.
@@ -1054,10 +1054,10 @@ public final class PackageBuilder {
                 }
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
-                    SwiftTarget.testManifestNames.forEach { name in
+                    SwiftTarget.testEntryPointNames.forEach { name in
                         let path = searchPath.appending(component: name)
                         if fileSystem.isFile(path) {
-                            testManifestFiles.insert(path)
+                            testEntryPointFiles.insert(path)
                         }
                     }
                     pathsSearched.insert(searchPath)
@@ -1070,11 +1070,11 @@ public final class PackageBuilder {
         }
 
         // It is an error if there are multiple linux main files.
-        if testManifestFiles.count > 1 {
-            throw ModuleError.multipleTestManifestFilesFound(
-                package: self.identity.description, files: testManifestFiles.map({ $0 }))
+        if testEntryPointFiles.count > 1 {
+            throw ModuleError.multipleTestEntryPointFilesFound(
+                package: self.identity.description, files: testEntryPointFiles.map({ $0 }))
         }
-        return testManifestFiles.first
+        return testEntryPointFiles.first
     }
 
     /// Collects the products defined by a package.
@@ -1116,9 +1116,9 @@ public final class PackageBuilder {
             // of linux executable don't collide with main package, if present.
             // FIXME: use identity instead
             let productName = self.manifest.displayName + "PackageTests"
-            let testManifest = try self.findTestManifest(in: testModules)
+            let testEntryPointPath = try self.findTestEntryPoint(in: testModules)
 
-            let product = try Product(package: self.identity, name: productName, type: .test, targets: testModules, testManifest: testManifest)
+            let product = try Product(package: self.identity, name: productName, type: .test, targets: testModules, testEntryPointPath: testEntryPointPath)
             append(product)
         }
 
