@@ -1067,9 +1067,10 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testTestModule() throws {
+        let defaultEntryPointName = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
-            "/Pkg/Tests/\(SwiftTarget.testManifestNames.first!).swift",
+            "/Pkg/Tests/\(defaultEntryPointName)",
             "/Pkg/Tests/FooTests/foo.swift"
         )
 
@@ -1099,7 +1100,7 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         result.checkTargetsCount(2)
       #else
-        // There are two additional targets on non-Apple platforms, for test discovery and test manifest
+        // There are two additional targets on non-Apple platforms, for test discovery and test entry point
         result.checkTargetsCount(4)
       #endif
 
@@ -2380,7 +2381,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
-        result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test manifest
+        result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test entry point
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 

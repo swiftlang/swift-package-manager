@@ -605,7 +605,7 @@ public class SwiftTool {
     func loadPackageGraph(
         explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
-        customTestManifestPath: AbsolutePath? = nil,
+        testEntryPointPath: AbsolutePath? = nil,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
         do {
@@ -618,7 +618,7 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
-                customTestManifestPath: customTestManifestPath,
+                testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
             )
 
@@ -699,8 +699,8 @@ public class SwiftTool {
         customLogLevel: Diagnostic.Severity? = .none,
         customObservabilityScope: ObservabilityScope? = .none
     ) throws -> BuildOperation {
-        let customTestManifestPath = customBuildParameters?.customTestManifestPath
-        let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, customTestManifestPath: customTestManifestPath) }
+        let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
 
         // Construct the build operation.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with dumping the symbol graph (the only case that currently goes through this path, as far as I can tell). rdar://86112934
@@ -799,8 +799,8 @@ public class SwiftTool {
                 useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
-                forceTestDiscovery: options.build.customTestManifestPath != nil || options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                customTestManifestPath: options.build.customTestManifestPath,
+                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                testEntryPointPath: options.build.testEntryPointPath,
                 explicitTargetDependencyImportCheckingMode: options.build.explicitTargetDependencyImportCheck.modeParameter,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info

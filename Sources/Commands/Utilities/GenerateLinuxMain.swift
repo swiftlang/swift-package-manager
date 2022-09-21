@@ -105,7 +105,7 @@ final class LinuxMainGenerator {
         guard let testTarget = graph.reachableProducts.first(where: { $0.type == .test })?.targets.first else {
             throw Error.noTestTargets
         }
-        guard let linuxMainFileName = SwiftTarget.testManifestNames.first(where: { $0.lowercased().hasPrefix("linux") }) else {
+        guard let linuxMainFileName = SwiftTarget.testEntryPointNames.first(where: { $0.lowercased().hasPrefix("linux") }) else {
             throw InternalError("Unknown linux main file name")
         }
         let linuxMain = testTarget.sources.root.parentDirectory.appending(components: linuxMainFileName)

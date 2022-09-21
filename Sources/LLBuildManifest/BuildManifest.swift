@@ -68,13 +68,13 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
-    public mutating func addTestManifestCmd(
+    public mutating func addTestEntryPointCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
-        let tool = TestManifestTool(inputs: inputs, outputs: outputs)
+        let tool = TestEntryPointTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
 

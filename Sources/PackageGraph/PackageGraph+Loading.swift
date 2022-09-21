@@ -31,7 +31,7 @@ extension PackageGraph {
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        customTestManifestPath: AbsolutePath? = nil,
+        testEntryPointPath: AbsolutePath? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -119,7 +119,7 @@ extension PackageGraph {
                     additionalFileRules: additionalFileRules,
                     binaryArtifacts: binaryArtifacts[node.identity] ?? [:],                
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                    customTestManifestPath: customTestManifestPath,
+                    testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: node.fileSystem,
                     observabilityScope: nodeObservabilityScope

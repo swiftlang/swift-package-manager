@@ -41,36 +41,70 @@ public struct BuildParameters: Encodable {
         case modulewrap
     }
 
-    /// Represents the test discovery strategy.
-    public enum TestDiscoveryStrategy: Encodable {
-        // Rely on objective C runtime
-        case objectiveC
-        // Use a test-manifest that lists the tests
-        // generate: Whether test discovery generation is forced
-        //           This flag is or backwards compatibility, remove with --enable-test-discovery
-        // isCustom: Whether the test manifest file is custom, specified via --experimental-test-manifest-path
-        case manifest(generate: Bool, isCustom: Bool)
+    /// Represents the test product style.
+    public enum TestProductStyle: Encodable {
+        /// Test product is a loadable bundle. This style is used on Darwin platforms and, for XCTest tests, relies on the Objective-C
+        /// runtime to automatically discover all tests.
+        case loadableBundle
+
+        /// Test product is an executable which serves as the testing entry point. This style is used on non-Darwin platforms and,
+        /// for XCTests, relies on the testing entry point file to indicate which tests to run. By default, the test entry point file is
+        /// synthesized automatically, and uses indexer data to locate all tests and run them. But the entry point may be customized
+        /// in one of two ways: if a path to a test entry point file was explicitly passed via the
+        /// `--experimental-test-entry-point-path <file>` option, that file is used, otherwise if an `XCTMain.swift`
+        /// (formerly `LinuxMain.swift`) file is located in the package, it is used.
+        ///
+        /// - Parameter explicitlyEnabledDiscovery: Whether test discovery generation was forced by passing
+        ///   `--enable-test-discovery`, overriding any custom test entry point file specified via other CLI options or located in
+        ///   the package.
+        /// - Parameter explicitlySpecifiedPath: The path to the test entry point file, if one was specified explicitly via
+        ///   `--experimental-test-entry-point-path <file>`.
+        case entryPointExecutable(
+            explicitlyEnabledDiscovery: Bool,
+            explicitlySpecifiedPath: AbsolutePath?
+        )
+
+        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
+        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
+        public var requiresAdditionalDerivedTestTargets: Bool {
+            switch self {
+            case .loadableBundle:
+                return false
+            case .entryPointExecutable:
+                return true
+            }
+        }
+
+        /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
+        public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
+            switch self {
+            case .loadableBundle:
+                return nil
+            case .entryPointExecutable(explicitlyEnabledDiscovery: _, explicitlySpecifiedPath: let entryPointPath):
+                return entryPointPath
+            }
+        }
 
         public enum DiscriminatorKeys: String, Codable {
-            case objectiveC
-            case manifest
+            case loadableBundle
+            case entryPointExecutable
         }
 
         public enum CodingKeys: CodingKey {
             case _case
-            case generate
-            case isCustom
+            case explicitlyEnabledDiscovery
+            case explicitlySpecifiedPath
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
-            case .objectiveC:
-                try container.encode(DiscriminatorKeys.objectiveC, forKey: ._case)
-            case .manifest(let generate, let isCustom):
-                try container.encode(DiscriminatorKeys.manifest, forKey: ._case)
-                try container.encode(generate, forKey: .generate)
-                try container.encode(isCustom, forKey: .isCustom)
+            case .loadableBundle:
+                try container.encode(DiscriminatorKeys.loadableBundle, forKey: ._case)
+            case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
+                try container.encode(DiscriminatorKeys.entryPointExecutable, forKey: ._case)
+                try container.encode(explicitlyEnabledDiscovery, forKey: .explicitlyEnabledDiscovery)
+                try container.encode(explicitlySpecifiedPath, forKey: .explicitlySpecifiedPath)
             }
         }
     }
@@ -179,11 +213,8 @@ public struct BuildParameters: Encodable {
     // Whether building for testability is enabled.
     public var enableTestability: Bool
 
-    // What strategy to use to discover tests
-    public var testDiscoveryStrategy: TestDiscoveryStrategy
-
-    /// Path to custom test manifest file, if specified.
-    public var customTestManifestPath: AbsolutePath?
+    /// The style of test product to produce.
+    public var testProductStyle: TestProductStyle
 
     /// Whether to disable dead code stripping by the linker
     public var linkerDeadStrip: Bool
@@ -216,7 +247,7 @@ public struct BuildParameters: Encodable {
         isXcodeBuildSystemEnabled: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        customTestManifestPath: AbsolutePath? = nil,
+        testEntryPointPath: AbsolutePath? = nil,
         explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
@@ -253,9 +284,10 @@ public struct BuildParameters: Encodable {
         // when building and testing in release mode, one can use the '--disable-testable-imports' flag
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
-        // decide if to enable the use of test manifests based on platform. this is likely to change in the future
-        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery, isCustom: customTestManifestPath != nil)
-        self.customTestManifestPath = customTestManifestPath
+        self.testProductStyle = triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+            explicitlyEnabledDiscovery: forceTestDiscovery,
+            explicitlySpecifiedPath: testEntryPointPath
+        )
         self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
