@@ -578,7 +578,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMultipleTestEntryPointsError() throws {
-        let name = try XCTUnwrap(SwiftTarget.testEntryPointNames.first)
+        let name = SwiftTarget.defaultTestEntryPointName
         let swift: AbsolutePath = AbsolutePath("/swift")
 
         let fs = InMemoryFileSystem(emptyFiles:

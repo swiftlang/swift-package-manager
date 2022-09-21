@@ -46,7 +46,7 @@ public struct PhonyTool: ToolProtocol {
 
 public struct TestDiscoveryTool: ToolProtocol {
     public static let name: String = "test-discovery-tool"
-    public static let mainFileName: String = "all-module-tests.swift"
+    public static let mainFileName: String = "all-discovered-tests.swift"
 
     public var inputs: [Node]
     public var outputs: [Node]
