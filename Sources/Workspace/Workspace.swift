@@ -2215,8 +2215,8 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard artifact.isMatchingDirectory(artifact.path) else {
-                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
+                guard self.fileSystem.isArtifactDirectory(artifact: artifact, path: artifact.path) else {
+                    observabilityScope.emit(.localArtifactDirectoryNotFound(targetName: artifact.targetName, expectedDirectoryName: artifact.targetName))
                     continue
                 }
                 artifactsToAdd.append(artifact)

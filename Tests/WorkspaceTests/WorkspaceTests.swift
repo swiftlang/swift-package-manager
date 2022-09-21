@@ -5370,8 +5370,8 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact named 'A1'") , severity: .error)
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact named 'A2'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact directory named 'A1'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact directory named 'A2'") , severity: .error)
             }
         }
     }
@@ -5602,11 +5602,16 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
+        let rootPath = workspace.pathToRoot(withName: "Root")
+
+        // make sure the directory exist in their destined location
+        try fs.createDirectory(rootPath.appending(components: ["XCFrameworks", "A1.xcframework"]), recursive: true)
+        try fs.createDirectory(rootPath.appending(components: ["ArtifactBundles", "A2.artifactbundle"]), recursive: true)
+
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        let rootPath = workspace.pathToRoot(withName: "Root")
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("root"),
                          targetName: "A1",
@@ -5649,8 +5654,8 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("local binary target 'A1' does not contain expected binary artifact named 'A1'") , severity: .error)
-                result.checkUnordered(diagnostic: .contains("local binary target 'A2' does not contain expected binary artifact named 'A2'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local binary target 'A1' does not contain expected binary artifact directory named 'A1'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local binary target 'A2' does not contain expected binary artifact directory named 'A2'") , severity: .error)
             }
         }
     }
@@ -6060,7 +6065,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact named 'A3'", severity: .error)
+                result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact directory named 'A3'", severity: .error)
             }
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A3.xcframework")))
@@ -6490,6 +6495,84 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
+
+    func testArtifactDownloaderNotDirectory() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                switch request.url {
+                case URL(string: "https://a.com/a1.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    completion(.success(.okay()))
+                default:
+                    throw StringError("unexpected url")
+                }
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let archiver = MockArchiver(
+            extractionHandler: { archiver, archivePath, destinationPath, completion in
+                do {
+                    if archivePath.basenameWithoutExt == "a1" {
+                        // create file instead of directory
+                        try fs.createEmptyFiles(at: destinationPath, files: "A1.Framework")
+                        completion(.success(()))
+                    } else {
+                        throw StringError("unexpected path")
+                    }
+                } catch {
+                    completion(.failure(error))
+                }
+            },
+            validationHandler: { _, path, completion in
+                if path.basenameWithoutExt == "a1" {
+                    completion(.success(true))
+                } else {
+                    XCTFail("unexpected path")
+                    completion(.success(false))
+                }
+            })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                        )
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("downloaded archive of binary target 'A1' does not contain expected binary artifact directory named 'A1'"), severity: .error)
+            }
+        }
+    }
+    
 
     func testArtifactChecksum() throws {
         let fs = InMemoryFileSystem()

@@ -258,7 +258,7 @@ extension Workspace {
                                                             try self.fileSystem.removeFileTree(destination)
                                                         }
                                                         try self.fileSystem.copy(from: source, to: destination)
-                                                        if artifact.isMatchingDirectory(destination) {
+                                                        if self.fileSystem.isArtifactDirectory(artifact: artifact, path: destination) {
                                                             artifactPath = destination
                                                         }
                                                     }
@@ -268,7 +268,7 @@ extension Workspace {
                                             }
 
                                             guard let mainArtifactPath = artifactPath else {
-                                                return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
+                                                return observabilityScope.emit(.artifactDirectoryNotFound(targetName: artifact.targetName, expectedDirectoryName: artifact.targetName))
                                             }
 
                                             result.append(
@@ -349,7 +349,7 @@ extension Workspace {
                                         try self.fileSystem.removeFileTree(destination)
                                     }
                                     try self.fileSystem.copy(from: source, to: destination)
-                                    if artifact.isMatchingDirectory(destination) {
+                                    if self.fileSystem.isArtifactDirectory(artifact: artifact, path: destination) {
                                         artifactPath = destination
                                     }
                                 }
@@ -359,7 +359,7 @@ extension Workspace {
                             try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
                             guard let mainArtifactPath = artifactPath else {
-                                return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
+                                return observabilityScope.emit(.localArchivedArtifactDirectoryNotFound(targetName: artifact.targetName, expectedDirectoryName: artifact.targetName))
                             }
 
                             // compute the checksum
@@ -488,15 +488,16 @@ extension FileSystem {
     }
 }
 
-extension Workspace.ManagedArtifact {
-    internal func isMatchingDirectory(_ path: AbsolutePath) -> Bool {
-        return path.basenameWithoutAnyExtension() == self.targetName
-    }
+internal protocol TargetArtifact {
+    var targetName: String { get }
 }
 
-extension Workspace.BinaryArtifactsManager.RemoteArtifact {
-    fileprivate func isMatchingDirectory(_ path: AbsolutePath) -> Bool {
-        return path.basenameWithoutAnyExtension() == self.targetName
+extension Workspace.ManagedArtifact: TargetArtifact {}
+extension Workspace.BinaryArtifactsManager.RemoteArtifact: TargetArtifact {}
+
+extension FileSystem {
+    internal func isArtifactDirectory(artifact: TargetArtifact, path: AbsolutePath) -> Bool {
+        return self.isDirectory(path) && path.basenameWithoutAnyExtension() == artifact.targetName
     }
 }
 
