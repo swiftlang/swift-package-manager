@@ -13,6 +13,7 @@
 import Basics
 import Foundation
 import PackageModel
+import SPMBuildCore
 import TSCBasic
 
 import enum TSCUtility.Diagnostics
@@ -74,12 +75,29 @@ extension Workspace {
                     if let path = target.path {
                         // TODO: find a better way to get the base path (not via the manifest)
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                        localArtifacts.append(
-                            .local(
-                                packageRef: packageReference,
-                                targetName: target.name,
-                                path: absolutePath)
-                        )
+                        if absolutePath.extension?.lowercased() == "zip" {
+                            localArtifacts.append(
+                                .local(
+                                    packageRef: packageReference,
+                                    targetName: target.name,
+                                    path: absolutePath,
+                                    kind: .unknown // an archive, we will extract it later
+                                )
+                            )
+                        } else {
+                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: absolutePath) else {
+                                observabilityScope.emit(.localArtifactNotFound(artifactPath: absolutePath, targetName: target.name))
+                                continue
+                            }
+                            localArtifacts.append(
+                                .local(
+                                    packageRef: packageReference,
+                                    targetName: target.name,
+                                    path: artifactPath,
+                                    kind: artifactKind
+                                )
+                            )
+                        }
                     } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
                         remoteArtifacts.append(
                             .init(
@@ -89,7 +107,7 @@ extension Workspace {
                                 checksum: checksum)
                         )
                     } else {
-                        throw InternalError("a binary target should have either a path or a URL and a checksum")
+                        throw StringError("a binary target should have either a path or a URL and a checksum")
                     }
                 }
             }
@@ -165,7 +183,7 @@ extension Workspace {
 
             // finally download zip files, if any
             for artifact in zipArtifacts.get() {
-                let destinationDirectory =  artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+                let destinationDirectory =  artifactsDirectory.appending(components: [artifact.packageRef.identity.description, artifact.targetName])
                 guard observabilityScope.trap ({ try fileSystem.createDirectory(destinationDirectory, recursive: true) }) else {
                     continue
                 }
@@ -239,7 +257,6 @@ extension Workspace {
 
                                         switch extractResult {
                                         case .success:
-                                            var artifactPath: AbsolutePath? = nil
                                             observabilityScope.trap {
                                                 try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
                                                     // strip first level component if needed
@@ -258,17 +275,15 @@ extension Workspace {
                                                             try self.fileSystem.removeFileTree(destination)
                                                         }
                                                         try self.fileSystem.copy(from: source, to: destination)
-                                                        if self.fileSystem.isArtifactDirectory(artifact: artifact, path: destination) {
-                                                            artifactPath = destination
-                                                        }
                                                     }
                                                 }
                                                 // remove temp location
                                                 try self.fileSystem.removeFileTree(tempExtractionDirectory)
                                             }
 
-                                            guard let mainArtifactPath = artifactPath else {
-                                                return observabilityScope.emit(.artifactDirectoryNotFound(targetName: artifact.targetName, expectedDirectoryName: artifact.targetName))
+                                            // derive concrete artifact path and type
+                                            guard let (artifactPath, artifactKind) = try? Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory) else {
+                                                return observabilityScope.emit(.remoteArtifactNotFound(artifactURL: artifact.url, targetName: artifact.targetName))
                                             }
 
                                             result.append(
@@ -277,13 +292,14 @@ extension Workspace {
                                                     targetName: artifact.targetName,
                                                     url: artifact.url.absoluteString,
                                                     checksum: artifact.checksum,
-                                                    path: mainArtifactPath
+                                                    path: artifactPath,
+                                                    kind: artifactKind
                                                 )
                                             )
-                                            self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(mainArtifactPath), duration: downloadStart.distance(to: .now()))
+                                            self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(artifactPath), duration: downloadStart.distance(to: .now()))
                                         case .failure(let error):
                                             let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                                            observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                            observabilityScope.emit(.remoteArtifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
                                             self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                                         }
 
@@ -318,7 +334,7 @@ extension Workspace {
             let group = DispatchGroup()
 
             for artifact in artifacts {
-                let destinationDirectory = artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+                let destinationDirectory = artifactsDirectory.appending(components: [artifact.packageRef.identity.description, artifact.targetName])
                 try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
                 let tempExtractionDirectory = artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
@@ -331,7 +347,6 @@ extension Workspace {
                     switch extractResult {
                     case .success:
                         observabilityScope.trap { () -> Void in
-                            var artifactPath: AbsolutePath? = nil
                             try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
                                 // strip first level component if needed
                                 if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
@@ -349,17 +364,15 @@ extension Workspace {
                                         try self.fileSystem.removeFileTree(destination)
                                     }
                                     try self.fileSystem.copy(from: source, to: destination)
-                                    if self.fileSystem.isArtifactDirectory(artifact: artifact, path: destination) {
-                                        artifactPath = destination
-                                    }
                                 }
                             }
 
                             // remove temp location
                             try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
-                            guard let mainArtifactPath = artifactPath else {
-                                return observabilityScope.emit(.localArchivedArtifactDirectoryNotFound(targetName: artifact.targetName, expectedDirectoryName: artifact.targetName))
+                            // derive concrete artifact path and type
+                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory) else {
+                                return observabilityScope.emit(.localArchivedArtifactNotFound(archivePath: artifact.path, targetName: artifact.targetName))
                             }
 
                             // compute the checksum
@@ -369,7 +382,8 @@ extension Workspace {
                                 .local(
                                     packageRef: artifact.packageRef,
                                     targetName: artifact.targetName,
-                                    path: mainArtifactPath,
+                                    path: artifactPath,
+                                    kind: artifactKind,
                                     checksum: artifactChecksum
                                 )
                             )
@@ -459,6 +473,56 @@ extension Workspace.BinaryArtifactsManager {
     }
 }
 
+extension Workspace.BinaryArtifactsManager {
+
+    static func deriveBinaryArtifact(fileSystem: FileSystem, path: AbsolutePath) throws -> (AbsolutePath, BinaryTarget.Kind)? {
+        guard fileSystem.exists(path) else {
+            return .none
+        }
+
+        // is the current path it?
+        if let kind = try deriveBinaryArtifactKind(fileSystem: fileSystem, path: path) {
+            return (path, kind)
+        }
+
+        // try to find a matching subdirectory
+        let subdirectories = try fileSystem.getDirectoryContents(path)
+            .map{ path.appending(component: $0) }
+            .filter { fileSystem.isDirectory($0) }
+
+        for subdirectory in subdirectories {
+            if let (path, kind) = try deriveBinaryArtifact(fileSystem: fileSystem, path: subdirectory) {
+                return (path, kind)
+            }
+        }
+
+        return .none
+    }
+
+    private static func deriveBinaryArtifactKind(fileSystem: FileSystem, path: AbsolutePath) throws -> BinaryTarget.Kind? {
+        let files = try fileSystem.getDirectoryContents(path)
+            .map{ path.appending(component: $0) }
+            .filter { fileSystem.isFile($0) }
+
+        if let infoPlist = files.first(where: { $0.basename.lowercased() == "info.plist" }) {
+            let decoder = PropertyListDecoder()
+            let data: Data = try fileSystem.readFileContents(infoPlist)
+            if let _ = try? decoder.decode(XCFrameworkMetadata.self, from: data) {
+                return .xcframework
+            }
+        }
+
+        if let infoJSON = files.first(where: { $0.basename.lowercased() == "info.json" }) {
+            if let _ = try? ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory) {
+                return .artifactsArchive
+            }
+        }
+
+        return .none
+    }
+
+}
+
 extension FileSystem {
     // helper to decide if an archive directory would benefit from stripping first level
     fileprivate func shouldStripFirstLevel(archiveDirectory: AbsolutePath, acceptableExtensions: [String]? = nil) throws -> Bool {
@@ -485,19 +549,6 @@ extension FileSystem {
         return try self.getDirectoryContents(rootDirectory)
             .map{ rootDirectory.appending(component: $0) }
             .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
-    }
-}
-
-internal protocol TargetArtifact {
-    var targetName: String { get }
-}
-
-extension Workspace.ManagedArtifact: TargetArtifact {}
-extension Workspace.BinaryArtifactsManager.RemoteArtifact: TargetArtifact {}
-
-extension FileSystem {
-    internal func isArtifactDirectory(artifact: TargetArtifact, path: AbsolutePath) -> Bool {
-        return self.isDirectory(path) && path.basenameWithoutAnyExtension() == artifact.targetName
     }
 }
 
