@@ -85,7 +85,7 @@ extension Workspace {
                                 )
                             )
                         } else {
-                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: absolutePath) else {
+                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: absolutePath, observabilityScope: observabilityScope) else {
                                 observabilityScope.emit(.localArtifactNotFound(artifactPath: absolutePath, targetName: target.name))
                                 continue
                             }
@@ -282,7 +282,7 @@ extension Workspace {
                                             }
 
                                             // derive concrete artifact path and type
-                                            guard let (artifactPath, artifactKind) = try? Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory) else {
+                                            guard let (artifactPath, artifactKind) = try? Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory, observabilityScope: observabilityScope) else {
                                                 return observabilityScope.emit(.remoteArtifactNotFound(artifactURL: artifact.url, targetName: artifact.targetName))
                                             }
 
@@ -371,7 +371,7 @@ extension Workspace {
                             try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
                             // derive concrete artifact path and type
-                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory) else {
+                            guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(fileSystem: self.fileSystem, path: destinationDirectory, observabilityScope: observabilityScope) else {
                                 return observabilityScope.emit(.localArchivedArtifactNotFound(archivePath: artifact.path, targetName: artifact.targetName))
                             }
 
@@ -475,14 +475,28 @@ extension Workspace.BinaryArtifactsManager {
 
 extension Workspace.BinaryArtifactsManager {
 
-    static func deriveBinaryArtifact(fileSystem: FileSystem, path: AbsolutePath) throws -> (AbsolutePath, BinaryTarget.Kind)? {
-        guard fileSystem.exists(path) else {
+    static func deriveBinaryArtifact(fileSystem: FileSystem, path: AbsolutePath, observabilityScope: ObservabilityScope) throws -> (AbsolutePath, BinaryTarget.Kind)? {
+        let binaryArtifacts = try Self.deriveBinaryArtifacts(fileSystem: fileSystem, path: path, observabilityScope: observabilityScope)
+        if binaryArtifacts.count > 1, let binaryArtifact = binaryArtifacts.last {
+            // multiple ones, return the last one to preserve old behavior
+            observabilityScope.emit(warning: "multiple potential binary artifacts found: '\(binaryArtifacts.map{ $0.0.description }.joined(separator: "', '"))', using the one in '\(binaryArtifact.0)'")
+            return binaryArtifact
+        } else if let binaryArtifact = binaryArtifacts.first {
+            // single one
+            return binaryArtifact
+        } else {
             return .none
+        }
+    }
+
+    private static func deriveBinaryArtifacts(fileSystem: FileSystem, path: AbsolutePath, observabilityScope: ObservabilityScope) throws -> [(AbsolutePath, BinaryTarget.Kind)] {
+        guard fileSystem.exists(path) else {
+            return []
         }
 
         // is the current path it?
-        if let kind = try deriveBinaryArtifactKind(fileSystem: fileSystem, path: path) {
-            return (path, kind)
+        if let kind = try deriveBinaryArtifactKind(fileSystem: fileSystem, path: path, observabilityScope: observabilityScope) {
+            return [(path, kind)]
         }
 
         // try to find a matching subdirectory
@@ -490,31 +504,37 @@ extension Workspace.BinaryArtifactsManager {
             .map{ path.appending(component: $0) }
             .filter { fileSystem.isDirectory($0) }
 
+        var results = [(AbsolutePath, BinaryTarget.Kind)]()
         for subdirectory in subdirectories {
-            if let (path, kind) = try deriveBinaryArtifact(fileSystem: fileSystem, path: subdirectory) {
-                return (path, kind)
-            }
+            observabilityScope.emit(debug: "searching for binary artifact in '\(path)'")
+            let subdirectoryResults = try Self.deriveBinaryArtifacts(fileSystem: fileSystem, path: subdirectory, observabilityScope: observabilityScope)
+            results.append(contentsOf: subdirectoryResults)
         }
 
-        return .none
+        return results
     }
 
-    private static func deriveBinaryArtifactKind(fileSystem: FileSystem, path: AbsolutePath) throws -> BinaryTarget.Kind? {
+    private static func deriveBinaryArtifactKind(fileSystem: FileSystem, path: AbsolutePath, observabilityScope: ObservabilityScope) throws -> BinaryTarget.Kind? {
         let files = try fileSystem.getDirectoryContents(path)
             .map{ path.appending(component: $0) }
             .filter { fileSystem.isFile($0) }
 
         if let infoPlist = files.first(where: { $0.basename.lowercased() == "info.plist" }) {
             let decoder = PropertyListDecoder()
-            let data: Data = try fileSystem.readFileContents(infoPlist)
-            if let _ = try? decoder.decode(XCFrameworkMetadata.self, from: data) {
+            do {
+                _ = try decoder.decode(XCFrameworkMetadata.self, from: fileSystem.readFileContents(infoPlist))
                 return .xcframework
+            } catch {
+                observabilityScope.emit(warning: "info.plist found in '\(path)' but failed to parse: \(error)")
             }
         }
 
         if let infoJSON = files.first(where: { $0.basename.lowercased() == "info.json" }) {
-            if let _ = try? ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory) {
+            do {
+                _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: infoJSON.parentDirectory)
                 return .artifactsArchive
+            } catch {
+                observabilityScope.emit(warning: "info.json found in '\(path)' but failed to parse: \(error)")
             }
         }
 

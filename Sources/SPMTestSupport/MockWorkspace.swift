@@ -667,7 +667,7 @@ public final class MockWorkspace {
             line: UInt = #line
         ) {
             guard let artifact = managedArtifacts[packageIdentity: packageIdentity, targetName: targetName] else {
-                XCTFail("\(packageIdentity).\(targetName) does not exists", file: file, line: line)
+                XCTFail("managed artifact '\(packageIdentity).\(targetName)' does not exists", file: file, line: line)
                 return
             }
             XCTAssertEqual(artifact.path, path, file: file, line: line)

@@ -1287,7 +1287,7 @@ extension Workspace {
                 let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.reduce(into: [String: BinaryArtifact]()) { partial, target in
                     if let path = target.path {
                         let artifactPath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                        guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifactPath) else {
+                        guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifactPath, observabilityScope: observabilityScope) else {
                             throw StringError("\(artifactPath) does not contain binary artifact")
                         }
                         partial[target.name] = BinaryArtifact(kind: artifactKind , originURL: .none, path: artifactPath)
@@ -2218,7 +2218,7 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifact.path) else {
+                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifact.path, observabilityScope: observabilityScope) else {
                     observabilityScope.emit(.localArtifactNotFound(artifactPath: artifact.path, targetName: artifact.targetName))
                     continue
                 }

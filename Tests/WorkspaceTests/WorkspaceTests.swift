@@ -6406,7 +6406,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloaderNotAnArchiveError() throws {
+    func testDownloadedArtifactNotAnArchiveError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6506,7 +6506,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloaderNotDirectory() throws {
+    func testDownloadedArtifactInvalid() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6542,14 +6542,6 @@ final class WorkspaceTests: XCTestCase {
                 } catch {
                     completion(.failure(error))
                 }
-            },
-            validationHandler: { _, path, completion in
-                if path.basenameWithoutExt == "a1" {
-                    completion(.success(true))
-                } else {
-                    XCTFail("unexpected path")
-                    completion(.success(false))
-                }
             })
 
         let workspace = try MockWorkspace(
@@ -6582,7 +6574,83 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
-    
+
+    func testDownloadedArtifactDoesNotMatchTargetName() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                switch request.url {
+                case URL(string: "https://a.com/foo.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    completion(.success(.okay()))
+                default:
+                    throw StringError("unexpected url")
+                }
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let archiver = MockArchiver(
+            extractionHandler: { archiver, archivePath, destinationPath, completion in
+                do {
+                    if archivePath.basename == "foo.zip" {
+                        try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "bar")
+                        completion(.success(()))
+                    } else {
+                        throw StringError("unexpected path")
+                    }
+                } catch {
+                    completion(.failure(error))
+                }
+            })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/foo.zip",
+                            checksum: "a1"
+                        )
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageIdentity: .plain("root"),
+                         targetName: "A1",
+                         source: .remote(
+                            url: "https://a.com/foo.zip",
+                            checksum: "a1"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "root", "A1", "bar.xcframework")
+            )
+        }
+    }
 
     func testArtifactChecksum() throws {
         let fs = InMemoryFileSystem()
@@ -6636,7 +6704,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactChecksumChange() throws {
+    func testDownloadedArtifactChecksumChange() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6685,7 +6753,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactChecksumChangeURLChange() throws {
+    func testDownloadedArtifactChecksumChangeURLChange() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6856,7 +6924,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadTransitive() throws {
+    func testDownloadedArtifactTransitive() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -7028,7 +7096,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadArchiveExists() throws {
+    func testDownloadedArtifactArchiveExists() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         // this relies on internal knowledge of the destination path construction
@@ -7135,7 +7203,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadConcurrency() throws {
+    func testDownloadedArtifactConcurrency() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7252,7 +7320,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownloadStripFirstComponent() throws {
+    func testDownloadedArtifactStripFirstComponent() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
