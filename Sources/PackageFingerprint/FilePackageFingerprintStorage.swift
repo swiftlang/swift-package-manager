@@ -139,7 +139,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     private func loadFromDisk(reference: FingerprintReference) throws -> PackageFingerprints {
-        let path = self.directoryPath.appending(component: reference.fingerprintsFilename)
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
 
         guard self.fileSystem.exists(path) else {
             return .init()
@@ -162,7 +162,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         let container = try StorageModel.Container(fingerprints)
         let buffer = try encoder.encode(container)
 
-        let path = self.directoryPath.appending(component: reference.fingerprintsFilename)
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
         try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
     }
 
@@ -230,19 +230,19 @@ private enum StorageModel {
 }
 
 protocol FingerprintReference {
-    var fingerprintsFilename: String { get }
+    func fingerprintsFilename() throws -> String
 }
 
 extension PackageIdentity: FingerprintReference {
-    var fingerprintsFilename: String {
+    func fingerprintsFilename() -> String {
         "\(self.description).json"
     }
 }
 
 extension PackageReference: FingerprintReference {
-    var fingerprintsFilename: String {
+    func fingerprintsFilename() throws -> String {
         guard case .remoteSourceControl(let sourceControlURL) = self.kind else {
-            fatalError("Package kind [\(self.kind)] does not support fingerprints")
+            throw StringError("Package kind [\(self.kind)] does not support fingerprints")
         }
 
         let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
