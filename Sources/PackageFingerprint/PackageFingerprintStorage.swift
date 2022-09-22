@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -27,6 +27,19 @@ public protocol PackageFingerprintStorage {
              observabilityScope: ObservabilityScope,
              callbackQueue: DispatchQueue,
              callback: @escaping (Result<Void, Error>) -> Void)
+
+    func get(package: PackageReference,
+             version: Version,
+             observabilityScope: ObservabilityScope,
+             callbackQueue: DispatchQueue,
+             callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void)
+
+    func put(package: PackageReference,
+             version: Version,
+             fingerprint: Fingerprint,
+             observabilityScope: ObservabilityScope,
+             callbackQueue: DispatchQueue,
+             callback: @escaping (Result<Void, Error>) -> Void)
 }
 
 public extension PackageFingerprintStorage {
@@ -37,20 +50,37 @@ public extension PackageFingerprintStorage {
              callbackQueue: DispatchQueue,
              callback: @escaping (Result<Fingerprint, Error>) -> Void) {
         self.get(package: package, version: version, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
-            callback(result.tryMap { fingerprints in
-                guard let fingerprint = fingerprints[kind] else {
-                    throw PackageFingerprintStorageError.notFound
-                }
-                return fingerprint
-            })
+            self.get(kind: kind, result, callback: callback)
         }
+    }
+
+    func get(package: PackageReference,
+             version: Version,
+             kind: Fingerprint.Kind,
+             observabilityScope: ObservabilityScope,
+             callbackQueue: DispatchQueue,
+             callback: @escaping (Result<Fingerprint, Error>) -> Void) {
+        self.get(package: package, version: version, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+            self.get(kind: kind, result, callback: callback)
+        }
+    }
+
+    private func get(kind: Fingerprint.Kind,
+                     _ fingerprintsResult: Result<[Fingerprint.Kind: Fingerprint], Error>,
+                     callback: @escaping (Result<Fingerprint, Error>) -> Void) {
+        callback(fingerprintsResult.tryMap { fingerprints in
+            guard let fingerprint = fingerprints[kind] else {
+                throw PackageFingerprintStorageError.notFound
+            }
+            return fingerprint
+        })
     }
 }
 
 public enum PackageFingerprintStorageError: Error, Equatable, CustomStringConvertible {
     case conflict(given: Fingerprint, existing: Fingerprint)
     case notFound
-    
+
     public var description: String {
         switch self {
         case .conflict(let given, let existing):
