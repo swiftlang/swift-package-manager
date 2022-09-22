@@ -415,8 +415,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 }
 
-private extension Git {
-    static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Version: [String]] {
+extension Git {
+    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]
         var versionSpecificKnownVersions: [Version: [String]] = [:]

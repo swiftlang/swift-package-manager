@@ -36,8 +36,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try storage.put(package: otherPackage, version: Version("1.0.0"), fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0"))
 
         // A checksum file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintsFilename)))
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: otherPackage.fingerprintsFilename)))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintsFilename())))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: otherPackage.fingerprintsFilename())))
 
         // Fingerprints should be saved
         do {
@@ -149,11 +149,11 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         // This should succeed because they get written to different files
         try storage.put(package: barRef, version: Version("1.0.0"), fingerprint: .init(origin: .sourceControl(barURL), value: "abcde-bar"))
 
-        XCTAssertNotEqual(fooRef.fingerprintsFilename, barRef.fingerprintsFilename)
+        XCTAssertNotEqual(try fooRef.fingerprintsFilename(), try barRef.fingerprintsFilename())
 
         // A checksum file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: fooRef.fingerprintsFilename)))
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: barRef.fingerprintsFilename)))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: try fooRef.fingerprintsFilename())))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: try barRef.fingerprintsFilename())))
 
         // This should fail because fingerprint for 1.0.0 already exists and it's different
         XCTAssertThrowsError(try storage.put(package: fooRef, version: Version("1.0.0"),
