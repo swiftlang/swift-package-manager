@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -28,7 +28,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
     public struct GetDependenciesError: Error, CustomStringConvertible {
-
         /// The repository  that encountered the error.
         public let repository: RepositorySpecifier
 
@@ -97,10 +96,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     // Compute the map of known versions.
     private func knownVersions() throws -> [Version: String] {
-        try self.knownVersionsCache.memoize() {
+        try self.knownVersionsCache.memoize {
             let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
 
-            return knownVersionsWithDuplicates.mapValues({ tags -> String in
+            return knownVersionsWithDuplicates.mapValues { tags -> String in
                 if tags.count > 1 {
                     // FIXME: Warn if the two tags point to different git references.
 
@@ -110,9 +109,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                     let tagsSortedBySpecificity = tags.sorted {
                         let componentCounts = ($0.components(separatedBy: ".").count, $1.components(separatedBy: ".").count)
                         if componentCounts.0 == componentCounts.1 {
-                            //if they are both have the same number of components, favor the one without a v prefix.
-                            //this matches previously defined behavior
-                            //this assumes we can only enter this situation because one tag has a v prefix and the other does not.
+                            // if they are both have the same number of components, favor the one without a v prefix.
+                            // this matches previously defined behavior
+                            // this assumes we can only enter this situation because one tag has a v prefix and the other does not.
                             return $0.hasPrefix("v")
                         }
                         return componentCounts.0 < componentCounts.1
@@ -121,7 +120,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 }
                 assert(tags.count == 1, "Unexpected number of tags")
                 return tags[0]
-            })
+            }
         }
     }
 
@@ -132,7 +131,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     /// The available version list (in reverse order).
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         let reversedVersions = try self.versionsDescending()
-        return reversedVersions.lazy.filter({
+        return reversedVersions.lazy.filter {
             // If we have the result cached, return that.
             if let result = self.validToolsVersionsCache[$0] {
                 return result
@@ -142,7 +141,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
             self.validToolsVersionsCache[$0] = isValid
             return isValid
-        })
+        }
     }
 
     public func getTag(for version: Version) -> String? {
@@ -157,13 +156,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         guard case .remoteSourceControl(let sourceControlURL) = self.package.kind else {
             return
         }
-        
-        let packageIdentity = self.package.identity
+
         let fingerprint: Fingerprint
         do {
             fingerprint = try temp_await {
                 fingerprintStorage.get(
-                    package: packageIdentity,
+                    package: self.package,
                     version: version,
                     kind: .sourceControl,
                     observabilityScope: self.observabilityScope,
@@ -177,7 +175,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             do {
                 try temp_await {
                     fingerprintStorage.put(
-                        package: packageIdentity,
+                        package: self.package,
                         version: version,
                         fingerprint: fingerprint,
                         observabilityScope: self.observabilityScope,
@@ -198,7 +196,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             self.observabilityScope.emit(error: "Failed to get source control fingerprint for \(self.package) version \(version) from storage: \(error)")
             throw error
         }
-        
+
         // The revision (i.e., hash) must match that in fingerprint storage otherwise the integrity check fails
         if revision.identifier != fingerprint.value {
             let message = "Revision \(revision.identifier) for \(self.package) version \(version) does not match previously recorded value \(fingerprint.value)"
@@ -271,11 +269,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                         underlyingError: error,
                         suggestion: .none
                     )
-                }
-                else {
+                } else {
                     // Revision does not exist, so we customize the error.
                     let sha1RegEx = try! RegEx(pattern: #"\A[:xdigit:]{40}\Z"#)
-                    let isBranchRev = sha1RegEx.matchGroups(in: revision).compactMap{ $0 }.isEmpty
+                    let isBranchRev = sha1RegEx.matchGroups(in: revision).compactMap { $0 }.isEmpty
                     let errorMessage = "could not find " + (isBranchRev ? "a branch named ‘\(revision)’" : "the commit \(revision)")
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
                     let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil

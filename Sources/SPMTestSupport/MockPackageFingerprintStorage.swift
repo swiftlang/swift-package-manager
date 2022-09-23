@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -75,5 +75,31 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
                 callback(.failure(error))
             }
         }
+    }
+
+    public func get(package: PackageReference,
+                    version: Version,
+                    observabilityScope: ObservabilityScope,
+                    callbackQueue: DispatchQueue,
+                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
+        self.get(package: package.identity,
+                 version: version,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
+    }
+
+    public func put(package: PackageReference,
+                    version: Version,
+                    fingerprint: Fingerprint,
+                    observabilityScope: ObservabilityScope,
+                    callbackQueue: DispatchQueue,
+                    callback: @escaping (Result<Void, Error>) -> Void) {
+        self.put(package: package.identity,
+                 version: version,
+                 fingerprint: fingerprint,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
     }
 }
