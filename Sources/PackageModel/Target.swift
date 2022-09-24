@@ -631,13 +631,6 @@ public final class BinaryTarget: Target {
                 return "unknown"
             }
         }
-
-        public static func forFileExtension(_ fileExtension: String) throws -> Kind {
-            guard let kind = Kind.allCases.first(where: { $0.fileExtension == fileExtension }) else {
-                throw StringError("unknown binary artifact file extension '\(fileExtension)'")
-            }
-            return kind
-        }
     }
 
     public enum Origin: Equatable, Codable {

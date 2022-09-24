@@ -30,16 +30,20 @@ extension Workspace {
         /// The path of the artifact on disk
         public let path: AbsolutePath
 
+        public let kind: BinaryTarget.Kind
+
         public init(
             packageRef: PackageReference,
             targetName: String,
             source: Source,
-            path: AbsolutePath
+            path: AbsolutePath,
+            kind: BinaryTarget.Kind
         ) {
             self.packageRef = packageRef
             self.targetName = targetName
             self.source = source
             self.path = path
+            self.kind = kind
         }
 
         /// Create an artifact downloaded from a remote url.
@@ -48,13 +52,15 @@ extension Workspace {
             targetName: String,
             url: String,
             checksum: String,
-            path: AbsolutePath
+            path: AbsolutePath,
+            kind: BinaryTarget.Kind
         ) -> ManagedArtifact {
             return ManagedArtifact(
                 packageRef: packageRef,
                 targetName: targetName,
                 source: .remote(url: url, checksum: checksum),
-                path: path
+                path: path,
+                kind: kind
             )
         }
 
@@ -63,13 +69,15 @@ extension Workspace {
             packageRef: PackageReference,
             targetName: String,
             path: AbsolutePath,
+            kind: BinaryTarget.Kind,
             checksum: String? = nil
         ) -> ManagedArtifact {
             return ManagedArtifact(
                 packageRef: packageRef,
                 targetName: targetName,
                 source: .local(checksum: checksum),
-                path: path
+                path: path,
+                kind: kind
             )
         }
 

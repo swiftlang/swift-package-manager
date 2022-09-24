@@ -140,7 +140,7 @@ extension Basics.Diagnostic {
         .error("failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
-    static func artifactFailedExtraction(artifactURL: URL, targetName: String, reason: String) -> Self {
+    static func remoteArtifactFailedExtraction(artifactURL: URL, targetName: String, reason: String) -> Self {
         .error("failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
@@ -148,16 +148,16 @@ extension Basics.Diagnostic {
         .error("failed extracting '\(artifactPath)' which is required by binary target '\(targetName)': \(reason)")
     }
 
-    static func artifactDirectoryNotFound(targetName: String, expectedDirectoryName: String) -> Self {
-        .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact directory named '\(expectedDirectoryName)'")
+    static func remoteArtifactNotFound(artifactURL: URL, targetName: String) -> Self {
+        .error("downloaded archive of binary target '\(targetName)' from '\(artifactURL.absoluteString)' does not contain a binary artifact.")
     }
 
-    static func localArchivedArtifactDirectoryNotFound(targetName: String, expectedDirectoryName: String) -> Self {
-        .error("local archive of binary target '\(targetName)' does not contain expected binary artifact directory named '\(expectedDirectoryName)'")
+    static func localArchivedArtifactNotFound(archivePath: AbsolutePath, targetName: String) -> Self {
+        .error("local archive of binary target '\(targetName)' at '\(archivePath)' does not contain a binary artifact.")
     }
 
-    static func localArtifactDirectoryNotFound(targetName: String, expectedDirectoryName: String) -> Self {
-        .error("local binary target '\(targetName)' does not contain expected binary artifact directory named '\(expectedDirectoryName)'")
+    static func localArtifactNotFound(artifactPath: AbsolutePath, targetName: String) -> Self {
+        .error("local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
 }
 
