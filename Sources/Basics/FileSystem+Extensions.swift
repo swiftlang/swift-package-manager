@@ -91,12 +91,28 @@ extension FileSystem {
 }
 
 extension FileSystem {
-    public func getOrCreateSwiftPMConfigurationDirectory(warningHandler: (String) -> Void) throws -> AbsolutePath {
+    public func getOrCreateSwiftPMConfigurationDirectory(warningHandler: @escaping (String) -> Void) throws -> AbsolutePath {
         let idiomaticConfigurationDirectory = self.swiftPMConfigurationDirectory
 
         // temporary 5.6, remove on next version: transition from previous configuration location
         if !self.exists(idiomaticConfigurationDirectory) {
             try self.createDirectory(idiomaticConfigurationDirectory, recursive: true)
+        }
+
+        let handleExistingFiles = { (configurationFiles: [AbsolutePath]) in
+            for file in configurationFiles {
+                let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
+                if !self.exists(destination) {
+                    try self.copy(from: file, to: destination)
+                } else {
+                    // Only emit a warning if source and destination file differ in their contents.
+                    let srcContents = try? self.readFileContents(file)
+                    let dstContents = try? self.readFileContents(destination)
+                    if srcContents != dstContents {
+                        warningHandler("Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
+                    }
+                }
+            }
         }
 
         // in the case where ~/.swiftpm/configuration is not the idiomatic location (eg on macOS where its /Users/<user>/Library/org.swift.swiftpm/configuration)
@@ -108,13 +124,7 @@ extension FileSystem {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
-                for file in configurationFiles {
-                    let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    if !self.exists(destination) {
-                        try self.copy(from: file, to: destination)
-                    }
-                    warningHandler("Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
-                }
+                try handleExistingFiles(configurationFiles)
             }
         // in the case where ~/.swiftpm/configuration is the idiomatic location (eg on Linux)
         } else {
@@ -125,13 +135,7 @@ extension FileSystem {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0 }
-                for file in configurationFiles {
-                    let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    if !self.exists(destination) {
-                        try self.copy(from: file, to: destination)
-                    }
-                    warningHandler("Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
-                }
+                try handleExistingFiles(configurationFiles)
             }
         }
         // ~temporary 5.6 migration
