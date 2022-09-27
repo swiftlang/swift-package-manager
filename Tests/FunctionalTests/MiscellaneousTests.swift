@@ -623,4 +623,12 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
         }
     }
+
+    func testRootPackageWithConditionals() throws {
+        try fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
+            let (_, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: path)
+            let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
+            XCTAssertEqual(errors, [], "unexpected errors: \(errors)")
+        }
+    }
 }
