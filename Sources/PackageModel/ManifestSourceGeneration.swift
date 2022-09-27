@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCBasic
 
 
 /// Extensions on Manifest for generating source code expressing its contents
@@ -24,19 +25,24 @@ extension Manifest {
     /// in canonical declarative form.
     /// 
     /// - Parameters:
+    ///   - packageDirectory: Directory of the manifest's package (for purposes of making strings relative).
     ///   - toolsVersionHeaderComment: Optional string to add to the `swift-tools-version` header (it will be ignored).
     ///   - additionalImportModuleNames: Names of any modules to import besides PackageDescription (would commonly contain custom product type definitions).
     ///   - customProductTypeSourceGenerator: Closure that will be called once for each custom product type in the manifest; it should return a SourceCodeFragment for the product type.
     /// 
     /// Returns: a string containing the full source code for the manifest.
     public func generateManifestFileContents(
+        packageDirectory: AbsolutePath,
         toolsVersionHeaderComment: String? = .none,
         additionalImportModuleNames: [String] = [],
         customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator? = .none
     ) rethrows -> String {
         // Generate the source code fragment for the top level of the package
         // expression.
-        let packageExprFragment = try SourceCodeFragment(from: self, customProductTypeSourceGenerator: customProductTypeSourceGenerator)
+        let packageExprFragment = try SourceCodeFragment(
+            from: self,
+            packageDirectory: packageDirectory,
+            customProductTypeSourceGenerator: customProductTypeSourceGenerator)
         
         // Generate the source code from the module names and code fragment.
         // We only write out the major and minor (not patch) versions of the
@@ -50,12 +56,6 @@ extension Manifest {
             let package = \(packageExprFragment.generateSourceCode())
             """
     }
-    
-    /// Generates and returns a string containing the contents of the manifest
-    /// in canonical declarative form.
-    public var generatedManifestFileContents: String {
-        return self.generateManifestFileContents(customProductTypeSourceGenerator: nil)
-    }
 }
 
 /// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifer and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
@@ -66,7 +66,11 @@ public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription)
 fileprivate extension SourceCodeFragment {
     
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
-    init(from manifest: Manifest, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?) rethrows {
+    init(
+        from manifest: Manifest,
+        packageDirectory: AbsolutePath,
+        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?
+    ) rethrows {
         var params: [SourceCodeFragment] = []
         
         params.append(SourceCodeFragment(key: "name", string: manifest.displayName))
@@ -95,7 +99,7 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !manifest.dependencies.isEmpty {
-            let nodes = manifest.dependencies.map{ SourceCodeFragment(from: $0) }
+            let nodes = manifest.dependencies.map{ SourceCodeFragment(from: $0, pathAnchor: packageDirectory) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
         }
 
@@ -146,18 +150,20 @@ fileprivate extension SourceCodeFragment {
     }
     
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
-    init(from dependency: PackageDependency) {
+    init(from dependency: PackageDependency, pathAnchor: AbsolutePath) {
         var params: [SourceCodeFragment] = []
         if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
         case .fileSystem(let settings):
-            params.append(SourceCodeFragment(key: "path", string: settings.path.pathString))
+            let relPath = settings.path.relative(to: pathAnchor)
+            params.append(SourceCodeFragment(key: "path", string: relPath.pathString))
         case .sourceControl(let settings):
             switch settings.location {
-            case .local(let path):
-                params.append(SourceCodeFragment(key: "url", string: path.pathString))
+            case .local(let absPath):
+                let relPath = absPath.relative(to: pathAnchor)
+                params.append(SourceCodeFragment(key: "url", string: relPath.pathString))
             case .remote(let url):
                 params.append(SourceCodeFragment(key: "url", string: url.absoluteString))
             }
