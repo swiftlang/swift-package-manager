@@ -1782,6 +1782,10 @@ public class BuildPlan {
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
+                guard dependency.satisfies(buildParameters.buildEnvironment) else {
+                    continue
+                }
+
                 switch dependency {
                 case .target: break
                 case .product(let product, _):
@@ -2037,6 +2041,10 @@ public class BuildPlan {
             // For a product dependency, we only include its content only if we
             // need to statically link it or if it's a plugin.
             case .product(let product, _):
+                guard dependency.satisfies(self.buildEnvironment) else {
+                    return []
+                }
+
                 switch product.type {
                 case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
