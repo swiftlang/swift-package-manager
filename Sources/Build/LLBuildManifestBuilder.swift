@@ -823,7 +823,7 @@ extension LLBuildManifestBuilder {
 
 extension LLBuildManifestBuilder {
     fileprivate func addTestDiscoveryGenerationCommand() throws {
-        for testDiscoveryTarget in testDiscoveryTargets {
+        for testDiscoveryTarget in plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
                 .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
             let objectFiles = testTargets.flatMap{ $0.objects }.sorted().map(Node.file)
@@ -848,7 +848,17 @@ extension LLBuildManifestBuilder {
                   isSynthesized else { continue }
 
             let testEntryPointTarget = target
-            let inputs = testDiscoveryTargets.map { $0.moduleOutputPath }
+
+            // Get the Swift target build descriptions of all discovery targets this synthesized entry point target depends on.
+            let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
+                .compactMap(\.target)
+                .compactMap { plan.targetMap[$0] }
+                .compactMap(\.testDiscoveryTargetBuildDescription)
+
+            // The module outputs of the discovery targets this synthesized entry point target depends on are
+            // considered the inputs to the entry point command.
+            let inputs = discoveredTargetDependencyBuildDescriptions.map { $0.moduleOutputPath }
+
             let outputs = testEntryPointTarget.target.sources.paths
 
             guard let mainOutput = (outputs.first{ $0.basename == TestEntryPointTool.mainFileName }) else {
@@ -862,14 +872,15 @@ extension LLBuildManifestBuilder {
             )
         }
     }
+}
 
-    /// Returns all `SwiftTargetBuildDescription` instances in this plan which are for test discovery.
-    private var testDiscoveryTargets: [SwiftTargetBuildDescription] {
-        plan.targets.compactMap { target in
-            guard case .swift(let target) = target,
-                  case .discovery = target.testTargetRole else { return nil }
-            return target
-        }
+private extension TargetBuildDescription {
+    /// If receiver represents a Swift target build description whose test target role is Discovery,
+    /// then this returns that Swift target build description, else returns nil.
+    var testDiscoveryTargetBuildDescription: SwiftTargetBuildDescription? {
+        guard case .swift(let targetBuildDescription) = self,
+              case .discovery = targetBuildDescription.testTargetRole else { return nil }
+        return targetBuildDescription
     }
 }
 
