@@ -91,7 +91,7 @@ class ResourcesTests: XCTestCase {
 
     func testFoundationlessClient() throws {
         try fixture(name: "Resources/FoundationlessClient") { fixturePath in
-            #if os(Linux) && swift(>=5.7)
+            #if os(Linux) && swift(>=5.8)
             let pkgPath = fixturePath.appending(components: "AppPkg")
             guard let failure = XCTAssertBuildFails(pkgPath) else {
                 XCTFail("missing expected command execution error")
