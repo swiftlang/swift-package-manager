@@ -510,8 +510,8 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testTestManifestFound() throws {
-        try SwiftTarget.testManifestNames.forEach { name in
+    func testTestEntryPointFound() throws {
+        try SwiftTarget.testEntryPointNames.forEach { name in
             let fs = InMemoryFileSystem(emptyFiles:
                 "/swift/exe/foo.swift",
                 "/\(name)",
@@ -538,7 +538,7 @@ class PackageBuilderTests: XCTestCase {
 
                 package.checkProduct("pkgPackageTests") { product in
                     product.check(type: .test, targets: ["tests"])
-                    product.check(testManifestPath: "/\(name)")
+                    product.check(testEntryPointPath: "/\(name)")
                 }
             }
         }
@@ -572,13 +572,13 @@ class PackageBuilderTests: XCTestCase {
 
             package.checkProduct("pkgPackageTests") { product in
                 product.check(type: .test, targets: ["tests"])
-                product.check(testManifestPath: nil)
+                product.check(testEntryPointPath: nil)
             }
         }
     }
 
-    func testMultipleTestManifestError() throws {
-        let name = SwiftTarget.testManifestNames.first!
+    func testMultipleTestEntryPointsError() throws {
+        let name = SwiftTarget.defaultTestEntryPointName
         let swift: AbsolutePath = AbsolutePath("/swift")
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -598,7 +598,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test manifest files: \(AbsolutePath("/\(name)")), \(swift.appending(components: name))", severity: .error)
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test entry point files: \(AbsolutePath("/\(name)")), \(swift.appending(components: name))", severity: .error)
         }
     }
 
@@ -2382,8 +2382,8 @@ final class PackageBuilderTester {
             XCTAssertEqual(product.targets.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
         }
 
-        func check(testManifestPath: String?, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(product.testManifest, testManifestPath.map({ AbsolutePath($0) }), file: file, line: line)
+        func check(testEntryPointPath: String?, file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(product.testEntryPointPath, testEntryPointPath.map({ AbsolutePath($0) }), file: file, line: line)
         }
     }
 

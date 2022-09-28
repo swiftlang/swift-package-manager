@@ -371,6 +371,7 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertEqual(Set(result.targetMap.keys), [
             "APackageTests",
+            "APackageDiscoveredTests",
             "ATarget",
             "ATargetTests",
             "BTarget"
@@ -1068,7 +1069,7 @@ final class BuildPlanTests: XCTestCase {
     func testTestModule() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
-            "/Pkg/Tests/\(SwiftTarget.testManifestNames.first!).swift",
+            "/Pkg/Tests/\(SwiftTarget.defaultTestEntryPointName)",
             "/Pkg/Tests/FooTests/foo.swift"
         )
 
@@ -1098,7 +1099,7 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         result.checkTargetsCount(2)
       #else
-        // We have an extra test discovery target on linux.
+        // On non-Apple platforms, when a custom entry point file is present (e.g. XCTMain.swift), there is one additional target for the synthesized test entry point.
         result.checkTargetsCount(3)
       #endif
 
@@ -2379,7 +2380,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
-        result.checkTargetsCount(4)
+        result.checkTargetsCount(5) // There are two additional targets on non-Apple platforms, for test discovery and test entry point
 
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
 

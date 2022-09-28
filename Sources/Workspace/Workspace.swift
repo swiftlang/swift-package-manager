@@ -1068,6 +1068,7 @@ extension Workspace {
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
         // reload state in case it was modified externally (eg by another process) before reloading the graph
@@ -1109,6 +1110,7 @@ extension Workspace {
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

@@ -59,7 +59,7 @@ private extension IndexStore.TestCaseClass.TestMethod {
     }
 }
 
-final class TestDiscoveryCommand: CustomLLBuildCommand {
+final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
     private func write(
         tests: [IndexStore.TestCaseClass],
@@ -155,24 +155,19 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
         stream <<< "import XCTest" <<< "\n\n"
 
-        stream <<< "@main" <<< "\n"
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
-        stream <<< "struct Runner" <<< " {" <<< "\n"
-        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n"
+        stream <<< "public func __allDiscoveredTests() -> [XCTestCaseEntry] {" <<< "\n"
+        stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
+
         for module in testsByModule.keys {
-            stream <<< indent(8) <<< "tests += __\(module)__allTests()" <<< "\n"
+            stream <<< indent(4) <<< "tests += __\(module)__allTests()" <<< "\n"
         }
-        stream <<< indent(8) <<< "\n"
-        stream <<< indent(8) <<< "XCTMain(tests)" <<< "\n"
-        stream <<< indent(4) <<< "}" <<< "\n"
+
+        stream <<< "\n"
+        stream <<< indent(4) <<< "return tests" <<< "\n"
         stream <<< "}" <<< "\n"
 
         stream.flush()
-    }
-
-    private func indent(_ spaces: Int) -> ByteStreamable {
-        return Format.asRepeating(string: " ", count: spaces)
     }
 
     override func execute(
@@ -185,7 +180,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
                 throw InternalError("unknown build description")
             }
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
+                throw InternalError("command \(command.name) not registered")
             }
             try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
@@ -194,6 +189,76 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return false
         }
     }
+}
+
+final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
+
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
+        // Find the inputs, which are the names of the test discovery module(s)
+        let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
+        let discoveryModuleNames = inputs.map { $0.basenameWithoutExt }
+
+        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
+
+        // Find the main output file
+        guard let mainFile = outputs.first(where: { path in
+            path.basename == LLBuildManifest.TestEntryPointTool.mainFileName
+        }) else {
+            throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
+        }
+
+        // Write the main file.
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream <<< "import XCTest" <<< "\n"
+        for discoveryModuleName in discoveryModuleNames {
+            stream <<< "import \(discoveryModuleName)" <<< "\n"
+        }
+        stream <<< "\n"
+
+        stream <<< "@main" <<< "\n"
+        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<< "struct Runner" <<< " {" <<< "\n"
+        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(__allDiscoveredTests())" <<< "\n"
+        stream <<< indent(4) <<< "}" <<< "\n"
+        stream <<< "}" <<< "\n"
+
+        stream.flush()
+    }
+
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.testEntryPointCommands[command.name] else {
+                throw InternalError("command \(command.name) not registered")
+            }
+            try execute(fileSystem: self.context.fileSystem, tool: tool)
+            return true
+        } catch {
+            self.context.observabilityScope.emit(error)
+            return false
+        }
+    }
+}
+
+private protocol TestBuildCommand {}
+
+/// Functionality common to all build commands related to test targets.
+extension TestBuildCommand {
+
+    /// Returns a value containing `spaces` number of space characters.
+    /// Intended to facilitate indenting generated code a specified number of levels.
+    fileprivate func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
 }
 
 private final class InProcessTool: Tool {
@@ -230,6 +295,9 @@ public struct BuildDescription: Codable {
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
+    /// The map of test entry point commands.
+    let testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
+
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
@@ -257,12 +325,14 @@ public struct BuildDescription: Codable {
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
+        self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
@@ -278,7 +348,7 @@ public struct BuildDescription: Codable {
             targetCommandLines[target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
                                                                   plan.buildParameters.toolchain.swiftCompilerPath.pathString]
-            if desc.isTestDiscoveryTarget {
+            if case .discovery = desc.testTargetRole {
                 generatedSourceTargets.append(target.c99name)
             }
         }
@@ -500,6 +570,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+        case TestEntryPointTool.name:
+            return InProcessTool(buildExecutionContext, type: TestEntryPointCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:

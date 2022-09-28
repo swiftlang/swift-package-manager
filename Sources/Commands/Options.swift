@@ -362,6 +362,12 @@ struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     var enableTestDiscovery: Bool = false
 
+    /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if present).
+    /// This implies `--enable-test-discovery`
+    @Option(name: .customLong("experimental-test-entry-point-path"),
+            help: .hidden)
+    var testEntryPointPath: AbsolutePath?
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum

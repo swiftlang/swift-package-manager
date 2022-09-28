@@ -46,6 +46,19 @@ public struct PhonyTool: ToolProtocol {
 
 public struct TestDiscoveryTool: ToolProtocol {
     public static let name: String = "test-discovery-tool"
+    public static let mainFileName: String = "all-discovered-tests.swift"
+
+    public var inputs: [Node]
+    public var outputs: [Node]
+
+    init(inputs: [Node], outputs: [Node]) {
+        self.inputs = inputs
+        self.outputs = outputs
+    }
+}
+
+public struct TestEntryPointTool: ToolProtocol {
+    public static let name: String = "test-entry-point-tool"
     public static let mainFileName: String = "runner.swift"
 
     public var inputs: [Node]
