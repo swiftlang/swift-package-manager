@@ -336,7 +336,7 @@ public struct BuildDescription: Codable {
         self.copyCommands = copyCommands
         self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
-            let deps = try $1.target.recursiveTargetDependencies().map { $0.c99name }
+            let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment).compactMap { $0.target }.map { $0.c99name }
             $0[$1.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
