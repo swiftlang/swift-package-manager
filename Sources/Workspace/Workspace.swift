@@ -3660,7 +3660,7 @@ extension FileSystem {
 extension Workspace.Location {
     func validatingSharedLocations(
         fileSystem: FileSystem,
-        warningHandler: (String) -> Void
+        warningHandler: @escaping (String) -> Void
     ) throws -> Self {
         var location = self
 
