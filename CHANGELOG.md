@@ -5,7 +5,7 @@ Swift 5.8
 
 * [#5728]
 
-  In packages that specify resources using tools version 5.8 or later, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs that lead to unexpected code size increases.
+  In packages that specify resources using tools version 5.8 or later, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
 
 Swift 5.7
 -----------
