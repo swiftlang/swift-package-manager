@@ -25,7 +25,7 @@ class ModuleAliasTracker {
                 if let aliasList = productRef.moduleAliases {
                     // Track aliases for this product
                     try addAliases(aliasList,
-                                   productID: productRef.ID,
+                                   productID: productRef.identity,
                                    productName: productRef.name,
                                    originPackage: productPkgID,
                                    consumingPackage: package)
@@ -76,20 +76,20 @@ class ModuleAliasTracker {
         allTargetDeps.append(contentsOf: targetDeps)
         for dep in allTargetDeps {
             if case let .product(depRef, _) = dep {
-                parentToChildProducts[product.ID, default: []].append(depRef.ID)
+                parentToChildProducts[product.identity, default: []].append(depRef.identity)
             }
         }
 
         var allTargetsInProduct = targetDeps.compactMap{$0.target}
         allTargetsInProduct.append(contentsOf: product.targets)
-        idToProductToAllTargets[package, default: [:]][product.ID] = allTargetsInProduct
-        productToDirectTargets[product.ID] = product.targets
-        productToAllTargets[product.ID] = allTargetsInProduct
+        idToProductToAllTargets[package, default: [:]][product.identity] = allTargetsInProduct
+        productToDirectTargets[product.identity] = product.targets
+        productToAllTargets[product.identity] = allTargetsInProduct
     }
 
     func validateAndApplyAliases(product: Product,
                                  package: PackageIdentity) throws {
-        guard let targets = idToProductToAllTargets[package]?[product.ID] else { return }
+        guard let targets = idToProductToAllTargets[package]?[product.identity] else { return }
         let targetsWithAliases = targets.filter{ $0.moduleAliases != nil }
         for target in targetsWithAliases {
             if target.sources.containsNonSwiftFiles {
@@ -376,7 +376,7 @@ class ModuleAliasTracker {
     }
 
     private func dependencyProductTargets(of targets: [Target]) -> [Target] {
-        let result = targets.map{$0.dependencies.compactMap{$0.product?.ID}}.flatMap{$0}.compactMap{productToAllTargets[$0]}.flatMap{$0}
+        let result = targets.map{$0.dependencies.compactMap{$0.product?.identity}}.flatMap{$0}.compactMap{productToAllTargets[$0]}.flatMap{$0}
         return result
     }
 }
@@ -400,7 +400,7 @@ extension Target {
     func dependsOn(productID: String) -> Bool {
         return dependencies.contains { dep in
             if case let .product(prodRef, _) = dep {
-                return prodRef.ID == productID
+                return prodRef.identity == productID
             }
             return false
         }

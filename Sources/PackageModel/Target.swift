@@ -50,7 +50,7 @@ public class Target: PolymorphicCodableProtocol {
         public let moduleAliases: [String: String]?
 
         /// Fully qualified name for this product dependency: package ID + name of the product
-        public var ID: String {
+        public var identity: String {
             if let pkg = package {
                 return pkg.lowercased() + "_" + name
             }

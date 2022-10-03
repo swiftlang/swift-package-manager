@@ -20,7 +20,7 @@ public class Product: Codable {
     public let name: String
 
     /// Fully qualified name for this product: package ID + name of this product
-    public let ID: String
+    public let identity: String
 
     /// The type of product to create.
     public let type: ProductType
@@ -54,7 +54,7 @@ public class Product: Codable {
         }
         self.name = name
         self.type = type
-        self.ID = package.description.lowercased() + "_" + name
+        self.identity = package.description.lowercased() + "_" + name
         self._targets = .init(wrappedValue: targets)
         self.testEntryPointPath = testEntryPointPath
     }

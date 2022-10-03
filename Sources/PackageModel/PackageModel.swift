@@ -129,6 +129,12 @@ extension Package.Error: CustomStringConvertible {
     }
 }
 
+extension Manifest {
+    public var diambiguateByProductIDs: Bool {
+        return self.toolsVersion > .vNext
+    }
+}
+
 extension ObservabilityMetadata {
     public static func packageMetadata(identity: PackageIdentity, kind: PackageReference.Kind) -> Self {
         var metadata = ObservabilityMetadata()

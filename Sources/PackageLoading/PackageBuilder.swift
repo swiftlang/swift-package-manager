@@ -762,18 +762,22 @@ public final class PackageBuilder {
         }
 
         // Check for duplicate target dependencies
-        if self.manifest.toolsVersion < .vNext {
-            dependencies.filter{$0.product?.moduleAliases == nil}.spm_findDuplicateElements(by: \.nameAndType).map(\.[0].name).forEach {
-                self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.identity.description))
-            }
-        } else {
-            let dupProductIDs = dependencies.compactMap{$0.product?.ID}.spm_findDuplicates()
+        if self.manifest.diambiguateByProductIDs {
+            let dupProductIDs = dependencies.compactMap{$0.product?.identity}.spm_findDuplicates()
             for dupProductID in dupProductIDs {
-                self.observabilityScope.emit(.duplicateProduct(productID: dupProductID))
+                let comps = dupProductID.components(separatedBy: "_")
+                let pkg = comps.first ?? ""
+                let name = comps.dropFirst().joined(separator: "_")
+                let dupProductName = name.isEmpty ? dupProductID : name
+                self.observabilityScope.emit(.duplicateProduct(name: dupProductName, package: pkg))
             }
             let dupTargetNames = dependencies.compactMap{$0.target?.name}.spm_findDuplicates()
             for dupTargetName in dupTargetNames {
                 self.observabilityScope.emit(.duplicateTargetDependency(dependency: dupTargetName, target: potentialModule.name, package: self.identity.description))
+            }
+        } else {
+            dependencies.filter{$0.product?.moduleAliases == nil}.spm_findDuplicateElements(by: \.nameAndType).map(\.[0].name).forEach {
+                self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.identity.description))
             }
         }
 
