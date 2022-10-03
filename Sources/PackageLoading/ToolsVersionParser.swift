@@ -16,6 +16,54 @@ import PackageModel
 import TSCBasic
 
 /// Protocol for the manifest loader interface.
+// deprecated 3/22, remove when clients stop using
+@available(*, deprecated, message: "use ToolsVersionParser instead")
+public protocol ToolsVersionLoaderProtocol {
+
+    /// Load the tools version at the give package path.
+    ///
+    /// - Parameters:
+    ///   - path: The path to the package.
+    ///   - fileSystem: The file system to use to read the file which contains tools version.
+    /// - Returns: The tools version.
+    /// - Throws: ToolsVersion.Error
+    func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion
+}
+
+
+// deprecated 3/22, remove when clients stop using
+@available(*, deprecated, message: "use ToolsVersionParser instead")
+public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
+    // FIXME: Remove this property and the initializer?
+    // Arbitrary tools versions are used only in `ToolsVersionLoaderTests.testVersionSpecificManifestFallbacks()`.
+    // Relevant discussion: https://github.com/apple/swift-package-manager/pull/2937#discussion_r512239726
+    /// The Swift toolchain version used by the instance of `ToolsVersionLoader`.
+    ///
+    /// If the value differs from `ToolsVersion.currentToolsVersion`, then the `ToolsVersionLoader` instance is simulating that it's run on a Swift version different from the version used by libSwiftPM.
+    let currentToolsVersion: ToolsVersion
+
+    /// Creates a manifest loader with the given Swift toolchain version.
+    /// - Parameter currentToolsVersion: The Swift toolchain version to simulate the manifest loading strategy for. By default, this parameter is the current version used by libSwiftPM. A non-default version is only used for providing testability.
+    public init(currentToolsVersion: ToolsVersion = .current) {
+        self.currentToolsVersion = currentToolsVersion
+    }
+
+    public func load(at packagePath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
+        // The file which contains the tools version.
+        let manifestPath = try ManifestLoader.findManifest(packagePath: packagePath, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
+        guard fileSystem.isFile(manifestPath) else {
+            // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
+            // This doesn't really cause issues (yet) in practice though.
+            return ToolsVersion.current
+        }
+        return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+    }
+
+    public func load(utf8String: String) throws -> ToolsVersion {
+        try ToolsVersionParser.parse(utf8String: utf8String)
+    }
+}
+
 public struct ToolsVersionParser {
     // designed to be used as a static utility
     private init() {}

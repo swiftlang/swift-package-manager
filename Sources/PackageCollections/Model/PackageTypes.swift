@@ -85,6 +85,24 @@ extension PackageCollectionsModel {
         /// The package's programming languages
         public let languages: Set<String>?
 
+        // deprecated 9/21
+        @available(*, deprecated, message: "use identity and location instead")
+        public var reference: PackageReference {
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(identity: self.identity, kind: .remoteSourceControl(url), name: nil)
+        }
+
+        // deprecated 9/21
+        @available(*, deprecated, message: "use identity and location instead")
+        public var repository: RepositorySpecifier {
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(url: url)
+        }
+
         /// Initializes a `Package`
         init(
             identity: PackageIdentity,
@@ -141,6 +159,27 @@ extension PackageCollectionsModel.Package {
 
         /// When the package version was created
         public let createdAt: Date?
+        
+        @available(*, deprecated, message: "use manifests instead")
+        public var packageName: String { self.defaultManifest!.packageName }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var targets: [Target] { self.defaultManifest!.targets }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var products: [Product] { self.defaultManifest!.products }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var toolsVersion: ToolsVersion { self.defaultManifest!.toolsVersion }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var minimumPlatformVersions: [SupportedPlatform]? { nil }
+
+        @available(*, deprecated, message: "use verifiedCompatibility instead")
+        public var verifiedPlatforms: [PackageModel.Platform]? { nil }
+
+        @available(*, deprecated, message: "use verifiedCompatibility instead")
+        public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
 
         public struct Manifest: Equatable, Codable {
             /// The Swift tools version specified in `Package.swift`.

@@ -87,6 +87,11 @@ public struct PackageReference {
     /// The identity of the package.
     public let identity: PackageIdentity
 
+    @available(*, deprecated)
+    public var name: String {
+        return self.deprecatedName
+    }
+
     /// The name of the package, if available.
     // soft deprecated 11/21
     public private(set) var deprecatedName: String

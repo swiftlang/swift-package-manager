@@ -48,6 +48,15 @@ extension PackageCollectionsModel.TargetListResult {
 
         /// Package collections that contain this package and at least one of the `versions`
         public let collections: [PackageCollectionsModel.CollectionIdentifier]
+
+        // deprecated 9/2021
+        @available(*, deprecated, message: "use identity and location instead")
+        public var repository: RepositorySpecifier {
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(url: url)
+        }
     }
 }
 

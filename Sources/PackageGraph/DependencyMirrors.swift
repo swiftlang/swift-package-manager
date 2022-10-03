@@ -36,6 +36,11 @@ public final class DependencyMirrors: Equatable {
         self.visited = .init()
     }
 
+    @available(*, deprecated)
+    private convenience init(_ mirrors: [Mirror]) {
+        self.init(Dictionary(mirrors.map({ ($0.original, $0.mirror) }), uniquingKeysWith: { first, _ in first }))
+    }
+
     public static func == (lhs: DependencyMirrors, rhs: DependencyMirrors) -> Bool {
         return lhs.mapping == rhs.mapping
     }
@@ -182,5 +187,47 @@ extension DependencyMirrors: Collection {
 extension DependencyMirrors: ExpressibleByDictionaryLiteral {
     public convenience init(dictionaryLiteral elements: (String, String)...) {
         self.init(Dictionary(elements, uniquingKeysWith: { first, _ in first }))
+    }
+}
+
+@available(*, deprecated)
+extension DependencyMirrors: JSONMappable, JSONSerializable {
+    public convenience init(json: JSON) throws {
+        self.init(try [Mirror](json: json))
+    }
+
+    public func toJSON() -> JSON {
+        let mirrors = self.index.map { Mirror(original: $0.key, mirror: $0.value) }
+        return .array(mirrors.sorted(by: { $0.original < $1.mirror }).map { $0.toJSON() })
+    }
+}
+
+/// An individual repository mirror.
+@available(*, deprecated)
+private struct Mirror {
+    /// The original repository path.
+    let original: String
+
+    /// The mirrored repository path.
+    let mirror: String
+
+    init(original: String, mirror: String) {
+        self.original = original
+        self.mirror = mirror
+    }
+}
+
+@available(*, deprecated)
+extension Mirror: JSONMappable, JSONSerializable {
+    init(json: JSON) throws {
+        self.original = try json.get("original")
+        self.mirror = try json.get("mirror")
+    }
+
+    func toJSON() -> JSON {
+        .init([
+            "original": original,
+            "mirror": mirror
+        ])
     }
 }

@@ -270,6 +270,11 @@ private final class InProcessTool: Tool {
         self.type = type
     }
 
+    @available(*, deprecated, message: "Use the overload that returns an Optional")
+    func createCommand(_ name: String) -> ExternalCommand {
+        return type.init(self.context)
+    }
+
     func createCommand(_ name: String) -> ExternalCommand? {
         return type.init(self.context)
     }

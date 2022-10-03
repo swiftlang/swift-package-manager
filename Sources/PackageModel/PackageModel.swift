@@ -98,6 +98,13 @@ public final class Package: Encodable {
 }
 
 extension Package {
+    @available(*, deprecated, message: "use DiagnosticsContext instead")
+    public var diagnosticLocation: DiagnosticLocation {
+        return PackageLocation.Local(name: self.manifest.name, packagePath: self.path)
+    }
+}
+
+extension Package {
     public var diagnosticsMetadata: ObservabilityMetadata {
         return .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
     }

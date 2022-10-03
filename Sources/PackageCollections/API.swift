@@ -106,6 +106,41 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     )
 
+    // MARK: - Package APIs
+
+    /// Returns metadata for the package identified by the given `PackageReference`, along with the
+    /// identifiers of `PackageCollection`s where the package is found.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - reference: The package reference
+    ///   - callback: The closure to invoke when result becomes available
+    // deprecated 9/21
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
+    func getPackageMetadata(
+        _ reference: PackageReference,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
+    /// Returns metadata for the package identified by the given `PackageReference`, along with the
+    /// identifiers of `PackageCollection`s where the package is found.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - reference: The package reference
+    ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
+    ///                  processed collection will be used.
+    ///   - callback: The closure to invoke when result becomes available
+    // deprecated 9/21
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
+    func getPackageMetadata(
+        _ reference: PackageReference,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
     /// Returns metadata for the package identified by the given `PackageIdentity`, along with the
     /// identifiers of `PackageCollection`s where the package is found.
     ///
