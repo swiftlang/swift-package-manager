@@ -16,6 +16,9 @@ import TSCBasic
 
 // TODO: refactor this when adding registry support
 public protocol IdentityResolver {
+    // deprecated 9/21
+    @available(*, deprecated, message: "use resolveIdentity for url or path instead")
+    func resolveIdentity(for location: String) -> PackageIdentity
     func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity
     func resolveIdentity(for url: URL) throws -> PackageIdentity
     func resolveIdentity(for path: AbsolutePath) throws -> PackageIdentity
@@ -27,6 +30,13 @@ public struct DefaultIdentityResolver: IdentityResolver {
 
     public init(locationMapper: @escaping (String) -> String = { $0 }) {
         self.locationMapper = locationMapper
+    }
+
+    // deprecated 9/21
+    @available(*, deprecated, message: "use resolveIdentity for url or path instead")
+    public func resolveIdentity(for location: String) -> PackageIdentity {
+        let location = self.mappedLocation(for: location)
+        return PackageIdentity(urlString: location)
     }
 
     public func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity {

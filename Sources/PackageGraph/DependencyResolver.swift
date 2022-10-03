@@ -46,6 +46,63 @@ public protocol DependencyResolverDelegate {
     func solved(result: [DependencyResolver.Binding])
 }
 
+@available(*, deprecated, message: "user verbosity flags instead")
+public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
+    private let stream: OutputByteStream
+
+    public init (path: AbsolutePath) throws {
+        self.stream = try LocalFileOutputByteStream(path, closeOnDeinit: true, buffered: false)
+    }
+
+    public init (stream: OutputByteStream) {
+        self.stream = stream
+    }
+
+    public func willResolve(term: Term) {
+        self.log("resolving: \(term.node.package.identity)")
+    }
+
+    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+        self.log("resolved: \(term.node.package.identity) @ \(version)")
+    }
+
+    public func derived(term: Term) {
+        self.log("derived: \(term.node.package.identity)")
+    }
+
+    public func conflict(conflict: Incompatibility) {
+        self.log("conflict: \(conflict)")
+    }
+
+    public func failedToResolve(incompatibility: Incompatibility) {
+        self.log("failed to resolve: \(incompatibility)")
+    }
+
+    public func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {
+        log("CR: \(term) is satisfied by \(assignment)")
+        log("CR: which is caused by \(assignment.cause?.description ?? "")")
+        log("CR: new incompatibility \(incompatibility)")
+    }
+
+    public func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {
+        log("CR: \(term) is partially satisfied by \(assignment)")
+        log("CR: which is caused by \(assignment.cause?.description ?? "")")
+        log("CR: new incompatibility \(incompatibility)")
+    }
+
+    public func solved(result: [DependencyResolver.Binding]) {
+        self.log("solved:")
+        for (package, binding, _) in result {
+            self.log("\(package) \(binding)")
+        }
+    }
+
+    private func log(_ message: String) {
+        self.stream <<< message <<< "\n"
+        self.stream.flush()
+    }
+}
+
 public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegate {
     private let observabilityScope: ObservabilityScope
 

@@ -44,7 +44,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
                  forceResponseFiles: Bool,
                  recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
         let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                                   useResponseFiles: forceResponseFiles ? .forced : .heuristic)
+                                                                   forceResponseFiles: forceResponseFiles)
         
         try job.verifyInputsNotModified(since: recordedInputModificationDates,
                                         fileSystem: fileSystem)
@@ -74,7 +74,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
     func description(of job: Job, forceResponseFiles: Bool) throws -> String {
         // FIXME: This is duplicated from SwiftDriver, maybe it shouldn't be a protocol requirement.
         let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job,
-                                                                        useResponseFiles: forceResponseFiles ? .forced : .heuristic)
+                                                                        forceResponseFiles: forceResponseFiles)
         var result = args.joined(separator: " ")
         
         if usedResponseFile {

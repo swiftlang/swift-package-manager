@@ -25,6 +25,12 @@ public final class Manifest {
     public static let basename = "Package"
 
     /// The name of the package as it appears in the manifest
+    @available(*, deprecated, message: "use displayName instead, and only for display purposes")
+    public var name: String {
+        return self.displayName
+    }
+
+    /// The name of the package as it appears in the manifest
     /// FIXME: deprecate this, there is no value in this once we have real package identifiers
     public let displayName: String
 
@@ -46,6 +52,14 @@ public final class Manifest {
     /// The canonical repository URL the manifest was loaded from.
     public var canonicalPackageLocation: CanonicalPackageLocation {
         CanonicalPackageLocation(self.packageLocation)
+    }
+
+    // FIXME: deprecated 2/2021, remove once clients migrate
+    @available(*, deprecated, message: "use packageLocation instead")
+    public var url: String {
+        get {
+            self.packageLocation
+        }
     }
 
     /// Whether kind of package this manifest is from.
