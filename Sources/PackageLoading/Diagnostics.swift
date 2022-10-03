@@ -40,6 +40,10 @@ extension Basics.Diagnostic {
         return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
 
+    static func duplicateProduct(productID: String) -> Self {
+        return .warning("ignoring duplicate product '\(productID)'")
+    }
+
     static func duplicateTargetDependency(dependency: String, target: String, package: String) -> Self {
         .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)' from package '\(package)'")
     }
