@@ -223,7 +223,8 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
             Pkg.appending(components: "Sources", "PkgLib", "lib.swift").pathString,
-            "/ExtPkg/Sources/ExtLib/lib.swift"
+            "/ExtPkg/Sources/ExtLib/lib.swift",
+            "/PlatformPkg/Sources/PlatformLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -235,6 +236,7 @@ final class BuildPlanTests: XCTestCase {
                     path: .init(Pkg.pathString),
                     dependencies: [
                         .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PlatformPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -247,6 +249,9 @@ final class BuildPlanTests: XCTestCase {
                             .product(name: "ExtLib", package: "ExtPkg", condition: PackageConditionDescription(
                                 platformNames: [],
                                 config: "debug"
+                            )),
+                            .product(name: "PlatformLib", package: "PlatformPkg", condition: PackageConditionDescription(
+                                platformNames: ["linux"]
                             ))
                         ]),
                     ]
@@ -259,6 +264,17 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "ExtLib", dependencies: []),
+                    ]
+                ),
+                Manifest.createLocalSourceControlManifest(
+                    name: "PlatformPkg",
+                    path: .init("/PlatformPkg"),
+                    platforms: [PlatformDescription(name: "macos", version: "50.0")],
+                    products: [
+                        ProductDescription(name: "PlatformLib", type: .library(.automatic), targets: ["PlatformLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "PlatformLib", dependencies: []),
                     ]
                 ),
             ],

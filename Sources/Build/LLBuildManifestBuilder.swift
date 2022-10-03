@@ -443,7 +443,7 @@ extension LLBuildManifestBuilder {
         for target: ResolvedTarget,
         dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap
     ) throws {
-        for dependency in target.dependencies {
+        for dependency in target.dependencies(satisfying: self.buildEnvironment) {
             switch dependency {
                 case .product:
                     // Product dependencies are broken down into the targets that make them up.
