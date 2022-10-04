@@ -1,0 +1,7 @@
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+
+#some comment
+
+# upstream pkg-config parser allows Cflags & CFlags as key
+CFlags: -I/usr/local/include

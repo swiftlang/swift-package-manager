@@ -66,6 +66,12 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testCFlagsCaseInsensitveKeys() {
+        try! loadPCFile("case_insensitive.pc") { parser in
+            XCTAssertEqual(parser.cFlags, ["-I/usr/local/include"])
+        }
+    }
+
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, [
