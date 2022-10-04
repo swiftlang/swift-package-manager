@@ -508,17 +508,29 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testFileURLsWithHostnames() throws {
+    func testFileURLErrors() throws {
         enum ExpectedError {
+          case invalidAbsolutePath
           case relativePath
           case unsupportedHostname
 
-          var manifestError: ManifestParseError {
+          var manifestError: ManifestParseError? {
             switch self {
+            case .invalidAbsolutePath:
+              return nil
             case .relativePath:
               return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil)
             case .unsupportedHostname:
               return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil)
+            }
+          }
+
+          var pathError: TSCBasic.PathValidationError? {
+            switch self {
+            case .invalidAbsolutePath:
+              return .invalidAbsolutePath("")
+            default:
+              return nil
             }
           }
         }
@@ -527,6 +539,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
           ("file://../best", .relativePath), // Possible attempt at a relative path.
           ("file://somehost/bar", .unsupportedHostname), // Obviously non-local.
           ("file://localhost/bar", .unsupportedHostname), // Local but non-trivial (e.g. on Windows, this is a UNC path).
+          ("file://", .invalidAbsolutePath) // Invalid path.
         ]
         for (url, expectedError) in urls {
             let content = """
@@ -546,7 +559,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                XCTAssertEqual(error as? ManifestParseError, expectedError.manifestError)
+                switch error {
+                case is ManifestParseError:
+                    XCTAssertEqual(error as? ManifestParseError, expectedError.manifestError)
+                case is TSCBasic.PathValidationError:
+                    XCTAssertEqual(error.localizedDescription, expectedError.pathError?.localizedDescription)
+                default:
+                    XCTFail("unhandled error type: \(error)")
+                }
             }
         }
     }
