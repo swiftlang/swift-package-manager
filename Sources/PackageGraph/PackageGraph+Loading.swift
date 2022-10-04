@@ -540,30 +540,23 @@ private class DuplicateProductsChecker {
                     checkedPkgIDs.append(contentsOf: depPkgs)
                 }
             }
-        }
-        for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
-            let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
-            if !name.isEmpty {
-                throw PackageGraphError.duplicateProduct(product: name, packages: depPkgs.sorted())
+            for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
+                let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
+                throw PackageGraphError.duplicateProduct(product: name.isEmpty ? depIDOrName : name, packages: depPkgs.sorted())
             }
         }
 
         let uncheckedPkgs = packageIDToBuilder.filter{!checkedPkgIDs.contains($0.key)}
-
         for (pkgID, pkgBuilder) in uncheckedPkgs {
             let productIDOrNames = pkgBuilder.products.map { pkgBuilder.package.manifest.disambiguateByProductIDs && $0.product.isDefaultLibrary ? $0.product.identity : $0.product.name }
             for productIDOrName in productIDOrNames {
                 productToPkgMap[productIDOrName, default: []].append(pkgID)
             }
-            checkedPkgIDs.append(pkgID)
         }
 
         let duplicates = productToPkgMap.filter({Set($0.value).count > 1})
         for (productName, pkgs) in duplicates {
-            observabilityScope.emit(PackageGraphError.duplicateProduct(product: productName, packages: pkgs.sorted()))
-            for pkgID in pkgs {
-                packageIDToBuilder[pkgID]?.products = packageIDToBuilder[pkgID]?.products.filter { $0.product.name != productName } ?? []
-            }
+            throw PackageGraphError.duplicateProduct(product: productName, packages: pkgs.sorted())
         }
     }
 }
