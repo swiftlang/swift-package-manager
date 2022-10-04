@@ -130,8 +130,8 @@ extension Package.Error: CustomStringConvertible {
 }
 
 extension Manifest {
-    public var diambiguateByProductIDs: Bool {
-        return self.toolsVersion > .vNext
+    public var disambiguateByProductIDs: Bool {
+        return self.toolsVersion >= .vNext
     }
 }
 

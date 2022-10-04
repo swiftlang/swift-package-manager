@@ -762,7 +762,7 @@ public final class PackageBuilder {
         }
 
         // Check for duplicate target dependencies
-        if self.manifest.diambiguateByProductIDs {
+        if self.manifest.disambiguateByProductIDs {
             let dupProductIDs = dependencies.compactMap{$0.product?.identity}.spm_findDuplicates()
             for dupProductID in dupProductIDs {
                 let comps = dupProductID.components(separatedBy: "_")

@@ -412,7 +412,7 @@ private func createResolvedPackages(
                 return false
             })
 
-        let lookupByProductIDs = packageBuilder.package.manifest.diambiguateByProductIDs || moduleAliasingUsed
+        let lookupByProductIDs = packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -525,7 +525,7 @@ private class DuplicateProductsChecker {
     func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
         var productToPkgMap = [String: [String]]()
         for (_, pkgBuilder) in packageIDToBuilder {
-            let useProductIDs = pkgBuilder.package.manifest.diambiguateByProductIDs || lookupByProductIDs
+            let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
             let depProductRefs = pkgBuilder.package.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.product}
             for depRef in depProductRefs {
                 if let depPkg = depRef.package?.lowercased() {
@@ -540,19 +540,18 @@ private class DuplicateProductsChecker {
                     checkedPkgIDs.append(contentsOf: depPkgs)
                 }
             }
-
-            for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
-                if useProductIDs {
-                    let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
-                    throw PackageGraphError.duplicateProduct(product: name.isEmpty ? depIDOrName : name, packages: depPkgs.sorted())
-                }
+        }
+        for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
+            let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
+            if !name.isEmpty {
+                throw PackageGraphError.duplicateProduct(product: name, packages: depPkgs.sorted())
             }
         }
 
         let uncheckedPkgs = packageIDToBuilder.filter{!checkedPkgIDs.contains($0.key)}
 
         for (pkgID, pkgBuilder) in uncheckedPkgs {
-            let productIDOrNames = pkgBuilder.products.map { pkgBuilder.package.manifest.diambiguateByProductIDs && $0.product.isDefaultLibrary ? $0.product.identity : $0.product.name }
+            let productIDOrNames = pkgBuilder.products.map { pkgBuilder.package.manifest.disambiguateByProductIDs && $0.product.isDefaultLibrary ? $0.product.identity : $0.product.name }
             for productIDOrName in productIDOrNames {
                 productToPkgMap[productIDOrName, default: []].append(pkgID)
             }

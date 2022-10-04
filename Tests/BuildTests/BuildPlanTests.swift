@@ -421,7 +421,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let observability = ObservabilitySystem.makeForTesting()
 
-        XCTAssertThrowsError(try loadPackageGraph(
+        let _ = try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -463,13 +463,10 @@ final class BuildPlanTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+        )
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("invalid duplicate target dependency declaration 'Logging' in target 'exe' from package 'thispkg'"), severity: .warning)
+            result.check(diagnostic: .contains("multiple products named 'Logging' in: 'barpkg', 'foopkg'"), severity: .error)
         }
     }
 
