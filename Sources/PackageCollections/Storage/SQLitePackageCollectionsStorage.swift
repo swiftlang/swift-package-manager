@@ -20,8 +20,6 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
-import struct TSCUtility.SQLite
-
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"

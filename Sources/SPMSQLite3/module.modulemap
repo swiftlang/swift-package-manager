@@ -1,0 +1,5 @@
+module SPMSQLite3 [system] {
+  header "sqlite.h"
+  link "sqlite3"
+  export *
+}
