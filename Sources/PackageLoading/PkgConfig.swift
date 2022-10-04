@@ -208,14 +208,14 @@ internal struct PkgConfigParser {
         }
         let (key, maybeValue) = line.spm_split(around: ":")
         let value = try resolveVariables(maybeValue?.spm_chuzzle() ?? "")
-        switch key {
-        case "Requires":
+        switch key.lowercased() {
+        case "requires":
             dependencies = try parseDependencies(value)
-        case "Requires.private":
+        case "requires.private":
             privateDependencies = try parseDependencies(value)
-        case "Libs":
+        case "libs":
             libs = try splitEscapingSpace(value)
-        case "Cflags":
+        case "cflags":
             cFlags = try splitEscapingSpace(value)
         default:
             break
