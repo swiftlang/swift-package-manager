@@ -2080,7 +2080,13 @@ public class BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
-                buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
+                if buildParameters.hostTriple.isDarwin() {
+                    buildProduct.additionalFlags += ["-lc++"]
+                } else if buildParameters.hostTriple.isWindows() {
+                    // Don't link any C++ library.
+                } else {
+                    buildProduct.additionalFlags += ["-lstdc++"]
+                }
                 break
             }
         }

@@ -151,22 +151,13 @@ public struct Destination: Encodable, Equatable {
         extraCCFlags += ["-fPIC"]
 #endif
 
-        var extraCPPFlags: [String] = []
-#if os(macOS)
-        extraCPPFlags += ["-lc++"]
-#elseif os(Windows)
-        extraCPPFlags += []
-#else
-        extraCPPFlags += ["-lstdc++"]
-#endif
-
         return Destination(
             target: nil,
             sdk: sdkPath,
             binDir: binDir,
             extraCCFlags: extraCCFlags,
             extraSwiftCFlags: extraSwiftCFlags,
-            extraCPPFlags: extraCPPFlags
+            extraCPPFlags: []
         )
     }
 
