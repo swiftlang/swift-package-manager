@@ -80,8 +80,7 @@ extension UserToolchain {
                     try Process.checkNonZeroExit(arguments: [outputPath.pathString])
                 }
             } catch {
-                // On any failure we assume false.
-                return false
+                preconditionFailure("does not support currency because: \(error)")
             }
             // If we get this far we could compile and run a trivial executable that uses libConcurrency, so we can say that this toolchain supports concurrency on this host.
             return true
