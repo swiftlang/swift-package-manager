@@ -1486,6 +1486,8 @@ components:
       properties:
         identifiers:
           type: array
+          items:
+            type: string
       required:
         - identifiers
     problem:
