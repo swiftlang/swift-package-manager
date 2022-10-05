@@ -30,17 +30,6 @@ extension Workspace {
         /// Path to scratch space (working) directory for this workspace (aka .build).
         public var scratchDirectory: AbsolutePath
 
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use scratchDirectory instead")
-        public var workingDirectory: AbsolutePath {
-            get {
-                self.scratchDirectory
-            }
-            set {
-                self.scratchDirectory = newValue
-            }
-        }
-
         /// Path to store the editable versions of dependencies.
         public var editsDirectory: AbsolutePath
 
@@ -139,27 +128,6 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use (scratchDirectory:) variant instead")
-        public init(
-            workingDirectory: AbsolutePath,
-            editsDirectory: AbsolutePath,
-            resolvedVersionsFile: AbsolutePath,
-            localConfigurationDirectory: AbsolutePath,
-            sharedConfigurationDirectory: AbsolutePath?,
-            sharedSecurityDirectory: AbsolutePath?,
-            sharedCacheDirectory: AbsolutePath?
-        ) {
-            self.scratchDirectory = workingDirectory
-            self.editsDirectory = editsDirectory
-            self.resolvedVersionsFile = resolvedVersionsFile
-            self.localConfigurationDirectory = localConfigurationDirectory
-            self.sharedConfigurationDirectory = sharedConfigurationDirectory
-            self.sharedSecurityDirectory = sharedSecurityDirectory
-            self.sharedCacheDirectory = sharedCacheDirectory
-            self.emitDeprecatedConfigurationWarning = true
-        }
-
         /// Create a new workspace location.
         ///
         /// - Parameters:
@@ -212,12 +180,6 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use scratchDirectory instead")
-        public static func workingDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            Self.scratchDirectory(forRootPackage: rootPath)
-        }
-
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(component: ".build")
         }
@@ -412,12 +374,6 @@ extension Workspace.Configuration {
                 localMirrorsFile: localMirrorConfigFile,
                 sharedMirrorsFile: sharedMirrorFile
             )
-        }
-
-        // deprecated 12/21
-        @available(*, deprecated, message: "using init(fileSystem:localMirrorsFile:sharedMirrorsFile) instead")
-        public init(localMirrorFile: AbsolutePath, sharedMirrorFile: AbsolutePath?, fileSystem: FileSystem) throws {
-            try self.init(fileSystem: fileSystem, localMirrorsFile: localMirrorFile, sharedMirrorsFile: sharedMirrorFile)
         }
 
         /// Initialize the workspace mirrors configuration
@@ -740,90 +696,5 @@ extension Workspace {
     /// Manages a package workspace's configuration.
     // FIXME change into enum after deprecation grace period
     public final class Configuration {
-        /// The path to the mirrors file.
-        private let configFile: AbsolutePath?
-
-        /// The filesystem to manage the mirrors file on.
-        private var fileSystem: FileSystem?
-
-        /// Persistence support.
-        private let persistence: SimplePersistence?
-
-        /// The schema version of the config file.
-        ///
-        /// * 1: Initial version.
-        static let schemaVersion: Int = 1
-
-        /// The mirrors.
-        public private(set) var mirrors: DependencyMirrors = DependencyMirrors()
-
-        @available(*, deprecated)
-        public convenience init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
-            try self.init(path: path, fileSystem: fs)
-        }
-
-        /// Creates a new, persisted package configuration with a configuration file.
-        /// - Parameters:
-        ///   - path: A path to the configuration file.
-        ///   - fileSystem: The filesystem on which the configuration file is located.
-        /// - Throws: `StringError` if the configuration file is corrupted or malformed.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public init(path: AbsolutePath, fileSystem: FileSystem) throws {
-            self.configFile = path
-            self.fileSystem = fileSystem
-            let persistence = SimplePersistence(
-                fileSystem: fileSystem,
-                schemaVersion: Self.schemaVersion,
-                statePath: path,
-                prettyPrint: true
-            )
-
-            do {
-                self.persistence = persistence
-                _ = try persistence.restoreState(self)
-            } catch SimplePersistence.Error.restoreFailure(_, let error) {
-                throw StringError("Configuration file is corrupted or malformed; fix or delete the file to continue: \(error)")
-            }
-        }
-
-        /// Load the configuration from disk.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public func restoreState() throws {
-            _ = try self.persistence?.restoreState(self)
-        }
-
-        /// Persists the current configuration to disk.
-        ///
-        /// If the configuration is empty, any persisted configuration file is removed.
-        ///
-        /// - Throws: If the configuration couldn't be persisted.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public func saveState() throws {
-            guard let persistence = self.persistence else { return }
-
-            // Remove the configuration file if there aren't any mirrors.
-            if mirrors.isEmpty,
-               let fileSystem = self.fileSystem,
-               let configFile = self.configFile
-            {
-                return try fileSystem.removeFileTree(configFile)
-            }
-
-            try persistence.saveState(self)
-        }
-    }
-}
-
-@available(*, deprecated, message: "use Configuration.Mirrors instead")
-extension Workspace.Configuration: JSONSerializable {
-    public func toJSON() -> JSON {
-        return mirrors.toJSON()
-    }
-}
-
-@available(*, deprecated, message: "use Configuration.Mirrors instead")
-extension Workspace.Configuration: SimplePersistanceProtocol {
-    public func restore(from json: JSON) throws {
-        self.mirrors = try DependencyMirrors(json: json)
     }
 }
