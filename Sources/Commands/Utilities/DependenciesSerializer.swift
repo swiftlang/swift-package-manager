@@ -46,7 +46,7 @@ final class PlainTextDumper: DependenciesDumper {
             stream <<< (".\n")
             recursiveWalk(packages: rootpkg.dependencies)
         } else {
-            stream <<< "No external dependencies found\n"
+            stream <<< "No external dependencies found; if this is unexpected, try '--update' to fetch manifests to get the latest dependencies\n"
         }
     }
 }
@@ -107,7 +107,7 @@ final class DotDumper: DependenciesDumper {
             recursiveWalk(rootpkg: rootpkg)
             stream <<< "}\n"
         } else {
-            stream <<< "No external dependencies found\n"
+            stream <<< "No external dependencies found; if this is unexpected, try '--update' to fetch manifests to get the latest dependencies\n"
         }
     }
 }

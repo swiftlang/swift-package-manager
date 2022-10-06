@@ -606,7 +606,9 @@ public class SwiftTool {
         explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
-        createREPLProduct: Bool = false
+        createREPLProduct: Bool = false,
+        skipResolve: Bool = false,
+        exitOnError: Bool = true
     ) throws -> PackageGraph {
         do {
             let workspace = try getActiveWorkspace()
@@ -618,13 +620,14 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
+                skipResolve: skipResolve,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !self.observabilityScope.errorsReported else {
+            if self.observabilityScope.errorsReported && exitOnError {
                 throw ExitCode.failure
             }
             return graph

@@ -523,10 +523,24 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testShowDependenciesUpdateOption() throws {
+        try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "app")
+            let textOutput0 = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies"], packagePath: packageRoot).utf8Output()
+            XCTAssert(textOutput0.contains("No external dependencies found; if this is unexpected, try '--update' to fetch manifests to get the latest dependencies"))
+
+            let textOutput1 = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--update"], packagePath: packageRoot).utf8Output()
+            XCTAssert(textOutput1.contains("FisherYates@1.2.3"))
+
+            let textOutput2 = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies"], packagePath: packageRoot).utf8Output()
+            XCTAssert(textOutput2.contains("FisherYates@1.2.3"))
+        }
+    }
+
     func testShowDependencies() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")
-            let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
+            let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text", "--update"], packagePath: packageRoot).utf8Output()
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
             let jsonOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=json"], packagePath: packageRoot).utf8Output()
@@ -688,7 +702,7 @@ final class PackageToolTests: CommandsTestCase {
             }
 
             let resultPath = root.appending(component: "result.json")
-            _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
+            _ = try execute(["show-dependencies", "--update", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
 
             XCTAssertFileExists(resultPath)
             let jsonOutput: Data = try fs.readFileContents(resultPath)

@@ -749,8 +749,12 @@ extension SwiftPackageTool {
                 help: "The absolute or relative path to output the resolved dependency graph.")
         var outputPath: AbsolutePath?
 
+        @Flag(name: .long,
+              help: "Fetches or updates manifests to get the dependencies if not cached (can be expensive).")
+        var update: Bool = false
+
         func run(_ swiftTool: SwiftTool) throws {
-            let graph = try swiftTool.loadPackageGraph()
+            let graph = try swiftTool.loadPackageGraph(skipResolve: !update, exitOnError: false)
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
             let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream

@@ -1067,6 +1067,7 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
+        skipResolve: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         observabilityScope: ObservabilityScope
@@ -1089,6 +1090,7 @@ extension Workspace {
                 root: root,
                 explicitProduct: explicitProduct,
                 forceResolution: false,
+                skipResolve: skipResolve,
                 constraints: [],
                 observabilityScope: observabilityScope
             )
@@ -2435,6 +2437,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolution: Bool,
+        skipResolve: Bool = false,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
@@ -2449,6 +2452,12 @@ extension Workspace {
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+
+        // Skip resolving (can be expensive) for cmds such as show-dependencies
+        if skipResolve {
+            return currentManifests
+        }
+
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
