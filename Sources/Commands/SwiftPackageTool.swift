@@ -750,15 +750,19 @@ extension SwiftPackageTool {
         var outputPath: AbsolutePath?
 
         @Flag(name: .long,
-              help: "Fetches or updates manifests to get the dependencies if not cached (can be expensive).")
-        var update: Bool = false
+              help: "Shows cached dependencies. By default it fetches or updates manifests if needed, which can be expensive.")
+        var skipResolve: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let graph = try swiftTool.loadPackageGraph(skipResolve: !update, exitOnError: false)
+            let graph = try swiftTool.loadPackageGraph(skipResolve: skipResolve, exitOnError: false)
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
-            let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
-            Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+            if let root = graph.rootPackages.first {
+                let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
+                Self.dumpDependenciesOf(rootPackage: root, mode: format, on: stream)
+            } else {
+                swiftTool.observabilityScope.emit(warning: "No packages found to show dependencies")
+            }
         }
 
         static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {

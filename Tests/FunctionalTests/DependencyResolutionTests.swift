@@ -92,7 +92,7 @@ class DependencyResolutionTests: XCTestCase {
 
             // run with no mirror
             do {
-                let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies", "--update"])
+                let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
                 // logs are in stderr
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Foo\n"))
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Bar\n"))
@@ -118,7 +118,7 @@ class DependencyResolutionTests: XCTestCase {
 
             // run with mirror
             do {
-                let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies", "--update"])
+                let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
                 // logs are in stderr
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Foo\n"))
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/BarMirror\n"))
