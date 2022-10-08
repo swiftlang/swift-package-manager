@@ -330,6 +330,17 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        .target(
+            /** Perform mechanical edits to the package manifest */
+            name: "PackageSyntax",
+            dependencies: [
+                "PackageGraph",
+                "PackageModel",
+                "Workspace",
+                "Basics",
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
 
         // MARK: Commands
 
@@ -384,6 +395,12 @@ let package = Package(
             name: "swift-package-registry",
             dependencies: ["Commands"],
             exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Perform mechanical edits to the package manifest */
+            name: "swift-package-editor",
+            dependencies: ["PackageSyntax",
+                           .product(name: "ArgumentParser", package: "swift-argument-parser")]
         ),
         .executableTarget(
             /** Shim tool to find test names on OS X */
@@ -537,6 +554,10 @@ let package = Package(
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        .testTarget(
+            name: "PackageSyntaxTests",
+            dependencies: ["PackageSyntax"]
+        ),
 
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
@@ -586,6 +607,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-syntax.git", .branch(relatedDependenciesBranch)),
     ]
 } else {
     package.dependencies += [
@@ -595,5 +617,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
+        .package(path: "../swift-syntax"),
     ]
 }
