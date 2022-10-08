@@ -607,7 +607,7 @@ public class SwiftTool {
         createMultipleTestProducts: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
         createREPLProduct: Bool = false,
-        skipResolve: Bool = false,
+        currentOnly: Bool = false,
         exitOnError: Bool = true
     ) throws -> PackageGraph {
         do {
@@ -620,7 +620,7 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
-                skipResolve: skipResolve,
+                currentOnly: currentOnly,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
             )

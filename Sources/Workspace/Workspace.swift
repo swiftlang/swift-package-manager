@@ -1067,7 +1067,7 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
-        skipResolve: Bool = false,
+        currentOnly: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         observabilityScope: ObservabilityScope
@@ -1079,7 +1079,10 @@ extension Workspace {
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
-        if forceResolvedVersions {
+        if currentOnly {
+            let (_, _, currentManifests) = try self.currentManifests(root: root, explicitProduct: explicitProduct, observabilityScope: observabilityScope)
+            manifests = currentManifests
+        } else if forceResolvedVersions {
             manifests = try self.resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
@@ -1090,7 +1093,6 @@ extension Workspace {
                 root: root,
                 explicitProduct: explicitProduct,
                 forceResolution: false,
-                skipResolve: skipResolve,
                 constraints: [],
                 observabilityScope: observabilityScope
             )
@@ -2426,6 +2428,19 @@ extension Workspace {
         return currentManifests
     }
 
+    fileprivate func currentManifests(root: PackageGraphRootInput,
+                          explicitProduct: String?,
+                          observabilityScope: ObservabilityScope) throws -> (PackageGraphRoot, ToolsVersion, DependencyManifests) {
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let manifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+        return (graphRoot, rootManifestsMinimumToolsVersion, manifests)
+    }
+
     /// Implementation of resolve(root:diagnostics:).
     ///
     /// The extra constraints will be added to the main requirements.
@@ -2437,7 +2452,6 @@ extension Workspace {
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolution: Bool,
-        skipResolve: Bool = false,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
@@ -2445,18 +2459,7 @@ extension Workspace {
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
-        // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.current
-
-        // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
-
-        // Skip resolving (can be expensive) for cmds such as show-dependencies
-        if skipResolve {
-            return currentManifests
-        }
+        let (graphRoot, rootManifestsMinimumToolsVersion, currentManifests) = try currentManifests(root: root, explicitProduct: explicitProduct, observabilityScope: observabilityScope)
 
         guard !observabilityScope.errorsReported else {
             return currentManifests

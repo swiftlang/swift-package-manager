@@ -754,7 +754,7 @@ extension SwiftPackageTool {
         var skipResolve: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let graph = try swiftTool.loadPackageGraph(skipResolve: skipResolve, exitOnError: false)
+            let graph = try swiftTool.loadPackageGraph(currentOnly: skipResolve, exitOnError: false)
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
             if let root = graph.rootPackages.first {
