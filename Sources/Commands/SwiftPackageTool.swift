@@ -665,7 +665,7 @@ extension SwiftPackageTool {
         var preserveStructure: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
+            let graph = try swiftTool.loadPackageGraph()
             let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
             let builder = PIFBuilder(
                 graph: graph,
@@ -675,6 +675,10 @@ extension SwiftPackageTool {
             )
             let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
             print(pif)
+        }
+
+        var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+            return .init(wantsMultipleTestProducts: true)
         }
     }
 

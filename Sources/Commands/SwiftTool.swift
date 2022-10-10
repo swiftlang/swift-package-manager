@@ -201,15 +201,27 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func didDownloadAllBinaryArtifacts() {}
 }
 
+struct ToolWorkspaceConfiguration {
+    let wantsMultipleTestProducts: Bool
+    let wantsREPLProduct: Bool
+
+    init(wantsMultipleTestProducts: Bool = false,
+         wantsREPLProduct: Bool = false) {
+        self.wantsMultipleTestProducts = wantsMultipleTestProducts
+        self.wantsREPLProduct = wantsREPLProduct
+    }
+}
+
 protocol SwiftCommand: ParsableCommand {
     var globalOptions: GlobalOptions { get }
+    var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
 
     func run(_ swiftTool: SwiftTool) throws
 }
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: globalOptions)
+        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration)
         var toolError: Error? = .none
         do {
             try self.run(swiftTool)
@@ -229,6 +241,10 @@ extension SwiftCommand {
     }
 
     public static var _errorLabel: String { "error" }
+
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        return .init()
+    }
 }
 
 /// A safe wrapper of TSCBasic.exec.
@@ -315,26 +331,29 @@ public class SwiftTool {
     /// The file system in use
     let fileSystem: FileSystem
 
+    private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    convenience init(options: GlobalOptions) throws {
+    convenience init(options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init()) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
         // CLI commands that have user facing output, use stdout directly to emit the final result
         // this means that the build output from "swift build" goes to stdout
         // but the build output from "swift test" goes to stderr, while the tests output go to stdout
-        try self.init(outputStream: TSCBasic.stderrStream, options: options)
+        try self.init(outputStream: TSCBasic.stderrStream, options: options, toolWorkspaceConfiguration: toolWorkspaceConfiguration)
     }
 
     // marked internal for testing
-    internal init(outputStream: OutputByteStream, options: GlobalOptions) throws {
+    internal init(outputStream: OutputByteStream, options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init()) throws {
         self.fileSystem = localFileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
+        self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
 
         let cancellator = Cancellator(observabilityScope: self.observabilityScope)
 
@@ -513,6 +532,8 @@ public class SwiftTool {
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
+                shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem == .xcode,
+                createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
@@ -604,9 +625,7 @@ public class SwiftTool {
     @discardableResult
     func loadPackageGraph(
         explicitProduct: String? = nil,
-        createMultipleTestProducts: Bool = false,
-        testEntryPointPath: AbsolutePath? = nil,
-        createREPLProduct: Bool = false
+        testEntryPointPath: AbsolutePath? = nil
     ) throws -> PackageGraph {
         do {
             let workspace = try getActiveWorkspace()
@@ -615,8 +634,6 @@ public class SwiftTool {
             let graph = try workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
-                createMultipleTestProducts: createMultipleTestProducts,
-                createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
                 observabilityScope: self.observabilityScope
@@ -746,7 +763,7 @@ public class SwiftTool {
                 customObservabilityScope: customObservabilityScope
             )
         case .xcode:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
+            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
             // FIXME: Implement the custom build command provider also.
             buildSystem = try XcodeBuildSystem(
                 buildParameters: customBuildParameters ?? self.buildParameters(),
