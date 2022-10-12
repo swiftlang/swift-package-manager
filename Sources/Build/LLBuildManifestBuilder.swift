@@ -553,7 +553,7 @@ extension LLBuildManifestBuilder {
             if target.type == .executable {
                 // FIXME: Optimize.
                 let _product = try plan.graph.allProducts.first {
-                    try $0.type == .executable && $0.executableTarget() == target
+                    try $0.type == .executable && $0.executableTarget == target
                 }
                 if let product = _product {
                     guard let planProduct = plan.productMap[product] else {

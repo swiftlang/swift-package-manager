@@ -1010,6 +1010,7 @@ extension SwiftPackageTool {
             try PluginCommand.run(
                 plugin: matchingPlugins[0],
                 package: packageGraph.rootPackages[0],
+                packageGraph: packageGraph,
                 options: pluginOptions,
                 arguments: arguments,
                 swiftTool: swiftTool)
@@ -1018,6 +1019,7 @@ extension SwiftPackageTool {
         static func run(
             plugin: PluginTarget,
             package: ResolvedPackage,
+            packageGraph: PackageGraph,
             options: PluginOptions,
             arguments: [String],
             swiftTool: SwiftTool
@@ -1080,29 +1082,17 @@ extension SwiftPackageTool {
             
             // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
             var toolNamesToPaths: [String: AbsolutePath] = [:]
-            for dep in plugin.dependencies(satisfying: try swiftTool.buildParameters().buildEnvironment) {
+            for dep in try plugin.accessibleTools(packageGraph: packageGraph, fileSystem: swiftTool.fileSystem, environment: try swiftTool.buildParameters().buildEnvironment, for: try pluginScriptRunner.hostTriple) {
                 let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
                 switch dep {
-                case .product(let productRef, _):
-                    // Build the product referenced by the tool, and add the executable to the tool map.
-                    try buildOperation.build(subset: .product(productRef.name))
-                    if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == productRef.name}) {
-                        toolNamesToPaths[productRef.name] = builtTool.binary
+                case .builtTool(let name, _):
+                    // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
+                    try buildOperation.build(subset: .product(name))
+                    if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == name}) {
+                        toolNamesToPaths[name] = builtTool.binary
                     }
-                case .target(let target, _):
-                    if let target = target as? BinaryTarget {
-                        // Add the executables vended by the binary target to the tool map.
-                        for exec in try target.parseArtifactArchives(for: pluginScriptRunner.hostTriple, fileSystem: swiftTool.fileSystem) {
-                            toolNamesToPaths[exec.name] = exec.executablePath
-                        }
-                    }
-                    else {                        
-                        // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-                        try buildOperation.build(subset: .product(target.name))
-                        if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == target.name}) {
-                            toolNamesToPaths[target.name] = builtTool.binary
-                        }
-                    }
+                case .vendedTool(let name, let path):
+                    toolNamesToPaths[name] = path
                 }
             }
             
@@ -1536,6 +1526,7 @@ extension SwiftPackageTool {
             try PluginCommand.run(
                 plugin: matchingPlugins[0],
                 package: packageGraph.rootPackages[0],
+                packageGraph: packageGraph,
                 options: pluginOptions,
                 arguments: Array( remaining.dropFirst()),
                 swiftTool: swiftTool)

@@ -43,11 +43,16 @@ public final class ResolvedProduct {
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
-    public func executableTarget() throws -> ResolvedTarget {
-        guard type == .executable || type == .snippet else {
-            throw InternalError("firstExecutableModule should only be called for executable targets")
+    public var executableTarget: ResolvedTarget {
+        get throws {
+            guard type == .executable || type == .snippet else {
+                throw InternalError("`executableTarget` should only be called for executable targets")
+            }
+            guard let underlyingExecutableTarget = targets.map({ $0.underlyingTarget }).executables.first, let executableTarget = targets.first(where: { $0.underlyingTarget == underlyingExecutableTarget }) else {
+                throw InternalError("could not determine executable target")
+            }
+            return executableTarget
         }
-        return targets.first(where: { $0.type == .executable || $0.type == .snippet })!
     }
 
     public init(product: Product, targets: [ResolvedTarget]) {

@@ -355,7 +355,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
+                let accessibleTools = try pluginTarget.accessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
@@ -502,29 +502,34 @@ public extension PluginTarget {
     }
 
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
-        return Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
+    func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
+        return try Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
+            let builtToolName: String
+            let executableOrBinaryTarget: Target
             switch dependency {
             case .target(let target, _):
-                // For a binary target we create a `vendedTool`.
-                if let target = target as? BinaryTarget {
-                    // TODO: Memoize this result for the host triple
-                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem) else {
-                        // TODO: Deal better with errors in parsing the artifacts
-                        return []
-                    }
-                    return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+                builtToolName = target.name
+                executableOrBinaryTarget = target
+            case .product(let productRef, _):
+                guard let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }), let executableTarget = product.targets.map({ $0.underlyingTarget }).executables.spm_only else {
+                    throw StringError("no product named \(productRef.name)")
                 }
-                // For an executable target we create a `builtTool`.
-                else if target.type == .executable {
-                    // TODO: How do we determine what the executable name will be for the host platform?
-                    return [.builtTool(name: target.name, path: RelativePath(target.name))]
-                }
-                else {
-                    return []
-                }
-            case .product(let product, _):
-                return [.builtTool(name: product.name, path: RelativePath(product.name))]
+                builtToolName = productRef.name
+                executableOrBinaryTarget = executableTarget
+            }
+
+            // For a binary target we create a `vendedTool`.
+            if let target = executableOrBinaryTarget as? BinaryTarget {
+                // TODO: Memoize this result for the host triple
+                let execInfos = try target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+            }
+            // For an executable target we create a `builtTool`.
+            else if executableOrBinaryTarget.type == .executable {
+                return [.builtTool(name: builtToolName, path: RelativePath(executableOrBinaryTarget.name))]
+            }
+            else {
+                return []
             }
         })
     }

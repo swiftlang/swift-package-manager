@@ -1290,7 +1290,7 @@ public final class PackageBuilder {
     }
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
-        let executableTargetCount = targets.filter { $0.type == .executable }.count
+        let executableTargetCount = targets.executables.count
         guard executableTargetCount == 1 else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {

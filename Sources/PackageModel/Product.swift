@@ -43,7 +43,7 @@ public class Product: Codable {
             throw InternalError("Targets cannot be empty")
         }
         if type == .executable {
-            guard targets.filter({ $0.type == .executable }).count == 1 else {
+            guard targets.executables.count == 1 else {
                 throw InternalError("Executable products should have exactly one executable target.")
             }
         }
