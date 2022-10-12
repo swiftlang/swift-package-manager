@@ -16,6 +16,7 @@ import TSCBasic
 
 import SPMBuildCore
 import Basics
+import CoreCommands
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -62,7 +63,7 @@ struct APIDigesterBaselineDumper {
         for modulesToDiff: Set<String>,
         at baselineDir: AbsolutePath?,
         force: Bool,
-        logLevel: Diagnostic.Severity,
+        logLevel: Basics.Diagnostic.Severity,
         swiftTool: SwiftTool
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff

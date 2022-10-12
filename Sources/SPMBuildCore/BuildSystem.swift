@@ -103,7 +103,7 @@ public struct BuildSystemProvider {
         _ customObservabilityScope: ObservabilityScope?
     ) throws -> BuildSystem
 
-    private let providers: [Kind:Provider]
+    public let providers: [Kind:Provider]
 
     public init(providers: [Kind:Provider]) {
         self.providers = providers
