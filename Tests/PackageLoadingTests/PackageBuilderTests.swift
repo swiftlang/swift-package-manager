@@ -577,24 +577,6 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testEmptyProductNameError() throws {
-        let fs = InMemoryFileSystem(emptyFiles: "/Sources/best/best.swift")
-
-        let manifest = Manifest.createRootManifest(
-            name: "pkg",
-            products: [
-                try ProductDescription(name: "", type: .library(.automatic), targets: ["best"]),
-            ],
-            targets: [
-                try TargetDescription(name: "best"),
-            ]
-        )
-
-        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "product names can not be empty", severity: .error)
-        }
-    }
-
     func testMultipleTestEntryPointsError() throws {
         let name = SwiftTarget.defaultTestEntryPointName
         let swift: AbsolutePath = AbsolutePath("/swift")

@@ -181,7 +181,6 @@ extension Target.Error.ModuleNameProblem: CustomStringConvertible {
 extension Product {
     /// An error in a product definition.
     enum Error: Swift.Error {
-        case emptyName
         case moduleEmpty(product: String, target: String)
     }
 }
@@ -189,8 +188,6 @@ extension Product {
 extension Product.Error: CustomStringConvertible {
     var description: String {
         switch self {
-        case .emptyName:
-            return "product names can not be empty"
         case .moduleEmpty(let product, let target):
             return "target '\(target)' referenced in product '\(product)' is empty"
         }
@@ -1150,10 +1147,6 @@ public final class PackageBuilder {
             filteredProducts = self.manifest.products.filter { set.contains($0.name) }
         }
         for product in filteredProducts {
-            if product.name.isEmpty {
-                throw Product.Error.emptyName
-            }
-
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)
             // Perform special validations if this product is exporting
             // a system library target.
