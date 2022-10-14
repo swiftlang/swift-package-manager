@@ -1072,7 +1072,7 @@ extension SwiftPackageTool {
             
             // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
             var toolNamesToPaths: [String: AbsolutePath] = [:]
-            for dep in plugin.dependencies {
+            for dep in plugin.dependencies(satisfying: try swiftTool.buildParameters().buildEnvironment) {
                 let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
                 switch dep {
                 case .product(let productRef, _):

@@ -356,7 +356,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, for: pluginScriptRunner.hostTriple)
+                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, environment: buildEnvironment, for: pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
@@ -491,9 +491,13 @@ public enum PluginAccessibleTool: Hashable {
 
 public extension PluginTarget {
 
+    func dependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
+        return self.dependencies.filter { $0.satisfies(environment) }
+    }
+
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(fileSystem: FileSystem, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
-        return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
+    func accessibleTools(fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
+        return Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
             switch dependency {
             case .target(let target, _):
                 // For a binary target we create a `vendedTool`.
@@ -517,6 +521,19 @@ public extension PluginTarget {
                 return [.builtTool(name: product.name, path: RelativePath(product.name))]
             }
         })
+    }
+}
+
+fileprivate extension Target.Dependency {
+    var conditions: [PackageConditionProtocol] {
+        switch self {
+        case .target(_, let conditions): return conditions
+        case .product(_, let conditions): return conditions
+        }
+    }
+
+    func satisfies(_ environment: BuildEnvironment) -> Bool {
+        conditions.allSatisfy { $0.satisfies(environment) }
     }
 }
 
