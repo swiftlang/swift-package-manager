@@ -63,11 +63,16 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         callbackQueue.async {
-            let key = Key(url: packageLocation, version: packageVersion?.version)
-            if let result = self.manifests[key] {
+            let manifestKey = Key(url: packageLocation, version: packageVersion?.version)
+            let possiblyEditedManifestKey = Key(url: manifestPath.parentDirectory.pathString, version: nil)
+
+            if possiblyEditedManifestKey != manifestKey && packageVersion == nil,
+                let result = self.manifests[possiblyEditedManifestKey] {
+                return completion(.success(result))
+            } else if let result = self.manifests[manifestKey] {
                 return completion(.success(result))
             } else {
-                return completion(.failure(MockManifestLoaderError.unknownRequest("\(key)")))
+                return completion(.failure(MockManifestLoaderError.unknownRequest("\(manifestKey)")))
             }
         }
     }
