@@ -2257,6 +2257,150 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testEditToLocalPath() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar", "Baz"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                // Original dependencies
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // Edited dependencies
+                MockPackage(
+                    name: "Foo",
+                    path: "Foo1",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: [nil]
+                ),
+                MockPackage(
+                    name: "bar",
+                    path: "Bar1",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: [nil]
+                ),
+                MockPackage(
+                    name: "BazQux",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Qux"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                        MockProduct(name: "Qux", targets: ["Qux"]),
+                    ],
+                    versions: [nil]
+                ),
+            ]
+        )
+
+        // Load the graph.
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Bar", "Baz", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Try edit.
+        let fooPath = workspace.pathToPackage(withName: "Foo1")
+        workspace.checkEdit(packageName: "Foo", path: fooPath) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "Foo", at: .edited(fooPath))
+        }
+
+        // Try edit with different case.
+        let barPath = workspace.pathToPackage(withName: "Bar1")
+        workspace.checkEdit(packageName: "Bar", path: barPath) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "Bar", at: .edited(barPath))
+        }
+
+        // Try edit with different name.
+        let bazQuxPath = workspace.pathToPackage(withName: "BazQux")
+        workspace.checkEdit(packageName: "Baz", path: bazQuxPath) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: "package at '\(bazQuxPath)' is BazQux but was expecting Baz", severity: .warning)
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "Baz", at: .edited(bazQuxPath))
+        }
+
+        // FIXME: InMem file system cannot store unmanaged edits, so edited state will be lost after resolution.
+        #if false
+        // Test unediting.
+        workspace.checkUnedit(packageName: "Foo", roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkUnedit(packageName: "Bar", roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkUnedit(packageName: "Baz", roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        #endif
+    }
+
     func testMissingEditCanRestoreOriginalCheckout() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
