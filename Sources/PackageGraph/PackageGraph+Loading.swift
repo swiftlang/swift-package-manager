@@ -418,7 +418,9 @@ private func createResolvedPackages(
         let productDependencies = packageBuilder.dependencies
             .flatMap({ (dependency: ResolvedPackageBuilder) -> [ResolvedProductBuilder] in
                 // Filter out synthesized products such as tests and implicit executables.
-                let explicit = Set(dependency.package.products.lazy.map({ lookupByProductIDs ?  $0.identity : $0.name }))
+                let manifestProducts = dependency.package.manifest.products.lazy.map { $0.name }
+                let filteredProducts = dependency.package.products.filter { manifestProducts.contains($0.name) }
+                let explicit = Set(filteredProducts.lazy.map({ lookupByProductIDs ?  $0.identity : $0.name }))
                 return dependency.products.filter({ lookupByProductIDs ? explicit.contains($0.product.identity) : explicit.contains($0.product.name) })
             })
         let productDependencyMap = lookupByProductIDs ? productDependencies.spm_createDictionary({ ($0.product.identity, $0) }) : productDependencies.spm_createDictionary({ ($0.product.name, $0) })
