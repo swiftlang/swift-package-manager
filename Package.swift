@@ -603,6 +603,8 @@ if ProcessInfo.processInfo.environment["DISABLE_TARGET_BASED_DEPENDENCY_RESOLUTI
     for target in package.targets {
         var swiftSettings = target.swiftSettings ?? []
         defer { target.swiftSettings = swiftSettings }
-        swiftSettings.append(.define("ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION"))
+        if target.name != "SPMSQLite3" {
+            swiftSettings.append(.define("ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION"))
+        }
     }
 }
