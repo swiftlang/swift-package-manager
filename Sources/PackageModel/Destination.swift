@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import SystemPackage
 import TSCBasic
 
 import struct TSCUtility.Triple
@@ -262,22 +263,39 @@ extension Destination {
     public init(fromFile path: AbsolutePath, fileSystem: FileSystem) throws {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
+        
         // Check schema version.
-        guard version.version == 1 else {
+        switch version.version {
+        case 1:
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV1.self)
+            try self.init(
+                target: destination.target.map{ try Triple($0) },
+                sdk: destination.sdk,
+                binDir: destination.binDir,
+                extraFlags: .init(
+                    cCompilerFlags: destination.extraCCFlags,
+                    cxxCompilerFlags: destination.extraCPPFlags,
+                    swiftCompilerFlags: destination.extraSwiftCFlags
+                )
+            )
+        case 2:
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV2.self)
+            let destinationDirectory = path.parentDirectory
+            
+            try self.init(
+                target: Triple(destination.destinationTriple),
+                sdk: AbsolutePath(validating: destination.sdkDir, relativeTo: destinationDirectory),
+                binDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
+                extraFlags: .init(
+                    cCompilerFlags: destination.extraCCFlags,
+                    cxxCompilerFlags: destination.extraCPPFlags,
+                    swiftCompilerFlags: destination.extraSwiftCFlags,
+                    linkerFlags: destination.extraLinkerFlags
+                )
+            )
+        default:
             throw DestinationError.invalidSchemaVersion
         }
-        let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfo.self)
-        try self.init(
-            destinationTriple: destination.target.map{ try Triple($0) },
-            sdkRootDir: destination.sdk,
-            toolchainBinDir: destination.binDir,
-            extraFlags: BuildFlags(
-                cCompilerFlags: destination.extraCCFlags,
-                // maintaining `destination.extraCPPFlags` naming inconsistency for compatibility.
-                cxxCompilerFlags: destination.extraCPPFlags,
-                swiftCompilerFlags: destination.extraSwiftCFlags
-            )
-        )
     }
 }
 
@@ -285,7 +303,7 @@ fileprivate struct VersionInfo: Codable {
     let version: Int
 }
 
-fileprivate struct DestinationInfo: Codable {
+fileprivate struct DestinationInfoV1: Codable {
     let target: String?
     let sdk: AbsolutePath?
     let binDir: AbsolutePath
@@ -301,4 +319,15 @@ fileprivate struct DestinationInfo: Codable {
         case extraSwiftCFlags = "extra-swiftc-flags"
         case extraCPPFlags = "extra-cpp-flags"
     }
+}
+
+fileprivate struct DestinationInfoV2: Codable {
+    let sdkDir: String
+    let toolchainBinDir: String
+    let hostTriple: String
+    let destinationTriple: String
+    let extraCCFlags: [String]
+    let extraSwiftCFlags: [String]
+    let extraCPPFlags: [String]
+    let extraLinkerFlags: [String]
 }
