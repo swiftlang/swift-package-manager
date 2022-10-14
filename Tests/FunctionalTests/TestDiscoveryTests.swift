@@ -54,11 +54,26 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
-    func testManifestOverride() throws {
+    func testDiscovery_whenNoTests() throws {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        try SwiftTarget.testManifestNames.forEach { name in
+        try fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // we are expecting that no warning is produced
+            XCTAssertNoMatch(stderr, .contains("warning:"))
+            // in "swift test" test output goes to stdout
+            XCTAssertMatch(stdout, .contains("Executed 0 tests"))
+        }
+    }
+
+    func testEntryPointOverride() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #endif
+        try SwiftTarget.testEntryPointNames.forEach { name in
             try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
@@ -73,13 +88,12 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
-    func testManifestOverrideIgnored() throws {
+    func testEntryPointOverrideIgnored() throws {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        let name = SwiftTarget.testManifestNames.first!
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let manifestPath = fixturePath.appending(components: "Tests", name)
+            let manifestPath = fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
             let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
             // in "swift test" build output goes to stderr

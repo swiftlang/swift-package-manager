@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import Foundation
 import OrderedCollections
@@ -1067,6 +1068,7 @@ extension Workspace {
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
         // reload state in case it was modified externally (eg by another process) before reloading the graph
@@ -1092,8 +1094,8 @@ extension Workspace {
             )
         }
 
-        let binaryArtifacts = try self.state.artifacts.reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
-            partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
+        let binaryArtifacts = self.state.artifacts.reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
+            partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(kind: artifact.kind, originURL: artifact.originURL, path: artifact.path)
         }
 
         // Load the graph.
@@ -1108,6 +1110,7 @@ extension Workspace {
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -1285,8 +1288,11 @@ extension Workspace {
                 // note this does not actually download remote artifacts and as such does not have the artifact's type or path
                 let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.reduce(into: [String: BinaryArtifact]()) { partial, target in
                     if let path = target.path {
-                        let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                        partial[target.name] = try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
+                        let artifactPath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
+                        guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifactPath, observabilityScope: observabilityScope) else {
+                            throw StringError("\(artifactPath) does not contain binary artifact")
+                        }
+                        partial[target.name] = BinaryArtifact(kind: artifactKind , originURL: .none, path: artifactPath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
                         let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
                         partial[target.name] = BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
@@ -2214,8 +2220,8 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
-                guard artifact.isMatchingDirectory(artifact.path) else {
-                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, expectedArtifactName: artifact.targetName))
+                guard let _ = try BinaryArtifactsManager.deriveBinaryArtifact(fileSystem: self.fileSystem, path: artifact.path, observabilityScope: observabilityScope) else {
+                    observabilityScope.emit(.localArtifactNotFound(artifactPath: artifact.path, targetName: artifact.targetName))
                     continue
                 }
                 artifactsToAdd.append(artifact)
@@ -3397,10 +3403,6 @@ fileprivate extension Workspace.ManagedArtifact {
             return nil
         }
     }
-
-    func kind() throws -> BinaryTarget.Kind {
-        return try BinaryTarget.Kind.forFileExtension(self.path.extension ?? "unknown")
-    }
 }
 
 // FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique
@@ -3660,7 +3662,7 @@ extension FileSystem {
 extension Workspace.Location {
     func validatingSharedLocations(
         fileSystem: FileSystem,
-        warningHandler: (String) -> Void
+        warningHandler: @escaping (String) -> Void
     ) throws -> Self {
         var location = self
 
@@ -3668,7 +3670,7 @@ extension Workspace.Location {
         if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
             // It may not always be possible to create default location (for example de to restricted sandbox),
             // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
             if defaultDirectory != nil, sharedConfigurationDirectory != defaultDirectory {
                 // custom location _must_ be writable, throw if we cannot access it
                 guard fileSystem.isWritable(sharedConfigurationDirectory) else {

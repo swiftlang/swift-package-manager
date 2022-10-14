@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Foundation
+#if swift(>=5.7)
+@preconcurrency import TSCBasic
+#else
 import TSCBasic
+#endif
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when

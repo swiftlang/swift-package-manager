@@ -32,13 +32,13 @@ public class Product: Codable {
     @PolymorphicCodableArray
     public var targets: [Target]
 
-    /// The path to test manifest file.
-    public let testManifest: AbsolutePath?
+    /// The path to test entry point file.
+    public let testEntryPointPath: AbsolutePath?
 
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(package: PackageIdentity, name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) throws {
+    public init(package: PackageIdentity, name: String, type: ProductType, targets: [Target], testEntryPointPath: AbsolutePath? = nil) throws {
         guard !targets.isEmpty else {
             throw InternalError("Targets cannot be empty")
         }
@@ -47,16 +47,16 @@ public class Product: Codable {
                 throw InternalError("Executable products should have exactly one executable target.")
             }
         }
-        if testManifest != nil {
+        if testEntryPointPath != nil {
             guard type == .test else {
-                throw InternalError("Test manifest should only be set on test products")
+                throw InternalError("Test entry point path should only be set on test products")
             }
         }
         self.name = name
         self.type = type
         self.ID = package.description.lowercased() + "_" + name
         self._targets = .init(wrappedValue: targets)
-        self.testManifest = testManifest
+        self.testEntryPointPath = testEntryPointPath
     }
 }
 

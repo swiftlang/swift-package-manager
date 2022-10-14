@@ -25,6 +25,7 @@ add_library(Basics
   Netrc.swift
   NSLock+Extensions.swift
   Observability.swift
+  SQLite.swift
   Sandbox.swift
   String+Extensions.swift
   Triple+Extensions.swift
@@ -38,7 +39,8 @@ target_link_libraries(Basics PUBLIC
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE
-   TSCclibc)
+  SPMSQLite3
+  TSCclibc)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Basics PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

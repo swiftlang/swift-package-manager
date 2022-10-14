@@ -30,6 +30,57 @@ public enum VersionSetSpecifier: Hashable {
     case ranges([Range<Version>])
 }
 
+extension VersionSetSpecifier: Equatable {
+    public static func ==(lhs: VersionSetSpecifier, rhs: VersionSetSpecifier) -> Bool {
+        switch (lhs, rhs) {
+        // Basic cases.
+        case (.any, .any):
+            return true
+        case (.empty, .empty):
+            return true
+        case (let .range(lhsRange), let .range(rhsRange)):
+            return lhsRange == rhsRange
+        case (let .exact(lhsExact), let .exact(rhsExact)):
+            return lhsExact == rhsExact
+        case (let .ranges(lhsRanges), let .ranges(rhsRanges)):
+            return lhsRanges == rhsRanges
+
+        // Empty is equivalent to an empty list of ranges or if the list contains one range where the lower bound equals the upper bound.
+        case (.empty, let .ranges(ranges)):
+            fallthrough
+        case (let .ranges(ranges), .empty):
+            return ranges.isEmpty || (ranges.count == 1 && ranges[0].lowerBound == ranges[0].upperBound)
+
+        // Empty is equivalent to a range where the lower bound equals the upper bound.
+        case (.empty, let .range(range)):
+            fallthrough
+        case (let .range(range), .empty):
+            return range.upperBound == range.lowerBound
+
+        // Exact is equal to a range that spans a single patch.
+        case (let .exact(exact), let .range(range)):
+            fallthrough
+        case (let .range(range), let .exact(exact)):
+            return range.lowerBound == exact && range.upperBound == exact.nextPatch()
+
+        // Exact is also equal to a list of ranges with one entry that spans a single patch.
+        case (let .exact(exact), let .ranges(ranges)):
+            fallthrough
+        case (let .ranges(ranges), let .exact(exact)):
+            return ranges.count == 1 && ranges[0].lowerBound == exact && ranges[0].upperBound == exact.nextPatch()
+
+        // A range is equal to a list of ranges with that one range.
+        case (let .range(range), let .ranges(ranges)):
+            fallthrough
+        case (let .ranges(ranges), let .range(range)):
+            return ranges.count == 1 && ranges[0] == range
+
+        default:
+            return false
+        }
+    }
+}
+
 extension VersionSetSpecifier {
     var isExact: Bool {
         switch self {
@@ -225,8 +276,12 @@ extension VersionSetSpecifier {
             }
 
             if lhs.lowerBound == rhs {
-                // Return empty if the range represents the exact version.
+                // Return empty if the range is empty. This means upper and lower bounds are equal since the range is half-open and there are no negative results here.
                 if lhs.lowerBound == lhs.upperBound {
+                    return .empty
+                }
+                // If there is exactly one patch between lower and upper bound, the range represent the lower bound as an exact version. So the range is empty in this case as well.
+                if lhs.lowerBound.nextPatch() == lhs.upperBound {
                     return .empty
                 }
                 return .range(rhs.nextPatch()..<lhs.upperBound)

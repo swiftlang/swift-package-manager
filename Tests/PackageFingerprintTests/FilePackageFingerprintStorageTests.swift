@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -36,8 +36,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try storage.put(package: otherPackage, version: Version("1.0.0"), fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0"))
 
         // A checksum file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintFilename)))
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: otherPackage.fingerprintFilename)))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintsFilename())))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: otherPackage.fingerprintsFilename())))
 
         // Fingerprints should be saved
         do {
@@ -115,6 +115,57 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         XCTAssertNoThrow(try storage.put(package: package, version: Version("1.0.0"),
                                          fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0")))
     }
+
+    func testHappyCase_PackageReferenceAPI() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/fingerprints")
+        let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+        let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
+        let packageRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: sourceControlURL), url: sourceControlURL)
+
+        try storage.put(package: packageRef, version: Version("1.0.0"), fingerprint: .init(origin: .sourceControl(sourceControlURL), value: "gitHash-1.0.0"))
+        try storage.put(package: packageRef, version: Version("1.1.0"), fingerprint: .init(origin: .sourceControl(sourceControlURL), value: "gitHash-1.1.0"))
+
+        // Fingerprints should be saved
+        let fingerprints = try storage.get(package: packageRef, version: Version("1.1.0"))
+        XCTAssertEqual(1, fingerprints.count)
+
+        XCTAssertEqual(sourceControlURL, fingerprints[.sourceControl]?.origin.url)
+        XCTAssertEqual("gitHash-1.1.0", fingerprints[.sourceControl]?.value)
+    }
+
+    func testDifferentRepoURLsThatHaveSameIdentity() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/fingerprints")
+        let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+        let fooURL = URL(string: "https://example.com/foo/LinkedList.git")!
+        let barURL = URL(string: "https://example.com/bar/LinkedList.git")!
+
+        // foo and bar have the same identity `LinkedList`
+        let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
+        let barRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: barURL), url: barURL)
+
+        try storage.put(package: fooRef, version: Version("1.0.0"), fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo"))
+        // This should succeed because they get written to different files
+        try storage.put(package: barRef, version: Version("1.0.0"), fingerprint: .init(origin: .sourceControl(barURL), value: "abcde-bar"))
+
+        XCTAssertNotEqual(try fooRef.fingerprintsFilename(), try barRef.fingerprintsFilename())
+
+        // A checksum file should have been created for each package
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: try fooRef.fingerprintsFilename())))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: try barRef.fingerprintsFilename())))
+
+        // This should fail because fingerprint for 1.0.0 already exists and it's different
+        XCTAssertThrowsError(try storage.put(package: fooRef, version: Version("1.0.0"),
+                                             fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo-foo"))) { error in
+            guard case PackageFingerprintStorageError.conflict = error else {
+                return XCTFail("Expected PackageFingerprintStorageError.conflict, got \(error)")
+            }
+        }
+
+        // This should succeed because fingerprint for 2.0.0 doesn't exist yet
+        try storage.put(package: fooRef, version: Version("2.0.0"), fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo"))
+    }
 }
 
 private extension PackageFingerprintStorage {
@@ -130,6 +181,30 @@ private extension PackageFingerprintStorage {
     }
 
     func put(package: PackageIdentity,
+             version: Version,
+             fingerprint: Fingerprint) throws {
+        return try tsc_await {
+            self.put(package: package,
+                     version: version,
+                     fingerprint: fingerprint,
+                     observabilityScope: ObservabilitySystem.NOOP,
+                     callbackQueue: .sharedConcurrent,
+                     callback: $0)
+        }
+    }
+
+    func get(package: PackageReference,
+             version: Version) throws -> [Fingerprint.Kind: Fingerprint] {
+        return try tsc_await {
+            self.get(package: package,
+                     version: version,
+                     observabilityScope: ObservabilitySystem.NOOP,
+                     callbackQueue: .sharedConcurrent,
+                     callback: $0)
+        }
+    }
+
+    func put(package: PackageReference,
              version: Version,
              fingerprint: Fingerprint) throws {
         return try tsc_await {

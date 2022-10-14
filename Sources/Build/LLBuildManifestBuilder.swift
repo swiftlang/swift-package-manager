@@ -86,7 +86,8 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        try self.addTestManifestGenerationCommand()
+        try self.addTestDiscoveryGenerationCommand()
+        try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
         for (_, description) in plan.productMap {
@@ -442,7 +443,7 @@ extension LLBuildManifestBuilder {
         for target: ResolvedTarget,
         dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap
     ) throws {
-        for dependency in target.dependencies {
+        for dependency in target.dependencies(satisfying: self.buildEnvironment) {
             switch dependency {
                 case .product:
                     // Product dependencies are broken down into the targets that make them up.
@@ -821,14 +822,8 @@ extension LLBuildManifestBuilder {
 // MARK:- Test File Generation
 
 extension LLBuildManifestBuilder {
-    fileprivate func addTestManifestGenerationCommand() throws {
-        for target in plan.targets {
-            guard case .swift(let target) = target,
-                target.isTestTarget,
-                target.isTestDiscoveryTarget else { continue }
-
-            let testDiscoveryTarget = target
-
+    fileprivate func addTestDiscoveryGenerationCommand() throws {
+        for testDiscoveryTarget in plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
                 .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
             let objectFiles = testTargets.flatMap{ $0.objects }.sorted().map(Node.file)
@@ -845,6 +840,48 @@ extension LLBuildManifestBuilder {
             )
         }
     }
+
+    fileprivate func addTestEntryPointGenerationCommand() throws {
+        for target in plan.targets {
+            guard case .swift(let target) = target,
+                  case .entryPoint(let isSynthesized) = target.testTargetRole,
+                  isSynthesized else { continue }
+
+            let testEntryPointTarget = target
+
+            // Get the Swift target build descriptions of all discovery targets this synthesized entry point target depends on.
+            let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
+                .compactMap(\.target)
+                .compactMap { plan.targetMap[$0] }
+                .compactMap(\.testDiscoveryTargetBuildDescription)
+
+            // The module outputs of the discovery targets this synthesized entry point target depends on are
+            // considered the inputs to the entry point command.
+            let inputs = discoveredTargetDependencyBuildDescriptions.map { $0.moduleOutputPath }
+
+            let outputs = testEntryPointTarget.target.sources.paths
+
+            guard let mainOutput = (outputs.first{ $0.basename == TestEntryPointTool.mainFileName }) else {
+                throw InternalError("main output (\(TestEntryPointTool.mainFileName)) not found")
+            }
+            let cmdName = mainOutput.pathString
+            manifest.addTestEntryPointCmd(
+                name: cmdName,
+                inputs: inputs.map(Node.file),
+                outputs: outputs.map(Node.file)
+            )
+        }
+    }
+}
+
+private extension TargetBuildDescription {
+    /// If receiver represents a Swift target build description whose test target role is Discovery,
+    /// then this returns that Swift target build description, else returns nil.
+    var testDiscoveryTargetBuildDescription: SwiftTargetBuildDescription? {
+        guard case .swift(let targetBuildDescription) = self,
+              case .discovery = targetBuildDescription.testTargetRole else { return nil }
+        return targetBuildDescription
+    }
 }
 
 // MARK: - Product Command
@@ -853,14 +890,17 @@ extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.product.getCommandName(config: buildConfig)
 
-        // Create archive tool for static library and shell tool for rest of the products.
-        if buildProduct.product.type == .library(.static) {
-            manifest.addArchiveCmd(
+        switch buildProduct.product.type {
+        case .library(.static):
+            manifest.addShellCmd(
                 name: cmdName,
+                description: "Archiving \(buildProduct.binary.prettyPath())",
                 inputs: buildProduct.objects.map(Node.file),
-                outputs: [.file(buildProduct.binary)]
+                outputs: [.file(buildProduct.binary)],
+                arguments: try buildProduct.archiveArguments()
             )
-        } else {
+
+        default:
             let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
 
             manifest.addShellCmd(

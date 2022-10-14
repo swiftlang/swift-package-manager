@@ -18,6 +18,9 @@ import TSCBasic
 /// These requirements are abstracted out to make it easier to add support for
 /// using the package manager with alternate toolchains in the future.
 public struct ToolchainConfiguration {
+    /// The path of the librarian.
+    public var librarianPath: AbsolutePath
+
     /// The path of the swift compiler.
     public var swiftCompilerPath: AbsolutePath
 
@@ -43,13 +46,15 @@ public struct ToolchainConfiguration {
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
-    ///     - swiftCompilerPath: The absolute path of the associated swift compiler  executable (`swiftc`).
+    ///     - librarianPath: The absolute path to the librarian
+    ///     - swiftCompilerPath: The absolute path of the associated swift compiler executable (`swiftc`).
     ///     - swiftCompilerFlags: Extra flags to pass to the Swift compiler.
     ///     - swiftCompilerEnvironment: Environment variables to pass to the Swift compiler.
     ///     - swiftPMLibrariesRootPath: Custom path for SwiftPM libraries. Computed based on the compiler path by default.
     ///     - sdkRootPath: Optional path to SDK root.
     ///     - xctestPath: Optional path to XCTest.
     public init(
+        librarianPath: AbsolutePath,
         swiftCompilerPath: AbsolutePath,
         swiftCompilerFlags: [String] = [],
         swiftCompilerEnvironment: EnvironmentVariables = .process(),
@@ -61,6 +66,7 @@ public struct ToolchainConfiguration {
             return .init(swiftCompilerPath: swiftCompilerPath)
         }()
 
+        self.librarianPath = librarianPath
         self.swiftCompilerPath = swiftCompilerPath
         self.swiftCompilerFlags = swiftCompilerFlags
         self.swiftCompilerEnvironment = swiftCompilerEnvironment

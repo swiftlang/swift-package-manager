@@ -239,6 +239,7 @@ public final class Manifest {
 
     /// Returns the targets required for building the provided products.
     public func targetsRequired(for products: [ProductDescription]) -> [TargetDescription] {
+        let productsByName = Dictionary(products.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let targetsByName = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
         let productTargetNames = products.flatMap({ $0.targets })
 
@@ -258,7 +259,13 @@ public final class Manifest {
                 let plugins: [String] = target.pluginUsages?.compactMap { pluginUsage in
                     switch pluginUsage {
                     case .plugin(name: let name, package: nil):
-                        return targetsByName.keys.contains(name) ? name : nil
+                        if targetsByName.keys.contains(name) {
+                            return name
+                        } else if let targetName = productsByName[name]?.targets.first {
+                            return targetName
+                        } else {
+                            return nil
+                        }
                     default:
                         return nil
                     }

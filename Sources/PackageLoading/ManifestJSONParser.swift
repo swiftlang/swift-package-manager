@@ -231,7 +231,7 @@ enum ManifestJSONParser {
                 "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil
               )
             }
-            return AbsolutePath(location).pathString
+            return try AbsolutePath(validating: location).pathString
         } else if parseScheme(dependencyLocation) == nil {
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
             switch packageKind {

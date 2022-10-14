@@ -31,7 +31,6 @@ let swiftPMDataModelProduct = (
         "PackageModel",
         "SourceControl",
         "Workspace",
-        "Xcodeproj",
     ]
 )
 
@@ -171,9 +170,12 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
+        .systemLibrary(name: "SPMSQLite3", pkgConfig: "sqlite3"),
+
         .target(
             name: "Basics",
             dependencies: [
+                "SPMSQLite3",
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
@@ -316,12 +318,6 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .target(
-            /** Generates Xcode projects */
-            name: "Xcodeproj",
-            dependencies: ["Basics", "PackageGraph"],
-            exclude: ["CMakeLists.txt", "TODO.md"]
-        ),
-        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: [
@@ -331,7 +327,6 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
                 "SPMBuildCore",
-                "Xcodeproj"
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -350,7 +345,6 @@ let package = Package(
                 "PackageGraph",
                 "SourceControl",
                 "Workspace",
-                "Xcodeproj",
                 "XCBuildSupport",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
@@ -414,7 +408,6 @@ let package = Package(
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",
-                "Xcodeproj",
                 "XCBuildSupport",
             ]
         ),
@@ -538,10 +531,6 @@ let package = Package(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
-        ),
-        .testTarget(
-            name: "XcodeprojTests",
-            dependencies: ["Xcodeproj", "SPMTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",

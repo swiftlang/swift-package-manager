@@ -6,6 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_subdirectory(SPMSQLite3)
 add_subdirectory(Basics)
 add_subdirectory(Build)
 add_subdirectory(Commands)
@@ -30,4 +31,3 @@ add_subdirectory(swift-run)
 add_subdirectory(swift-test)
 add_subdirectory(Workspace)
 add_subdirectory(XCBuildSupport)
-add_subdirectory(Xcodeproj)

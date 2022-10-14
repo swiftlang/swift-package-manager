@@ -190,7 +190,7 @@ final class TestToolTests: CommandsTestCase {
 
         // should emit when LinuxMain is not present
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
@@ -202,7 +202,7 @@ final class TestToolTests: CommandsTestCase {
         }
         // should not emit when LinuxMain is present
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftTarget.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
             let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
             XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
@@ -263,6 +263,54 @@ final class TestToolTests: CommandsTestCase {
                 #endif
 
                 """)
+        }
+    }
+
+    func testList() throws {
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["list"], packagePath: fixturePath)
+            // build was run
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // getting the lists
+            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
+            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
+            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+        }
+
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            // build first
+            do {
+                let (stdout, _) = try SwiftPMProduct.SwiftBuild.execute(["--build-tests"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+            }
+            // list
+            do {
+                let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["list"], packagePath: fixturePath)
+                // build was run
+                XCTAssertMatch(stderr, .contains("Build complete!"))
+                // getting the lists
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+            }
+        }
+
+        try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+            // build first
+            do {
+                let (stdout, _) = try SwiftPMProduct.SwiftBuild.execute(["--build-tests"], packagePath: fixturePath)
+                XCTAssertMatch(stdout, .contains("Build complete!"))
+            }
+            // list while skipping build
+            do {
+                let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["list", "--skip-build"], packagePath: fixturePath)
+                // build was not run
+                XCTAssertNoMatch(stderr, .contains("Build complete!"))
+                // getting the lists
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
+                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+            }
         }
     }
 }

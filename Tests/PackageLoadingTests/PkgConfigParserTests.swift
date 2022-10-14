@@ -66,6 +66,12 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testCFlagsCaseInsensitveKeys() {
+        try! loadPCFile("case_insensitive.pc") { parser in
+            XCTAssertEqual(parser.cFlags, ["-I/usr/local/include"])
+        }
+    }
+
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, [
@@ -102,6 +108,20 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Wine Cellar/gtk+3/3.18.9/include/gtk-3.0", "-I/after/extra/spaces"])
             XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk 3", "-wantareal\\here", "-one\\", "-two"])
+        }
+    }
+
+    func testDummyDependency() throws {
+        try loadPCFile("dummy_dependency.pc") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": AbsolutePath.root.pathString
+            ])
+            XCTAssertEqual(parser.dependencies, ["pango", "fontconfig"])
+            XCTAssertEqual(parser.cFlags, [])
+            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lpangoft2-1.0"])
         }
     }
 

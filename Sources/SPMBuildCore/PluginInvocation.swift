@@ -121,7 +121,7 @@ extension PluginTarget {
         }
         
         // Handle messages and output from the plugin.
-        class ScriptRunnerDelegate: PluginScriptRunnerDelegate {
+        class ScriptRunnerDelegate: PluginScriptCompilerDelegate, PluginScriptRunnerDelegate {
             /// Delegate that should be told about events involving the plugin.
             let invocationDelegate: PluginInvocationDelegate
             
@@ -134,6 +134,18 @@ extension PluginTarget {
             init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
                 self.observabilityScope = observabilityScope
+            }
+            
+            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
+            }
+            
+            func didCompilePlugin(result: PluginCompilationResult) {
+                invocationDelegate.pluginCompilationEnded(result: result)
+            }
+            
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
+                invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
             
             /// Invoked when the plugin emits arbtirary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
@@ -381,6 +393,15 @@ extension PackageGraph {
                         self.toolPaths = toolPaths
                     }
                     
+                    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                    }
+                    
+                    func pluginCompilationEnded(result: PluginCompilationResult) {
+                    }
+                    
+                    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+                    }
+
                     func pluginEmittedOutput(_ data: Data) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         outputData.append(contentsOf: data)
@@ -577,6 +598,15 @@ public enum PluginEvaluationError: Swift.Error {
 
 
 public protocol PluginInvocationDelegate {
+    /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
+    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables)
+    
+    /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
+    func pluginCompilationEnded(result: PluginCompilationResult)
+    
+    /// Called if a plugin didn't need to be recompiled. This call is always mutually exclusive with `pluginCompilationStarted()` and `pluginCompilationEnded()`.
+    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult)
+    
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func pluginEmittedOutput(_: Data)
     

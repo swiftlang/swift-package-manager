@@ -568,6 +568,12 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
         }
     }
+
+    func testCompileCXX17CrashWithFModules() throws {
+        try fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_8") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+        }
+    }
     
     func testNoJSONOutputWithFlatPackageStructure() throws {
         try fixture(name: "Miscellaneous/FlatPackage") { package in
