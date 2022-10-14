@@ -380,7 +380,7 @@ Selecting the version requirement is the recommended way to add a package depend
 
 Select the name of the branch for your package dependency to follow.
 Use branch-based dependencies when you're developing multiple packages
-n tandem or when you don't want to publish versions of your package dependencies.
+in tandem or when you don't want to publish versions of your package dependencies.
 
 Note that packages which use branch-based dependency requirements
 can't be added as dependencies to packages that use version-based dependency
