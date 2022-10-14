@@ -844,7 +844,6 @@ final class BuildPlanTests: XCTestCase {
       #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "exe.exe").pathString,
             "-module-name", "exe",
@@ -1606,7 +1605,7 @@ final class BuildPlanTests: XCTestCase {
 
       #if os(macOS)
         XCTAssertMatch(linkArgs, ["-lc++"])
-      #else
+      #elseif !os(Windows)
         XCTAssertMatch(linkArgs, ["-lstdc++"])
       #endif
     }
@@ -1932,7 +1931,6 @@ final class BuildPlanTests: XCTestCase {
     #elseif os(Windows)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
-            "-lstdc++",
             "-L", buildPath.pathString,
             "-o", buildPath.appending(components: "lib.dll").pathString,
             "-module-name", "lib",
