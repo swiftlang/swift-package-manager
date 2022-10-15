@@ -15,7 +15,7 @@ import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
-import PackageRegistry
+@testable import PackageRegistry
 import SPMTestSupport
 import TSCBasic
 import XCTest
@@ -872,6 +872,115 @@ final class RegistryClientTests: XCTestCase {
         let identities = try registryClient.lookupIdentities(url: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
     }
+    
+    func testRequestAuthorization_token() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
+        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        
+        let token = "top-sekret"
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = #"""
+                {
+                    "identifiers": [
+                      "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+        configuration.registryAuthentication[registryURL.host!] = .init(type: .token)
+        
+        let authorizationProvider = TestProvider(map: [registryURL.host!: ("token", token)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try registryClient.lookupIdentities(url: packageURL)
+        XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
+    }
+    
+    func testRequestAuthorization_basic() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
+        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        
+        let user = "jappleseed"
+        let password = "top-sekret"        
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                XCTAssertEqual(request.headers.get("Authorization").first, "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())")
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = #"""
+                {
+                    "identifiers": [
+                      "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+        configuration.registryAuthentication[registryURL.host!] = .init(type: .basic)
+        
+        let authorizationProvider = TestProvider(map: [registryURL.host!: (user, password)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try registryClient.lookupIdentities(url: packageURL)
+        XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
+    }
 }
 
 // MARK: - Sugar
@@ -974,6 +1083,7 @@ private extension RegistryClient {
 private func makeRegistryClient(
     configuration: RegistryConfiguration,
     httpClient: HTTPClient,
+    authorizationProvider: AuthorizationProvider? = .none,
     fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
     fingerprintCheckingMode: FingerprintCheckingMode = .strict
 ) -> RegistryClient {
@@ -981,7 +1091,16 @@ private func makeRegistryClient(
         configuration: configuration,
         fingerprintStorage: fingerprintStorage,
         fingerprintCheckingMode: fingerprintCheckingMode,
+        authorizationProvider: authorizationProvider,
         customHTTPClient: httpClient,
         customArchiverProvider: { _ in MockArchiver() }
     )
+}
+
+private struct TestProvider: AuthorizationProvider {
+    let map: [String: (user: String, password: String)]
+
+    func authentication(for url: URL) -> (user: String, password: String)? {
+        return self.map[url.host!]
+    }
 }

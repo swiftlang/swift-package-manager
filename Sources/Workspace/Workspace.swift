@@ -589,7 +589,7 @@ public class Workspace {
             configuration: registriesConfiguration,
             fingerprintStorage: fingerprints,
             fingerprintCheckingMode: configuration.fingerprintCheckingMode,
-            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
+            authorizationProvider: authorizationProvider
         )
 
         let registryDownloadsManager = RegistryDownloadsManager(

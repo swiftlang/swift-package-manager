@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -35,12 +35,36 @@ public final class RegistryClient: Cancellable {
         configuration: RegistryConfiguration,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        authorizationProvider: HTTPClientAuthorizationProvider? = .none,
+        authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
     ) {
         self.configuration = configuration
-        self.authorizationProvider = authorizationProvider
+        
+        if let authorizationProvider = authorizationProvider {
+            self.authorizationProvider = { url in
+                guard let registryAuthentication = configuration.authentication(for: url) else {
+                    return .none
+                }
+                guard let (user, password) = authorizationProvider.authentication(for: url) else {
+                    return .none
+                }
+                
+                switch registryAuthentication.type {
+                case .basic:
+                    let authorizationString = "\(user):\(password)"
+                    guard let authorizationData = authorizationString.data(using: .utf8) else {
+                        return nil
+                    }
+                    return "Basic \(authorizationData.base64EncodedString())"
+                case .token: // `user` holds dummy value in this case
+                    return "Bearer \(password)"
+                }
+            }
+        } else {
+            self.authorizationProvider = .none
+        }
+        
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
