@@ -161,6 +161,9 @@ let package = Package(
         // bootstrap scripts build the deployable version.
         .target(
             name: "PackagePlugin",
+            dependencies: [
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
