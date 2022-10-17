@@ -516,7 +516,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
 
             // Read and pass on any remaining messages from the plugin.
-            stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
+            let handle = stdoutPipe.fileHandleForReading
+            if let handler = handle.readabilityHandler {
+                handler(handle)
+            }
 
             // Call the completion block with a result that depends on how the process ended.
             callbackQueue.async {
