@@ -12,7 +12,7 @@
 
 import Basics
 import PackageFingerprint
-import PackageGraph
+@testable import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
@@ -10471,14 +10471,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -10486,6 +10480,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -10597,14 +10598,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -10612,7 +10607,15 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                   realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
+
         }
 
         // reset
@@ -10764,14 +10767,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -10779,6 +10776,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -10907,14 +10911,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -10922,6 +10920,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -11039,14 +11044,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -11054,6 +11053,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -11182,14 +11188,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -11197,6 +11197,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -11329,15 +11336,8 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'BazProduct' in: 'baz', 'org.baz'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'BazTarget' in: 'baz', 'org.baz'
@@ -11345,6 +11345,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -11495,14 +11502,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'BazProduct' in: 'baz', 'org.baz'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'BazTarget' in: 'baz', 'org.baz'
@@ -11510,6 +11511,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 
@@ -11627,14 +11635,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
-                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
-                        """),
-                        severity: .error
-                    )
                     result.check(
                         diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
@@ -11642,6 +11644,13 @@ final class WorkspaceTests: XCTestCase {
                         severity: .error
                     )
                 }
+            }) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
             }
         }
 

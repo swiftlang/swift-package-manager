@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageGraph
+@testable import PackageGraph
 import PackageModel
 import SPMTestSupport
 import TSCBasic
@@ -964,7 +964,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        _ = try loadPackageGraph(
+        XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -997,10 +997,13 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )
-
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", severity: .error)
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+               realError.description == "multiple products named 'Bar' in: 'bar', 'baz'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
         }
     }
 

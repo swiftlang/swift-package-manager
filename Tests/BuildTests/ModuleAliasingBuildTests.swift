@@ -171,7 +171,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -212,9 +212,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("multiple products named 'Logging' in: 'barpkg', 'foopkg'"), severity: .error)
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
         }
     }
 
@@ -225,7 +229,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        let _ = try loadPackageGraph(
+        XCTAssertThrowsError(try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
@@ -266,9 +270,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("multiple products named 'Logging' in: 'barpkg', 'foopkg'"), severity: .error)
+        )) { error in
+            var diagnosed = false
+            if let realError = error as? PackageGraphError,
+               realError.description == "multiple products named 'Logging' in: 'barpkg', 'foopkg'" {
+                diagnosed = true
+            }
+            XCTAssertTrue(diagnosed)
         }
     }
 
