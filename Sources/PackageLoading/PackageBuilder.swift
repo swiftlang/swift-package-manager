@@ -955,7 +955,39 @@ public final class PackageBuilder {
         }
 
         // Create and return the right kind of target depending on what kind of sources we found.
-        if sources.hasSwiftSources {
+        if sources.hasSwiftSources && sources.hasClangSources {
+            // First determine the type of module map that will be appropriate for the target based on its header layout.
+            let moduleMapType: ModuleMapType
+
+            if fileSystem.exists(publicHeadersPath) {
+                let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
+                moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
+            } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
+                // If this clang target is a library, it must contain "include" directory.
+                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+            } else {
+                moduleMapType = .none
+            }
+
+            return try MixedTarget(
+                name: potentialModule.name,
+                potentialBundleName: potentialBundleName,
+                cLanguageStandard: manifest.cLanguageStandard,
+                cxxLanguageStandard: manifest.cxxLanguageStandard,
+                includeDir: publicHeadersPath,
+                moduleMapType: moduleMapType,
+                headers: headers,
+                type: targetType,
+                path: potentialModule.path,
+                sources: sources,
+                resources: resources,
+                ignored: ignored,
+                others: others,
+                dependencies: dependencies,
+                swiftVersion: try swiftVersion(),
+                buildSettings: buildSettings)
+
+        } else if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,

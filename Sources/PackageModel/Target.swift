@@ -19,6 +19,7 @@ public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [
         SwiftTarget.self,
         ClangTarget.self,
+        MixedTarget.self,
         SystemLibraryTarget.self,
         BinaryTarget.self,
         PluginTarget.self,
@@ -602,6 +603,104 @@ public final class ClangTarget: Target {
         self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
         self.cLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cLanguageStandard)
         self.cxxLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cxxLanguageStandard)
+        try super.init(from: decoder)
+    }
+}
+
+public final class MixedTarget: Target {
+
+    // The Clang target for the mixed target's Clang sources.
+    public let clangTarget: ClangTarget
+
+    // The Swift target for the mixed target's Swift sources.
+    public let swiftTarget: SwiftTarget
+
+    public init(
+        name: String,
+        potentialBundleName: String? = nil,
+        cLanguageStandard: String?,
+        cxxLanguageStandard: String?,
+        includeDir: AbsolutePath,
+        moduleMapType: ModuleMapType,
+        headers: [AbsolutePath] = [],
+        type: Kind,
+        path: AbsolutePath,
+        sources: Sources,
+        resources: [Resource] = [],
+        ignored: [AbsolutePath] = [],
+        others: [AbsolutePath] = [],
+        dependencies: [Target.Dependency] = [],
+        swiftVersion: SwiftLanguageVersion,
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        pluginUsages: [PluginUsage] = []
+    ) throws {
+
+        let swiftSources = Sources(
+            paths: sources.paths.filter { $0.extension == "swift" },
+            root: sources.root
+        )
+
+        self.swiftTarget = SwiftTarget(
+            name: name,
+            potentialBundleName: potentialBundleName,
+            type: type,
+            path: path,
+            sources: swiftSources,
+            resources: resources,
+            ignored: ignored,
+            others: others,
+            dependencies: dependencies,
+            swiftVersion: swiftVersion,
+            buildSettings: buildSettings,
+            pluginUsages: pluginUsages
+        )
+
+        let clangSources = Sources(
+            paths: sources.paths.filter { $0.extension != "swift" },
+            root: sources.root
+        )
+
+        self.clangTarget = try ClangTarget(
+            name: name,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            includeDir: includeDir,
+            moduleMapType: moduleMapType,
+            type: type,
+            path: path,
+            sources: clangSources
+        )
+
+        super.init(
+            name: name,
+            potentialBundleName: potentialBundleName,
+            type: type,
+            path: path,
+            sources: sources,
+            resources: resources,
+            ignored: ignored,
+            others: others,
+            dependencies: dependencies,
+            buildSettings: buildSettings,
+            pluginUsages: pluginUsages
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case clangTarget, swiftTarget
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(clangTarget, forKey: .clangTarget)
+        try container.encode(swiftTarget, forKey: .swiftTarget)
+        try super.encode(to: encoder)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.clangTarget = try container.decode(ClangTarget.self, forKey: .clangTarget)
+        self.swiftTarget = try container.decode(SwiftTarget.self, forKey: .swiftTarget)
         try super.init(from: decoder)
     }
 }

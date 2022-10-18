@@ -174,21 +174,23 @@ public struct ModuleMapGenerator {
     }
 
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any diagnostics are added to the receiver's diagnostics engine.
-    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath) throws {
-        var moduleMap = "module \(moduleName) {\n"
+    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath, swiftHeaderPath: AbsolutePath? = nil) throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< "module \(moduleName) {\n"
         switch type {
         case .umbrellaHeader(let hdr):
             moduleMap.append("    umbrella header \"\(hdr.moduleEscapedPathString)\"\n")
         case .umbrellaDirectory(let dir):
             moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
         }
-        moduleMap.append(
-            """
-                export *
-            }
-
-            """
-        )
+        stream <<< "    export *\n"
+        stream <<< "}\n"
+        if let swiftHeaderPath = swiftHeaderPath {
+            stream <<< "module \(moduleName).Swift {\n"
+            stream <<< "    header \"" <<< swiftHeaderPath.pathString <<< "\"\n"
+            stream <<< "    requires objc\n"
+            stream <<< "}\n"
+        }
 
         // FIXME: This doesn't belong here.
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
