@@ -515,6 +515,10 @@ extension Workspace.BinaryArtifactsManager {
     }
 
     private static func deriveBinaryArtifactKind(fileSystem: FileSystem, path: AbsolutePath, observabilityScope: ObservabilityScope) throws -> BinaryTarget.Kind? {
+        if path.suffix == ".zip" {
+            return .unknown
+        }
+
         let files = try fileSystem.getDirectoryContents(path)
             .map{ path.appending(component: $0) }
             .filter { fileSystem.isFile($0) }
