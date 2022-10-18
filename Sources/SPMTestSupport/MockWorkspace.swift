@@ -97,12 +97,12 @@ public final class MockWorkspace {
         return self.sandbox.appending(components: ".build", "artifacts")
     }
 
-    public func pathToRoot(withName name: String) -> AbsolutePath {
-        return AbsolutePath(name, relativeTo: self.rootsDir)
+    public func pathToRoot(withName name: String) throws -> AbsolutePath {
+        return try AbsolutePath(validating: name, relativeTo: self.rootsDir)
     }
 
-    public func pathToPackage(withName name: String) -> AbsolutePath {
-        return AbsolutePath(name, relativeTo: self.packagesDir)
+    public func pathToPackage(withName name: String) throws -> AbsolutePath {
+        return try AbsolutePath(validating: name, relativeTo: self.packagesDir)
     }
 
     private func create() throws {
@@ -293,8 +293,8 @@ public final class MockWorkspace {
         self._workspace = nil
     }
 
-    public func rootPaths(for packages: [String]) -> [AbsolutePath] {
-        return packages.map { AbsolutePath($0, relativeTo: rootsDir) }
+    public func rootPaths(for packages: [String]) throws -> [AbsolutePath] {
+        return try packages.map { try AbsolutePath(validating: $0, relativeTo: rootsDir) }
     }
 
     public func checkEdit(
@@ -325,8 +325,8 @@ public final class MockWorkspace {
         _ result: ([Basics.Diagnostic]) -> Void
     ) {
         let observability = ObservabilitySystem.makeForTesting()
-        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         observability.topScope.trap {
+            let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let ws = try self.getOrCreateWorkspace()
             try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, observabilityScope: observability.topScope)
         }
@@ -335,8 +335,8 @@ public final class MockWorkspace {
 
     public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
-        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         observability.topScope.trap {
+            let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots))
             let workspace = try self.getOrCreateWorkspace()
             try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, observabilityScope: observability.topScope)
         }
@@ -372,7 +372,7 @@ public final class MockWorkspace {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let rootInput = PackageGraphRootInput(
-                packages: rootPaths(for: roots),
+                packages: try rootPaths(for: roots),
                 dependencies: dependencies
             )
             let workspace = try self.getOrCreateWorkspace()
@@ -388,7 +388,7 @@ public final class MockWorkspace {
     ) throws {
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots),
+            packages: try rootPaths(for: roots),
             dependencies: dependencies
         )
 
@@ -413,11 +413,11 @@ public final class MockWorkspace {
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
-        _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
+        _ result: (PackageGraph, [Basics.Diagnostic]) throws -> Void
     ) throws {
         let observability = ObservabilitySystem.makeForTesting()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies
+            packages: try rootPaths(for: roots), dependencies: dependencies
         )
         let workspace = try self.getOrCreateWorkspace()
         do {
@@ -426,7 +426,7 @@ public final class MockWorkspace {
                 forceResolvedVersions: forceResolvedVersions,
                 observabilityScope: observability.topScope
             )
-            result(graph, observability.diagnostics)
+            try result(graph, observability.diagnostics)
         } catch {
             // helpful when graph fails to load
             if observability.hasErrorDiagnostics {
@@ -452,11 +452,11 @@ public final class MockWorkspace {
         _ result: ([Basics.Diagnostic]) -> Void
     ) {
         let observability = ObservabilitySystem.makeForTesting()
-        let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots),
-            dependencies: dependencies
-        )
         observability.topScope.trap {
+            let rootInput = PackageGraphRootInput(
+                packages: try rootPaths(for: roots),
+                dependencies: dependencies
+            )
             let workspace = try self.getOrCreateWorkspace()
             try workspace.loadPackageGraph(
                 rootInput: rootInput,
@@ -477,7 +477,7 @@ public final class MockWorkspace {
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
-        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map { $0.name }), dependencies: [])
+        let rootInput = PackageGraphRootInput(packages: try rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
@@ -692,7 +692,7 @@ public final class MockWorkspace {
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies
+            packages: try rootPaths(for: roots), dependencies: dependencies
         )
         let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)

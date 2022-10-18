@@ -142,12 +142,12 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .upToNextMajor(from: "1.0.0")),
-                   .package(url: "\(AbsolutePath("/foo3").escapedPathString())", .upToNextMinor(from: "1.0.0")),
-                   .package(url: "\(AbsolutePath("/foo4").escapedPathString())", .exact("1.0.0")),
-                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .branch("main")),
-                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath(path: "/foo1").escapedPathString())", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath(path: "/foo2").escapedPathString())", .upToNextMajor(from: "1.0.0")),
+                   .package(url: "\(AbsolutePath(path: "/foo3").escapedPathString())", .upToNextMinor(from: "1.0.0")),
+                   .package(url: "\(AbsolutePath(path: "/foo4").escapedPathString())", .exact("1.0.0")),
+                   .package(url: "\(AbsolutePath(path: "/foo5").escapedPathString())", .branch("main")),
+                   .package(url: "\(AbsolutePath(path: "/foo6").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                ]
             )
             """
@@ -158,12 +158,12 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo3"], .localSourceControl(path: .init("/foo3"), requirement: .upToNextMinor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo4"], .localSourceControl(path: .init("/foo4"), requirement: .exact("1.0.0")))
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
-        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init(path: "/foo2"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo3"], .localSourceControl(path: .init(path: "/foo3"), requirement: .upToNextMinor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo4"], .localSourceControl(path: .init(path: "/foo4"), requirement: .exact("1.0.0")))
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init(path: "/foo5"), requirement: .branch("main")))
+        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init(path: "/foo6"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
     }
 
     func testProducts() throws {

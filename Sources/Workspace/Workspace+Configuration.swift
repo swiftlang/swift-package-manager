@@ -82,11 +82,13 @@ extension Workspace {
 
         /// Path to the local mirrors configuration.
         public var localMirrorsConfigurationFile: AbsolutePath {
-            // backwards compatibility
-            if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
-                return AbsolutePath(customPath)
+            get throws {
+                // backwards compatibility
+                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                    return try AbsolutePath(validating: customPath)
+                }
+                return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
             }
-            return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
         }
 
         /// Path to the shared mirrors configuration.
@@ -161,15 +163,15 @@ extension Workspace {
         ///
         /// - Parameters:
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
-        public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) {
+        public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) throws {
             self.init(
                 scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
-                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
+                sharedConfigurationDirectory: try fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: try fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: try fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -220,7 +222,7 @@ extension Workspace {
     public static func migrateMirrorsConfiguration(from legacyPath: AbsolutePath, to newPath: AbsolutePath, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
         if localFileSystem.isFile(legacyPath) {
             if localFileSystem.isSymlink(legacyPath) {
-                let resolvedLegacyPath = resolveSymlinks(legacyPath)
+                let resolvedLegacyPath = try resolveSymlinks(legacyPath)
                 return try migrateMirrorsConfiguration(from: resolvedLegacyPath, to: newPath, observabilityScope: observabilityScope)
             } else if localFileSystem.isFile(newPath.parentDirectory) {
                 observabilityScope.emit(warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists.")
@@ -274,14 +276,14 @@ extension Workspace.Configuration {
                 }
 
                 // user .netrc file (most typical)
-                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
                     providers.append(userHomeProvider)
                 }
             case .user:
                 // user .netrc file (most typical)
-                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
 
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {

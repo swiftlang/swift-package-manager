@@ -20,7 +20,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
     func testParseMetadata() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
-            AbsolutePath("/info.json"),
+            AbsolutePath(path: "/info.json"),
             bytes: ByteString(encodingAsUTF8: """
             {
                 "schemaVersion": "1.0",

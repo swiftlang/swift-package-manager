@@ -327,7 +327,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         addBuildConfiguration(name: "Release", settings: releaseSettings)
 
         for product in package.products.sorted(by: { $0.name < $1.name }) {
-            addTarget(for: product)
+            try addTarget(for: product)
         }
 
         for target in package.targets.sorted(by: { $0.name < $1.name }) {
@@ -339,10 +339,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
-    private func addTarget(for product: ResolvedProduct) {
+    private func addTarget(for product: ResolvedProduct) throws {
         switch product.type {
         case .executable, .snippet, .test:
-            addMainModuleTarget(for: product)
+            try addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
         case .plugin:
@@ -377,7 +377,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         return "\(productName)_\(String(productName.hash, radix: 16, uppercase: true))_PackageProduct"
     }
 
-    private func addMainModuleTarget(for product: ResolvedProduct) {
+    private func addMainModuleTarget(for product: ResolvedProduct) throws {
         let productType: PIF.Target.ProductType = product.type == .executable ? .executable : .unitTest
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
@@ -460,7 +460,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var releaseSettings = settings
 
         var impartedSettings = PIF.BuildSettings()
-        addManifestBuildSettings(
+        try addManifestBuildSettings(
             from: mainTarget.underlyingTarget,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
@@ -671,7 +671,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var debugSettings = settings
         var releaseSettings = settings
 
-        addManifestBuildSettings(
+        try addManifestBuildSettings(
             from: target.underlyingTarget,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
@@ -697,7 +697,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var impartedSettings = PIF.BuildSettings()
 
         var cFlags: [String] = []
-        for result in pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
+        for result in try pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
             if let error = result.error {
                 self.observabilityScope.emit(
                     warning: "\(error)",
@@ -859,12 +859,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         debugSettings: inout PIF.BuildSettings,
         releaseSettings: inout PIF.BuildSettings,
         impartedSettings: inout PIF.BuildSettings
-    ) {
+    ) throws {
         for (setting, assignments) in target.buildSettings.pifAssignments {
             for assignment in assignments {
                 var value = assignment.value
                 if setting == .HEADER_SEARCH_PATHS {
-                    value = value.map { AbsolutePath($0, relativeTo: target.sources.root).pathString }
+                    value = try value.map { try AbsolutePath(validating: $0, relativeTo: target.sources.root).pathString }
                 }
 
                 if let platforms = assignment.platforms {

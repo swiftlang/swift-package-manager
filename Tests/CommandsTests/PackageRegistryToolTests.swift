@@ -52,7 +52,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testLocalConfiguration() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -131,7 +131,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetMissingURL() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -148,7 +148,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetInvalidURL() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -165,7 +165,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetInvalidScope() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -182,7 +182,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testUnsetMissingEntry() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 

@@ -448,13 +448,17 @@ extension SwiftPackageTool {
                 }
                 semaphore.wait()
                 DispatchQueue.sharedConcurrent.async(group: group) {
-                    if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
-                        at: moduleBaselinePath,
-                        for: module,
-                        buildPlan: buildOp.buildPlan!,
-                        except: breakageAllowlistPath
-                    ) {
-                        results.append(comparisonResult)
+                    do {
+                        if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                            at: moduleBaselinePath,
+                            for: module,
+                            buildPlan: buildOp.buildPlan!,
+                            except: breakageAllowlistPath
+                        ) {
+                            results.append(comparisonResult)
+                        }
+                    } catch {
+                        swiftTool.observabilityScope.emit(error: "failed to compare API to baseline: \(error)")
                     }
                     semaphore.signal()
                 }
@@ -470,7 +474,7 @@ extension SwiftPackageTool {
             }
 
             for result in results.get() {
-                self.printComparisonResult(result, observabilityScope: swiftTool.observabilityScope)
+                try self.printComparisonResult(result, observabilityScope: swiftTool.observabilityScope)
             }
 
             guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
@@ -525,12 +529,12 @@ extension SwiftPackageTool {
         private func printComparisonResult(
             _ comparisonResult: SwiftAPIDigester.ComparisonResult,
             observabilityScope: ObservabilityScope
-        ) {
+        ) throws {
             for diagnostic in comparisonResult.otherDiagnostics {
-                let metadata = diagnostic.location.map { location -> ObservabilityMetadata in
+                let metadata = try diagnostic.location.map { location -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.fileLocation = .init(
-                        .init(location.filename),
+                        try .init(validating: location.filename),
                         line: location.line < Int.max ? Int(location.line) : .none
                     )
                     return metadata
@@ -1060,7 +1064,7 @@ extension SwiftPackageTool {
                 }
             }
             for pathString in options.additionalAllowedWritableDirectories {
-                writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
+                writableDirectories.append(try AbsolutePath(validating: pathString, relativeTo: swiftTool.originalWorkingDirectory))
             }
 
             // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
@@ -1810,7 +1814,7 @@ extension SwiftPackageTool {
             }
 
             let files = try fileSystem.getDirectoryContents(directory)
-                .map { AbsolutePath($0, relativeTo: directory) }
+                .map { try AbsolutePath(validating: $0, relativeTo: directory) }
                 .filter { fileSystem.isFile($0) }
 
             guard let fileExtension = fileExtension else {
@@ -1825,7 +1829,7 @@ extension SwiftPackageTool {
                 return []
             }
             return try fileSystem.getDirectoryContents(directory)
-                .map { AbsolutePath($0, relativeTo: directory) }
+                .map { try AbsolutePath(validating: $0, relativeTo: directory) }
                 .filter { fileSystem.isDirectory($0) }
         }
 

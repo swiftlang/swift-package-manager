@@ -133,7 +133,7 @@ public struct SwiftRunTool: SwiftCommand {
             try buildOp.build()
 
             // Execute the REPL.
-            let arguments = buildOp.buildPlan!.createREPLArguments()
+            let arguments = try buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try self.run(
                 fileSystem: swiftTool.fileSystem,
@@ -262,7 +262,11 @@ public struct SwiftRunTool: SwiftCommand {
         //FIXME: Return false when the path is not a valid path string.
         let absolutePath: AbsolutePath
         if path.first == "/" {
-            absolutePath = AbsolutePath(path)
+            do {
+                absolutePath = try AbsolutePath(validating: path)
+            } catch {
+                return false
+            }
         } else {
             guard let cwd = fileSystem.currentWorkingDirectory else {
                 return false

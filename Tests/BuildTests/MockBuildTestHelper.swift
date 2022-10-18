@@ -8,15 +8,15 @@ import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
 #if os(Windows)
-    let librarianPath = AbsolutePath("/fake/path/to/link.exe")
+    let librarianPath = AbsolutePath(path: "/fake/path/to/link.exe")
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    let librarianPath = AbsolutePath("/fake/path/to/libtool")
+    let librarianPath = AbsolutePath(path: "/fake/path/to/libtool")
 #elseif os(Android)
-    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
+    let librarianPath = AbsolutePath(path: "/fake/path/to/llvm-ar")
 #else
-    let librarianPath = AbsolutePath("/fake/path/to/ar")
+    let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
 #endif
-    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
+    let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
@@ -25,7 +25,7 @@ struct MockToolchain: PackageModel.Toolchain {
     let extraCPPFlags: [String] = ["-lstdc++"]
     #endif
     func getClangCompiler() throws -> AbsolutePath {
-        return AbsolutePath("/fake/path/to/clang")
+        return AbsolutePath(path: "/fake/path/to/clang")
     }
 
     func _isClangCompilerVendorApple() throws -> Bool? {
@@ -52,7 +52,7 @@ extension AbsolutePath {
     }
 }
 
-let hostTriple = UserToolchain.default.triple
+let hostTriple = try! UserToolchain.default.triple
 #if os(macOS)
     let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
@@ -60,7 +60,7 @@ let hostTriple = UserToolchain.default.triple
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
+    buildPath: AbsolutePath = AbsolutePath(path: "/path/to/build"),
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: BuildFlags = BuildFlags(),

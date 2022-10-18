@@ -54,7 +54,7 @@ class DependencyResolutionTests: XCTestCase {
 
             let packageRoot = fixturePath.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar"))
+            XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
         }
@@ -79,7 +79,7 @@ class DependencyResolutionTests: XCTestCase {
 
     func testMirrors() throws {
         try fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
-            let prefix = resolveSymlinks(fixturePath)
+            let prefix = try resolveSymlinks(fixturePath)
             let appPath = prefix.appending(component: "App")
             let appPinsPath = appPath.appending(component: "Package.resolved")
 

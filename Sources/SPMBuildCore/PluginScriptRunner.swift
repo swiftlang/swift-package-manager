@@ -59,7 +59,7 @@ public protocol PluginScriptRunner {
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
-    var hostTriple: Triple { get }
+    var hostTriple: Triple { get throws }
 }
 
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it compiles plugins.

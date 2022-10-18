@@ -407,7 +407,6 @@ class PluginTests: XCTestCase {
                 plugin pluginName: String,
                 targets targetNames: [String],
                 arguments: [String],
-                toolSearchDirectories: [AbsolutePath] = [UserToolchain.default.swiftCompilerPath.parentDirectory],
                 toolNamesToPaths: [String: AbsolutePath] = [:],
                 file: StaticString = #file,
                 line: UInt = #line,
@@ -432,20 +431,22 @@ class PluginTests: XCTestCase {
                 }
 
                 let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
-                let scriptRunner = DefaultPluginScriptRunner(
-                    fileSystem: localFileSystem,
-                    cacheDir: pluginDir.appending(component: "cache"),
-                    toolchain: UserToolchain.default
-                )
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
+                    let scriptRunner = DefaultPluginScriptRunner(
+                        fileSystem: localFileSystem,
+                        cacheDir: pluginDir.appending(component: "cache"),
+                        toolchain: try UserToolchain.default
+                    )
+
+                    let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
                     let success = try tsc_await { plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending(component: "output"),
-                        toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                        toolSearchDirectories: toolSearchDirectories,
                         toolNamesToPaths: [:],
                         writableDirectories: [pluginDir.appending(component: "output")],
                         readOnlyDirectories: [package.path],
@@ -660,7 +661,7 @@ class PluginTests: XCTestCase {
             let scriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginDir.appending(component: "cache"),
-                toolchain: UserToolchain.default
+                toolchain: try UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
@@ -670,7 +671,7 @@ class PluginTests: XCTestCase {
                 scriptRunner: scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginDir.appending(component: "output"),
-                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
                 toolNamesToPaths: [:],
                 writableDirectories: [pluginDir.appending(component: "output")],
                 readOnlyDirectories: [package.path],

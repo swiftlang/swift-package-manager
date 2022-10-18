@@ -18,7 +18,7 @@ import XCTest
 final class MirrorsConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
-        let configFile = AbsolutePath("/config/mirrors.json")
+        let configFile = AbsolutePath(path: "/config/mirrors.json")
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
@@ -46,7 +46,7 @@ final class MirrorsConfigurationTests: XCTestCase {
 
     func testThrowsWhenNotFound() throws {
         let fs = InMemoryFileSystem()
-        let configFile = AbsolutePath("/config/mirrors.json")
+        let configFile = AbsolutePath(path: "/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()
@@ -58,7 +58,7 @@ final class MirrorsConfigurationTests: XCTestCase {
 
     func testDeleteWhenEmpty() throws {
         let fs = InMemoryFileSystem()
-        let configFile = AbsolutePath("/config/mirrors.json")
+        let configFile = AbsolutePath(path: "/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
@@ -81,7 +81,7 @@ final class MirrorsConfigurationTests: XCTestCase {
 
     func testDontDeleteWhenEmpty() throws {
         let fs = InMemoryFileSystem()
-        let configFile = AbsolutePath("/config/mirrors.json")
+        let configFile = AbsolutePath(path: "/config/mirrors.json")
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
@@ -105,8 +105,8 @@ final class MirrorsConfigurationTests: XCTestCase {
 
     func testLocalAndShared() throws {
         let fs = InMemoryFileSystem()
-        let localConfigFile = AbsolutePath("/config/local-mirrors.json")
-        let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
+        let localConfigFile = AbsolutePath(path: "/config/local-mirrors.json")
+        let sharedConfigFile = AbsolutePath(path: "/config/shared-mirrors.json")
 
         let config = try Workspace.Configuration.Mirrors(
             fileSystem: fs,

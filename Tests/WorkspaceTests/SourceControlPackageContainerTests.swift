@@ -414,9 +414,9 @@ class SourceControlPackageContainerTests: XCTestCase {
 #endif
 
         let dependencies: [PackageDependency] = [
-            .localSourceControl(path: .init("/Bar1"), requirement: .upToNextMajor(from: "1.0.0")),
-            .localSourceControl(path: .init("/Bar2"), requirement: .upToNextMajor(from: "1.0.0")),
-            .localSourceControl(path: .init("/Bar3"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init(path: "/Bar1"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init(path: "/Bar2"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init(path: "/Bar3"), requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -457,7 +457,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createRootManifest(
                 name: "Foo",
-                path: .init("/Foo"),
+                path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -479,7 +479,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createFileSystemManifest(
                 name: "Foo",
-                path: .init("/Foo"),
+                path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -501,7 +501,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createRootManifest(
                 name: "Foo",
-                path: .init("/Foo"),
+                path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -523,7 +523,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         do {
             let manifest = Manifest.createFileSystemManifest(
                 name: "Foo",
-                path: .init("/Foo"),
+                path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -643,7 +643,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                 toolsVersion: .v5_2,
                 dependencies: [
                     .localSourceControl(
-                        path: .init("/Somewhere/Dependency"),
+                        path: .init(path: "/Somewhere/Dependency"),
                         requirement: .exact(version),
                         productFilter: .specific([])
                     )

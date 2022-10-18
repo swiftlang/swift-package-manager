@@ -14,8 +14,8 @@ import TSCBasic
 import XCTest
 import XCBuildSupport
 
-public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) -> Void) {
-    body(PIFWorkspaceTester(workspace: pif.workspace))
+public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) throws -> Void) throws {
+    try body(PIFWorkspaceTester(workspace: pif.workspace))
 }
 
 public final class PIFWorkspaceTester {
@@ -32,12 +32,12 @@ public final class PIFWorkspaceTester {
         targetMap = Dictionary(uniqueKeysWithValues: targetsByGUID)
     }
 
-    public func checkProject(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: (PIFProjectTester) -> Void) {
+    public func checkProject(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: (PIFProjectTester) -> Void) throws {
         guard let project = projectMap[guid] else {
             return XCTFail("project \(guid) not found", file: file, line: line)
         }
 
-        body(PIFProjectTester(project: project, targetMap: targetMap))
+        body(try PIFProjectTester(project: project, targetMap: targetMap))
     }
 }
 
@@ -52,10 +52,10 @@ public final class PIFProjectTester {
     public var name: String { project.name }
     public var developmentRegion: String { project.developmentRegion }
 
-    fileprivate init(project: PIF.Project, targetMap: [PIF.GUID: PIF.BaseTarget]) {
+    fileprivate init(project: PIF.Project, targetMap: [PIF.GUID: PIF.BaseTarget]) throws {
         self.project = project
         self.targetMap = targetMap
-        self.fileMap = collectFiles(from: project.groupTree, parentPath: project.path, projectPath: project.path)
+        self.fileMap = try collectFiles(from: project.groupTree, parentPath: project.path, projectPath: project.path)
     }
 
     public func checkTarget(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: ((PIFTargetTester) -> Void)? = nil) {
@@ -292,15 +292,15 @@ private func collectFiles(
     from reference: PIF.Reference,
     parentPath: AbsolutePath,
     projectPath: AbsolutePath
-) -> [PIF.GUID: String] {
+) throws -> [PIF.GUID: String] {
     let referencePath: AbsolutePath
     switch reference.sourceTree {
     case .absolute:
-        referencePath = AbsolutePath(reference.path)
+        referencePath = try AbsolutePath(validating: reference.path)
     case .group:
-        referencePath = AbsolutePath(reference.path, relativeTo: parentPath)
+        referencePath = try AbsolutePath(validating: reference.path, relativeTo: parentPath)
     case .sourceRoot:
-        referencePath = AbsolutePath(reference.path, relativeTo: projectPath)
+        referencePath = try AbsolutePath(validating: reference.path, relativeTo: projectPath)
     case .builtProductsDir:
         return [:]
     }
@@ -312,7 +312,7 @@ private func collectFiles(
         files[reference.guid] = referencePath.pathString
     } else if let group = reference as? PIF.Group {
         for child in group.children {
-            let childFiles = collectFiles(from: child, parentPath: referencePath, projectPath: projectPath)
+            let childFiles = try collectFiles(from: child, parentPath: referencePath, projectPath: projectPath)
             files.merge(childFiles, uniquingKeysWith: { _, _ in fatalError("non-unique GUID") })
         }
     }

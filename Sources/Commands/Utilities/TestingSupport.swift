@@ -29,7 +29,7 @@ enum TestingSupport {
     /// - Returns: Path to XCTestHelper tool.
     static func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(CommandLine.arguments.first!,
+        let binDirectory = try AbsolutePath(validating: CommandLine.arguments.first!,
             relativeTo: swiftTool.originalWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
@@ -83,7 +83,7 @@ enum TestingSupport {
             )
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
-            if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
+            if let sdkPlatformFrameworksPath = try Destination.sdkPlatformFrameworkPaths() {
                 // appending since we prefer the user setting (if set) to the one we inject
                 env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
                 env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)

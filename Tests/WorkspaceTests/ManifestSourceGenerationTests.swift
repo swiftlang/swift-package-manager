@@ -36,7 +36,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             let manifestPath = packageDir.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, string: manifestContents)
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(
@@ -404,11 +404,11 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
-        let packageDir = AbsolutePath("/tmp/MyLibrary")
+        let packageDir = AbsolutePath(path: "/tmp/MyLibrary")
         let manifest = Manifest(
             displayName: "MyLibrary",
             path: packageDir.appending(component: "Package.swift"),
-            packageKind: .root(AbsolutePath("/tmp/MyLibrary")),
+            packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -444,11 +444,11 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
             name: "thisPkg",
-            path: .init("/thisPkg"),
+            path: .init(path: "/thisPkg"),
             toolsVersion: .v5_7,
             dependencies: [
-                .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
                 try TargetDescription(name: "exe",

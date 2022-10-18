@@ -16,19 +16,19 @@ import Workspace
 import TSCBasic
 
 #if os(macOS)
-private func macOSBundleRoot() -> AbsolutePath {
+private func macOSBundleRoot() throws -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return AbsolutePath(bundle.bundlePath).parentDirectory
+        return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
     }
     fatalError()
 }
 #endif
 
-private func resolveBinDir() -> AbsolutePath {
+private func resolveBinDir() throws -> AbsolutePath {
 #if os(macOS)
-    return macOSBundleRoot()
+    return try macOSBundleRoot()
 #else
-    return AbsolutePath(CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
+    return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
 #endif
 }
 
@@ -36,7 +36,9 @@ extension UserToolchain {
 
 #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
-        return Destination.sdkPlatformFrameworkPaths()!.fwk
+        get throws {
+            return try Destination.sdkPlatformFrameworkPaths()!.fwk
+        }
     }
 #endif
 
@@ -44,8 +46,8 @@ extension UserToolchain {
 
 extension Destination {
     public static var `default`: Self {
-        get {
-            let binDir = resolveBinDir()
+        get throws {
+            let binDir = try resolveBinDir()
             return try! Destination.hostDestination(binDir)
         }
     }
@@ -53,8 +55,8 @@ extension Destination {
 
 extension UserToolchain {
     public static var `default`: Self {
-        get {
-            return try! .init(destination: Destination.default)
+        get throws {
+            return try .init(destination: Destination.default)
         }
     }
 }

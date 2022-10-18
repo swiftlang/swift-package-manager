@@ -39,7 +39,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
-                    .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
+                    .package(url: "\(AbsolutePath(path: "/foo1").escapedPathString())", from: "1.0.0"),
                 ],
                 targets: [
                     .target(
@@ -74,7 +74,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         // Check dependencies.
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
         let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -254,15 +254,15 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                dependencies: [
-                   .package(url: "\(AbsolutePath("/foo1").escapedPathString())", from: "1.0.0"),
-                   .package(url: "\(AbsolutePath("/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "\(AbsolutePath(path: "/foo1").escapedPathString())", from: "1.0.0"),
+                   .package(url: "\(AbsolutePath(path: "/foo2").escapedPathString())", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
                    .package(path: "../foo3"),
-                   .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString())"),
-                   .package(url: "\(AbsolutePath("/foo5").escapedPathString())", .exact("1.2.3")),
-                   .package(url: "\(AbsolutePath("/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath("/foo7").escapedPathString())", .branch("master")),
-                   .package(url: "\(AbsolutePath("/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "\(AbsolutePath("/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "\(AbsolutePath(path: "/path/to/foo4").escapedPathString())"),
+                   .package(url: "\(AbsolutePath(path: "/foo5").escapedPathString())", .exact("1.2.3")),
+                   .package(url: "\(AbsolutePath(path: "/foo6").escapedPathString())", "1.2.3"..<"2.0.0"),
+                   .package(url: "\(AbsolutePath(path: "/foo7").escapedPathString())", .branch("master")),
+                   .package(url: "\(AbsolutePath(path: "/foo8").escapedPathString())", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "\(AbsolutePath(path: "/foo9").escapedPathString())", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
                    .package(path: "~foo11"),
                    .package(path: "~/path/to/~/foo12"),
@@ -278,54 +278,54 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init(path: "/foo2"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
         if case .fileSystem(let dep) = deps["foo3"] {
-            XCTAssertEqual(dep.path, AbsolutePath("/foo3"))
+            XCTAssertEqual(dep.path, AbsolutePath(path: "/foo3"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo4"] {
-            XCTAssertEqual(dep.path, AbsolutePath("/path/to/foo4"))
+            XCTAssertEqual(dep.path, AbsolutePath(path: "/path/to/foo4"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .exact("1.2.3")))
-        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .range("1.2.3"..<"2.0.0")))
-        XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init("/foo7"), requirement: .branch("master")))
-        XCTAssertEqual(deps["foo8"], .localSourceControl(path: .init("/foo8"), requirement: .upToNextMinor(from: "1.3.4")))
-        XCTAssertEqual(deps["foo9"], .localSourceControl(path: .init("/foo9"), requirement: .upToNextMajor(from: "1.3.4")))
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init(path: "/foo5"), requirement: .exact("1.2.3")))
+        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init(path: "/foo6"), requirement: .range("1.2.3"..<"2.0.0")))
+        XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init(path: "/foo7"), requirement: .branch("master")))
+        XCTAssertEqual(deps["foo8"], .localSourceControl(path: .init(path: "/foo8"), requirement: .upToNextMinor(from: "1.3.4")))
+        XCTAssertEqual(deps["foo9"], .localSourceControl(path: .init(path: "/foo9"), requirement: .upToNextMajor(from: "1.3.4")))
 
         let homeDir = "/home/user"
         if case .fileSystem(let dep) = deps["foo10"] {
-            XCTAssertEqual(dep.path, AbsolutePath("\(homeDir)/path/to/foo10"))
+            XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/foo10"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["~foo11"] {
-            XCTAssertEqual(dep.path, AbsolutePath("/~foo11"))
+            XCTAssertEqual(dep.path, AbsolutePath(path: "/~foo11"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo12"] {
-            XCTAssertEqual(dep.path, AbsolutePath("\(homeDir)/path/to/~/foo12"))
+            XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/~/foo12"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["~"] {
-            XCTAssertEqual(dep.path, AbsolutePath("/~"))
+            XCTAssertEqual(dep.path, AbsolutePath(path: "/~"))
         } else {
             XCTFail("expected to be local dependency")
         }
 
         if case .fileSystem(let dep) = deps["foo13"] {
-            XCTAssertEqual(dep.path, AbsolutePath("/path/to/foo13"))
+            XCTAssertEqual(dep.path, AbsolutePath(path: "/path/to/foo13"))
         } else {
             XCTFail("expected to be local dependency")
         }
@@ -593,7 +593,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -653,7 +653,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -701,7 +701,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            let noCacheLoader = ManifestLoader(toolchain: UserToolchain.default, delegate: delegate)
+            let noCacheLoader = ManifestLoader(toolchain: try UserToolchain.default, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
@@ -728,7 +728,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader) throws {
                 let fs = InMemoryFileSystem()
@@ -820,7 +820,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             // warm up caches
@@ -901,7 +901,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let total = 100
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             let sync = DispatchGroup()

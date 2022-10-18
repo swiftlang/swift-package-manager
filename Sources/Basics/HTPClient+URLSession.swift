@@ -179,7 +179,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
 
         do {
-            try task.fileSystem.move(from: AbsolutePath(location.path), to: task.destination)
+            try task.fileSystem.move(from: AbsolutePath(validating: location.path), to: task.destination)
         } catch {
             task.moveFileError = error
         }

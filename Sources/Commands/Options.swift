@@ -416,7 +416,10 @@ extension BuildConfiguration: ExpressibleByArgument {
 extension AbsolutePath: ExpressibleByArgument {
     public init?(argument: String) {
         if let cwd = localFileSystem.currentWorkingDirectory {
-            self.init(argument, relativeTo: cwd)
+            guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
+                return nil
+            }
+            self = path
         } else {
             guard let path = try? AbsolutePath(validating: argument) else {
                 return nil

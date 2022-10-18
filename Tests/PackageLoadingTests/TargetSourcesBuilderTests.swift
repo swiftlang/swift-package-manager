@@ -62,13 +62,13 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath("/Bar.swift"),
-            AbsolutePath("/Foo.swift"),
-            AbsolutePath("/Hello.something/hello.txt"),
-            AbsolutePath("/file"),
-            AbsolutePath("/path/to/somefile.txt"),
-            AbsolutePath("/some/path.swift"),
-            AbsolutePath("/some/path/toBeCopied"),
+            AbsolutePath(path: "/Bar.swift"),
+            AbsolutePath(path: "/Foo.swift"),
+            AbsolutePath(path: "/Hello.something/hello.txt"),
+            AbsolutePath(path: "/file"),
+            AbsolutePath(path: "/path/to/somefile.txt"),
+            AbsolutePath(path: "/some/path.swift"),
+            AbsolutePath(path: "/some/path/toBeCopied"),
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -106,8 +106,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath("/some.thing"),
-            AbsolutePath("/some/hello.swift"),
+            AbsolutePath(path: "/some.thing"),
+            AbsolutePath(path: "/some/hello.swift"),
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -145,8 +145,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath("/some.thing/hello.txt"),
-            AbsolutePath("/some/hello.swift"),
+            AbsolutePath(path: "/some.thing/hello.txt"),
+            AbsolutePath(path: "/some/hello.swift"),
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -244,9 +244,9 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         let files = [
-            AbsolutePath("/Foo.swift").pathString,
-            AbsolutePath("/Bar.swift").pathString,
-            AbsolutePath("/Baz.something").pathString,
+            AbsolutePath(path: "/Foo.swift").pathString,
+            AbsolutePath(path: "/Bar.swift").pathString,
+            AbsolutePath(path: "/Baz.something").pathString,
         ]
 
         let fs = InMemoryFileSystem()
@@ -591,15 +591,15 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _,  _, _, _, _, diagnostics in
             XCTAssertEqual(resources.sorted(by: { $0.path < $1.path }), [
-                Resource(rule: .process(localization: .none), path: AbsolutePath("/Processed/foo.txt")),
-                Resource(rule: .process(localization: "en-us"), path: AbsolutePath("/Processed/En-uS.lproj/Localizable.stringsdict")),
-                Resource(rule: .process(localization: "en-us"), path: AbsolutePath("/Processed/en-US.lproj/Localizable.strings")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath("/Processed/fr.lproj/Localizable.strings")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath("/Processed/fr.lproj/Localizable.stringsdict")),
-                Resource(rule: .process(localization: "Base"), path: AbsolutePath("/Processed/Base.lproj/Storyboard.storyboard")),
-                Resource(rule: .copy, path: AbsolutePath("/Copied")),
-                Resource(rule: .process(localization: "Base"), path: AbsolutePath("/Other/Launch.storyboard")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath("/Other/Image.png")),
+                Resource(rule: .process(localization: .none), path: AbsolutePath(path: "/Processed/foo.txt")),
+                Resource(rule: .process(localization: "en-us"), path: AbsolutePath(path: "/Processed/En-uS.lproj/Localizable.stringsdict")),
+                Resource(rule: .process(localization: "en-us"), path: AbsolutePath(path: "/Processed/en-US.lproj/Localizable.strings")),
+                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Processed/fr.lproj/Localizable.strings")),
+                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Processed/fr.lproj/Localizable.stringsdict")),
+                Resource(rule: .process(localization: "Base"), path: AbsolutePath(path: "/Processed/Base.lproj/Storyboard.storyboard")),
+                Resource(rule: .copy, path: AbsolutePath(path: "/Copied")),
+                Resource(rule: .process(localization: "Base"), path: AbsolutePath(path: "/Other/Launch.storyboard")),
+                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Other/Image.png")),
             ].sorted(by: { $0.path < $1.path }))
         }
     }
@@ -612,8 +612,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: try TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, _, _, _, _, diagnostics in
             XCTAssertEqual(resources.sorted(by: { $0.path < $1.path }), [
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath("/Foo/fr.lproj/Image.png")),
-                Resource(rule: .process(localization: "es"), path: AbsolutePath("/Foo/es.lproj/Image.png")),
+                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Foo/fr.lproj/Image.png")),
+                Resource(rule: .process(localization: "es"), path: AbsolutePath(path: "/Foo/es.lproj/Image.png")),
             ].sorted(by: { $0.path < $1.path }))
         }
     }
@@ -687,8 +687,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .root(.init("/test")),
-                packagePath: .init("/test"),
+                packageKind: .root(.init(path: "/test")),
+                packagePath: .init(path: "/test"),
                 target: target,
                 path: .root,
                 toolsVersion: .v5,
@@ -699,8 +699,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             testDiagnostics(observability.diagnostics) { result in
                 var diagnosticsFound = [Basics.Diagnostic?]()
-                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath("/fileOutsideRoot.py"))': File not found.", severity: .warning))
-                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath("/fakeDir"))': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath(path: "/fileOutsideRoot.py"))': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath(path: "/fakeDir"))': File not found.", severity: .warning))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
@@ -718,7 +718,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
                 packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
-                packagePath: .init("/test"),
+                packagePath: .init(path: "/test"),
                 target: target,
                 path: .root,
                 toolsVersion: .v5,
@@ -822,7 +822,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
-            packageKind: .root(.init("/test")),
+            packageKind: .root(.init(path: "/test")),
             packagePath: .root,
             target: target,
             path: .root,
@@ -833,9 +833,9 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             var diagnosticsFound = [Basics.Diagnostic?]()
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/InvalidPackage.swift"))': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/DoesNotExist.swift"))': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/Tests/InvalidPackageTests/InvalidPackageTests.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/InvalidPackage.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/DoesNotExist.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/Tests/InvalidPackageTests/InvalidPackageTests.swift"))': File not found.", severity: .warning))
 
             for diagnostic in diagnosticsFound {
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
@@ -866,7 +866,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
-            packageKind: .root(.init("/test")),
+            packageKind: .root(.init(path: "/test")),
             packagePath: .root,
             target: target,
             path: .root,
@@ -875,10 +875,10 @@ class TargetSourcesBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let outputs = try builder.run()
-        XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+        XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
         XCTAssertEqual(outputs.resources, [])
         XCTAssertEqual(outputs.ignored, [])
-        XCTAssertEqual(outputs.others, [AbsolutePath("/Foo.xcdatamodel")])
+        XCTAssertEqual(outputs.others, [AbsolutePath(path: "/Foo.xcdatamodel")])
 
         XCTAssertFalse(observability.hasWarningDiagnostics)
         XCTAssertFalse(observability.hasErrorDiagnostics)
@@ -906,7 +906,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .root(.init("/test")),
+                packageKind: .root(.init(path: "/test")),
                 packagePath: .root,
                 target: target,
                 path: .root,
@@ -915,10 +915,10 @@ class TargetSourcesBuilderTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
             let outputs = try builder.run()
-            XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+            XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
             XCTAssertEqual(outputs.resources, [])
             XCTAssertEqual(outputs.ignored, [])
-            XCTAssertEqual(outputs.others, [AbsolutePath("/foo.bar")])
+            XCTAssertEqual(outputs.others, [AbsolutePath(path: "/foo.bar")])
 
             XCTAssertFalse(observability.hasWarningDiagnostics)
             XCTAssertFalse(observability.hasErrorDiagnostics)
@@ -977,9 +977,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let outputs = try builder.run()
-        XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+        XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
         XCTAssertEqual(outputs.resources, [])
-        XCTAssertEqual(outputs.ignored, [AbsolutePath("/Foo.docc")])
+        XCTAssertEqual(outputs.ignored, [AbsolutePath(path: "/Foo.docc")])
         XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)

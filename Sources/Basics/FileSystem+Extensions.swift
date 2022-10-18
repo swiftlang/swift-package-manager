@@ -21,11 +21,15 @@ import TSCBasic
 extension FileSystem {
     /// SwiftPM directory under user's home directory (~/.swiftpm)
     public var dotSwiftPM: AbsolutePath {
-        self.homeDirectory.appending(component: ".swiftpm")
+        get throws {
+            return try self.homeDirectory.appending(component: ".swiftpm")
+        }
     }
 
     fileprivate var idiomaticSwiftPMDirectory: AbsolutePath? {
-        return FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }?.appending(component: "org.swift.swiftpm")
+        get throws {
+            return try FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { try AbsolutePath(validating: $0.path) }?.appending(component: "org.swift.swiftpm")
+        }
     }
 }
 
@@ -39,33 +43,37 @@ extension FileSystem {
 
     /// SwiftPM cache directory under user's caches directory (if exists)
     public var swiftPMCacheDirectory: AbsolutePath {
-        if let path = self.idiomaticUserCacheDirectory {
-            return path.appending(component: "org.swift.swiftpm")
-        } else {
-            return self.dotSwiftPMCachesDirectory
+        get throws {
+            if let path = self.idiomaticUserCacheDirectory {
+                return path.appending(component: "org.swift.swiftpm")
+            } else {
+                return try self.dotSwiftPMCachesDirectory
+            }
         }
     }
 
     fileprivate var dotSwiftPMCachesDirectory: AbsolutePath {
-        return self.dotSwiftPM.appending(component: "cache")
+        get throws {
+            return try self.dotSwiftPM.appending(component: "cache")
+        }
     }
 }
 
 extension FileSystem {
     public func getOrCreateSwiftPMCacheDirectory() throws -> AbsolutePath {
-        let idiomaticCacheDirectory = self.swiftPMCacheDirectory
+        let idiomaticCacheDirectory = try self.swiftPMCacheDirectory
         // Create idiomatic if necessary
         if !self.exists(idiomaticCacheDirectory) {
             try self.createDirectory(idiomaticCacheDirectory, recursive: true)
         }
         // Create ~/.swiftpm if necessary
-        if !self.exists(self.dotSwiftPM) {
+        if !self.exists(try self.dotSwiftPM) {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/cache symlink if necessary
         // locking ~/.swiftpm to protect from concurrent access
         try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
-            if !self.exists(self.dotSwiftPMCachesDirectory, followSymlink: false) {
+            if !self.exists(try self.dotSwiftPMCachesDirectory, followSymlink: false) {
                 try self.createSymbolicLink(dotSwiftPMCachesDirectory, pointingAt: idiomaticCacheDirectory, relative: false)
             }
         }
@@ -78,21 +86,25 @@ extension FileSystem {
 extension FileSystem {
     /// SwiftPM config directory under user's config directory (if exists)
     public var swiftPMConfigurationDirectory: AbsolutePath {
-        if let path = self.idiomaticSwiftPMDirectory {
-            return path.appending(component: "configuration")
-        } else {
-            return self.dotSwiftPMConfigurationDirectory
+        get throws {
+            if let path = try self.idiomaticSwiftPMDirectory {
+                return path.appending(component: "configuration")
+            } else {
+                return try self.dotSwiftPMConfigurationDirectory
+            }
         }
     }
 
     fileprivate var dotSwiftPMConfigurationDirectory: AbsolutePath {
-        return self.dotSwiftPM.appending(component: "configuration")
+        get throws {
+            return try self.dotSwiftPM.appending(component: "configuration")
+        }
     }
 }
 
 extension FileSystem {
     public func getOrCreateSwiftPMConfigurationDirectory(warningHandler: @escaping (String) -> Void) throws -> AbsolutePath {
-        let idiomaticConfigurationDirectory = self.swiftPMConfigurationDirectory
+        let idiomaticConfigurationDirectory = try self.swiftPMConfigurationDirectory
 
         // temporary 5.6, remove on next version: transition from previous configuration location
         if !self.exists(idiomaticConfigurationDirectory) {
@@ -116,7 +128,7 @@ extension FileSystem {
         }
 
         // in the case where ~/.swiftpm/configuration is not the idiomatic location (eg on macOS where its /Users/<user>/Library/org.swift.swiftpm/configuration)
-        if idiomaticConfigurationDirectory != self.dotSwiftPMConfigurationDirectory {
+        if try idiomaticConfigurationDirectory != self.dotSwiftPMConfigurationDirectory {
             // copy the configuration files from old location (eg /Users/<user>/Library/org.swift.swiftpm) to new one (eg /Users/<user>/Library/org.swift.swiftpm/configuration)
             // but leave them there for backwards compatibility (eg older xcode)
             let oldConfigDirectory = idiomaticConfigurationDirectory.parentDirectory
@@ -130,7 +142,7 @@ extension FileSystem {
         } else {
             // copy the configuration files from old location (~/.swiftpm/config) to new one (~/.swiftpm/configuration)
             // but leave them there for backwards compatibility (eg older toolchain)
-            let oldConfigDirectory = self.dotSwiftPM.appending(component: "config")
+            let oldConfigDirectory = try self.dotSwiftPM.appending(component: "config")
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
@@ -145,13 +157,13 @@ extension FileSystem {
             try self.createDirectory(idiomaticConfigurationDirectory, recursive: true)
         }
         // Create ~/.swiftpm if necessary
-        if !self.exists(self.dotSwiftPM) {
+        if !self.exists(try self.dotSwiftPM) {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/configuration symlink if necessary
         // locking ~/.swiftpm to protect from concurrent access
         try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
-            if !self.exists(self.dotSwiftPMConfigurationDirectory, followSymlink: false) {
+            if !self.exists(try self.dotSwiftPMConfigurationDirectory, followSymlink: false) {
                 try self.createSymbolicLink(dotSwiftPMConfigurationDirectory, pointingAt: idiomaticConfigurationDirectory, relative: false)
             }
         }
@@ -165,26 +177,30 @@ extension FileSystem {
 extension FileSystem {
     /// SwiftPM security directory under user's security directory (if exists)
     public var swiftPMSecurityDirectory: AbsolutePath {
-        if let path = self.idiomaticSwiftPMDirectory {
-            return path.appending(component: "security")
-        } else {
-            return self.dotSwiftPMSecurityDirectory
+        get throws {
+            if let path = try self.idiomaticSwiftPMDirectory {
+                return path.appending(component: "security")
+            } else {
+                return try self.dotSwiftPMSecurityDirectory
+            }
         }
     }
 
     fileprivate var dotSwiftPMSecurityDirectory: AbsolutePath {
-        return self.dotSwiftPM.appending(component: "security")
+        get throws {
+            return try self.dotSwiftPM.appending(component: "security")
+        }
     }
 }
 
 extension FileSystem {
     public func getOrCreateSwiftPMSecurityDirectory() throws -> AbsolutePath {
-        let idiomaticSecurityDirectory = self.swiftPMSecurityDirectory
+        let idiomaticSecurityDirectory = try self.swiftPMSecurityDirectory
 
         // temporary 5.6, remove on next version: transition from ~/.swiftpm/security to idiomatic location + symbolic link
-        if idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory &&
-            self.exists(self.dotSwiftPMSecurityDirectory) &&
-            self.isDirectory(self.dotSwiftPMSecurityDirectory) {
+        if try idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory &&
+            self.exists(try self.dotSwiftPMSecurityDirectory) &&
+            self.isDirectory(try self.dotSwiftPMSecurityDirectory) {
             try self.removeFileTree(self.dotSwiftPMSecurityDirectory)
         }
         // ~temporary 5.6 migration
@@ -194,13 +210,13 @@ extension FileSystem {
             try self.createDirectory(idiomaticSecurityDirectory, recursive: true)
         }
         // Create ~/.swiftpm if necessary
-        if !self.exists(self.dotSwiftPM) {
+        if !self.exists(try self.dotSwiftPM) {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/security symlink if necessary
         // locking ~/.swiftpm to protect from concurrent access
         try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
-            if !self.exists(self.dotSwiftPMSecurityDirectory, followSymlink: false) {
+            if !self.exists(try self.dotSwiftPMSecurityDirectory, followSymlink: false) {
                 try self.createSymbolicLink(dotSwiftPMSecurityDirectory, pointingAt: idiomaticSecurityDirectory, relative: false)
             }
         }

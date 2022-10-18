@@ -17,7 +17,6 @@ import PackageLoading
 import SPMTestSupport
 import TSCBasic
 import XCTest
-import SwiftDriver
 
 class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() throws {

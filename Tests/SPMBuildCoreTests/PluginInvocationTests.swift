@@ -39,7 +39,7 @@ class PluginInvocationTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(
                             name: "Foo",
@@ -91,7 +91,9 @@ class PluginInvocationTests: XCTestCase {
         struct MockPluginScriptRunner: PluginScriptRunner {
 
             var hostTriple: Triple {
-                return UserToolchain.default.triple
+                get throws {
+                    return try UserToolchain.default.triple
+                }
             }
             
             func compilePluginScript(
@@ -123,7 +125,7 @@ class PluginInvocationTests: XCTestCase {
                 completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
-                XCTAssertEqual(sourceFiles, [AbsolutePath("/Foo/Plugins/FooPlugin/source.swift")])
+                XCTAssertEqual(sourceFiles, [AbsolutePath(path: "/Foo/Plugins/FooPlugin/source.swift")])
 
                 do {
                     // Pretend the plugin emitted some output.
@@ -184,8 +186,8 @@ class PluginInvocationTests: XCTestCase {
         }
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
-        let outputDir = AbsolutePath("/Foo/.build")
-        let builtToolsDir = AbsolutePath("/Foo/.build/debug")
+        let outputDir = AbsolutePath(path: "/Foo/.build")
+        let builtToolsDir = AbsolutePath(path: "/Foo/.build/debug")
         let pluginRunner = MockPluginScriptRunner()
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
@@ -209,10 +211,10 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstResult.buildCommands.count, 1)
         let evalFirstCommand = try XCTUnwrap(evalFirstResult.buildCommands.first)
         XCTAssertEqual(evalFirstCommand.configuration.displayName, "Do something")
-        XCTAssertEqual(evalFirstCommand.configuration.executable, AbsolutePath("/bin/FooTool"))
+        XCTAssertEqual(evalFirstCommand.configuration.executable, AbsolutePath(path: "/bin/FooTool"))
         XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
         XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
-        XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
+        XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath(path: "/Foo/Sources/Foo"))
         XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending(component: "FooTool")])
         XCTAssertEqual(evalFirstCommand.outputFiles, [])
 
@@ -220,7 +222,7 @@ class PluginInvocationTests: XCTestCase {
         let evalFirstDiagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)
         XCTAssertEqual(evalFirstDiagnostic.severity, .warning)
         XCTAssertEqual(evalFirstDiagnostic.message, "A warning")
-        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init("/Foo/Sources/Foo/SomeFile.abc"), line: 42))
+        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init(path: "/Foo/Sources/Foo/SomeFile.abc"), line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
@@ -305,7 +307,7 @@ class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: UserToolchain.default
+                toolchain: try UserToolchain.default
             )
             
             // Define a plugin compilation delegate that just captures the passed information.

@@ -20,7 +20,7 @@ public protocol Toolchain {
     var swiftCompilerPath: AbsolutePath { get }
 
     /// Path containing the macOS Swift stdlib.
-    var macosSwiftStdlib: AbsolutePath { get }
+    var macosSwiftStdlib: AbsolutePath { get throws }
 
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
@@ -45,12 +45,16 @@ extension Toolchain {
         return nil
     }
 
-    public var macosSwiftStdlib: AbsolutePath { 
-        return AbsolutePath("../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
+    public var macosSwiftStdlib: AbsolutePath {
+        get throws {
+            return try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
+        }
     }
 
     public var toolchainLibDir: AbsolutePath {
-        // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-        return AbsolutePath("../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+        get throws {
+            // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
+            return try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+        }
     }
 }

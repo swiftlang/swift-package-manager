@@ -168,7 +168,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
 
-        self.databaseCacheDir = cacheDir.map(resolveSymlinks)
+        self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
 
         // this queue and semaphore is used to limit the amount of concurrent manifest loading taking place
         self.evaluationQueue = OperationQueue()
@@ -384,43 +384,49 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // shells out and compiles the manifest, finally output a JSON
         observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown")")
-        self.evaluateManifest(
-            packageIdentity: key.packageIdentity,
-            manifestPath: key.manifestPath,
-            manifestContents: key.manifestContents,
-            toolsVersion: key.toolsVersion,
-            delegateQueue: delegateQueue,
-            callbackQueue: callbackQueue
-        ) { result in
-            dispatchPrecondition(condition: .onQueue(callbackQueue))
-
-            do {
-                defer { closeAfterWrite.perform() }
-                
-                let evaluationResult = try result.get()
-                // only cache successfully parsed manifests
-                let parseManifest = try self.parseManifest(
-                    evaluationResult,
-                    packageIdentity: packageIdentity,
-                    packageKind: packageKind,
-                    toolsVersion: toolsVersion,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                )
+        do {
+            try self.evaluateManifest(
+                packageIdentity: key.packageIdentity,
+                manifestPath: key.manifestPath,
+                manifestContents: key.manifestContents,
+                toolsVersion: key.toolsVersion,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue
+            ) { result in
+                dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                 do {
-                    // FIXME: (diagnostics) pass in observability scope when we have one
-                    try cache?.put(key: key.sha256Checksum, value: evaluationResult)
-                } catch {
-                    observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
-                }
+                    defer { closeAfterWrite.perform() }
 
-                completion(.success(parseManifest))
-            } catch {
-                callbackQueue.async {
-                    completion(.failure(error))
+                    let evaluationResult = try result.get()
+                    // only cache successfully parsed manifests
+                    let parseManifest = try self.parseManifest(
+                        evaluationResult,
+                        packageIdentity: packageIdentity,
+                        packageKind: packageKind,
+                        toolsVersion: toolsVersion,
+                        identityResolver: identityResolver,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
+
+                    do {
+                        // FIXME: (diagnostics) pass in observability scope when we have one
+                        try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+                    } catch {
+                        observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+                    }
+
+                    completion(.success(parseManifest))
+                } catch {
+                    callbackQueue.async {
+                        completion(.failure(error))
+                    }
                 }
+            }
+        } catch {
+            callbackQueue.async {
+                completion(.failure(error))
             }
         }
     }
@@ -434,10 +440,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
-    ) {
+    ) throws {
         do {
             if localFileSystem.isFile(manifestPath) {
-                self.evaluateManifest(
+                try self.evaluateManifest(
                     at: manifestPath,
                     packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
@@ -448,7 +454,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             } else {
                 try withTemporaryFile(suffix: ".swift") { tempFile, cleanupTempFile in
                     try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
-                    self.evaluateManifest(
+                    try self.evaluateManifest(
                         at: tempFile.path,
                         packageIdentity: packageIdentity,
                         toolsVersion: toolsVersion,
@@ -476,7 +482,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
-    ) {
+    ) throws {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         guard manifestPath.extension == "swift" else {
@@ -501,7 +507,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
-        let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
+        let moduleCachePath = try (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -631,7 +637,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         if self.isManifestSandboxEnabled {
                             let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
-                            cmd = Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                            do {
+                                cmd = try Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                            } catch {
+                                return completion(.failure(error))
+                            }
                         }
 
                         // Run the compiled manifest.
@@ -696,9 +706,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        let path = AbsolutePath(sdkRoot)
-        sdkRootPath = path
-        self.sdkRootCache.put(path)
+        if let path = try? AbsolutePath(validating: sdkRoot) {
+            sdkRootPath = path
+            self.sdkRootCache.put(path)
+        }
         #endif
 
         return sdkRootPath

@@ -389,7 +389,7 @@ public class Workspace {
         delegate: Delegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self.init(
             fileSystem: fileSystem,
             location: location,
@@ -434,7 +434,7 @@ public class Workspace {
         delegate: Delegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
             toolchain: customHostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory
@@ -548,7 +548,7 @@ public class Workspace {
 
         let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
             fileSystem: fileSystem,
-            localMirrorsFile: location.localMirrorsConfigurationFile,
+            localMirrorsFile: try location.localMirrorsConfigurationFile,
             sharedMirrorsFile: location.sharedMirrorsConfigurationFile
         ).mirrors
 
@@ -805,7 +805,7 @@ extension Workspace {
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(AbsolutePath(name, relativeTo: self.location.scratchDirectory))
+            try? fileSystem.removeFileTree(AbsolutePath(validating: name, relativeTo: self.location.scratchDirectory))
         }
     }
 
