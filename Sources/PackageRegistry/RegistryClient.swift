@@ -57,7 +57,7 @@ public final class RegistryClient: Cancellable {
                         return nil
                     }
                     return "Basic \(authorizationData.base64EncodedString())"
-                case .token: // `user` holds dummy value in this case
+                case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
                 }
             }
@@ -556,6 +556,39 @@ public final class RegistryClient: Cancellable {
             })
         }
     }
+    
+    public func login(
+        url: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        let request = HTTPClient.Request(
+            method: .post,
+            url: url,
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        return ()
+                    case 401:
+                        throw RegistryError.unauthorized
+                    case 501:
+                        throw RegistryError.authenticationMethodNotSupported
+                    default:
+                        throw RegistryError.invalidResponseStatus(expected: 200, actual: response.statusCode)
+                    }
+                }
+            )
+        }
+    }
 
     private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void, on queue: DispatchQueue) -> (Result<T, Error>) -> Void {
         { result in queue.async { closure(result) } }
@@ -593,6 +626,8 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingReleaseChecksum(Error)
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
+    case unauthorized
+    case authenticationMethodNotSupported
 
     public var description: String {
         switch self {
@@ -638,6 +673,10 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Failed retrieving manifest from registry: \(error)"
         case .failedDownloadingSourceArchive(let error):
             return "Failed downloading source archive from registry: \(error)"
+        case .unauthorized:
+            return "Missing or invalid authentication credentials"
+        case .authenticationMethodNotSupported:
+            return "Authentication method not supported"
         }
     }
 }

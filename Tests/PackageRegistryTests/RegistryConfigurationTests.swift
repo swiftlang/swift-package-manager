@@ -97,7 +97,8 @@ final class RegistryConfigurationTests: XCTestCase {
             },
             "authentication": {
                 "packages.example.com": {
-                    "type": "basic"
+                    "type": "basic",
+                    "loginAPIPath": "/v1/login"
                 }
             },
             "version": 1
@@ -109,6 +110,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["foo"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
+        XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
     }
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {

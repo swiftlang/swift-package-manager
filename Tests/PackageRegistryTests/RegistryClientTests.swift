@@ -981,6 +981,130 @@ final class RegistryClientTests: XCTestCase {
         let identities = try registryClient.lookupIdentities(url: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
     }
+    
+    func testLogin() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let loginURL = URL(string: "\(registryURL)/login")!
+        
+        let token = "top-sekret"
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.post, loginURL):
+                XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Version", value: "1"),
+                    ])
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+        configuration.registryAuthentication[registryURL.host!] = .init(type: .token)
+        
+        let authorizationProvider = TestProvider(map: [registryURL.host!: ("token", token)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        XCTAssertNoThrow(try registryClient.login(url: loginURL))
+    }
+    
+    func testLogin_missingCredentials() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let loginURL = URL(string: "\(registryURL)/login")!
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.post, loginURL):
+                XCTAssertNil(request.headers.get("Authorization").first)
+
+                completion(.success(.init(
+                    statusCode: 401,
+                    headers: .init([
+                        .init(name: "Content-Version", value: "1"),
+                    ])
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient
+        )
+
+        XCTAssertThrowsError(try registryClient.login(url: loginURL)) { error in
+            guard case RegistryError.unauthorized = error else {
+                return XCTFail("Expected RegistryError.unauthorized, got \(error)")
+            }
+        }
+    }
+    
+    func testLogin_authenticationMethodNotSupported() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let loginURL = URL(string: "\(registryURL)/login")!
+        
+        let token = "top-sekret"
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.post, loginURL):
+                XCTAssertNotNil(request.headers.get("Authorization").first)
+
+                completion(.success(.init(
+                    statusCode: 501,
+                    headers: .init([
+                        .init(name: "Content-Version", value: "1"),
+                    ])
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+        configuration.registryAuthentication[registryURL.host!] = .init(type: .token)
+        
+        let authorizationProvider = TestProvider(map: [registryURL.host!: ("token", token)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+
+        XCTAssertThrowsError(try registryClient.login(url: loginURL)) { error in
+            guard case RegistryError.authenticationMethodNotSupported = error else {
+                return XCTFail("Expected RegistryError.authenticationMethodNotSupported, got \(error)")
+            }
+        }
+    }
 }
 
 // MARK: - Sugar
@@ -1071,6 +1195,17 @@ private extension RegistryClient {
     func lookupIdentities(url: URL) throws -> Set<PackageIdentity> {
         return try tsc_await {
             self.lookupIdentities(
+                url: url,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+    
+    func login(url: URL) throws {
+        return try tsc_await {
+            self.login(
                 url: url,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,

@@ -62,6 +62,7 @@ public struct RegistryConfiguration: Hashable {
 extension RegistryConfiguration {
     public struct Authentication: Hashable, Codable {
         public var type: AuthenticationType
+        public var loginAPIPath: String?
     }
 
     public enum AuthenticationType: String, Hashable, Codable {
