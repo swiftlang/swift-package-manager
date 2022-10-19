@@ -649,7 +649,7 @@ extension LLBuildManifestBuilder {
             inputs: cmdOutputs,
             outputs: [targetOutput]
         )
-        if plan.graph.isInRootPackages(target.target) {
+        if plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
             if !target.isTestTarget {
                 addNode(targetOutput, toTarget: .main)
             }
@@ -810,7 +810,7 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if plan.graph.isInRootPackages(target.target) {
+        if plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
             if !target.isTestTarget {
                 addNode(output, toTarget: .main)
             }
