@@ -411,9 +411,9 @@ extension LLBuildManifestBuilder {
         explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker? = nil
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
-        var dependencyModulePathMap: SwiftDriver.ExternalTargetModulePathMap = [:]
+        var dependencyModuleDetailsMap: SwiftDriver.ExternalTargetModuleDetailsMap = [:]
         // Collect paths for target dependencies of this target (direct and transitive)
-        try self.collectTargetDependencyModulePaths(for: targetDescription.target, dependencyModulePathMap: &dependencyModulePathMap)
+        try self.collectTargetDependencyModuleDetails(for: targetDescription.target, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
 
         // Compute the set of frontend
         // jobs needed to build this Swift target.
@@ -428,7 +428,7 @@ extension LLBuildManifestBuilder {
         var driver = try Driver(args: commandLine,
                                 fileSystem: self.fileSystem,
                                 executor: executor,
-                                externalTargetModulePathMap: dependencyModulePathMap,
+                                externalTargetModuleDetailsMap: dependencyModuleDetailsMap,
                                 interModuleDependencyOracle: dependencyOracle
         )
         let jobs = try driver.planBuild()
@@ -439,9 +439,9 @@ extension LLBuildManifestBuilder {
 
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
     /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
-    private func collectTargetDependencyModulePaths(
+    private func collectTargetDependencyModuleDetails(
         for target: ResolvedTarget,
-        dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap
+        dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
         for dependency in target.dependencies(satisfying: self.buildEnvironment) {
             switch dependency {
@@ -451,7 +451,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown dependency product for \(dependency)")
                     }
                     for dependencyProductTarget in dependencyProduct.targets {
-                        try self.addTargetDependencyInfo(for: dependencyProductTarget, dependencyModulePathMap: &dependencyModulePathMap)
+                        try self.addTargetDependencyInfo(for: dependencyProductTarget, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
 
                     }
                 case .target:
@@ -459,21 +459,21 @@ extension LLBuildManifestBuilder {
                     guard let dependencyTarget = dependency.target else {
                         throw InternalError("unknown dependency target for \(dependency)")
                     }
-                    try self.addTargetDependencyInfo(for: dependencyTarget, dependencyModulePathMap: &dependencyModulePathMap)
+                    try self.addTargetDependencyInfo(for: dependencyTarget, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
             }
         }
     }
 
     private func addTargetDependencyInfo(
         for target: ResolvedTarget,
-        dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap
+        dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
         guard case .swift(let dependencySwiftTargetDescription) = plan.targetMap[target] else {
             return
         }
-        dependencyModulePathMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
-            dependencySwiftTargetDescription.moduleOutputPath
-        try self.collectTargetDependencyModulePaths(for: target, dependencyModulePathMap: &dependencyModulePathMap)
+        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
+            SwiftDriver.ExternalTargetModuleDetails(path: dependencySwiftTargetDescription.moduleOutputPath, isFramework: false)
+        try self.collectTargetDependencyModuleDetails(for: target, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
