@@ -64,10 +64,34 @@ public struct Destination: Encodable, Equatable {
 
     /// Additional flags to be passed to the Swift compiler.
     public let extraSwiftCFlags: [String]
+    
+    /// Additional flags to be passed to the C++ compiler.
+    @available(*, deprecated, message: "use `extraCXXFlags` instead")
+    public var extraCPPFlags: [String] {
+        extraCXXFlags
+    }
+    
+    /// Additional flags to be passed to the C++ compiler.
+    public var extraCXXFlags: [String]
 
-    /// Additional flags to be passed when compiling with C++.
-    public let extraCPPFlags: [String]
-
+    /// Creates a compilation destination with the specified properties.
+    @available(*, deprecated, message: "use `init(target:sdk:binDir:extraCCFlags:extraSwiftCFlags:extraCXXFlags)` instead")
+    public init(
+        target: Triple? = nil,
+        sdk: AbsolutePath?,
+        binDir: AbsolutePath,
+        extraCCFlags: [String] = [],
+        extraSwiftCFlags: [String] = [],
+        extraCPPFlags: [String]
+    ) {
+        self.target = target
+        self.sdk = sdk
+        self.binDir = binDir
+        self.extraCCFlags = extraCCFlags
+        self.extraSwiftCFlags = extraSwiftCFlags
+        self.extraCXXFlags = extraCPPFlags
+    }
+    
     /// Creates a compilation destination with the specified properties.
     public init(
         target: Triple? = nil,
@@ -75,14 +99,14 @@ public struct Destination: Encodable, Equatable {
         binDir: AbsolutePath,
         extraCCFlags: [String] = [],
         extraSwiftCFlags: [String] = [],
-        extraCPPFlags: [String] = []
+        extraCXXFlags: [String] = []
     ) {
         self.target = target
         self.sdk = sdk
         self.binDir = binDir
         self.extraCCFlags = extraCCFlags
         self.extraSwiftCFlags = extraSwiftCFlags
-        self.extraCPPFlags = extraCPPFlags
+        self.extraCXXFlags = extraCXXFlags
     }
 
     /// Returns the bin directory for the host.
@@ -156,8 +180,7 @@ public struct Destination: Encodable, Equatable {
             sdk: sdkPath,
             binDir: binDir,
             extraCCFlags: extraCCFlags,
-            extraSwiftCFlags: extraSwiftCFlags,
-            extraCPPFlags: []
+            extraSwiftCFlags: extraSwiftCFlags
         )
     }
 
@@ -197,10 +220,7 @@ public struct Destination: Encodable, Equatable {
             return Destination(
                 target: triple,
                 sdk: wasiSysroot,
-                binDir: host.binDir,
-                extraCCFlags: [],
-                extraSwiftCFlags: [],
-                extraCPPFlags: []
+                binDir: host.binDir
             )
         }
         return nil
@@ -223,7 +243,8 @@ extension Destination {
             binDir: destination.binDir,
             extraCCFlags: destination.extraCCFlags,
             extraSwiftCFlags: destination.extraSwiftCFlags,
-            extraCPPFlags: destination.extraCPPFlags
+            // maintaining `destination.extraCPPFlags` naming inconsistency for compatibility.
+            extraCXXFlags: destination.extraCPPFlags
         )
     }
 }

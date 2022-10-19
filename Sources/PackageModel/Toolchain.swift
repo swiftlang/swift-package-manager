@@ -36,8 +36,12 @@ public protocol Toolchain {
     /// Additional flags to be passed to the Swift compiler.
     var extraSwiftCFlags: [String] { get }
 
-    /// Additional flags to be passed when compiling with C++.
+    /// Additional flags to be passed to the C++ compiler.
+    @available(*, deprecated, message: "use extraCXXFlags instead")
     var extraCPPFlags: [String] { get }
+    
+    /// Additional flags to be passed to the C++ compiler.
+    var extraCXXFlags: [String] { get }
 }
 
 extension Toolchain {
@@ -52,5 +56,9 @@ extension Toolchain {
     public var toolchainLibDir: AbsolutePath {
         // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
         return AbsolutePath("../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+    }
+    
+    public var extraCPPFlags: [String] {
+        extraCXXFlags
     }
 }

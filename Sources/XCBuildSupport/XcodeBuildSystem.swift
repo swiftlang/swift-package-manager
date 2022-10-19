@@ -183,7 +183,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraCPPFlags
+            + buildParameters.toolchain.extraCXXFlags
             + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (

@@ -20,9 +20,9 @@ struct MockToolchain: PackageModel.Toolchain {
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
     #if os(macOS)
-    let extraCPPFlags: [String] = ["-lc++"]
+    let extraCXXFlags: [String] = ["-lc++"]
     #else
-    let extraCPPFlags: [String] = ["-lstdc++"]
+    let extraCXXFlags: [String] = ["-lstdc++"]
     #endif
     func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath("/fake/path/to/clang")
