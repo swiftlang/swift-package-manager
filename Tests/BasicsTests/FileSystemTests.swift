@@ -20,7 +20,7 @@ final class FileSystemTests: XCTestCase {
     func testStripFirstLevelComponent() throws {
         let fileSystem = InMemoryFileSystem()
 
-        let rootPath = AbsolutePath("/root")
+        let rootPath = AbsolutePath(path: "/root")
         try fileSystem.createDirectory(rootPath)
 
         let totalDirectories = Int.random(in: 0 ..< 100)

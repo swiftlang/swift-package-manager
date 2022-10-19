@@ -23,7 +23,7 @@ private extension ResolvedTarget {
                 name: name,
                 type: .library,
                 path: .root,
-                sources: Sources(paths: [], root: AbsolutePath("/")),
+                sources: Sources(paths: [], root: AbsolutePath(path: "/")),
                 dependencies: [],
                 swiftVersion: .v4
             ),

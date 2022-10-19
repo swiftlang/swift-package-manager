@@ -144,7 +144,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testUnsupportedLayouts() throws {
-        let include: AbsolutePath = AbsolutePath("/include")
+        let include: AbsolutePath = AbsolutePath(path: "/include")
 
         var fs = InMemoryFileSystem(emptyFiles:
             include.appending(components: "Foo", "Foo.h").pathString,

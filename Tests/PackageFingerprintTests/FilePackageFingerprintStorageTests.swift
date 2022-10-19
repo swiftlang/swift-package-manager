@@ -21,7 +21,7 @@ import XCTest
 final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath("/fingerprints")
+        let directoryPath = AbsolutePath(path: "/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL(string: "https://example.packages.com")!
         let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
@@ -70,7 +70,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testNotFound() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath("/fingerprints")
+        let directoryPath = AbsolutePath(path: "/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL(string: "https://example.packages.com")!
 
@@ -95,7 +95,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testSingleFingerprintPerKind() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath("/fingerprints")
+        let directoryPath = AbsolutePath(path: "/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL(string: "https://example.packages.com")!
 
@@ -118,7 +118,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testHappyCase_PackageReferenceAPI() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath("/fingerprints")
+        let directoryPath = AbsolutePath(path: "/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
         let packageRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: sourceControlURL), url: sourceControlURL)
@@ -136,7 +136,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testDifferentRepoURLsThatHaveSameIdentity() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath("/fingerprints")
+        let directoryPath = AbsolutePath(path: "/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let fooURL = URL(string: "https://example.com/foo/LinkedList.git")!
         let barURL = URL(string: "https://example.com/bar/LinkedList.git")!

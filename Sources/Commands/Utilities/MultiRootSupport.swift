@@ -64,7 +64,7 @@ public struct XcodeWorkspaceLoader {
             case .absolute:
                 path = try AbsolutePath(validating: location.path)
             case .group:
-                path = AbsolutePath(location.path, relativeTo: workspace.parentDirectory)
+                path = try AbsolutePath(validating: location.path, relativeTo: workspace.parentDirectory)
             }
 
             if self.fileSystem.exists(path.appending(component: Manifest.filename)) {

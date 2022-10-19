@@ -50,7 +50,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
             XCTAssertBuilds(fixturePath.appending(component: "app"))
-            let buildDir = fixturePath.appending(components: "app", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
@@ -71,7 +71,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoArgumentsExitsWithOne() throws {
-        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath("/"))) { error in
+        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath(path: "/"))) { error in
             // if our code crashes we'll get an exit code of 256
             guard error.result.exitStatus == .terminated(code: 1) else {
                 return XCTFail("failed in an unexpected manner: \(error)")
@@ -105,7 +105,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let execpath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Foo").pathString
+            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Foo").pathString
 
             XCTAssertBuilds(fixturePath)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -129,7 +129,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            let execpath = fixturePath.appending(components: "app", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString
+            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString
 
             let packageRoot = fixturePath.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -156,7 +156,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() throws {
         try fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
-            let execpath = [fixturePath.appending(components: "root", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "dep2").pathString]
+            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "dep2").pathString]
 
             let packageRoot = fixturePath.appending(component: "root")
             XCTAssertBuilds(fixturePath.appending(component: "root"))
@@ -180,7 +180,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() throws {
         try fixture(name: "Miscellaneous/Spaces Fixture") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            XCTAssertFileExists(fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -203,7 +203,7 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
-            let hostTriple = UserToolchain.default.triple
+            let hostTriple = try UserToolchain.default.triple
             try executeSwiftBuild(fixturePath, Xswiftc: ["-target", "\(hostTriple.arch)-apple-macosx41.0"])
         }
     }
@@ -213,7 +213,7 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = fixturePath.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             let output =  systemModule.appending(component: "libSystemModule\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
@@ -356,7 +356,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // ••••• Set up dependency.
             let dependencyName = "UnicodeDependency‐\(complicatedString)"
-            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+            let dependencyOrigin = AbsolutePath(path: #file).parentDirectory.parentDirectory.parentDirectory
                 .appending(component: "Fixtures")
                 .appending(component: "Miscellaneous")
                 .appending(component: dependencyName)
@@ -443,7 +443,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testEditModeEndToEnd() throws {
         try fixture(name: "Miscellaneous/Edit") { fixturePath in
-            let prefix = resolveSymlinks(fixturePath)
+            let prefix = try resolveSymlinks(fixturePath)
             let appPath = fixturePath.appending(component: "App")
 
             // prepare the dependencies as git repos

@@ -203,7 +203,7 @@ extension LLBuildManifestBuilder {
         let inputs = try self.computeSwiftCompileCmdInputs(target)
 
         // Outputs.
-        let objectNodes = target.objects.map(Node.file)
+        let objectNodes = try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
@@ -391,7 +391,7 @@ extension LLBuildManifestBuilder {
         let inputs = try self.computeSwiftCompileCmdInputs(description)
 
         // Outputs.
-        let objectNodes = description.objects.map(Node.file)
+        let objectNodes = try description.objects.map(Node.file)
         let moduleNode = Node.file(description.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
@@ -520,7 +520,7 @@ extension LLBuildManifestBuilder {
             moduleOutputPath: target.moduleOutputPath,
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
-            objects: target.objects,
+            objects: try target.objects,
             otherArguments: try target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
@@ -568,7 +568,7 @@ extension LLBuildManifestBuilder {
             case .swift(let target)?:
                 inputs.append(file: target.moduleOutputPath)
             case .clang(let target)?:
-                for object in target.objects {
+                for object in try target.objects {
                     inputs.append(file: object)
                 }
             case nil:
@@ -621,7 +621,7 @@ extension LLBuildManifestBuilder {
                 let displayName = command.configuration.displayName ?? execPath.basename
                 var commandLine = [execPath.pathString] + command.configuration.arguments
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [result.pluginOutputDirectory])
+                    commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [result.pluginOutputDirectory])
                 }
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
@@ -766,7 +766,7 @@ extension LLBuildManifestBuilder {
 
         var objectFileNodes: [Node] = []
 
-        for path in target.compilePaths() {
+        for path in try target.compilePaths() {
             let isCXX = path.source.extension.map{ SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
             var args = try target.basicArguments(isCXX: isCXX)
 
@@ -826,7 +826,7 @@ extension LLBuildManifestBuilder {
         for testDiscoveryTarget in plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
                 .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
-            let objectFiles = testTargets.flatMap{ $0.objects }.sorted().map(Node.file)
+            let objectFiles = try testTargets.flatMap{ try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
             guard let mainOutput = (outputs.first{ $0.basename == TestDiscoveryTool.mainFileName }) else {

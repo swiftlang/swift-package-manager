@@ -215,7 +215,7 @@ enum ManifestJSONParser {
     private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
-            return AbsolutePath(String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
+            return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
         } else if dependencyLocation.hasPrefix(filePrefix) {
             // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
             // strip that. We need to design a Location data structure for SwiftPM.
@@ -236,7 +236,7 @@ enum ManifestJSONParser {
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
             switch packageKind {
             case .root(let packagePath), .fileSystem(let packagePath), .localSourceControl(let packagePath):
-                return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
+                return try AbsolutePath(validating: dependencyLocation, relativeTo: packagePath).pathString
             case .remoteSourceControl, .registry:
                 // nothing to "fix"
                 return dependencyLocation

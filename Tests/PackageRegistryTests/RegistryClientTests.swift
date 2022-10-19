@@ -532,7 +532,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath("/LinkedList-1.1.1")
+        let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
             package: identity,
@@ -610,7 +610,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath("/LinkedList-1.1.1")
+        let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         XCTAssertThrowsError(
             try registryClient.downloadSourceArchive(
@@ -693,7 +693,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath("/LinkedList-1.1.1")
+        let path = AbsolutePath(path: "/LinkedList-1.1.1")
         let observability = ObservabilitySystem.makeForTesting()
 
         // The checksum differs from that in storage, but error is not thrown
@@ -808,7 +808,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath("/LinkedList-1.1.1")
+        let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
             package: identity,

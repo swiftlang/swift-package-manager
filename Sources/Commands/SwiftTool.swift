@@ -415,7 +415,7 @@ public class SwiftTool {
 
         self.packageRoot = packageRoot
         self.scratchDirectory =
-            getEnvBuildPath(workingDir: cwd) ??
+            try getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
             (packageRoot ?? cwd).appending(component: ".build")
 
@@ -919,11 +919,11 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
 }
 
 /// Returns the build path from the environment, if present.
-private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
+private func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
     guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
-    return AbsolutePath(env, relativeTo: workingDir)
+    return try AbsolutePath(validating: env, relativeTo: workingDir)
 }
 
 
@@ -936,7 +936,7 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
         return explicitSecurityDirectory
     } else {
         // further validation is done in workspace
-        return fileSystem.swiftPMSecurityDirectory
+        return try fileSystem.swiftPMSecurityDirectory
     }
 }
 
@@ -949,7 +949,7 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
         return explicitConfigurationDirectory
     } else {
         // further validation is done in workspace
-        return fileSystem.swiftPMConfigurationDirectory
+        return try fileSystem.swiftPMConfigurationDirectory
     }
 }
 
@@ -962,7 +962,7 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
         return explicitCacheDirectory
     } else {
         // further validation is done in workspace
-        return fileSystem.swiftPMCacheDirectory
+        return try fileSystem.swiftPMCacheDirectory
     }
 }
 

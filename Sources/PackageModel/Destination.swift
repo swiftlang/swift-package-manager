@@ -96,7 +96,7 @@ public struct Destination: Encodable, Equatable {
         guard let cwd = originalWorkingDirectory else {
             return try AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
-        return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
+        return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
     }
 
     /// The destination describing the host OS.
@@ -129,7 +129,7 @@ public struct Destination: Encodable, Equatable {
             guard !sdkPathStr.isEmpty else {
                 throw DestinationError.invalidInstallation("default SDK not found")
             }
-            sdkPath = AbsolutePath(sdkPathStr)
+            sdkPath = try AbsolutePath(validating: sdkPathStr)
         }
 #else
         sdkPath = nil
@@ -139,7 +139,7 @@ public struct Destination: Encodable, Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
 #if os(macOS)
-        if let sdkPaths = Destination.sdkPlatformFrameworkPaths(environment: environment) {
+        if let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment) {
             extraCCFlags += ["-F", sdkPaths.fwk.pathString]
             extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
             extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
@@ -164,7 +164,7 @@ public struct Destination: Encodable, Equatable {
     /// Returns macosx sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
         environment: EnvironmentVariables = .process()
-    ) -> (fwk: AbsolutePath, lib: AbsolutePath)? {
+    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath)? {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
@@ -174,11 +174,11 @@ public struct Destination: Encodable, Equatable {
 
         if let platformPath = platformPath, !platformPath.isEmpty {
             // For XCTest framework.
-            let fwk = AbsolutePath(platformPath).appending(
+            let fwk = try AbsolutePath(validating: platformPath).appending(
                 components: "Developer", "Library", "Frameworks")
 
             // For XCTest Swift library.
-            let lib = AbsolutePath(platformPath).appending(
+            let lib = try AbsolutePath(validating: platformPath).appending(
                 components: "Developer", "usr", "lib")
 
             _sdkPlatformFrameworkPath = (fwk, lib)

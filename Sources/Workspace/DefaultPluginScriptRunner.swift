@@ -386,9 +386,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        let path = AbsolutePath(sdkRoot)
-        sdkRootPath = path
-        self.sdkRootCache.put(path)
+        if let path = try? AbsolutePath(validating: sdkRoot) {
+            sdkRootPath = path
+            self.sdkRootCache.put(path)
+        }
         #endif
 
         return sdkRootPath
@@ -416,7 +417,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+            do {
+                command = try Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+            } catch {
+                return callbackQueue.async {
+                    completion(.failure(error))
+                }
+            }
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.

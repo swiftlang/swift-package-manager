@@ -461,7 +461,7 @@ extension Workspace.ManagedArtifact {
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
             source: artifact.source.underlying,
-            path: AbsolutePath(artifact.path),
+            path: try AbsolutePath(validating: artifact.path),
             kind: artifact.kind.underlying
         )
     }
@@ -776,7 +776,7 @@ extension Workspace.ManagedDependency {
 
 extension Workspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V5.Artifact) throws {
-        let path = AbsolutePath(artifact.path)
+        let path = try AbsolutePath(validating: artifact.path)
         try self.init(
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
@@ -1016,7 +1016,7 @@ extension Workspace.ManagedDependency {
 
 extension Workspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V4.Artifact) throws {
-        let path = AbsolutePath(artifact.path)
+        let path = try AbsolutePath(validating: artifact.path)
         try self.init(
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,

@@ -348,11 +348,11 @@ private struct MockRegistryArchiver: Archiver {
             let rootPath = lines[1]
             for path in lines[2..<lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
-                let targetPath = AbsolutePath(relativePath, relativeTo: destinationPath.appending(component: "package"))
+                let targetPath = try AbsolutePath(validating: relativePath, relativeTo: destinationPath.appending(component: "package"))
                 if !self.fileSystem.exists(targetPath.parentDirectory) {
                     try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)
                 }
-                try self.fileSystem.copy(from: AbsolutePath(path), to: targetPath)
+                try self.fileSystem.copy(from: try AbsolutePath(validating: path), to: targetPath)
             }
             completion(.success(()))
         } catch {

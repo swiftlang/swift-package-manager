@@ -112,7 +112,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store.listTests(in: tool.inputs.map{ AbsolutePath($0.name) })
+        let tests = try store.listTests(in: tool.inputs.map{ try AbsolutePath(validating: $0.name) })
 
         let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
@@ -445,7 +445,7 @@ public final class BuildExecutionContext {
                                     .appending(component: "libIndexStore.dll")
 #else
             let ext = buildParameters.hostTriple.dynamicLibraryExtension
-            let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
+            let indexStoreLib = try buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
 #endif
             return try IndexStoreAPI(dylib: indexStoreLib)
         }
@@ -489,8 +489,8 @@ final class CopyCommand: CustomLLBuildCommand {
                 throw StringError("command \(command.name) not registered")
             }
 
-            let input = AbsolutePath(tool.inputs[0].name)
-            let output = AbsolutePath(tool.outputs[0].name)
+            let input = try AbsolutePath(validating: tool.inputs[0].name)
+            let output = try AbsolutePath(validating: tool.outputs[0].name)
             try self.context.fileSystem.createDirectory(output.parentDirectory, recursive: true)
             try self.context.fileSystem.removeFileTree(output)
             try self.context.fileSystem.copy(from: input, to: output)
@@ -903,7 +903,8 @@ fileprivate struct CommandTaskTracker {
             switch message.name {
             case "compile":
                 if let sourceFile = info.inputs.first {
-                    return "Compiling \(targetName) \(AbsolutePath(sourceFile).components.last!)"
+                    let sourceFilePath = try! AbsolutePath(validating: sourceFile)
+                    return "Compiling \(targetName) \(sourceFilePath.components.last!)"
                 }
             case "link":
                 return "Linking \(targetName)"

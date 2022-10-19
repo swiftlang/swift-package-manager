@@ -31,9 +31,9 @@ public enum Sandbox {
         strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],
         readOnlyDirectories: [AbsolutePath] = []
-    ) -> [String] {
+    ) throws -> [String] {
         #if os(macOS)
-        let profile = macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories)
+        let profile = try macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories)
         return ["/usr/bin/sandbox-exec", "-p", profile] + command
         #else
         // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
@@ -59,7 +59,7 @@ fileprivate func macOSSandboxProfile(
     strictness: Sandbox.Strictness,
     writableDirectories: [AbsolutePath],
     readOnlyDirectories: [AbsolutePath]
-) -> String {
+) throws -> String {
     var contents = "(version 1)\n"
 
     // Deny everything by default.
@@ -94,7 +94,7 @@ fileprivate func macOSSandboxProfile(
     else if strictness == .writableTemporaryDirectory {
         // Add `subpath` expressions for the regular and the Foundation temporary directories.
         for tmpDir in ["/tmp", NSTemporaryDirectory()] {
-            writableDirectoriesExpression += ["(subpath \(resolveSymlinks(AbsolutePath(tmpDir)).quotedAsSubpathForSandboxProfile))"]
+            writableDirectoriesExpression += try ["(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))"]
         }
     }
 
@@ -111,7 +111,7 @@ fileprivate func macOSSandboxProfile(
     if readOnlyDirectories.count > 0 {
         contents += "(deny file-write*\n"
         for path in readOnlyDirectories {
-            contents += "    (subpath \(resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+            contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
         }
         contents += ")\n"
     }
@@ -120,7 +120,7 @@ fileprivate func macOSSandboxProfile(
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
         for path in writableDirectories {
-            contents += "    (subpath \(resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+            contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
         }
         contents += ")\n"
     }
@@ -139,6 +139,6 @@ fileprivate extension AbsolutePath {
 }
 
 extension TSCUtility.Platform {
-    fileprivate static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>(Self.darwinCacheDirectories())
+    fileprivate static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>((try? Self.darwinCacheDirectories()) ?? [])
 }
 #endif

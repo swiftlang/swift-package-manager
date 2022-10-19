@@ -590,7 +590,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         guard let firstLine = ByteString(split[0]).validDescription else {
             return false
         }
-        return localFileSystem.isDirectory(AbsolutePath(firstLine))
+        return (try? localFileSystem.isDirectory(AbsolutePath(validating: firstLine))) == true
     }
 
     /// Returns true if the file at `path` is ignored by `git`

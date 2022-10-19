@@ -21,14 +21,14 @@ extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
             name: "Foo",
-            path: AbsolutePath("/fake"),
+            path: AbsolutePath(path: "/fake"),
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
             providers: providers.isEmpty ? nil : providers)
     }
 }
 
 class PkgConfigTests: XCTestCase {
-    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
 
     func testBasics() throws {
         let fs = localFileSystem
@@ -36,7 +36,7 @@ class PkgConfigTests: XCTestCase {
         // No pkgConfig name.
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), fileSystem: fs, observabilityScope: observability.topScope)
+            let result = try pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), fileSystem: fs, observabilityScope: observability.topScope)
             XCTAssertTrue(result.isEmpty)
         }
 
@@ -53,7 +53,7 @@ class PkgConfigTests: XCTestCase {
                     .nuget(["Foo"]),
                 ]
             )
-            for result in pkgConfigArgs(for: target, fileSystem: fs, observabilityScope: observability.topScope) {
+            for result in try pkgConfigArgs(for: target, fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, [])
                 XCTAssertEqual(result.libs, [])
@@ -81,7 +81,7 @@ class PkgConfigTests: XCTestCase {
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let observability = ObservabilitySystem.makeForTesting()
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), fileSystem: fs, observabilityScope: observability.topScope) {
+            for result in try pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -94,7 +94,7 @@ class PkgConfigTests: XCTestCase {
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let observability = ObservabilitySystem.makeForTesting()
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), fileSystem: fs, observabilityScope: observability.topScope) {
+            for result in try pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Bar")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -112,7 +112,7 @@ class PkgConfigTests: XCTestCase {
         // Pc file with -framework Framework flag.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let observability = ObservabilitySystem.makeForTesting()
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Framework"), fileSystem: fs, observabilityScope: observability.topScope) {
+            for result in try pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Framework"), fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Framework")
                 XCTAssertEqual(result.cFlags, ["-F/usr/lib"])
                 XCTAssertEqual(result.libs, ["-F/usr/lib", "-framework", "SystemFramework"])

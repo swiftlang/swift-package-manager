@@ -53,8 +53,8 @@ extension BinaryTarget {
         }
         // Construct a LibraryInfo for the library.
         let libraryDir = self.artifactPath.appending(component: library.libraryIdentifier)
-        let libraryFile = AbsolutePath(library.libraryPath, relativeTo: libraryDir)
-        let headersDir = library.headersPath.map { AbsolutePath($0, relativeTo: libraryDir) }
+        let libraryFile = try AbsolutePath(validating: library.libraryPath, relativeTo: libraryDir)
+        let headersDir = try library.headersPath.map { try AbsolutePath(validating: $0, relativeTo: libraryDir) }
         return [LibraryInfo(libraryPath: libraryFile, headersPath: headersDir)]
     }
 
@@ -67,12 +67,12 @@ extension BinaryTarget {
         // TODO: Add support for libraries
         let executables = metadata.artifacts.filter { $0.value.type == .executable }
         // Construct an ExecutableInfo for each matching variant.
-        return executables.flatMap { entry in
+        return try executables.flatMap { entry in
             // FIXME: this filter needs to become more sophisticated
-            entry.value.variants.filter {
+            try entry.value.variants.filter {
                 return $0.supportedTriples.contains(versionLessTriple)
             }.map{
-                ExecutableInfo(name: entry.key, executablePath: AbsolutePath($0.path, relativeTo: self.artifactPath))
+                ExecutableInfo(name: entry.key, executablePath: try AbsolutePath(validating: $0.path, relativeTo: self.artifactPath))
             }
         }
     }

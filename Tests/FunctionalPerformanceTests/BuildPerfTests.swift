@@ -60,7 +60,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
         try fixture(name: name) { fixturePath in
             let app = fixturePath.appending(components: (appString ?? ""))
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
             try self.execute(packagePath: app)
             measure {
@@ -74,7 +74,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
         try fixture(name: name) { fixturePath in
             let app = fixturePath.appending(components: (appString ?? ""))
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
             try self.execute(packagePath: app)
             measure {

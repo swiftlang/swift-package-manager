@@ -652,7 +652,7 @@ class ToolsVersionParserTests: XCTestCase {
 
     func testVersionSpecificManifest() throws {
         let fs = InMemoryFileSystem()
-        let root = AbsolutePath("/pkg")
+        let root = AbsolutePath(path: "/pkg")
         try fs.createDirectory(root, recursive: true)
 
         /// Loads the tools version of root pkg.
@@ -696,7 +696,7 @@ class ToolsVersionParserTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/foo"
         )
-        let root = AbsolutePath("/pkg")
+        let root = AbsolutePath(path: "/pkg")
 
         func parse(currentToolsVersion: ToolsVersion, _ body: (ToolsVersion) -> Void) throws {
             let manifestPath = try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: currentToolsVersion)

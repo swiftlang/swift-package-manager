@@ -535,7 +535,7 @@ final class PackageToolTests: CommandsTestCase {
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
+            XCTAssertEqual(try resolveSymlinks(try AbsolutePath(validating: path)), try resolveSymlinks(packageRoot))
         }
     }
 
@@ -552,11 +552,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestA = Manifest.createRootManifest(
             name: "PackageA",
-            path: .init("/PackageA"),
+            path: .init(path: "/PackageA"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageB")),
-                .fileSystem(path: .init("/PackageC")),
+                .fileSystem(path: .init(path: "/PackageB")),
+                .fileSystem(path: .init(path: "/PackageC")),
             ],
             products: [
                 try .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -568,11 +568,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestB = Manifest.createFileSystemManifest(
             name: "PackageB",
-            path: .init("/PackageB"),
+            path: .init(path: "/PackageB"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageC")),
-                .fileSystem(path: .init("/PackageD")),
+                .fileSystem(path: .init(path: "/PackageC")),
+                .fileSystem(path: .init(path: "/PackageD")),
             ],
             products: [
                 try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -584,10 +584,10 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestC = Manifest.createFileSystemManifest(
             name: "PackageC",
-            path: .init("/PackageC"),
+            path: .init(path: "/PackageC"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageD")),
+                .fileSystem(path: .init(path: "/PackageD")),
             ],
             products: [
                 try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -599,7 +599,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestD = Manifest.createFileSystemManifest(
             name: "PackageD",
-            path: .init("/PackageD"),
+            path: .init(path: "/PackageD"),
             toolsVersion: .v5_3,
             products: [
                 try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
@@ -775,7 +775,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -849,7 +849,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -868,7 +868,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -938,7 +938,7 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()

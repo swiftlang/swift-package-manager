@@ -25,7 +25,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -34,9 +34,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -70,7 +70,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -79,9 +79,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -114,7 +114,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -123,7 +123,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -132,10 +132,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -176,7 +176,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -185,7 +185,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -194,10 +194,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -234,7 +234,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -243,7 +243,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
                     ],
@@ -252,10 +252,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -293,7 +293,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -302,7 +302,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                     ],
@@ -311,10 +311,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -359,7 +359,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -368,7 +368,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bazPkg",
-                    path: .init("/bazPkg"),
+                    path: .init(path: "/bazPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
                     ],
@@ -377,10 +377,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/bazPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bazPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -428,7 +428,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                 name: "xPkg",
-                path: .init("/xPkg"),
+                path: .init(path: "/xPkg"),
                 products: [
                     ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
                 ],
@@ -438,7 +438,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ]),
                 Manifest.createFileSystemManifest(
                     name: "yPkg",
-                    path: .init("/yPkg"),
+                    path: .init(path: "/yPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -449,9 +449,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "aPkg",
-                    path: .init("/aPkg"),
+                    path: .init(path: "/aPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xPkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/xPkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.dynamic), targets: ["A"]),
@@ -464,9 +464,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bPkg",
-                    path: .init("/bPkg"),
+                    path: .init(path: "/bPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/yPkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/yPkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.dynamic), targets: ["B"]),
@@ -479,10 +479,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/aPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/bPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/aPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -531,7 +531,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -540,7 +540,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -549,10 +549,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -618,7 +618,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "otherPkg",
-                    path: .init("/otherPkg"),
+                    path: .init(path: "/otherPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                         ProductDescription(name: "Math", type: .library(.automatic), targets: ["Math"]),
@@ -631,9 +631,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -690,7 +690,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "otherPkg",
-                    path: .init("/otherPkg"),
+                    path: .init(path: "/otherPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                         ProductDescription(name: "LoggingProd", type: .library(.automatic), targets: ["Logging"]),
@@ -701,9 +701,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -741,7 +741,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "swift-log",
-                    path: .init("/swift-log"),
+                    path: .init(path: "/swift-log"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -750,7 +750,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "swift-metrics",
-                    path: .init("/swift-metrics"),
+                    path: .init(path: "/swift-metrics"),
                     products: [
                         ProductDescription(name: "Metrics", type: .library(.automatic), targets: ["Metrics"]),
                     ],
@@ -760,10 +760,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/swift-log"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/swift-metrics"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: .init(path: "/swift-log"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/swift-metrics"), requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -807,7 +807,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -817,9 +817,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -857,7 +857,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -866,9 +866,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
@@ -879,9 +879,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -920,7 +920,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                         ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
@@ -932,9 +932,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -967,7 +967,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                         ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
@@ -978,9 +978,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
@@ -991,9 +991,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -1022,7 +1022,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -1031,9 +1031,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
@@ -1044,9 +1044,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -1093,7 +1093,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "LoggingProd", type: .library(.automatic), targets: ["Logging"]),
                         ProductDescription(name: "MathProd", type: .library(.automatic), targets: ["Math"]),
@@ -1104,9 +1104,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
@@ -1124,9 +1124,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -1184,7 +1184,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "cPkg",
-                    path: .init("/cPkg"),
+                    path: .init(path: "/cPkg"),
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
                     ],
@@ -1194,7 +1194,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "dPkg",
-                    path: .init("/dPkg"),
+                    path: .init(path: "/dPkg"),
                     products: [
                         ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
                     ],
@@ -1203,10 +1203,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bPkg",
-                    path: .init("/bPkg"),
+                    path: .init(path: "/bPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
@@ -1222,9 +1222,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "aPkg",
-                    path: .init("/aPkg"),
+                    path: .init(path: "/aPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -1238,7 +1238,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "zPkg",
-                    path: .init("/zPkg"),
+                    path: .init(path: "/zPkg"),
                     products: [
                         ProductDescription(name: "Z", type: .library(.automatic), targets: ["Z"]),
                     ],
@@ -1248,9 +1248,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "yPkg",
-                    path: .init("/yPkg"),
+                    path: .init(path: "/yPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/zPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Y", type: .library(.automatic), targets: ["Y"]),
@@ -1264,9 +1264,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "xPkg",
-                    path: .init("/xPkg"),
+                    path: .init(path: "/xPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/yPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/yPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -1280,10 +1280,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/aPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/xPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/aPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -1345,9 +1345,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "gPkg",
-                    path: .init("/gPkg"),
+                    path: .init(path: "/gPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
@@ -1361,7 +1361,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "dPkg",
-                    path: .init("/dPkg"),
+                    path: .init(path: "/dPkg"),
                     products: [
                         ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
                     ],
@@ -1372,9 +1372,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "cPkg",
-                    path: .init("/cPkg"),
+                    path: .init(path: "/cPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
@@ -1392,9 +1392,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bPkg",
-                    path: .init("/bPkg"),
+                    path: .init(path: "/bPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
@@ -1414,10 +1414,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "aPkg",
-                    path: .init("/aPkg"),
+                    path: .init(path: "/aPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "A",
@@ -1477,7 +1477,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "hPkg",
-                    path: .init("/hPkg"),
+                    path: .init(path: "/hPkg"),
                     dependencies: [
                     ],
                     products: [
@@ -1489,9 +1489,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gPkg",
-                    path: .init("/gPkg"),
+                    path: .init(path: "/gPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/hPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/hPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
@@ -1505,7 +1505,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "dPkg",
-                    path: .init("/dPkg"),
+                    path: .init(path: "/dPkg"),
                     products: [
                         ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
                     ],
@@ -1516,9 +1516,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "cPkg",
-                    path: .init("/cPkg"),
+                    path: .init(path: "/cPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
@@ -1534,9 +1534,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bPkg",
-                    path: .init("/bPkg"),
+                    path: .init(path: "/bPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
@@ -1554,10 +1554,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "aPkg",
-                    path: .init("/aPkg"),
+                    path: .init(path: "/aPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "A",
@@ -1618,9 +1618,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "hPkg",
-                    path: .init("/hPkg"),
+                    path: .init(path: "/hPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "H", type: .library(.automatic), targets: ["H"]),
@@ -1634,9 +1634,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gPkg",
-                    path: .init("/gPkg"),
+                    path: .init(path: "/gPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/hPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/hPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
@@ -1654,7 +1654,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "dPkg",
-                    path: .init("/dPkg"),
+                    path: .init(path: "/dPkg"),
                     products: [
                         ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
                     ],
@@ -1665,9 +1665,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "cPkg",
-                    path: .init("/cPkg"),
+                    path: .init(path: "/cPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/dPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
@@ -1683,9 +1683,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bPkg",
-                    path: .init("/bPkg"),
+                    path: .init(path: "/bPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
@@ -1703,10 +1703,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "aPkg",
-                    path: .init("/aPkg"),
+                    path: .init(path: "/aPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "A",
@@ -1764,7 +1764,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "drawPkg",
-                    path: .init("/drawPkg"),
+                    path: .init(path: "/drawPkg"),
                     products: [
                         ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
                     ],
@@ -1773,9 +1773,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gamePkg",
-                    path: .init("/gamePkg"),
+                    path: .init(path: "/gamePkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Game"]),
@@ -1794,9 +1794,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "libPkg",
-                    path: .init("/libPkg"),
+                    path: .init(path: "/libPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
@@ -1816,9 +1816,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -1875,7 +1875,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "drawPkg",
-                    path: .init("/drawPkg"),
+                    path: .init(path: "/drawPkg"),
                     products: [
                         ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
                     ],
@@ -1884,9 +1884,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gamePkg",
-                    path: .init("/gamePkg"),
+                    path: .init(path: "/gamePkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
@@ -1905,9 +1905,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "libPkg",
-                    path: .init("/libPkg"),
+                    path: .init(path: "/libPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
@@ -1926,9 +1926,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -1982,7 +1982,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "drawPkg",
-                    path: .init("/drawPkg"),
+                    path: .init(path: "/drawPkg"),
                     products: [
                         ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
                     ],
@@ -1991,9 +1991,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gamePkg",
-                    path: .init("/gamePkg"),
+                    path: .init(path: "/gamePkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
@@ -2014,9 +2014,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "libPkg",
-                    path: .init("/libPkg"),
+                    path: .init(path: "/libPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
@@ -2038,9 +2038,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2094,7 +2094,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "drawPkg",
-                    path: .init("/drawPkg"),
+                    path: .init(path: "/drawPkg"),
                     products: [
                         ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
                     ],
@@ -2103,9 +2103,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gamePkg",
-                    path: .init("/gamePkg"),
+                    path: .init(path: "/gamePkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "GameProd", type: .library(.automatic), targets: ["Game"]),
@@ -2128,9 +2128,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "libPkg",
-                    path: .init("/libPkg"),
+                    path: .init(path: "/libPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
@@ -2145,9 +2145,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2204,7 +2204,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "drawPkg",
-                    path: .init("/drawPkg"),
+                    path: .init(path: "/drawPkg"),
                     products: [
                         ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
                     ],
@@ -2213,9 +2213,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "gamePkg",
-                    path: .init("/gamePkg"),
+                    path: .init(path: "/gamePkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/drawPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Game"]),
@@ -2236,9 +2236,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "libPkg",
-                    path: .init("/libPkg"),
+                    path: .init(path: "/libPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/gamePkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
@@ -2260,9 +2260,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/libPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2315,7 +2315,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -2324,9 +2324,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
@@ -2339,10 +2339,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -2391,7 +2391,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "carPkg",
-                    path: .init("/carPkg"),
+                    path: .init(path: "/carPkg"),
                     products: [
                         ProductDescription(name: "CarLog", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -2400,7 +2400,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "barPkg",
-                    path: .init("/barPkg"),
+                    path: .init(path: "/barPkg"),
                     products: [
                         ProductDescription(name: "BarLog", type: .library(.automatic), targets: ["Logging"]),
                     ],
@@ -2409,9 +2409,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
-                    path: .init("/fooPkg"),
+                    path: .init(path: "/fooPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
@@ -2424,10 +2424,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
-                    path: .init("/thisPkg"),
+                    path: .init(path: "/thisPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/carPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/carPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -2476,7 +2476,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
                     ],
@@ -2486,9 +2486,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2532,7 +2532,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "cpkg",
-                    path: .init("/cpkg"),
+                    path: .init(path: "/cpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2541,9 +2541,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "bpkg",
-                    path: .init("/bpkg"),
+                    path: .init(path: "/bpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
@@ -2558,9 +2558,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -2575,7 +2575,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2584,9 +2584,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -2601,10 +2601,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2656,7 +2656,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2665,7 +2665,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2674,10 +2674,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -2695,7 +2695,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "cpkg",
-                    path: .init("/cpkg"),
+                    path: .init(path: "/cpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2704,7 +2704,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "bpkg",
-                    path: .init("/bpkg"),
+                    path: .init(path: "/bpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2713,10 +2713,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/bpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/cpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -2734,10 +2734,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2788,7 +2788,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2797,7 +2797,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2806,10 +2806,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -2827,7 +2827,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
                     ],
@@ -2837,10 +2837,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2889,7 +2889,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2898,7 +2898,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2907,10 +2907,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -2928,7 +2928,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -2937,10 +2937,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -2991,7 +2991,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3000,9 +3000,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -3020,7 +3020,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bpkg",
-                    path: .init("/bpkg"),
+                    path: .init(path: "/bpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3029,9 +3029,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -3049,10 +3049,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -3102,7 +3102,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3111,7 +3111,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3120,10 +3120,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -3142,7 +3142,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bpkg",
-                    path: .init("/bpkg"),
+                    path: .init(path: "/bpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3151,9 +3151,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -3171,10 +3171,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -3224,7 +3224,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3233,7 +3233,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3242,10 +3242,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
@@ -3265,7 +3265,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "bpkg",
-                    path: .init("/bpkg"),
+                    path: .init(path: "/bpkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3274,9 +3274,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "apkg",
-                    path: .init("/apkg"),
+                    path: .init(path: "/apkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/bpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
@@ -3294,10 +3294,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",
@@ -3346,7 +3346,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                 name: "apkg",
-                path: .init("/apkg"),
+                path: .init(path: "/apkg"),
                 products: [
                     ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
                 ],
@@ -3355,7 +3355,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 ]),
                 Manifest.createFileSystemManifest(
                     name: "wpkg",
-                    path: .init("/wpkg"),
+                    path: .init(path: "/wpkg"),
                     products: [
                         ProductDescription(name: "W", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3364,7 +3364,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "zpkg",
-                    path: .init("/zpkg"),
+                    path: .init(path: "/zpkg"),
                     products: [
                         ProductDescription(name: "Z", type: .library(.automatic), targets: ["Utils"]),
                     ],
@@ -3373,9 +3373,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "ypkg",
-                    path: .init("/ypkg"),
+                    path: .init(path: "/ypkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init(path: "/zpkg"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Y", type: .library(.automatic), targets: ["Utils"]),
@@ -3391,10 +3391,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     name: "xpkg",
-                    path: .init("/xpkg"),
+                    path: .init(path: "/xpkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/wpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/ypkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/wpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "X", type: .library(.automatic), targets: ["Utils"]),
@@ -3414,10 +3414,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     name: "appPkg",
-                    path: .init("/appPkg"),
+                    path: .init(path: "/appPkg"),
                     dependencies: [
-                        .localSourceControl(path: .init("/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init("/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/apkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init(path: "/xpkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "App",

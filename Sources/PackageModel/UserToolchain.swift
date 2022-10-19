@@ -70,7 +70,7 @@ public final class UserToolchain: Toolchain {
         // for now but we shouldn't need to resolve the symlink.  We need to lay
         // down symlinks to runtimes in our fake toolchain as part of the
         // bootstrap script.
-        let swiftCompiler = resolveSymlinks(self.swiftCompilerPath)
+        let swiftCompiler = try resolveSymlinks(self.swiftCompilerPath)
 
         let runtime = swiftCompiler.appending(
             RelativePath("../../lib/swift/clang/lib/darwin/libclang_rt.\(sanitizer.shortName)_osx_dynamic.dylib"))
@@ -260,7 +260,7 @@ public final class UserToolchain: Toolchain {
         return try UserToolchain.getTool("swift-symbolgraph-extract", binDir: self.swiftCompilerPath.parentDirectory)
     }
 
-    internal static func deriveSwiftCFlags(triple: Triple, destination: Destination, environment: EnvironmentVariables) -> [String] {
+    internal static func deriveSwiftCFlags(triple: Triple, destination: Destination, environment: EnvironmentVariables) throws -> [String] {
         guard let sdk = destination.sdk else {
             if triple.isWindows() {
                 // Windows uses a variable named SDKROOT to determine the root of
@@ -300,8 +300,8 @@ public final class UserToolchain: Toolchain {
                                         .appending(component: "Library")
                                         .appending(component: "XCTest-\(info.defaults.xctestVersion)")
 
-                        xctest = [
-                            "-I", AbsolutePath("usr/lib/swift/windows", relativeTo: installation).pathString,
+                        xctest = try [
+                            "-I", AbsolutePath(validating: "usr/lib/swift/windows", relativeTo: installation).pathString,
                             // Migration Path
                             //
                             // Older Swift (<=5.7) installations placed the
@@ -311,8 +311,8 @@ public final class UserToolchain: Toolchain {
                             // gained the ability to consult the architecture
                             // indepndent directory for Swift modules, allowing
                             // the merged swiftmodules.  XCTest followed suit.
-                            "-I", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
-                            "-L", AbsolutePath("usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                            "-I", AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
+                            "-L", AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch)", relativeTo: installation).pathString,
                         ]
 
                         // Migration Path
@@ -323,8 +323,7 @@ public final class UserToolchain: Toolchain {
                         // this getting enabled (~5.7), we always had a singular
                         // installed SDK.  Prefer the new variant which has an
                         // architecture subdirectory in `bin` if available.
-                        let implib: AbsolutePath =
-                            AbsolutePath("usr/lib/swift/windows/XCTest.lib", relativeTo: installation)
+                        let implib = try AbsolutePath(validating: "usr/lib/swift/windows/XCTest.lib", relativeTo: installation)
                         if localFileSystem.exists(implib) {
                             xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
                         }
@@ -390,7 +389,7 @@ public final class UserToolchain: Toolchain {
 
         self.triple = triple
 
-        self.extraSwiftCFlags = Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
+        self.extraSwiftCFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
 
         if let sdk = destination.sdk {
             self.extraCCFlags = [

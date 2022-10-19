@@ -26,7 +26,7 @@ final class AuthorizationConfigurationTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
 
-            let customPath = fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
+            let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
             try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)
             try fileSystem.writeFileContents(customPath) {
                 "machine mymachine.labkey.org login custom@labkey.org password custom"
@@ -37,7 +37,7 @@ final class AuthorizationConfigurationTests: XCTestCase {
             let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
 
             XCTAssertEqual(netrcProviders?.count, 1)
-            XCTAssertEqual(netrcProviders?.first.map { resolveSymlinks($0.path) }, resolveSymlinks(customPath))
+            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
             let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
             XCTAssertEqual(auth?.user, "custom@labkey.org")
@@ -55,7 +55,7 @@ final class AuthorizationConfigurationTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
 
-            let userPath = fileSystem.homeDirectory.appending(component: ".netrc")
+            let userPath = try fileSystem.homeDirectory.appending(component: ".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
             try fileSystem.writeFileContents(userPath) {
                 "machine mymachine.labkey.org login user@labkey.org password user"
@@ -66,7 +66,7 @@ final class AuthorizationConfigurationTests: XCTestCase {
             let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
 
             XCTAssertEqual(netrcProviders?.count, 1)
-            XCTAssertEqual(netrcProviders?.first.map { resolveSymlinks($0.path) }, resolveSymlinks(userPath))
+            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
 
             let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
             XCTAssertEqual(auth?.user, "user@labkey.org")
@@ -85,7 +85,7 @@ final class AuthorizationConfigurationTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
 
-            let userPath = fileSystem.homeDirectory.appending(component: ".netrc")
+            let userPath = try fileSystem.homeDirectory.appending(component: ".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
             try fileSystem.writeFileContents(userPath) {
                 "machine mymachine.labkey.org login user@labkey.org password user"
@@ -102,8 +102,8 @@ final class AuthorizationConfigurationTests: XCTestCase {
             let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
 
             XCTAssertEqual(netrcProviders?.count, 2)
-            XCTAssertEqual(netrcProviders?.first.map { resolveSymlinks($0.path) }, resolveSymlinks(workspacePath))
-            XCTAssertEqual(netrcProviders?.last.map { resolveSymlinks($0.path) }, resolveSymlinks(userPath))
+            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(workspacePath))
+            XCTAssertEqual(try netrcProviders?.last.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
 
             let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
             XCTAssertEqual(auth?.user, "workspace@labkey.org")

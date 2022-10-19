@@ -356,7 +356,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, environment: buildEnvironment, for: pluginScriptRunner.hostTriple)
+                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):

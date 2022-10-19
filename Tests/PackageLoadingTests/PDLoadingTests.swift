@@ -18,7 +18,7 @@ import TSCBasic
 import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
-    lazy var manifestLoader = ManifestLoader(toolchain: UserToolchain.default, delegate: self)
+    lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
     var parsedManifest = ThreadSafeBox<AbsolutePath>()
     
     public func willLoad(manifest: AbsolutePath) {

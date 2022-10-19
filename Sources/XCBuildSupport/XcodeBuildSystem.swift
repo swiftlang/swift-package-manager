@@ -80,7 +80,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let xcodeSelectOutput = try TSCBasic.Process.popen(args: "xcode-select", "-p").utf8Output().spm_chomp()
             let xcodeDirectory = try AbsolutePath(validating: xcodeSelectOutput)
-            xcbuildPath = AbsolutePath("../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild", relativeTo: xcodeDirectory)
+            xcbuildPath = try AbsolutePath(validating: "../SharedFrameworks/XCBuild.framework/Versions/A/Support/xcbuild", relativeTo: xcodeDirectory)
         }
 
         guard fileSystem.exists(xcbuildPath) else {
@@ -175,7 +175,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
-        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
+        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(try buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
             + buildParameters.toolchain.extraCCFlags
@@ -294,7 +294,7 @@ extension PIFBuilderParameters {
         self.init(
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: buildParameters.toolchain.toolchainLibDir
+            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root
         )
     }
 }

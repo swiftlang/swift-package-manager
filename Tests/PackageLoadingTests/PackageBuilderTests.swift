@@ -41,7 +41,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testMixedSources() throws {
-        let foo: AbsolutePath = AbsolutePath("/Sources/foo")
+        let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             foo.appending(components: "main.swift").pathString,
@@ -220,13 +220,13 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
                 module.checkSources(root: "/Sources/clib", paths: "clib.c")
-                module.check(moduleMapType: .custom(AbsolutePath("/Sources/clib/include/module.modulemap")))
+                module.check(moduleMapType: .custom(AbsolutePath(path: "/Sources/clib/include/module.modulemap")))
             }
         }
     }
 
     func testPublicIncludeDirMixedWithSources() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "clib", "nested", "nested.h").pathString,
@@ -566,7 +566,7 @@ class PackageBuilderTests: XCTestCase {
                 ),
             ]
         )
-        PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { package, _ in
+        PackageBuilderTester(manifest, path: AbsolutePath(path: "/pkg"), in: fs) { package, _ in
             package.checkModule("exe") { _ in }
             package.checkModule("tests") { _ in }
 
@@ -597,7 +597,7 @@ class PackageBuilderTests: XCTestCase {
 
     func testMultipleTestEntryPointsError() throws {
         let name = SwiftTarget.defaultTestEntryPointName
-        let swift: AbsolutePath = AbsolutePath("/swift")
+        let swift: AbsolutePath = AbsolutePath(path: "/swift")
 
         let fs = InMemoryFileSystem(emptyFiles:
             AbsolutePath.root.appending(components: name).pathString,
@@ -616,14 +616,14 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test entry point files: \(AbsolutePath("/\(name)")), \(swift.appending(components: name))", severity: .error)
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test entry point files: \(try! AbsolutePath(validating: "/\(name)")), \(swift.appending(components: name))", severity: .error)
         }
     }
 
     func testCustomTargetPaths() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
         let swift: RelativePath = RelativePath("swift")
-        let bar: AbsolutePath = AbsolutePath("/bar")
+        let bar: AbsolutePath = AbsolutePath(path: "/bar")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
@@ -659,7 +659,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath(path: "/Tests").pathString)
 
             package.checkModule("exe") { module in
                 module.check(c99name: "exe", type: .executable)
@@ -687,7 +687,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCustomTargetPathsOverlap() throws {
-        let bar: AbsolutePath = AbsolutePath("/target/bar")
+        let bar: AbsolutePath = AbsolutePath(path: "/target/bar")
 
         let fs = InMemoryFileSystem(emptyFiles:
             bar.appending(components: "bar.swift").pathString,
@@ -724,7 +724,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: AbsolutePath("/Sources").pathString, testTarget: AbsolutePath("/Tests").pathString)
+            package.checkPredefinedPaths(target: AbsolutePath(path: "/Sources").pathString, testTarget: AbsolutePath(path: "/Tests").pathString)
 
             package.checkModule("bar") { module in
                 module.check(c99name: "bar", type: .library)
@@ -741,8 +741,8 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testPublicHeadersPath() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
-        let Tests: AbsolutePath = AbsolutePath("/Tests")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
+        let Tests: AbsolutePath = AbsolutePath(path: "/Tests")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "Foo", "inc", "module.modulemap").pathString,
@@ -813,7 +813,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTestsLayoutsv4() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "A", "main.swift").pathString,
@@ -832,7 +832,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath(path: "/Tests").pathString)
 
             package.checkModule("A") { module in
                 module.check(c99name: "A", type: .executable)
@@ -960,7 +960,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTargetDependencies() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "Foo", "Foo.swift").pathString,
@@ -980,7 +980,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
 
-            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath("/Tests").pathString)
+            package.checkPredefinedPaths(target: Sources.pathString, testTarget: AbsolutePath(path: "/Tests").pathString)
 
             package.checkModule("Foo") { module in
                 module.check(c99name: "Foo", type: .library)
@@ -1086,11 +1086,11 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            try fs.writeFileContents(AbsolutePath("/foo2.zip"), bytes: "")
+            try fs.writeFileContents(AbsolutePath(path: "/foo2.zip"), bytes: "")
 
             let binaryArtifacts = [
-                "foo": BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework")),
-                "foo2": BinaryArtifact(kind: .xcframework, originURL: nil, path: AbsolutePath("/foo2.xcframework"))
+                "foo": BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath(path: "/foo.xcframework")),
+                "foo2": BinaryArtifact(kind: .xcframework, originURL: nil, path: AbsolutePath(path: "/foo2.xcframework"))
             ]
             PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 package.checkModule("foo")
@@ -1131,7 +1131,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         do {
-            let pkg2: AbsolutePath = AbsolutePath("/Sources/pkg2")
+            let pkg2: AbsolutePath = AbsolutePath(path: "/Sources/pkg2")
 
             // Reference a target which doesn't have sources.
             let fs = InMemoryFileSystem(emptyFiles:
@@ -1196,7 +1196,7 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "Foo", path: "../foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
+            PackageBuilderTester(manifest, path: AbsolutePath(path: "/pkg"), in: fs) { package, diagnostics in
                 diagnostics.check(diagnostic: "target 'Foo' in package '\(package.packageIdentity)' is outside the package root", severity: .error)
             }
         }
@@ -1211,7 +1211,7 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "Foo", path: "/foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+            PackageBuilderTester(manifest, path: AbsolutePath(path: "/pkg"), in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "target path \'/foo\' is not supported; it should be relative to package root", severity: .error)
             }
         }
@@ -1227,7 +1227,7 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "Foo", path: "~/foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+            PackageBuilderTester(manifest, path: AbsolutePath(path: "/pkg"), in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "target path \'~/foo\' is not supported; it should be relative to package root", severity: .error)
             }
         }
@@ -1441,7 +1441,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSpecialTargetDir() throws {
-        let src: AbsolutePath = AbsolutePath("/src")
+        let src: AbsolutePath = AbsolutePath(path: "/src")
         // Special directory should be src because both target and test target are under it.
         let fs = InMemoryFileSystem(emptyFiles:
             src.appending(components: "A", "Foo.swift").pathString,
@@ -1592,7 +1592,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSystemLibraryTargetDiagnostics() throws {
-        let Sources: AbsolutePath = AbsolutePath("/Sources")
+        let Sources: AbsolutePath = AbsolutePath(path: "/Sources")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Sources.appending(components: "foo", "module.modulemap").pathString,
@@ -1811,7 +1811,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesIgnoredInV5_2Manifest() throws {
-        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+        let lib: AbsolutePath = AbsolutePath(path: "/Sources/lib")
 
         // Files with unknown suffixes under declared sources are not considered valid sources in 5.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -1838,7 +1838,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testUnknownSourceFilesUnderDeclaredSourcesCompiledInV5_3Manifest() throws {
-        let lib: AbsolutePath = AbsolutePath("/Sources/lib")
+        let lib: AbsolutePath = AbsolutePath(path: "/Sources/lib")
 
         // Files with unknown suffixes under declared sources are treated as compilable in 5.3 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -2070,7 +2070,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
+        PackageBuilderTester(manifest1, path: AbsolutePath(path: "/pkg"), in: fs) { package, diagnostics in
             diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '\(AbsolutePath.root)' or '~'", severity: .error)
         }
 
@@ -2087,7 +2087,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+        PackageBuilderTester(manifest2, path: AbsolutePath(path: "/pkg"), in: fs) { _, diagnostics in
             diagnostics.check(diagnostic: "invalid header search path '../../..'; header search path should not be outside the package root", severity: .error)
         }
     }
@@ -2107,7 +2107,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2139,7 +2139,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
+        PackageBuilderTester(manifest, path: AbsolutePath(path: "/Foo"), in: fs) { package, diagnostics in
             package.checkModule("Foo")
             package.checkModule("Foo2")
             package.checkModule("Foo3")
@@ -2174,7 +2174,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .fileSystem(path: .init("/Biz")),
+                .fileSystem(path: .init(path: "/Biz")),
             ],
             targets: [
                 try TargetDescription(
@@ -2244,13 +2244,13 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { _, diagnostics in
+        PackageBuilderTester(manifest, path: AbsolutePath(path: "/Foo"), in: fs) { _, diagnostics in
             diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", severity: .error)
         }
     }
 
     func testXcodeResources() throws {
-        let root: AbsolutePath = AbsolutePath("/Foo")
+        let root: AbsolutePath = AbsolutePath(path: "/Foo")
         let Foo: AbsolutePath = root.appending(components: "Sources", "Foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -2401,7 +2401,7 @@ final class PackageBuilderTester {
         }
 
         func check(testEntryPointPath: String?, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(product.testEntryPointPath, testEntryPointPath.map({ AbsolutePath($0) }), file: file, line: line)
+            XCTAssertEqual(product.testEntryPointPath, testEntryPointPath.map({ try! AbsolutePath(validating: $0) }), file: file, line: line)
         }
     }
 
@@ -2437,7 +2437,7 @@ final class PackageBuilderTester {
 
         func checkSources(root: String? = nil, sources paths: [String], file: StaticString = #file, line: UInt = #line) {
             if let root = root {
-                XCTAssertEqual(target.sources.root, AbsolutePath(root), file: file, line: line)
+                XCTAssertEqual(target.sources.root, try! AbsolutePath(validating: root), file: file, line: line)
             }
             let sources = Set(self.target.sources.relativePaths.map({ $0.pathString }))
             XCTAssertEqual(sources, Set(paths), "unexpected source files in \(target.name)", file: file, line: line)

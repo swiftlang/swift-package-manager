@@ -78,7 +78,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     }
 
     func mockGraph(for name: String) throws -> MockDependencyGraph {
-        let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: name)
+        let input = AbsolutePath(path: #file).parentDirectory.appending(component: "Inputs").appending(component: name)
         let jsonString: Data = try localFileSystem.readFileContents(input)
         let json = try JSON(data: jsonString)
         return MockDependencyGraph(json)
@@ -100,10 +100,10 @@ public extension MockDependencyGraph {
             name: name,
             constraints: constraints.map(PackageContainerConstraint.init(json:)),
             containers: containers.map(MockPackageContainer.init(json:)),
-            result: Dictionary(uniqueKeysWithValues: result.map { value in
+            result: Dictionary(uniqueKeysWithValues: try! result.map { value in
                 let (container, version) = value
                 guard case .string(let str) = version else { fatalError() }
-                let package = PackageReference.localSourceControl(identity: .plain(container.lowercased()), path: .init("/\(container)"))
+                let package = PackageReference.localSourceControl(identity: .plain(container.lowercased()), path: try .init(validating: "/\(container)"))
                 return (package, Version(str)!)
             })
         )
@@ -133,7 +133,7 @@ private extension MockPackageContainer {
                 }
         }
 
-        self.init(name: identifier, dependenciesByVersion: depByVersion)
+        try! self.init(name: identifier, dependenciesByVersion: depByVersion)
     }
 }
 

@@ -46,15 +46,15 @@ class PackageGraphPerfTests: XCTestCasePerf {
             } else {
                 let depName = "Foo\(pkg + 1)"
                 let depUrl = "/\(depName)"
-                dependencies = [.localSourceControl(deprecatedName: depName, path: .init(depUrl), requirement: .upToNextMajor(from: "1.0.0"))]
+                dependencies = [.localSourceControl(deprecatedName: depName, path: try .init(validating: depUrl), requirement: .upToNextMajor(from: "1.0.0"))]
                 targets = [try TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
             }
             // Create manifest.
             let isRoot = pkg == 1
             let manifest = Manifest(
                 displayName: name,
-                path: AbsolutePath(location).appending(component: Manifest.filename),
-                packageKind: isRoot ? .root(.init(location)) : .localSourceControl(.init(location)),
+                path: try AbsolutePath(validating: location).appending(component: Manifest.filename),
+                packageKind: isRoot ? .root(try .init(validating: location)) : .localSourceControl(try .init(validating: location)),
                 packageLocation: location,
                 platforms: [],
                 version: "1.0.0",

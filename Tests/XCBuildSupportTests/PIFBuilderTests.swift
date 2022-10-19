@@ -22,7 +22,7 @@ import XCBuildSupport
 import XCTest
 
 class PIFBuilderTests: XCTestCase {
-    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
 
     func testOrdering() throws {
         #if !os(macOS)
@@ -44,7 +44,7 @@ class PIFBuilderTests: XCTestCase {
                 manifests: [
                     Manifest.createLocalSourceControlManifest(
                         name: "B",
-                        path: .init("/B"),
+                        path: .init(path: "/B"),
                         toolsVersion: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
@@ -56,10 +56,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     Manifest.createRootManifest(
                         name: "A",
-                        path: .init("/A"),
+                        path: .init(path: "/A"),
                         toolsVersion: .v5_2,
                         dependencies: [
-                            .localSourceControl(path: .init("/B"), requirement: .branch("master")),
+                            .localSourceControl(path: .init(path: "/B"), requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -115,12 +115,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
-                    packageKind: .root(.init("/Foo")),
+                    path: .init(path: "/Foo"),
+                    packageKind: .root(.init(path: "/Foo")),
                     defaultLocalization: "fr",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
@@ -128,7 +128,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
@@ -158,8 +158,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 XCTAssertEqual(project.path.pathString, "/Foo")
                 XCTAssertEqual(project.projectDirectory.pathString, "/Foo")
                 XCTAssertEqual(project.name, "Foo")
@@ -262,7 +262,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 XCTAssertEqual(project.path.pathString, "/Bar")
                 XCTAssertEqual(project.projectDirectory.pathString, "/Bar")
                 XCTAssertEqual(project.name, "Bar")
@@ -364,7 +364,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("AGGREGATE") { project in
+            try workspace.checkProject("AGGREGATE") { project in
                 project.checkAggregateTarget("ALL-EXCLUDING-TESTS") { target in
                     XCTAssertEqual(target.name, PIFBuilder.allExcludingTestsTargetName)
                     XCTAssertEqual(target.dependencies, ["PACKAGE-PRODUCT:foo"])
@@ -398,11 +398,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -420,7 +420,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -440,7 +440,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -452,8 +452,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
 
                 // Root Swift executable target
 
@@ -590,7 +590,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
 
                 // Non-root Swift executable target
 
@@ -732,11 +732,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -754,7 +754,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -775,7 +775,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -787,8 +787,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
                     XCTAssertEqual(target.name, "FooTests_-5E24708DC81AF5C1_PackageProduct")
                     XCTAssertEqual(target.productType, .unitTest)
@@ -956,7 +956,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkNoTarget("PACKAGE-PRODUCT:BarTests")
                 project.checkNoTarget("PACKAGE-PRODUCT:CBarTests")
             }
@@ -980,11 +980,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -999,7 +999,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -1015,7 +1015,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1027,8 +1027,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:FooLib1") { target in
                     XCTAssertEqual(target.name, "FooLib1_32B0F01AD0DD0FF3_PackageProduct")
                     XCTAssertEqual(target.productType, .packageProduct)
@@ -1102,7 +1102,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .framework)
@@ -1182,12 +1182,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),
@@ -1198,7 +1198,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1213,7 +1213,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1225,8 +1225,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-TARGET:FooLib1") { target in
                     XCTAssertEqual(target.name, "FooLib1")
                     XCTAssertEqual(target.productType, .objectFile)
@@ -1382,7 +1382,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-TARGET:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib")
                     XCTAssertEqual(target.productType, .objectFile)
@@ -1480,9 +1480,9 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "App",
-                    path: .init("/App"),
+                    path: .init(path: "/App"),
                     dependencies: [
-                        .localSourceControl(path: .init("/Bar"), requirement: .branch("main")),
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "App", dependencies: ["Logging", "Utils"], type: .executable),
@@ -1493,7 +1493,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     products: [
                         .init(name: "BarLib", type: .library(.dynamic), targets: ["Lib"]),
                     ],
@@ -1506,7 +1506,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1518,8 +1518,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/App") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/App") { project in
                 project.checkTarget("PACKAGE-PRODUCT:App") { target in
                     XCTAssertEqual(target.name, "App_1DA2DD44_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
@@ -1601,7 +1601,7 @@ class PIFBuilderTests: XCTestCase {
                 }
             }
 
-            workspace.checkProject("PACKAGE:/Bar") { project in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .framework)
@@ -1703,7 +1703,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
+                    path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1718,7 +1718,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
@@ -1730,8 +1730,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Bar") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .dynamicLibrary)
@@ -1756,8 +1756,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
-                    path: .init("/Bar"),
-                    packageKind: .root(.init("/Bar")),
+                    path: .init(path: "/Bar"),
+                    packageKind: .root(.init(path: "/Bar")),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1772,7 +1772,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
@@ -1784,8 +1784,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Bar") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
 
@@ -1814,7 +1814,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -1827,7 +1827,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         var pif: PIF.TopLevelObject!
-        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(),
@@ -1839,8 +1839,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkAggregateTarget("PACKAGE-TARGET:SystemLib1") { target in
                     XCTAssertEqual(target.name, "SystemLib1")
                     XCTAssertEqual(target.dependencies, [])
@@ -1933,7 +1933,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -1947,7 +1947,7 @@ class PIFBuilderTests: XCTestCase {
             ],
             binaryArtifacts: [
                 .plain("foo"): [
-                    "BinaryLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
+                    "BinaryLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath(path: "/Foo/BinaryLibrary.xcframework"))
                 ]
             ],
             shouldCreateMultipleTestProducts: true,
@@ -1964,8 +1964,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssert(target.frameworks.contains("/Foo/BinaryLibrary.xcframework"))
                 }
@@ -2007,7 +2007,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2040,8 +2040,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:foo"])
                     XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Database.xcdatamodel"))
@@ -2223,7 +2223,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     toolsVersion: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2296,8 +2296,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2437,8 +2437,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
-                    packageKind: .root(.init("/Foo")),
+                    path: .init(path: "/Foo"),
+                    packageKind: .root(.init(path: "/Foo")),
                     toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2468,8 +2468,8 @@ class PIFBuilderTests: XCTestCase {
             "PACKAGE-TARGET:FooLib2": PIF.PlatformFilter.iOSFilters,
         ]
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
                     XCTAssertEqual(target.frameworks, ["PACKAGE-TARGET:FooLib1", "PACKAGE-TARGET:FooLib2"])
@@ -2506,7 +2506,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
+                    path: .init(path: "/Foo"),
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
                     ],
@@ -2529,8 +2529,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/Foo") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkBuildConfiguration("Debug") { configuration in
                     configuration.checkBuildSettings { settings in
                         XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: .macOS], ["best"])
@@ -2556,7 +2556,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     name: "MyLib",
-                    path: .init("/MyLib"),
+                    path: .init(path: "/MyLib"),
                     toolsVersion: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
@@ -2584,8 +2584,8 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        PIFTester(pif) { workspace in
-            workspace.checkProject("PACKAGE:/MyLib") { project in
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/MyLib") { project in
                 project.checkTarget("PACKAGE-TARGET:MyLib") { target in
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2614,7 +2614,7 @@ extension PIFBuilderParameters {
         PIFBuilderParameters(
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: AbsolutePath("/toolchain/lib")
+            toolchainLibDir: AbsolutePath(path: "/toolchain/lib")
         )
     }
 }

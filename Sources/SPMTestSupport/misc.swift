@@ -57,7 +57,7 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(#file)).appending(fixtureSubpath)
+            let fixtureDir = AbsolutePath(path: "../../../Fixtures", relativeTo: AbsolutePath(path: #file)).appending(fixtureSubpath)
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
@@ -255,3 +255,19 @@ public func loadPackageGraph(
 }
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
+
+public extension AbsolutePath {
+    init(path: StaticString) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString)
+    }
+
+    init(path: StaticString, relativeTo basePath: AbsolutePath) {
+        let pathString = path.withUTF8Buffer {
+            String(decoding: $0, as: UTF8.self)
+        }
+        try! self.init(validating: pathString, relativeTo: basePath)
+    }
+}

@@ -188,7 +188,7 @@ public struct SwiftAPIDigester {
         buildPlan: BuildPlan
     ) throws {
         var args = ["-dump-sdk"]
-        args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+        args += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         args += ["-module", module, "-o", outputPath.pathString]
 
         try runTool(args)
@@ -204,13 +204,13 @@ public struct SwiftAPIDigester {
         for module: String,
         buildPlan: BuildPlan,
         except breakageAllowlistPath: AbsolutePath?
-    ) -> ComparisonResult? {
+    ) throws -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
             "-module", module
         ]
-        args.append(contentsOf: buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
+        args.append(contentsOf: try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
         if let breakageAllowlistPath = breakageAllowlistPath {
             args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
         }

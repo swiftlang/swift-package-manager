@@ -39,7 +39,7 @@ class CFamilyTargetTestCase: XCTestCase {
     func testCLibraryWithSpaces() throws {
         try fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
@@ -49,7 +49,7 @@ class CFamilyTargetTestCase: XCTestCase {
         try fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            let debugPath = fixturePath.appending(components: "Bar", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -60,7 +60,7 @@ class CFamilyTargetTestCase: XCTestCase {
     func testModuleMapGenerationCases() throws {
         try fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "FlatInclude.c.o")
@@ -83,7 +83,7 @@ class CFamilyTargetTestCase: XCTestCase {
         // Try building a fixture which needs extra flags to be able to build.
         try fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
             XCTAssertBuilds(fixturePath, Xld: ["-undefined", "dynamic_lookup"])
-            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
@@ -95,7 +95,7 @@ class CFamilyTargetTestCase: XCTestCase {
         try fixture(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
             // Build the package.
             XCTAssertBuilds(fixturePath)
-            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HelloWorldExample.m.o")
+            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HelloWorldExample.m.o")
             // Run swift-test on package.
             XCTAssertSwiftTest(fixturePath)
         }
@@ -104,7 +104,7 @@ class CFamilyTargetTestCase: XCTestCase {
     func testCanBuildRelativeHeaderSearchPaths() throws {
         try fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
             XCTAssertBuilds(fixturePath)
-            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HeaderInclude.swiftmodule")
+            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HeaderInclude.swiftmodule")
         }
     }
 }
