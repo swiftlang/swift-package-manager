@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,6 +20,10 @@ import TSCBasic
 
 public protocol AuthorizationProvider {
     func authentication(for url: URL) -> (user: String, password: String)?
+}
+
+public protocol AuthorizationWriter {
+    func addOrUpdate(for url: URL, user: String, password: String, persist: Bool, callback: @escaping (Result<Void, Error>) -> Void)
 }
 
 public enum AuthorizationProviderError: Error {
@@ -53,10 +57,12 @@ private extension URL {
 
 // MARK: - netrc
 
-public struct NetrcAuthorizationProvider: AuthorizationProvider {
+public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     // marked internal for testing
     internal let path: AbsolutePath
     private let fileSystem: FileSystem
+    
+    private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
 
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
         self.path = path
@@ -65,9 +71,14 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         _ = try Self.load(fileSystem: fileSystem, path: path)
     }
 
-    public mutating func addOrUpdate(for url: URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func addOrUpdate(for url: URL, user: String, password: String, persist: Bool = true, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let machine = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
+        }
+        
+        if !persist {
+            self.cache[machine] = (user, password)
+            return callback(.success(()))
         }
 
         // Same entry already exists, no need to add or update
@@ -98,7 +109,10 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
-        self.machine(for: url).map { (user: $0.login, password: $0.password) }
+        if let machine = url.authenticationID, let cached = self.cache[machine] {
+            return cached
+        }
+        return self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
 
     private func machine(for url: URL) -> Basics.Netrc.Machine? {
@@ -133,17 +147,25 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
 // MARK: - Keychain
 
 #if canImport(Security)
-public struct KeychainAuthorizationProvider: AuthorizationProvider {
+public class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     private let observabilityScope: ObservabilityScope
+    
+    private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
 
     public init(observabilityScope: ObservabilityScope) {
         self.observabilityScope = observabilityScope
     }
 
-    public func addOrUpdate(for url: URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func addOrUpdate(for url: URL, user: String, password: String, persist: Bool = true, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
+        
+        if !persist {
+            self.cache[server] = (user, password)
+            return callback(.success(()))
+        }
+        
         guard let passwordData = password.data(using: .utf8) else {
             return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
         }
@@ -162,6 +184,10 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     public func authentication(for url: URL) -> (user: String, password: String)? {
         guard let server = url.authenticationID else {
             return nil
+        }
+        
+        if let cached = self.cache[server] {
+            return cached
         }
 
         do {

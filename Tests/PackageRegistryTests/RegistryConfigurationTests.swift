@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import PackageRegistry
+import PackageRegistry
 import SPMTestSupport
 import XCTest
 
