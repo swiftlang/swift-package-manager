@@ -270,20 +270,6 @@ extension Workspace.Configuration {
                     throw StringError("Did not find .netrc file at \(path).")
                 }
                 providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
-            case .workspaceAndUser(let rootPath):
-                // package/project "local" .netrc file, takes priority over user-level file
-                let localPath = rootPath.appending(component: ".netrc")
-                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
-                if let localProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: localPath, observabilityScope: observabilityScope) {
-                    providers.append(localProvider)
-                }
-
-                // user .netrc file (most typical)
-                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
-                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
-                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
-                    providers.append(userHomeProvider)
-                }
             case .user:
                 // user .netrc file (most typical)
                 let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
@@ -332,7 +318,6 @@ extension Workspace.Configuration {
         public enum Netrc {
             case disabled
             case custom(AbsolutePath)
-            case workspaceAndUser(rootPath: AbsolutePath)
             case user
         }
 

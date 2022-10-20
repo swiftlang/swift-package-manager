@@ -428,8 +428,7 @@ public final class SwiftTool {
         } else if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
-            let rootPath = try options.locations.multirootPackageDataFile ?? self.getPackageRoot()
-            authorization.netrc = .workspaceAndUser(rootPath: rootPath)
+            authorization.netrc = .user
         }
 
         #if canImport(Security)
