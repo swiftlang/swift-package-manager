@@ -263,6 +263,19 @@ extension Workspace.Configuration {
 
         public func makeAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
+            
+            // OS-specific AuthorizationProvider has higher precedence
+            switch self.keychain {
+            case .enabled:
+                #if canImport(Security)
+                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
+                #else
+                throw InternalError("Keychain not supported on this platform")
+                #endif
+            case .disabled:
+                // noop
+                break
+            }
 
             switch self.netrc {
             case .custom(let path):
@@ -280,19 +293,8 @@ extension Workspace.Configuration {
                 }
             }
 
-            switch self.keychain {
-            case .enabled:
-                #if canImport(Security)
-                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
-                #else
-                throw InternalError("Keychain not supported on this platform")
-                #endif
-            case .disabled:
-                // noop
-                break
-            }
-
-            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: observabilityScope)
+            // Use at-most one AuthorizationProvider (i.e., no CompositeAuthorizationProvider)
+            return providers.first
         }
 
         private func loadOptionalNetrc(

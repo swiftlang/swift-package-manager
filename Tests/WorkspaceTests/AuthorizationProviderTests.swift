@@ -17,7 +17,7 @@ import TSCUtility
 import Workspace
 import XCTest
 
-final class AuthorizationConfigurationTests: XCTestCase {
+final class AuthorizationProviderTests: XCTestCase {
     func testNetrcAuthorizationProviders() throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -33,13 +33,12 @@ final class AuthorizationConfigurationTests: XCTestCase {
             }
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
-            let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
-            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+            let netrcProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
 
-            XCTAssertEqual(netrcProviders?.count, 1)
-            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+            XCTAssertNotNil(netrcProvider)
+            XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-            let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+            let auth = netrcProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
             XCTAssertEqual(auth?.user, "custom@labkey.org")
             XCTAssertEqual(auth?.password, "custom")
 
@@ -62,20 +61,19 @@ final class AuthorizationConfigurationTests: XCTestCase {
             }
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
-            let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
-            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+            let netrcProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
 
-            XCTAssertEqual(netrcProviders?.count, 1)
-            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
+            XCTAssertNotNil(netrcProvider)
+            XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
 
-            let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+            let auth = netrcProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
             XCTAssertEqual(auth?.user, "user@labkey.org")
             XCTAssertEqual(auth?.password, "user")
 
             // delete it
             do {
                 try fileSystem.removeFileTree(userPath)
-                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope)  as? CompositeAuthorizationProvider
+                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
                 XCTAssertNil(authorizationProvider)
             }
         }

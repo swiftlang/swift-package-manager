@@ -18,7 +18,6 @@ import TSCBasic
 import XCTest
 
 final class SwiftToolTests: CommandsTestCase {
-    
     func testVerbosityLogLevel() throws {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
@@ -156,7 +155,7 @@ final class SwiftToolTests: CommandsTestCase {
         }
     }
 
-    func testNetrcAuthorizationProviders() throws {
+    func testAuthorizationProviders() throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
@@ -170,10 +169,14 @@ final class SwiftToolTests: CommandsTestCase {
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool.createSwiftToolForTest(options: options)
 
-                let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
-                let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
-                XCTAssertEqual(netrcProviders.count, 1)
-                XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+                // There is only one AuthorizationProvider depending on platform
+                #if canImport(Security)
+                let keychainProvider = try tool.getAuthorizationProvider() as? KeychainAuthorizationProvider
+                XCTAssertNotNil(keychainProvider)
+                #else
+                let netrcProvider = try tool.getAuthorizationProvider() as? NetrcAuthorizationProvider
+                XCTAssertNotNil(netrcProvider)
+                XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
                 let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
@@ -184,6 +187,7 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertThrowsError(try tool.getAuthorizationProvider(), "error expected") { error in
                     XCTAssertEqual(error as? StringError, StringError("Did not find .netrc file at \(customPath)."))
                 }
+                #endif
             }
 
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
