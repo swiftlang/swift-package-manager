@@ -37,8 +37,15 @@ public final class UserToolchain: Toolchain {
     public var extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]
-
-    public var extraCPPFlags: [String]
+    
+    /// Additional flags to be passed to the C++ compiler.
+    @available(*, deprecated, message: "use extraCXXFlags instead")
+    public var extraCPPFlags: [String] {
+        extraCXXFlags
+    }
+    
+    /// Additional flags to be passed to the C++ compiler.
+    public var extraCXXFlags: [String]
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
@@ -396,10 +403,10 @@ public final class UserToolchain: Toolchain {
                 triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
             ] + destination.extraCCFlags
 
-            self.extraCPPFlags = destination.extraCPPFlags
+            self.extraCXXFlags = destination.extraCXXFlags
         } else {
             self.extraCCFlags = destination.extraCCFlags
-            self.extraCPPFlags = destination.extraCPPFlags
+            self.extraCXXFlags = destination.extraCXXFlags
         }
 
         if triple.isWindows() {

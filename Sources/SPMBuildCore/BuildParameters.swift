@@ -393,7 +393,8 @@ private struct _Toolchain: Encodable {
         try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
 
         try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
-        try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
+        // Maintaining `extraCPPFlags` key for compatibility with older encoding.
+        try container.encode(toolchain.extraCXXFlags, forKey: .extraCPPFlags)
         try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
         try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
     }
