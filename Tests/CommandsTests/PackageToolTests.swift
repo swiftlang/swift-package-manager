@@ -93,18 +93,9 @@ final class PackageToolTests: CommandsTestCase {
 
     func testNetrc() throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
-            // --enable-netrc flag
-            try self.execute(["resolve", "--enable-netrc"], packagePath: fixturePath)
-
-            // --disable-netrc flag
-            try self.execute(["resolve", "--disable-netrc"], packagePath: fixturePath)
-
-            // --enable-netrc and --disable-netrc flags
-            XCTAssertThrowsError(
-                try self.execute(["resolve", "--enable-netrc", "--disable-netrc"], packagePath: fixturePath)
-            ) { error in
-                XCTAssertMatch(String(describing: error), .contains("Value to be set with flag '--disable-netrc' had already been set with flag '--enable-netrc'"))
-            }
+            // deprecated --netrc flag
+            let stderr = try self.execute(["resolve", "--netrc"], packagePath: fixturePath).stderr
+            XCTAssertMatch(stderr, .contains("'--netrc' option is deprecated"))
         }
     }
 
@@ -119,25 +110,11 @@ final class PackageToolTests: CommandsTestCase {
             // valid .netrc file path
             try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: fixturePath)
 
-            // valid .netrc file path with --disable-netrc option
-            XCTAssertThrowsError(
-                try execute(["resolve", "--netrc-file", netrcPath.pathString, "--disable-netrc"], packagePath: fixturePath)
-            ) { error in
-                XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
-            }
-
             // invalid .netrc file path
             XCTAssertThrowsError(
                 try execute(["resolve", "--netrc-file", "/foo"], packagePath: fixturePath)
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
-            }
-
-            // invalid .netrc file path with --disable-netrc option
-            XCTAssertThrowsError(
-                try execute(["resolve", "--netrc-file", "/foo", "--disable-netrc"], packagePath: fixturePath)
-            ) { error in
-                XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
             }
         }
     }

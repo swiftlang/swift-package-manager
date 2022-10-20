@@ -278,9 +278,6 @@ extension Workspace.Configuration {
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
                     providers.append(userHomeProvider)
                 }
-            case .disabled:
-                // noop
-                break
             }
 
             switch self.keychain {
@@ -316,7 +313,6 @@ extension Workspace.Configuration {
         }
 
         public enum Netrc {
-            case disabled
             case custom(AbsolutePath)
             case user
         }

@@ -151,33 +151,12 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
     public var shouldDisableSandbox: Bool = false
 
-    /// Whether to load .netrc files for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Load credentials from a .netrc file")
-    public var netrc: Bool = true
-
     /// The path to the .netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
         help: "Specify the .netrc file path.",
         completion: .file())
     public var netrcFilePath: AbsolutePath?
-
-    /// Whether to use keychain for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
-    #if canImport(Security)
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Search credentials in macOS keychain")
-    public var keychain: Bool = true
-    #else
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: .hidden)
-    public var keychain: Bool = false
-    #endif
 
     @Option(name: .customLong("resolver-fingerprint-checking"))
     public var fingerprintCheckingMode: FingerprintCheckingMode = .strict

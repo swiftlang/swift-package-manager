@@ -336,10 +336,6 @@ public final class SwiftTool {
         if options.caching.shouldDisableManifestCaching {
             observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
-
-        if let _ = options.security.netrcFilePath, options.security.netrc == false {
-            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
-        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -423,16 +419,14 @@ public final class SwiftTool {
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
-        if !options.security.netrc {
-            authorization.netrc = .disabled
-        } else if let configuredPath = options.security.netrcFilePath {
+        if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
             authorization.netrc = .user
         }
 
         #if canImport(Security)
-        authorization.keychain = self.options.security.keychain ? .enabled : .disabled
+        authorization.keychain = .enabled
         #endif
 
         return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
