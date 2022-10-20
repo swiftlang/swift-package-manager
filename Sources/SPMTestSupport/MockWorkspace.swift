@@ -261,6 +261,8 @@ public final class MockWorkspace {
             configuration: .init(
                 skipDependenciesUpdates: self.skipDependenciesUpdates,
                 prefetchBasedOnResolvedFile: WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
+                shouldCreateMultipleTestProducts: WorkspaceConfiguration.default.shouldCreateMultipleTestProducts,
+                createREPLProduct: WorkspaceConfiguration.default.createREPLProduct,
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
                 sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
                 fingerprintCheckingMode: .strict,

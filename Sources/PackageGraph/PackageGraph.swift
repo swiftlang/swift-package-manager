@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageLoading
 import PackageModel
 import TSCBasic
 
@@ -119,15 +120,20 @@ public struct PackageGraph {
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
+    /// Any binary artifacts referenced by the graph.
+    public let binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
+
     /// Construct a package graph directly.
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        dependencies requiredDependencies: Set<PackageReference>
+        dependencies requiredDependencies: Set<PackageReference>,
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
         self.rootPackages = rootPackages
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
+        self.binaryArtifacts = binaryArtifacts
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
 
         // Create a mapping from targets to the packages that define them.  Here

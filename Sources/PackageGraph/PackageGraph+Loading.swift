@@ -154,7 +154,8 @@ extension PackageGraph {
         return try PackageGraph(
             rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
-            dependencies: requiredDependencies
+            dependencies: requiredDependencies,
+            binaryArtifacts: binaryArtifacts
         )
     }
 }

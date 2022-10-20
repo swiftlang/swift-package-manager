@@ -102,6 +102,10 @@ public struct SwiftRunTool: SwiftCommand {
     @OptionGroup()
     var options: RunToolOptions
 
+    var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        return .init(wantsREPLProduct: options.mode == .repl)
+    }
+
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftTool.observabilityScope.emit(
@@ -115,8 +119,7 @@ public struct SwiftRunTool: SwiftCommand {
             // Load a custom package graph which has a special product for REPL.
             let graphLoader = {
                 try swiftTool.loadPackageGraph(
-                    explicitProduct: self.options.executable,
-                    createREPLProduct: true
+                    explicitProduct: self.options.executable
                 )
             }
             let buildParameters = try swiftTool.buildParameters()

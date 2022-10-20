@@ -657,9 +657,17 @@ public struct WorkspaceConfiguration {
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
 
+    /// Whether to create multiple test products or one per package
+    public var shouldCreateMultipleTestProducts: Bool
+
+    /// Whether to create a product for use in the Swift REPL
+    public var createREPLProduct: Bool
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
+        shouldCreateMultipleTestProducts: Bool,
+        createREPLProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: FingerprintCheckingMode,
@@ -667,6 +675,8 @@ public struct WorkspaceConfiguration {
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
+        self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
+        self.createREPLProduct = createREPLProduct
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -678,6 +688,8 @@ public struct WorkspaceConfiguration {
         .init(
             skipDependenciesUpdates: false,
             prefetchBasedOnResolvedFile: true,
+            shouldCreateMultipleTestProducts: false,
+            createREPLProduct: false,
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,

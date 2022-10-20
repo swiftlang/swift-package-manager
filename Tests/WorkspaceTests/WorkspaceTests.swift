@@ -4337,6 +4337,17 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(manifest.displayName, "MyPkg")
             XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
+
+            let reloadedPackage = try tsc_await {
+                workspace.loadPackage(with: package.identity,
+                                      packageGraph: graph,
+                                      observabilityScope: observability.topScope,
+                                      completion: $0)
+            }
+
+            XCTAssertEqual(package.identity, reloadedPackage.identity)
+            XCTAssertEqual(package.manifest.displayName, reloadedPackage.manifest.displayName)
+            XCTAssertEqual(package.products.map { $0.name }, reloadedPackage.products.map { $0.name })
         }
     }
 
