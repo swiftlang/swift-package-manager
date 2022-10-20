@@ -163,7 +163,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @Flag(help: "Allow writing to .netrc file without confirmation")
         var noConfirm: Bool = false
         
-        private static let DEFAULT_TOKEN_USER = "token"
+        private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
             guard let url = URL(string: self.url), url.scheme == "https", let host = url.host else {
@@ -181,34 +181,44 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             var saveChanges = true
             
             if let username = self.username {
+                authenticationType = .basic
+
                 storeUsername = username
                 if let password = self.password {
+                    // User provided password
                     storePassword = password
                 } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
+                    // Password found in credential storage
                     storePassword = stored.password
                     saveChanges = false
                 } else {
+                    // Prompt user for password
                     storePassword = String(cString: getpass("Enter password for '\(storeUsername)': "))
                 }
-                authenticationType = .basic
             } else {
-                storeUsername = Self.DEFAULT_TOKEN_USER
+                authenticationType = .token
+
+                // All token auth accounts have the same placeholder value
+                storeUsername = Self.PLACEHOLDER_TOKEN_USER
                 if let token = self.token {
+                    // User provided token
                     storePassword = token
                 } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
+                    // Token found in credential storage
                     storePassword = stored.password
                     saveChanges = false
                 } else {
+                    // Prompt user for token
                     storePassword = String(cString: getpass("Enter access token: "))
                 }
-                authenticationType = .token
             }
             
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
             if saveChanges, authorizationWriter == nil {
-                throw StringError("Credential storage doesn't allow updates")
+                throw StringError("Credential storage must be writable")
             }
-            // Save in cache so RegistryClient can try the credentials and persist to storage only if login succeeds
+
+            // Save in cache so we can try the credentials and persist to storage only if login succeeds
             try tsc_await { callback in
                 authorizationWriter?.addOrUpdate(
                     for: url,
@@ -219,6 +229,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 )
             }
             
+            // `url` can either be base URL of the registry, in which case the login API
+            // is assumed to be at /login, or the full URL of the login API.
             var loginAPIPath: String?
             if !url.path.isEmpty, url.path != "/" {
                 loginAPIPath = url.path
@@ -229,9 +241,12 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             }
             
             let configuration = try getRegistriesConfig(swiftTool)
+            
+            // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
             registryConfiguration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
 
+            // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
             let registryClient = RegistryClient(
                 configuration: registryConfiguration,
                 fingerprintStorage: .none,
@@ -239,33 +254,39 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 authorizationProvider: authorizationProvider
             )
 
+            // Try logging in
             try tsc_await { callback in
                 registryClient.login(
                     url: loginURL,
-                    timeout: .seconds(1),
+                    timeout: .seconds(3),
                     observabilityScope: swiftTool.observabilityScope,
                     callbackQueue: .sharedConcurrent,
                     completion: callback
                 )
             }
             
-            // Login successful. Persist registry configuration and credentials.
+            // Login successful. Persist credentials to storage.
+            if saveChanges {
+                try tsc_await { callback in
+                    authorizationWriter?.addOrUpdate(
+                        for: url,
+                        user: storeUsername,
+                        password: storePassword,
+                        persist: true,
+                        callback: callback
+                    )
+                }
+            }
+            
+            // Update global registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 configuration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
             }
             try configuration.updateShared(with: update)
+            
+            // TODO: no confirm
 
-            try tsc_await { callback in
-                authorizationWriter?.addOrUpdate(
-                    for: url,
-                    user: storeUsername,
-                    password: storePassword,
-                    persist: true,
-                    callback: callback
-                )
-            }
-
-            print("login successful. changes persisted.")
+            print("Login successful. Credentials have been saved to the operating system's secure credential store.")
         }
     }
     
