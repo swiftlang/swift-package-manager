@@ -288,7 +288,7 @@ extension Workspace.Configuration {
                 let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
 
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
-                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
+                if let userHomeProvider = try? NetrcAuthorizationProvider(path: userHomePath, fileSystem: fileSystem) {
                     providers.append(userHomeProvider)
                 }
             }

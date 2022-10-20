@@ -264,8 +264,26 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     completion: callback
                 )
             }
+            print("Login successful.")
             
             // Login successful. Persist credentials to storage.
+            
+            let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
+            
+            // Prompt if writing to .netrc and --no-confirm is not set
+            if !osStore, !self.noConfirm {
+                print("""
+
+                WARNING: Secure credential storage is not supported on this platform.
+                Your credentials will be written out to .netrc.
+                """)
+                print("Continue? (Y/N): ")
+                guard readLine()?.lowercased() == "y" else {
+                    print("Credentials not saved. Exiting...")
+                    return
+                }
+            }
+            
             if saveChanges {
                 try tsc_await { callback in
                     authorizationWriter?.addOrUpdate(
@@ -276,6 +294,12 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                         callback: callback
                     )
                 }
+                
+                if osStore {
+                    print("\nCredentials have been saved to the operating system's secure credential store.")
+                } else {
+                    print("\nCredentials have been saved to .netrc.")
+                }
             }
             
             // Update global registry configuration file
@@ -283,10 +307,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 configuration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
             }
             try configuration.updateShared(with: update)
-            
-            // TODO: no confirm
 
-            print("Login successful. Credentials have been saved to the operating system's secure credential store.")
+            print("Registry configuration updated.")
         }
     }
     
