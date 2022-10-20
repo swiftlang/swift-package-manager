@@ -19,6 +19,21 @@ import TSCBasic
 import Workspace
 import XCTest
 
+extension String {
+    fileprivate func nativePathString(escaped: Bool) -> String {
+#if _runtime(_ObjC)
+        return self
+#else
+        let fsr = self.fileSystemRepresentation
+        defer { fsr.deallocate() }
+        if escaped {
+            return String(cString: fsr).replacingOccurrences(of: "\\", with: "\\\\")
+        }
+        return String(cString: fsr)
+#endif
+    }
+}
+
 class ManifestSourceGenerationTests: XCTestCase {
 
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
@@ -237,6 +252,12 @@ class ManifestSourceGenerationTests: XCTestCase {
             // swift-tools-version:5.4
             import PackageDescription
 
+            #if os(Windows)
+            let absolutePath = "file:///C:/Users/user/SourceCache/path/to/MyPkg16"
+            #else
+            let absolutePath = "file:///path/to/MyPkg16"
+            #endif
+
             let package = Package(
                 name: "MyPackage",
                 dependencies: [
@@ -254,16 +275,16 @@ class ManifestSourceGenerationTests: XCTestCase {
                    .package(path: "~MyPkg14"),
                    .package(path: "~/path/to/~/MyPkg15"),
                    .package(path: "~"),
-                   .package(path: "file:///path/to/MyPkg16"),
+                   .package(path: absolutePath),
                 ]
             )
             """
         let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
-        
+
         // Check some things about the contents of the manifest.
-        XCTAssertTrue(newContents.contains("url: \"../MyPkg10\""), newContents)
-        XCTAssertTrue(newContents.contains("path: \"../MyPkg11\""), newContents)
-        XCTAssertTrue(newContents.contains("path: \"packages/path/to/MyPkg12"), newContents)
+        XCTAssertTrue(newContents.contains("url: \"\("../MyPkg10".nativePathString(escaped: true))\""), newContents)
+        XCTAssertTrue(newContents.contains("path: \"\("../MyPkg11".nativePathString(escaped: true))\""), newContents)
+        XCTAssertTrue(newContents.contains("path: \"\("packages/path/to/MyPkg12".nativePathString(escaped: true))"), newContents)
     }
 
     func testResources() throws {
