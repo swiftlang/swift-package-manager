@@ -188,6 +188,10 @@ extension PluginTarget {
                         outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
                     
                 case .definePrebuildCommand(let config, let outputFilesDir):
+                    let execPath = try AbsolutePath(validating: config.executable)
+                    if !FileManager.default.fileExists(atPath: execPath.pathString) {
+                        observabilityScope.emit(error: "exectuable target '\(execPath.basename)' is not pre-built; a plugin running a prebuild command should only rely on a pre-built binary; as a workaround, build '\(execPath.basename)' first and then run the plugin")
+                    }
                     self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
                         executable: try AbsolutePath(validating: config.executable),
@@ -287,7 +291,6 @@ fileprivate extension PluginToHostMessage {
         self = try JSONDecoder.makeWithDefaults().decode(Self.self, from: data)
     }
 }
-
 
 extension PackageGraph {
 
@@ -612,7 +615,6 @@ public enum PluginEvaluationError: Swift.Error {
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
-
 
 public protocol PluginInvocationDelegate {
     /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
