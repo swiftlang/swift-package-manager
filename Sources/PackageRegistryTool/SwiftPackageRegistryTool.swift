@@ -166,7 +166,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
-            guard let url = URL(string: self.url), url.scheme == "https", let host = url.host else {
+            guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
             
@@ -319,35 +319,40 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @OptionGroup(_hiddenFromHelp: true)
         var globalOptions: GlobalOptions
 
-        @Flag(help: "Apply settings to all projects for this user")
-        var global: Bool = false
-
-        @Option(help: "Associate the registry with a given scope")
-        var scope: String?
+        @Argument(help: "The registry URL")
+        var url: String
 
         func run(_ swiftTool: SwiftTool) throws {
-            let scope = try scope.map(PackageIdentity.Scope.init(validating:))
-
-            let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
-                if let scope = scope {
-                    guard let _ = configuration.scopedRegistries[scope] else {
-                        throw RegistryConfigurationError.missingScope(scope)
-                    }
-                    configuration.scopedRegistries.removeValue(forKey: scope)
-                } else {
-                    guard let _ = configuration.defaultRegistry else {
-                        throw RegistryConfigurationError.missingScope()
-                    }
-                    configuration.defaultRegistry = nil
-                }
+            guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
+                throw RegistryConfigurationError.invalidURL(self.url)
             }
-
-            let configuration = try getRegistriesConfig(swiftTool)
-            if self.global {
-                try configuration.updateShared(with: unset)
+            
+            // We need to be able to read/write credentials
+            guard let authorizationProvider = try swiftTool.getAuthorizationProvider() else {
+                throw StringError("No credential storage available")
+            }
+            
+            let authorizationWriter = authorizationProvider as? AuthorizationWriter
+            let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
+            
+            // Only OS credential store supports deletion
+            if osStore {
+                try tsc_await { callback in authorizationWriter?.remove(for: url, callback: callback) }
+                print("Credentials have been removed from operating system's secure credential store.")
             } else {
-                try configuration.updateLocal(with: unset)
+                print("NOTE: Please remove credentials from .netrc manually.")
             }
+            
+            let configuration = try getRegistriesConfig(swiftTool)
+
+            // Update global registry configuration file
+            let update: (inout RegistryConfiguration) throws -> Void = { configuration in
+                configuration.registryAuthentication.removeValue(forKey: host)
+            }
+            try configuration.updateShared(with: update)
+
+            print("Registry configuration updated.")
+            print("Logout successful.")
         }
     }
 

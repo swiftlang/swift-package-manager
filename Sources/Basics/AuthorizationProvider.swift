@@ -24,6 +24,8 @@ public protocol AuthorizationProvider {
 
 public protocol AuthorizationWriter {
     func addOrUpdate(for url: URL, user: String, password: String, persist: Bool, callback: @escaping (Result<Void, Error>) -> Void)
+    
+    func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
 }
 
 public enum AuthorizationProviderError: Error {
@@ -92,8 +94,8 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
             try self.fileSystem.withLock(on: self.path, type: .exclusive) {
                 let contents = try? self.fileSystem.readFileContents(self.path).contents
                 try self.fileSystem.writeFileContents(self.path) { stream in
-                    // File does not exist yet
-                    if let contents = contents {
+                    // Write existing contents
+                    if let contents = contents, !contents.isEmpty {
                         stream.write(contents)
                         stream.write("\n")
                     }
@@ -106,6 +108,10 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         } catch {
             callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
         }
+    }
+    
+    public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
+        callback(.failure(AuthorizationProviderError.other("User must edit netrc file at \(self.path) manually to remove entries")))
     }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
@@ -180,6 +186,21 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             callback(.failure(error))
         }
     }
+    
+    public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
+        guard let server = url.authenticationID else {
+            return callback(.failure(AuthorizationProviderError.invalidURLHost))
+        }
+
+        let `protocol` = self.protocol(for: url)
+
+        do {
+            try self.delete(server: server, protocol: `protocol`)
+            callback(.success(()))
+        } catch {
+            callback(.failure(error))
+        }
+    }
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
         guard let server = url.authenticationID else {
@@ -240,6 +261,16 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             throw AuthorizationProviderError.other("Failed to update credentials for server \(server) in keychain: status \(status)")
         }
         return true
+    }
+    
+    private func delete(server: String, protocol: CFString) throws {
+        let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                    kSecAttrServer as String: server,
+                                    kSecAttrProtocol as String: `protocol`]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess else {
+            throw AuthorizationProviderError.other("Failed to delete credentials for server \(server) from keychain: status \(status)")
+        }
     }
 
     private func search(server: String, protocol: CFString) throws -> CFTypeRef? {
