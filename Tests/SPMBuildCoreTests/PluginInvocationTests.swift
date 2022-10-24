@@ -586,7 +586,7 @@ class PluginInvocationTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
-                // swift-tools-version:5.6
+                // swift-tools-version:5.7
 
                 import PackageDescription
 
@@ -629,12 +629,12 @@ class PluginInvocationTests: XCTestCase {
             let depTargetDir = packageDir.appending(components: "Sources", "Y")
             try localFileSystem.createDirectory(depTargetDir, recursive: true)
             try localFileSystem.writeFileContents(depTargetDir.appending(component: "main.swift"), string: """
-            struct Y {
-                func run() {
-                    print("You passed us two arguments, argumentOne, and argumentTwo")
+                struct Y {
+                    func run() {
+                        print("You passed us two arguments, argumentOne, and argumentTwo")
+                    }
                 }
-            }
-            Y.main()
+                Y.main()
             """)
 
             let pluginTargetDir = packageDir.appending(components: "Plugins", "X")
@@ -645,7 +645,7 @@ class PluginInvocationTests: XCTestCase {
                       func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
                           [
                               Command.prebuildCommand(
-                                  displayName: "X: Running SomeCommand before the build...",
+                                  displayName: "X: Running Y before the build...",
                                   executable: try context.tool(named: "Y").path,
                                   arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
                                   outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
@@ -694,29 +694,8 @@ class PluginInvocationTests: XCTestCase {
                 toolchain: try UserToolchain.default
             )
 
-            // Define a plugin compilation delegate that just captures the passed information.
-            class Delegate: PluginScriptCompilerDelegate {
-                var commandLine: [String]?
-                var environment: EnvironmentVariables?
-                var compiledResult: PluginCompilationResult?
-                var cachedResult: PluginCompilationResult?
-                init() {
-                }
-                func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
-                    self.commandLine = commandLine
-                    self.environment = environment
-                }
-                func didCompilePlugin(result: PluginCompilationResult) {
-                    self.compiledResult = result
-                }
-                func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
-                    self.cachedResult = cachedResult
-                }
-            }
-
-            // Try to compile the plugin script.
+            // Invoke build tool plugin
             do {
-                // Invoke build tool plugin
                 let outputDir = packageDir.appending(component: ".build")
                 let builtToolsDir = outputDir.appending(component: "debug")
                 let _ = try packageGraph.invokeBuildToolPlugins(
@@ -734,7 +713,6 @@ class PluginInvocationTests: XCTestCase {
                     result.check(diagnostic: .contains(msg), severity: .error)
                 }
             }
-
         }
     }
 }

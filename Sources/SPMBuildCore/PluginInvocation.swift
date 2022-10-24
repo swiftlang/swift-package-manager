@@ -189,7 +189,7 @@ extension PluginTarget {
                     
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     let execPath = try AbsolutePath(validating: config.executable)
-                    if !FileManager.default.fileExists(atPath: execPath.pathString) {
+                    if !localFileSystem.exists(execPath) {
                         observabilityScope.emit(error: "exectuable target '\(execPath.basename)' is not pre-built; a plugin running a prebuild command should only rely on a pre-built binary; as a workaround, build '\(execPath.basename)' first and then run the plugin")
                     }
                     self.invocationDelegate.pluginDefinedPrebuildCommand(
