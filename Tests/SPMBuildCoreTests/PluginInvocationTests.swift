@@ -715,4 +715,69 @@ class PluginInvocationTests: XCTestCase {
             }
         }
     }
+
+    func testShouldNotRequireNonPluginTarget() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                   // swift-tools-version: 5.7
+                   import PackageDescription
+                   let package = Package(
+                       name: "MyPackage",
+                       products: [
+                           .plugin(name: "Foo", targets: ["Foo"])
+                       ],
+                       dependencies: [
+                       ],
+                       targets: [
+                           .plugin(
+                               name: "Foo",
+                               capability: .command(
+                                   intent: .custom(verb: "Foo", description: "Plugin example"),
+                                   permissions: []
+                               )
+                           )
+                       ]
+                   )
+                   """)
+
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                     import PackagePlugin
+                     @main struct FooPlugin: BuildToolPlugin {
+                         func createBuildCommands(
+                             context: PluginContext,
+                             target: Target
+                         ) throws -> [Command] { }
+                     }
+                     """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
 }
