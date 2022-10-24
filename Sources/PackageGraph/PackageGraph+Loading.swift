@@ -817,12 +817,12 @@ extension Target {
 
   func validateDependency(target: Target) throws {
     if self.type == .plugin && target.type == .library {
-      throw PackageGraphError.unsupported(targetName: self.name, targetType: self.type.rawValue, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
+      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
     }
   }
   func validateDependency(product: Product, productPackage: PackageIdentity) throws {
     if self.type == .plugin && product.type.isLibrary {
-      throw PackageGraphError.unsupported(targetName: self.name, targetType: self.type.rawValue, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
+      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
     }
   }
 }
