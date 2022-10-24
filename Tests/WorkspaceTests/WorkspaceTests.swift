@@ -5671,8 +5671,8 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("local binary target 'A1' at '/tmp/ws/roots/Root/XCFrameworks/incorrect.xcframework' does not contain a binary artifact.") , severity: .error)
-                result.checkUnordered(diagnostic: .contains("local binary target 'A2' at '/tmp/ws/roots/Root/ArtifactBundles/incorrect.artifactbundle' does not contain a binary artifact.") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local binary target 'A1' at '\(AbsolutePath(path: "/tmp/ws/roots/Root/XCFrameworks/incorrect.xcframework"))' does not contain a binary artifact.") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local binary target 'A2' at '\(AbsolutePath(path: "/tmp/ws/roots/Root/ArtifactBundles/incorrect.artifactbundle"))' does not contain a binary artifact.") , severity: .error)
             }
         }
     }
