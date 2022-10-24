@@ -117,11 +117,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willUpdateRepository(package: PackageIdentity, repository url: String) {
-        self.outputHandler("Updating \(url)", false)
+        self.outputHandler("Checking for updates from \(url)", false)
     }
 
     func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Checked for updates from \(url) (\(duration.descriptionInSeconds))", false)
     }
 
     func dependenciesUpToDate() {
