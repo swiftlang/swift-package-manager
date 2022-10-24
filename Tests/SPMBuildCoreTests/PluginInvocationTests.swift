@@ -682,7 +682,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).first{ $0.name == "X" } as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "X")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
@@ -698,7 +698,7 @@ class PluginInvocationTests: XCTestCase {
             do {
                 let outputDir = packageDir.appending(component: ".build")
                 let builtToolsDir = outputDir.appending(component: "debug")
-                let _ = try packageGraph.invokeBuildToolPlugins(
+                let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
                     builtToolsDir: builtToolsDir,
                     buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
@@ -708,8 +708,9 @@ class PluginInvocationTests: XCTestCase {
                     fileSystem: localFileSystem
                 )
 
-                testDiagnostics(observability.diagnostics) { result in
-                    let msg = "exectuable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on a pre-built binary; as a workaround, build 'Y' first and then run the plugin"
+                let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
+                testDiagnostics(diags) { result in
+                    let msg = "exectuable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build 'Y' first and then run the plugin"
                     result.check(diagnostic: .contains(msg), severity: .error)
                 }
             }

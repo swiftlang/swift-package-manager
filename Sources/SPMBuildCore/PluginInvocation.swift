@@ -188,10 +188,6 @@ extension PluginTarget {
                         outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
                     
                 case .definePrebuildCommand(let config, let outputFilesDir):
-                    let execPath = try AbsolutePath(validating: config.executable)
-                    if !localFileSystem.exists(execPath) {
-                        observabilityScope.emit(error: "exectuable target '\(execPath.basename)' is not pre-built; a plugin running a prebuild command should only rely on a pre-built binary; as a workaround, build '\(execPath.basename)' first and then run the plugin")
-                    }
                     self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
                         executable: try AbsolutePath(validating: config.executable),
@@ -386,14 +382,16 @@ extension PackageGraph {
                 class PluginDelegate: PluginInvocationDelegate {
                     let delegateQueue: DispatchQueue
                     let toolPaths: [AbsolutePath]
+                    let fileSystem: FileSystem
                     var outputData = Data()
                     var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                    init(delegateQueue: DispatchQueue, toolPaths: [AbsolutePath], fileSystem: FileSystem) {
                         self.delegateQueue = delegateQueue
                         self.toolPaths = toolPaths
+                        self.fileSystem = fileSystem
                     }
                     
                     func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
@@ -430,6 +428,11 @@ extension PackageGraph {
                     
                     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        // executable must exist before running prebuild command
+                        if !fileSystem.exists(executable) {
+                            diagnostics.append(.error("exectuable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
+                            return
+                        }
                         prebuildCommands.append(.init(
                             configuration: .init(
                                 displayName: displayName,
@@ -440,7 +443,7 @@ extension PackageGraph {
                             outputFilesDirectory: outputFilesDirectory))
                     }
                 }
-                let delegate = PluginDelegate(delegateQueue: delegateQueue, toolPaths: toolPaths)
+                let delegate = PluginDelegate(delegateQueue: delegateQueue, toolPaths: toolPaths, fileSystem: fileSystem)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
