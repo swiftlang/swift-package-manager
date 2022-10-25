@@ -19,6 +19,9 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompilerPath: AbsolutePath { get }
 
+    /// Path of the `swiftc` compiler to use for manifest compilation.
+    var swiftCompilerPathForManifests: AbsolutePath { get }
+
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 
@@ -74,5 +77,22 @@ extension Toolchain {
     
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
+    }
+
+    private static func commandLineForCompilation(compilerPath: AbsolutePath, fileSystem: FileSystem) -> [String] {
+        let swiftDriverPath = compilerPath.parentDirectory.appending(component: "swift-driver")
+        if fileSystem.exists(swiftDriverPath) {
+            return [swiftDriverPath.pathString, "--driver-mode=swiftc"]
+        } else {
+            return [compilerPath.pathString]
+        }
+    }
+
+    public func commandLineForManifestCompilation(fileSystem: FileSystem) -> [String] {
+        return Self.commandLineForCompilation(compilerPath: swiftCompilerPathForManifests, fileSystem: fileSystem)
+    }
+
+    public func commandLineForSwiftCompilation(fileSystem: FileSystem) -> [String] {
+        return Self.commandLineForCompilation(compilerPath: swiftCompilerPath, fileSystem: fileSystem)
     }
 }

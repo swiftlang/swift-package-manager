@@ -94,28 +94,4 @@ extension UserToolchain {
         return true
       #endif
     }
-
-    /// Helper function to determine whether serialized diagnostics work properly in the current environment.
-    public func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
-        do {
-            try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending(component: "best.swift")
-                try localFileSystem.writeFileContents(inputPath, string: "func foo() -> Bool {\nvar unused: Int\nreturn true\n}\n")
-                let outputPath = tmpPath.appending(component: "foo")
-                let serializedDiagnosticsPath = tmpPath.appending(component: "out.dia")
-                let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
-                try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", serializedDiagnosticsPath.pathString, "-g", "-o", outputPath.pathString] + otherSwiftFlags)
-                try Process.checkNonZeroExit(arguments: [outputPath.pathString])
-
-                let diaFileContents = try localFileSystem.readFileContents(serializedDiagnosticsPath)
-                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
-                if diagnosticsSet.diagnostics.isEmpty {
-                    throw StringError("does not support diagnostics")
-                }
-            }
-            return true
-        } catch {
-            return false
-        }
-    }
 }

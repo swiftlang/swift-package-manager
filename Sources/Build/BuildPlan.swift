@@ -963,8 +963,7 @@ public final class SwiftTargetBuildDescription {
     /// When `scanInvocation` argument is set to `true`, omit the side-effect producing arguments
     /// such as emitting a module or supplementary outputs.
     public func emitCommandLine(scanInvocation: Bool = false) throws -> [String] {
-        var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
+        var result: [String] = buildParameters.toolchain.commandLineForSwiftCompilation(fileSystem: fileSystem)
 
         result.append("-module-name")
         result.append(target.c99name)
@@ -1006,8 +1005,7 @@ public final class SwiftTargetBuildDescription {
             throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
         }
 
-        var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
+        var result: [String] = buildParameters.toolchain.commandLineForSwiftCompilation(fileSystem: fileSystem)
 
         result.append("-module-name")
         result.append(target.c99name)
@@ -1053,8 +1051,7 @@ public final class SwiftTargetBuildDescription {
             throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
         }
 
-        var result: [String] = []
-        result.append(buildParameters.toolchain.swiftCompilerPath.pathString)
+        var result: [String] = buildParameters.toolchain.commandLineForSwiftCompilation(fileSystem: fileSystem)
 
         result.append("-module-name")
         result.append(target.c99name)

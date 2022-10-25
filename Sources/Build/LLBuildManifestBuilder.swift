@@ -510,6 +510,13 @@ extension LLBuildManifestBuilder {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: buildConfig)
 
+        let commandLine = buildParameters.toolchain.commandLineForSwiftCompilation(fileSystem: fileSystem)
+        guard let first = commandLine.first, let executable = try? AbsolutePath(validating: first) else {
+            throw StringError("empty commandline for Swift compilation")
+        }
+
+        // TODO: `--driver-mode=swiftc` needs to be the first argument, but going through `SwiftCompilerTool` does not allow that
+
         manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs,

@@ -17,6 +17,7 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
 #endif
     let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
+    let swiftCompilerPathForManifests = AbsolutePath(path: "/fake/path/to/swiftc")
     
     #if os(macOS)
     let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])

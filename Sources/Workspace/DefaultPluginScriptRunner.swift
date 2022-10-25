@@ -121,9 +121,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // FIXME: Much of this is similar to what the ManifestLoader is doing. This should be consolidated.
 
         // We use the toolchain's Swift compiler for compiling the plugin.
-        var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
+        var commandLine = self.toolchain.commandLineForManifestCompilation(fileSystem: fileSystem)
         
-        observabilityScope.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
+        observabilityScope.emit(debug: "Using compiler command line: \(commandLine)")
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
