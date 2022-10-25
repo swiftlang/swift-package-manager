@@ -9,6 +9,7 @@
 add_library(PackageModel
   BuildConfiguration.swift
   BuildEnvironment.swift
+  BuildFlags.swift
   BuildSettings.swift
   Destination.swift
   Diagnostics.swift
