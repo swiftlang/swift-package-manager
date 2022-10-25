@@ -288,7 +288,6 @@ fileprivate extension PluginToHostMessage {
     }
 }
 
-
 extension PackageGraph {
 
     /// Traverses the graph of reachable targets in a package graph, and applies plugins to targets as needed. Each
@@ -381,6 +380,7 @@ extension PackageGraph {
                 // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
                 class PluginDelegate: PluginInvocationDelegate {
+                    let fileSystem: FileSystem
                     let delegateQueue: DispatchQueue
                     let toolPaths: [AbsolutePath]
                     var outputData = Data()
@@ -388,7 +388,8 @@ extension PackageGraph {
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                        self.fileSystem = fileSystem
                         self.delegateQueue = delegateQueue
                         self.toolPaths = toolPaths
                     }
@@ -427,6 +428,11 @@ extension PackageGraph {
                     
                     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        // executable must exist before running prebuild command
+                        if !fileSystem.exists(executable) {
+                            diagnostics.append(.error("exectuable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
+                            return
+                        }
                         prebuildCommands.append(.init(
                             configuration: .init(
                                 displayName: displayName,
@@ -437,7 +443,7 @@ extension PackageGraph {
                             outputFilesDirectory: outputFilesDirectory))
                     }
                 }
-                let delegate = PluginDelegate(delegateQueue: delegateQueue, toolPaths: toolPaths)
+                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
@@ -612,7 +618,6 @@ public enum PluginEvaluationError: Swift.Error {
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
-
 
 public protocol PluginInvocationDelegate {
     /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).

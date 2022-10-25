@@ -583,4 +583,206 @@ class PluginInvocationTests: XCTestCase {
             }
         }
     }
+
+    func testPrebuildPluginShouldNotUseExecTarget() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "mypkg")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version:5.7
+
+                import PackageDescription
+
+                let package = Package(
+                    name: "mypkg",
+                    products: [
+                        .library(
+                            name: "MyLib",
+                            targets: ["MyLib"])
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLib",
+                            plugins: [
+                                .plugin(name: "X")
+                            ]),
+                        .plugin(
+                            name: "X",
+                            capability: .buildTool(),
+                            dependencies: [ "Y" ]
+                        ),
+                        .executableTarget(
+                            name: "Y",
+                            dependencies: []),
+                    ]
+                )
+                """)
+
+            let libTargetDir = packageDir.appending(components: "Sources", "MyLib")
+            try localFileSystem.createDirectory(libTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(libTargetDir.appending(component: "file.swift"), string: """
+                public struct MyUtilLib {
+                    public let strings: [String]
+                    public init(args: [String]) {
+                        self.strings = args
+                    }
+                }
+            """)
+
+            let depTargetDir = packageDir.appending(components: "Sources", "Y")
+            try localFileSystem.createDirectory(depTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(depTargetDir.appending(component: "main.swift"), string: """
+                struct Y {
+                    func run() {
+                        print("You passed us two arguments, argumentOne, and argumentTwo")
+                    }
+                }
+                Y.main()
+            """)
+
+            let pluginTargetDir = packageDir.appending(components: "Plugins", "X")
+            try localFileSystem.createDirectory(pluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(pluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  @main struct X: BuildToolPlugin {
+                      func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                          [
+                              Command.prebuildCommand(
+                                  displayName: "X: Running Y before the build...",
+                                  executable: try context.tool(named: "Y").path,
+                                  arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
+                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                              )
+                          ]
+                      }
+
+                  }
+                  """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
+
+            // Find the build tool plugin.
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "X" }.first as? PluginTarget)
+            XCTAssertEqual(buildToolPlugin.name, "X")
+            XCTAssertEqual(buildToolPlugin.capability, .buildTool)
+
+            // Create a plugin script runner for the duration of the test.
+            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: try UserToolchain.default
+            )
+
+            // Invoke build tool plugin
+            do {
+                let outputDir = packageDir.appending(component: ".build")
+                let builtToolsDir = outputDir.appending(component: "debug")
+                let result = try packageGraph.invokeBuildToolPlugins(
+                    outputDir: outputDir,
+                    builtToolsDir: builtToolsDir,
+                    buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                    pluginScriptRunner: pluginScriptRunner,
+                    observabilityScope: observability.topScope,
+                    fileSystem: localFileSystem
+                )
+
+                let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
+                testDiagnostics(diags) { result in
+                    let msg = "exectuable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build 'Y' first and then run the plugin"
+                    result.check(diagnostic: .contains(msg), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testShouldNotRequireNonPluginTarget() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                   // swift-tools-version: 5.7
+                   import PackageDescription
+                   let package = Package(
+                       name: "MyPackage",
+                       products: [
+                           .plugin(name: "Foo", targets: ["Foo"])
+                       ],
+                       dependencies: [
+                       ],
+                       targets: [
+                           .plugin(
+                               name: "Foo",
+                               capability: .command(
+                                   intent: .custom(verb: "Foo", description: "Plugin example"),
+                                   permissions: []
+                               )
+                           )
+                       ]
+                   )
+                   """)
+
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                     import PackagePlugin
+                     @main struct FooPlugin: BuildToolPlugin {
+                         func createBuildCommands(
+                             context: PluginContext,
+                             target: Target
+                         ) throws -> [Command] { }
+                     }
+                     """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
 }
