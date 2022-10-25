@@ -21,7 +21,6 @@ import SwiftDriver
 import TSCBasic
 import Workspace
 import XCTest
-import struct TSCUtility.BuildFlags
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Triple
 
@@ -3372,13 +3371,17 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let userDestination = Destination(sdk: AbsolutePath(path: "/fake/sdk"),
+        let userDestination = Destination(
+            sdk: AbsolutePath(path: "/fake/sdk"),
             binDir: try UserToolchain.default.destination.binDir,
-            extraCCFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
-            extraSwiftCFlags: ["-swift-flag-from-json"])
+            extraFlags: BuildFlags(
+                cCompilerFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
+                swiftCompilerFlags: ["-swift-flag-from-json"]
+            )
+        )
         let mockToolchain = try UserToolchain(destination: userDestination)
         let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
-            flags: BuildFlags(xcc: ["-clang-command-line-flag"], xswiftc: ["-swift-command-line-flag"]))
+            flags: BuildFlags(cCompilerFlags: ["-clang-command-line-flag"], swiftCompilerFlags: ["-swift-command-line-flag"]))
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: extraBuildParameters,
             graph: graph,

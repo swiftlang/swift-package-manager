@@ -17,7 +17,6 @@ import PackageModel
 import SPMBuildCore
 import Build
 
-import struct TSCUtility.BuildFlags
 import struct TSCUtility.Triple
 
 struct GlobalOptions: ParsableArguments {
@@ -279,10 +278,11 @@ struct BuildOptions: ParsableArguments {
 
     var buildFlags: BuildFlags {
         BuildFlags(
-            xcc: cCompilerFlags,
-            xcxx: cxxCompilerFlags,
-            xswiftc: swiftCompilerFlags,
-            xlinker: linkerFlags)
+            cCompilerFlags: cCompilerFlags,
+            cxxCompilerFlags: cxxCompilerFlags,
+            swiftCompilerFlags: swiftCompilerFlags,
+            linkerFlags: linkerFlags
+        )
     }
 
     /// The compilation destination’s target triple.

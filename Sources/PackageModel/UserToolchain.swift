@@ -33,20 +33,10 @@ public final class UserToolchain: Toolchain {
 
     /// Path of the `swiftc` compiler.
     public let swiftCompilerPath: AbsolutePath
-
-    public var extraCCFlags: [String]
-
-    public let extraSwiftCFlags: [String]
     
-    /// Additional flags to be passed to the C++ compiler.
-    @available(*, deprecated, message: "use extraCXXFlags instead")
-    public var extraCPPFlags: [String] {
-        extraCXXFlags
-    }
+    /// Additional flags to be passed to the build tools.
+    public var extraFlags: BuildFlags
     
-    /// Additional flags to be passed to the C++ compiler.
-    public var extraCXXFlags: [String]
-
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
         return self.swiftCompilerPath.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
@@ -342,13 +332,13 @@ public final class UserToolchain: Toolchain {
                 }
             }
 
-            return destination.extraSwiftCFlags
+            return destination.extraFlags.swiftCompilerFlags
         }
 
         return (triple.isDarwin() || triple.isAndroid() || triple.isWASI() || triple.isWindows()
                 ? ["-sdk", sdk.pathString]
                 : [])
-        + destination.extraSwiftCFlags
+        + destination.extraFlags.swiftCompilerFlags
     }
 
     // MARK: - initializer
@@ -395,18 +385,19 @@ public final class UserToolchain: Toolchain {
         }
 
         self.triple = triple
+        self.extraFlags = BuildFlags()
 
-        self.extraSwiftCFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
+        self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
 
         if let sdk = destination.sdk {
-            self.extraCCFlags = [
+            self.extraFlags.cCompilerFlags = [
                 triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
-            ] + destination.extraCCFlags
+            ] + destination.extraFlags.cCompilerFlags
 
-            self.extraCXXFlags = destination.extraCXXFlags
+            self.extraFlags.cxxCompilerFlags = destination.extraFlags.cxxCompilerFlags
         } else {
-            self.extraCCFlags = destination.extraCCFlags
-            self.extraCXXFlags = destination.extraCXXFlags
+            self.extraFlags.cCompilerFlags = destination.extraFlags.cCompilerFlags
+            self.extraFlags.cxxCompilerFlags = destination.extraFlags.cxxCompilerFlags
         }
 
         if triple.isWindows() {
@@ -417,22 +408,22 @@ public final class UserToolchain: Toolchain {
                     case .multithreadedDebugDLL:
                         // Defines _DEBUG, _MT, and _DLL
                         // Linker uses MSVCRTD.lib
-                        self.extraCCFlags += ["-D_DEBUG", "-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrtd"]
+                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrtd"]
 
                     case .multithreadedDLL:
                         // Defines _MT, and _DLL
                         // Linker uses MSVCRT.lib
-                        self.extraCCFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
 
                     case .multithreadedDebug:
                         // Defines _DEBUG, and _MT
                         // Linker uses LIBCMTD.lib
-                        self.extraCCFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
+                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
 
                     case .multithreaded:
                         // Defines _MT
                         // Linker uses LIBCMT.lib
-                        self.extraCCFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"]
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"]
                     }
                 }
             }
@@ -450,7 +441,7 @@ public final class UserToolchain: Toolchain {
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
-            swiftCompilerFlags: self.extraSwiftCFlags,
+            swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.destination.sdk,

@@ -178,17 +178,17 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(try buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraCCFlags
+            + buildParameters.toolchain.extraFlags.cCompilerFlags
             + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraCXXFlags
+            + buildParameters.toolchain.extraFlags.cxxCompilerFlags
             + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
             ["$(inherited)"]
-            + buildParameters.toolchain.extraSwiftCFlags
+            + buildParameters.toolchain.extraFlags.swiftCompilerFlags
             + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_LDFLAGS"] = (

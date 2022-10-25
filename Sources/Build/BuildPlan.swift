@@ -423,7 +423,7 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
-        args += buildParameters.toolchain.extraCCFlags
+        args += buildParameters.toolchain.extraFlags.cCompilerFlags
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
 
@@ -944,7 +944,7 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
         }
 
-        args += buildParameters.toolchain.extraSwiftCFlags
+        args += buildParameters.toolchain.extraFlags.swiftCompilerFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
 
@@ -1014,7 +1014,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-emit-module")
         result.append("-emit-module-path")
         result.append(moduleOutputPath.pathString)
-        result += buildParameters.toolchain.extraSwiftCFlags
+        result += buildParameters.toolchain.extraFlags.swiftCompilerFlags
 
         result.append("-Xfrontend")
         result.append("-experimental-skip-non-inlinable-function-bodies")
@@ -1090,7 +1090,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += try self.buildSettingsFlags()
-        result += buildParameters.toolchain.extraSwiftCFlags
+        result += buildParameters.toolchain.extraFlags.swiftCompilerFlags
         result += buildParameters.swiftCompilerFlags
         return result
     }
@@ -1537,7 +1537,7 @@ public final class ProductBuildDescription {
         // building for Darwin in debug configuration.
         args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
-        args += buildParameters.toolchain.extraSwiftCFlags
+        args += buildParameters.toolchain.extraFlags.swiftCompilerFlags
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
@@ -2341,7 +2341,7 @@ public class BuildPlan {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        var extraSwiftCFlags = buildParameters.toolchain.extraSwiftCFlags
+        var extraSwiftCFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
                 if extraSwiftCFlags[index] == "-L" {

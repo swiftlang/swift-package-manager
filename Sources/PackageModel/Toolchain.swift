@@ -29,19 +29,21 @@ public protocol Toolchain {
     // the OSS clang compiler. This API should not used for any other purpose.
     /// Returns true if clang compiler's vendor is Apple and nil if unknown.
     func _isClangCompilerVendorApple() throws -> Bool?
+    
+    /// Additional flags to be passed to the build tools.
+    var extraFlags: BuildFlags { get }
 
     /// Additional flags to be passed to the C compiler.
+    @available(*, deprecated, message: "use extraFlags.cCompilerFlags instead")
     var extraCCFlags: [String] { get }
 
     /// Additional flags to be passed to the Swift compiler.
+    @available(*, deprecated, message: "use extraFlags.swiftCompilerFlags instead")
     var extraSwiftCFlags: [String] { get }
 
     /// Additional flags to be passed to the C++ compiler.
-    @available(*, deprecated, message: "use extraCXXFlags instead")
+    @available(*, deprecated, message: "use extraFlags.cxxCompilerFlags instead")
     var extraCPPFlags: [String] { get }
-    
-    /// Additional flags to be passed to the C++ compiler.
-    var extraCXXFlags: [String] { get }
 }
 
 extension Toolchain {
@@ -62,7 +64,15 @@ extension Toolchain {
         }
     }
     
+    public var extraCCFlags: [String] {
+        extraFlags.cCompilerFlags
+    }
+    
     public var extraCPPFlags: [String] {
-        extraCXXFlags
+        extraFlags.cxxCompilerFlags
+    }
+    
+    public var extraSwiftCFlags: [String] {
+        extraFlags.swiftCompilerFlags
     }
 }

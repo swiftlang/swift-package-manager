@@ -17,12 +17,11 @@ struct MockToolchain: PackageModel.Toolchain {
     let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
 #endif
     let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
-    let extraCCFlags: [String] = []
-    let extraSwiftCFlags: [String] = []
+    
     #if os(macOS)
-    let extraCXXFlags: [String] = ["-lc++"]
+    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
     #else
-    let extraCXXFlags: [String] = ["-lstdc++"]
+    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lstdc++"])
     #endif
     func getClangCompiler() throws -> AbsolutePath {
         return AbsolutePath(path: "/fake/path/to/clang")
@@ -63,7 +62,7 @@ func mockBuildParameters(
     buildPath: AbsolutePath = AbsolutePath(path: "/path/to/build"),
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
-    flags: BuildFlags = BuildFlags(),
+    flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     destinationTriple: TSCUtility.Triple = hostTriple,
