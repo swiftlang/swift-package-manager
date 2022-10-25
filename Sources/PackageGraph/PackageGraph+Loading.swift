@@ -869,8 +869,8 @@ fileprivate func findCycle(
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
     // Ordered set to hold the current traversed path.
     var path = OrderedCollections.OrderedSet<Manifest>()
-	
-	var fullyVisitedManifests = Set<Manifest>()
+    
+    var fullyVisitedManifests = Set<Manifest>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
