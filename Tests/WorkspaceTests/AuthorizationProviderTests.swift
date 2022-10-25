@@ -74,7 +74,11 @@ final class AuthorizationProviderTests: XCTestCase {
             do {
                 try fileSystem.removeFileTree(userPath)
                 let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
-                XCTAssertNil(authorizationProvider)
+                // Even if user .netrc file doesn't exist, the provider will be non-nil but contain no data.
+                XCTAssertNotNil(authorizationProvider)
+                XCTAssertEqual(try authorizationProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
+                
+                XCTAssertTrue(authorizationProvider!.machines.isEmpty)
             }
         }
     }
