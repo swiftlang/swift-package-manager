@@ -12355,6 +12355,25 @@ final class WorkspaceTests: XCTestCase {
     }
 }
 
+final class WorkspacePerformanceTests: XCTestCasePerf {
+	func testEfficientCycleDetection() throws {
+		try fixture(name: "Miscellaneous/ManifestCycleDetection/Performance/") { fixturePath in
+			let rootPackagePath = fixturePath.appending(component: "Apex")
+			
+			let workspace = try! Workspace(forRootPackage: rootPackagePath)
+			let observability = ObservabilitySystem.makeForTesting()
+			
+			let N = 1
+			measure {
+				for _ in 1..<N {
+					try! workspace.loadPackageGraph(rootPath: rootPackagePath, observabilityScope: observability.topScope)
+					workspace.reset(observabilityScope: observability.topScope)
+				}
+			}
+		}
+	}
+}
+
 func createDummyXCFramework(fileSystem: FileSystem, path: AbsolutePath, name: String) throws {
     let path = path.appending(component: "\(name).xcframework")
     try fileSystem.createDirectory(path, recursive: true)
