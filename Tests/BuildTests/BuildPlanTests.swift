@@ -64,7 +64,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init("/thisPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
@@ -123,7 +123,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init("/thisPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
@@ -189,7 +189,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init("/fooPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -228,7 +228,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init("/thisPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/xPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/yPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -299,7 +299,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init("/fooPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -361,7 +361,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init("/fooPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -427,7 +427,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init("/fooPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
                     ],
@@ -504,7 +504,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init("/thisPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
