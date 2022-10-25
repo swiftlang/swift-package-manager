@@ -380,18 +380,18 @@ extension PackageGraph {
                 // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
                 class PluginDelegate: PluginInvocationDelegate {
+                    let fileSystem: FileSystem
                     let delegateQueue: DispatchQueue
                     let toolPaths: [AbsolutePath]
-                    let fileSystem: FileSystem
                     var outputData = Data()
                     var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(delegateQueue: DispatchQueue, toolPaths: [AbsolutePath], fileSystem: FileSystem) {
+                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                        self.fileSystem = fileSystem
                         self.delegateQueue = delegateQueue
                         self.toolPaths = toolPaths
-                        self.fileSystem = fileSystem
                     }
                     
                     func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
@@ -443,7 +443,7 @@ extension PackageGraph {
                             outputFilesDirectory: outputFilesDirectory))
                     }
                 }
-                let delegate = PluginDelegate(delegateQueue: delegateQueue, toolPaths: toolPaths, fileSystem: fileSystem)
+                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
