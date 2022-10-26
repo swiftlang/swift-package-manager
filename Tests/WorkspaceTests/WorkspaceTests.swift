@@ -12360,14 +12360,18 @@ final class WorkspacePerformanceTests: XCTestCasePerf {
 		try fixture(name: "Miscellaneous/ManifestCycleDetection/Performance/") { fixturePath in
 			let rootPackagePath = fixturePath.appending(component: "Apex")
 			
-			let workspace = try! Workspace(forRootPackage: rootPackagePath)
+			let workspace = try Workspace(forRootPackage: rootPackagePath)
 			let observability = ObservabilitySystem.makeForTesting()
 			
 			let N = 1
 			measure {
-				for _ in 1..<N {
-					try! workspace.loadPackageGraph(rootPath: rootPackagePath, observabilityScope: observability.topScope)
-					workspace.reset(observabilityScope: observability.topScope)
+				do {
+					for _ in 1..<N {
+						try workspace.loadPackageGraph(rootPath: rootPackagePath, observabilityScope: observability.topScope)
+						workspace.reset(observabilityScope: observability.topScope)
+					}
+				} catch {
+					XCTFail("Loading package graph is not expected to fail in this test.")
 				}
 			}
 		}
