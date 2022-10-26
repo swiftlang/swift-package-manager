@@ -585,6 +585,9 @@ class PluginInvocationTests: XCTestCase {
     }
 
     func testUnsupportedDependencyProduct() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library product and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -680,6 +683,9 @@ class PluginInvocationTests: XCTestCase {
     }
 
     func testUnsupportedDependencyTarget() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
