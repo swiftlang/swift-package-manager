@@ -140,7 +140,7 @@ public struct SwiftRunTool: SwiftCommand {
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try self.run(
                 fileSystem: swiftTool.fileSystem,
-                executablePath: swiftTool.getToolchain().swiftInterpreterPath,
+                executablePath: swiftTool.getDestinationToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                 arguments: arguments
             )
@@ -164,7 +164,7 @@ public struct SwiftRunTool: SwiftCommand {
                 }
 
                 let pathRelativeToWorkingDirectory = executablePath.relative(to: swiftTool.originalWorkingDirectory)
-                let lldbPath = try swiftTool.getToolchain().getLLDB()
+                let lldbPath = try swiftTool.getDestinationToolchain().getLLDB()
                 try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
             } catch let error as RunError {
                 swiftTool.observabilityScope.emit(error)
@@ -176,7 +176,7 @@ public struct SwiftRunTool: SwiftCommand {
             if let executable = options.executable, isValidSwiftFilePath(fileSystem: swiftTool.fileSystem, path: executable) {
                 swiftTool.observabilityScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
+                let swiftInterpreterPath = try swiftTool.getDestinationToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try self.run(

@@ -480,7 +480,7 @@ final class PackageToolTests: CommandsTestCase {
     // Returns symbol graph with or without pretty printing.
     private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
         let tool = try SwiftTool(options: GlobalOptions.parse(["--package-path", path.pathString]))
-        let symbolGraphExtractorPath = try tool.getToolchain().getSymbolGraphExtract()
+        let symbolGraphExtractorPath = try tool.getDestinationToolchain().getSymbolGraphExtract()
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 

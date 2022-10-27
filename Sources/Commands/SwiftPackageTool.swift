@@ -398,7 +398,7 @@ extension SwiftPackageTool {
         var regenerateBaseline: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
+            let apiDigesterPath = try swiftTool.getDestinationToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftTool.fileSystem, tool: apiDigesterPath)
 
             let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
@@ -600,7 +600,7 @@ extension SwiftPackageTool {
             // Configure the symbol graph extractor.
             let symbolGraphExtractor = try SymbolGraphExtract(
                 fileSystem: swiftTool.fileSystem,
-                tool: swiftTool.getToolchain().getSymbolGraphExtract(),
+                tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
                 skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
@@ -1075,7 +1075,7 @@ extension SwiftPackageTool {
             let readOnlyDirectories = writableDirectories.contains{ package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
             // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-            let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
+            let toolSearchDirs = [try swiftTool.getDestinationToolchain().swiftCompilerPath.parentDirectory]
                 + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
             
             // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
@@ -1282,7 +1282,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     
     func performTestsForPlugin(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know which ones they are until we've built them and can examine the binaries.
-        let toolchain = try swiftTool.getToolchain()
+        let toolchain = try swiftTool.getDestinationToolchain()
         var buildParameters = try swiftTool.buildParameters()
         buildParameters.enableTestability = true
         buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
@@ -1428,7 +1428,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getToolchain().getSymbolGraphExtract()
+            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract()
         )
         symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {

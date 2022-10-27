@@ -75,7 +75,7 @@ enum TestingSupport {
         let data: String = try withTemporaryFile { tempFile in
             let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try Self.constructTestEnvironment(
-                toolchain: try swiftTool.getToolchain(),
+                toolchain: try swiftTool.getDestinationToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage
                 ),
@@ -94,7 +94,7 @@ enum TestingSupport {
         }
         #else
         let env = try Self.constructTestEnvironment(
-            toolchain: try swiftTool.getToolchain(),
+            toolchain: try swiftTool.getDestinationToolchain(),
             buildParameters: swiftTool.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage
             ),

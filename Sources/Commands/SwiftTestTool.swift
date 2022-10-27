@@ -165,7 +165,7 @@ public struct SwiftTestTool: SwiftCommand {
             try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
 
             // validate XCTest available on darwin based systems
-            let toolchain = try swiftTool.getToolchain()
+            let toolchain = try swiftTool.getDestinationToolchain()
             if toolchain.triple.isDarwin() && toolchain.xctestPath == nil {
                 throw TestError.xctestNotAvailable
             }
@@ -183,7 +183,7 @@ public struct SwiftTestTool: SwiftCommand {
             let command = try GenerateLinuxMain.parse()
             try command.run(swiftTool)
         } else if !self.options.shouldRunInParallel {
-            let toolchain = try swiftTool.getToolchain()
+            let toolchain = try swiftTool.getDestinationToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
@@ -259,7 +259,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
         } else {
-            let toolchain = try swiftTool.getToolchain()
+            let toolchain = try swiftTool.getDestinationToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(
                 in: testProducts,
@@ -351,7 +351,7 @@ public struct SwiftTestTool: SwiftCommand {
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
     private func mergeCodeCovRawDataFiles(swiftTool: SwiftTool) throws {
         // Get the llvm-prof tool.
-        let llvmProf = try swiftTool.getToolchain().getLLVMProf()
+        let llvmProf = try swiftTool.getDestinationToolchain().getLLVMProf()
 
         // Get the profraw files.
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
@@ -373,7 +373,7 @@ public struct SwiftTestTool: SwiftCommand {
     /// Exports profdata as a JSON file.
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
-        let llvmCov = try swiftTool.getToolchain().getLLVMCov()
+        let llvmCov = try swiftTool.getDestinationToolchain().getLLVMCov()
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         let args = [
             llvmCov.pathString,
