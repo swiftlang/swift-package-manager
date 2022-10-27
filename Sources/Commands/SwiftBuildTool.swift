@@ -105,7 +105,10 @@ public struct SwiftBuildTool: SwiftCommand {
         }
 
         if options.printManifestGraphviz {
-            let buildOperation = try swiftTool.createBuildOperation()
+            // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
+            guard let buildOperation = try swiftTool.createBuildSystem(explicitBuildSystem: .native) as? BuildOperation else {
+                throw StringError("asked for native build system but did not get it")
+            }
             let buildManifest = try buildOperation.getBuildManifest()
             var serializer = DOTManifestSerializer(manifest: buildManifest)
             // print to stdout

@@ -18,9 +18,10 @@ import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
+import SPMBuildCore
 
 /// The parameters required by `PIFBuilder`.
-public struct PIFBuilderParameters {
+struct PIFBuilderParameters {
 
     /// Whether or not build for testability is enabled.
     public let enableTestability: Bool
@@ -52,16 +53,16 @@ public final class PIFBuilder {
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
     /// The package graph to build from.
-    public let graph: PackageGraph
+    let graph: PackageGraph
 
     /// The parameters used to configure the PIF.
-    public let parameters: PIFBuilderParameters
+    let parameters: PIFBuilderParameters
 
     /// The ObservabilityScope to emit diagnostics to.
-    public let observabilityScope: ObservabilityScope
+    let observabilityScope: ObservabilityScope
 
     /// The file system to read from.
-    public let fileSystem: FileSystem
+    let fileSystem: FileSystem
 
     private var pif: PIF.TopLevelObject?
 
@@ -71,7 +72,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    public init(
+    init(
         graph: PackageGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
@@ -87,7 +88,7 @@ public final class PIFBuilder {
     /// - Parameters:
     ///   - prettyPrint: Whether to return a formatted JSON.
     /// - Returns: The package graph in the JSON PIF format.
-    public func generatePIF(
+    func generatePIF(
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false
     ) throws -> String {
@@ -132,6 +133,18 @@ public final class PIFBuilder {
 
             return PIF.TopLevelObject(workspace: workspace)
         }
+    }
+
+    // Convenience method for generating PIF.
+    public static func generatePIF(buildParameters: BuildParameters, packageGraph: PackageGraph, fileSystem: FileSystem, observabilityScope: ObservabilityScope, preservePIFModelStructure: Bool) throws -> String {
+        let parameters = PIFBuilderParameters(buildParameters)
+        let builder = Self.init(
+            graph: packageGraph,
+            parameters: parameters,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+        return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure)
     }
 }
 

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@_implementationOnly import DriverSupport
 import LLBuildManifest
 import PackageGraph
 import PackageLoading
@@ -57,7 +58,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public let cacheBuildManifest: Bool
 
     /// The build plan that was computed, if any.
-    public private(set) var buildPlan: BuildPlan?
+    public private(set) var _buildPlan: BuildPlan?
+
+    public var buildPlan: SPMBuildCore.BuildPlan {
+        get throws {
+            if let buildPlan = _buildPlan {
+                return buildPlan
+            } else {
+                throw StringError("did not compute a build plan yet")
+            }
+        }
+    }
 
     /// The build description resulting from planing.
     private let buildDescription = ThreadSafeBox<BuildDescription>()
@@ -166,7 +177,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
+        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
             return
         }
 
@@ -457,7 +468,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
-        self.buildPlan = plan
+        self._buildPlan = plan
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
@@ -568,14 +579,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
         // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
-        guard let _ = self.buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
+        guard let _ = self._buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
 
         // Check for cases involving modules that cannot be found.
         if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
             // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.
-            if let importedTarget = self.buildPlan?.targets.first(where: { $0.target.c99name == importedModule }) {
+            if let importedTarget = self._buildPlan?.targets.first(where: { $0.target.c99name == importedModule }) {
                 // For the moment we just check for executables that other targets try to import.
                 if importedTarget.target.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"

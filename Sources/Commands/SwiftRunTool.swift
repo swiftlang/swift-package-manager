@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import Build
 import PackageGraph
 import PackageModel
 import TSCBasic
@@ -126,17 +125,18 @@ public struct SwiftRunTool: SwiftCommand {
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildOp = try swiftTool.createBuildOperation(
+            let buildSystem = try swiftTool.createBuildSystem(
+                explicitBuildSystem: .native,
                 cacheBuildManifest: false,
                 customBuildParameters: buildParameters,
                 customPackageGraphLoader: graphLoader
             )
 
             // Perform build.
-            try buildOp.build()
+            try buildSystem.build()
 
             // Execute the REPL.
-            let arguments = try buildOp.buildPlan!.createREPLArguments()
+            let arguments = try buildSystem.buildPlan.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try self.run(
                 fileSystem: swiftTool.fileSystem,

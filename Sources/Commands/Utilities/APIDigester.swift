@@ -16,7 +16,6 @@ import TSCBasic
 
 import SPMBuildCore
 import Basics
-import Build
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -128,12 +127,13 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildOp = try swiftTool.createBuildOperation(
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitBuildSystem: .native,
             cacheBuildManifest: false,
             customBuildParameters: buildParameters,
             customPackageGraphLoader: { graph }
         )
-        try buildOp.build()
+        try buildSystem.build()
 
         // Dump the SDK JSON.
         try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
@@ -147,7 +147,7 @@ struct APIDigesterBaselineDumper {
                     try apiDigesterTool.emitAPIBaseline(
                         to: baselinePath(module),
                         for: module,
-                        buildPlan: buildOp.buildPlan!
+                        buildPlan: buildSystem.buildPlan
                     )
                 } catch {
                     errors.append(error)
@@ -185,7 +185,7 @@ public struct SwiftAPIDigester {
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan
+        buildPlan: SPMBuildCore.BuildPlan
     ) throws {
         var args = ["-dump-sdk"]
         args += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
@@ -202,7 +202,7 @@ public struct SwiftAPIDigester {
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan,
+        buildPlan: SPMBuildCore.BuildPlan,
         except breakageAllowlistPath: AbsolutePath?
     ) throws -> ComparisonResult? {
         var args = [

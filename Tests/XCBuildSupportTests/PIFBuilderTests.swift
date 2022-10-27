@@ -18,7 +18,7 @@ import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import XCBuildSupport
+@testable import XCBuildSupport
 import XCTest
 
 class PIFBuilderTests: XCTestCase {

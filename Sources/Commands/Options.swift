@@ -15,7 +15,6 @@ import TSCBasic
 import PackageFingerprint
 import PackageModel
 import SPMBuildCore
-import Build
 
 import struct TSCUtility.Triple
 
@@ -346,9 +345,9 @@ struct BuildOptions: ParsableArguments {
 
     /// The build system to use.
     @Option(name: .customLong("build-system"))
-    var _buildSystem: BuildSystemKind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .native
 
-    var buildSystem: BuildSystemKind {
+    var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return archs.count > 1 ? .xcode : self._buildSystem
@@ -375,11 +374,6 @@ struct BuildOptions: ParsableArguments {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
-    }
-
-    enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
-        case native
-        case xcode
     }
 
     enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
@@ -461,4 +455,7 @@ extension Sanitizer {
     fileprivate static var formattedValues: String {
         return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
     }
+}
+
+extension BuildSystemProvider.Kind: ExpressibleByArgument {
 }

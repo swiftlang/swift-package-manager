@@ -308,6 +308,14 @@ let package = Package(
                 "SPMBuildCore",
                 "SPMLLBuild",
                 .product(name: "SwiftDriver", package: "swift-driver"),
+                "DriverSupport",
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .target(
+            name: "DriverSupport",
+            dependencies: [
+                .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"]
         ),

@@ -14,7 +14,6 @@ import ArgumentParser
 import Basics
 import TSCBasic
 import SPMBuildCore
-import Build
 import PackageModel
 import PackageLoading
 import PackageGraph
@@ -406,22 +405,22 @@ extension SwiftPackageTool {
             let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+            let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
-            let packageGraph = try buildOp.getPackageGraph()
+            let packageGraph = try buildSystem.getPackageGraph()
             let modulesToDiff = try determineModulesToDiff(
                 packageGraph: packageGraph,
                 observabilityScope: swiftTool.observabilityScope
             )
 
             // Build the current package.
-            try buildOp.build()
+            try buildSystem.build()
 
             // Dump JSON for the baseline package.
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineRevision: baselineRevision,
                 packageRoot: swiftTool.getPackageRoot(),
-                buildParameters: buildOp.buildParameters,
+                buildParameters: try buildSystem.buildPlan.buildParameters,
                 apiDigesterTool: apiDigesterTool,
                 observabilityScope: swiftTool.observabilityScope
             )
@@ -436,7 +435,7 @@ extension SwiftPackageTool {
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
             let group = DispatchGroup()
-            let semaphore = DispatchSemaphore(value: Int(buildOp.buildParameters.jobs))
+            let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.buildParameters.jobs))
             var skippedModules: Set<String> = []
 
             for module in modulesToDiff {
@@ -452,7 +451,7 @@ extension SwiftPackageTool {
                         if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
                             at: moduleBaselinePath,
                             for: module,
-                            buildPlan: buildOp.buildPlan!,
+                            buildPlan: try buildSystem.buildPlan,
                             except: breakageAllowlistPath
                         ) {
                             results.append(comparisonResult)
@@ -594,8 +593,8 @@ extension SwiftPackageTool {
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
-            try buildOp.build()
+            let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
+            try buildSystem.build()
 
             // Configure the symbol graph extractor.
             let symbolGraphExtractor = try SymbolGraphExtract(
@@ -609,9 +608,9 @@ extension SwiftPackageTool {
             )
 
             // Run the tool once for every library and executable target in the root package.
-            let buildPlan = buildOp.buildPlan!
+            let buildPlan = try buildSystem.buildPlan
             let symbolGraphDirectory = buildPlan.buildParameters.dataPath.appending(component: "symbolgraph")
-            let targets = buildPlan.graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
+            let targets = try buildSystem.getPackageGraph().rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
             for target in targets {
                 print("-- Emitting symbol graph for", target.name)
                 try symbolGraphExtractor.extractSymbolGraph(
@@ -666,14 +665,12 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
-            let builder = PIFBuilder(
-                graph: graph,
-                parameters: parameters,
+            let pif = try PIFBuilder.generatePIF(
+                buildParameters: swiftTool.buildParameters(),
+                packageGraph: graph,
                 fileSystem: swiftTool.fileSystem,
-                observabilityScope: swiftTool.observabilityScope
-            )
-            let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
+                observabilityScope: swiftTool.observabilityScope,
+                preservePIFModelStructure: preserveStructure)
             print(pif)
         }
 
@@ -1083,13 +1080,13 @@ extension SwiftPackageTool {
             // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
             var toolNamesToPaths: [String: AbsolutePath] = [:]
             for dep in try plugin.accessibleTools(packageGraph: packageGraph, fileSystem: swiftTool.fileSystem, environment: try swiftTool.buildParameters().buildEnvironment, for: try pluginScriptRunner.hostTriple) {
-                let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+                let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
                 switch dep {
                 case .builtTool(let name, _):
                     // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-                    try buildOperation.build(subset: .product(name))
-                    if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == name}) {
-                        toolNamesToPaths[name] = builtTool.binary
+                    try buildSystem.build(subset: .product(name))
+                    if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
+                        toolNamesToPaths[name] = builtTool.binaryPath
                     }
                 case .vendedTool(let name, let path):
                     toolNamesToPaths[name] = path
@@ -1218,7 +1215,8 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Create a build operation. We have to disable the cache in order to get a build plan created.
         let outputStream = BufferedOutputByteStream()
-        let buildOperation = try self.swiftTool.createBuildOperation(
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitBuildSystem: .native,
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
             customBuildParameters: buildParameters,
@@ -1227,15 +1225,10 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Run the build. This doesn't return until the build is complete.
-        let success = buildOperation.buildIgnoringError(subset: buildSubset)
-
-        // Get the build plan used
-        guard let buildPlan = buildOperation.buildPlan else {
-            throw InternalError("invalid state, buildPlan is undefined")
-        }
+        let success = buildSystem.buildIgnoringError(subset: buildSubset)
 
         // Create and return the build result record based on what the delegate collected and what's in the build plan.
-        let builtProducts = buildPlan.buildProducts.filter {
+        let builtProducts = try buildSystem.buildPlan.buildProducts.filter {
             switch subset {
             case .all(let includingTests):
                 return includingTests ? true : $0.product.type != .test
@@ -1248,9 +1241,9 @@ final class PluginDelegate: PluginInvocationDelegate {
         let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = builtProducts.compactMap {
             switch $0.product.type {
             case .library(let kind):
-                return .init(path: $0.binary.pathString, kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary)
+                return .init(path: $0.binaryPath.pathString, kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary)
             case .executable:
-                return .init(path: $0.binary.pathString, kind: .executable)
+                return .init(path: $0.binaryPath.pathString, kind: .executable)
             default:
                 return nil
             }
@@ -1403,17 +1396,17 @@ final class PluginDelegate: PluginInvocationDelegate {
     private func createSymbolGraphForPlugin(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
         // Current implementation uses `SymbolGraphExtract()` but in the future we should emit the symbol graph while building.
 
-        // Create a build operation for building the target., skipping the the cache because we need the build plan.
-        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+        // Create a build system for building the target., skipping the the cache because we need the build plan.
+        let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
 
         // Find the target in the build operation's package graph; it's an error if we don't find it.
-        let packageGraph = try buildOperation.getPackageGraph()
+        let packageGraph = try buildSystem.getPackageGraph()
         guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
             throw StringError("could not find a target named “\(targetName)”")
         }
 
         // Build the target, if needed.
-        try buildOperation.build(subset: .target(target.name))
+        try buildSystem.build(subset: .target(target.name))
 
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
@@ -1437,19 +1430,16 @@ final class PluginDelegate: PluginInvocationDelegate {
         symbolGraphExtractor.includeSPISymbols = options.includeSPI
 
         // Determine the output directory, and remove any old version if it already exists.
-        guard let buildPlan = buildOperation.buildPlan else {
-            throw StringError("could not get the build plan from the build operation")
-        }
         guard let package = packageGraph.package(for: target) else {
             throw StringError("could not determine the package for target “\(target.name)”")
         }
-        let outputDir = buildPlan.buildParameters.dataPath.appending(components: "extracted-symbols", package.identity.description, target.name)
+        let outputDir = try buildSystem.buildPlan.buildParameters.dataPath.appending(components: "extracted-symbols", package.identity.description, target.name)
         try swiftTool.fileSystem.removeFileTree(outputDir)
 
         // Run the symbol graph extractor on the target.
         try symbolGraphExtractor.extractSymbolGraph(
             target: target,
-            buildPlan: buildPlan,
+            buildPlan: try buildSystem.buildPlan,
             outputRedirection: .collect,
             outputDirectory: outputDir,
             verboseOutput: self.swiftTool.logLevel <= .info
@@ -1893,7 +1883,7 @@ private extension Basics.Diagnostic {
     }
 }
 
-extension BuildOperation {
+extension BuildSystem {
     fileprivate func buildIgnoringError(subset: BuildSubset) -> Bool {
         do {
             try self.build(subset: subset)

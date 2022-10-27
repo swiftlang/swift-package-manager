@@ -13,6 +13,9 @@
 import Basics
 import PackageGraph
 
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.OutputByteStream
+
 /// An enum representing what subset of the package to build.
 public enum BuildSubset {
     /// Represents the subset of all products and non-test targets.
@@ -45,6 +48,8 @@ public protocol BuildSystem: Cancellable {
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.
     func build(subset: BuildSubset) throws
+
+    var buildPlan: BuildPlan { get throws }
 }
 
 extension BuildSystem {
@@ -53,4 +58,74 @@ extension BuildSystem {
     public func build() throws {
         try build(subset: .allExcludingTests)
     }
+}
+
+public protocol ProductBuildDescription {
+    /// The reference to the product.
+    var package: ResolvedPackage { get }
+
+    /// The reference to the product.
+    var product: ResolvedProduct { get }
+
+    /// The build parameters.
+    var buildParameters: BuildParameters { get }
+}
+
+extension ProductBuildDescription {
+    /// The path to the product binary produced.
+    public var binaryPath: AbsolutePath {
+        return buildParameters.binaryPath(for: product)
+    }
+}
+
+public protocol BuildPlan {
+    var buildParameters: BuildParameters { get }
+    var buildProducts: AnySequence<ProductBuildDescription> { get }
+
+    func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String]
+    func createREPLArguments() throws -> [String]
+}
+
+public struct BuildSystemProvider {
+    // TODO: In the future, we may want this to be about specific capabilities of a build system rather than choosing a concrete one.
+    public enum Kind: String, CaseIterable {
+        case native
+        case xcode
+    }
+
+    public typealias Provider = (
+        _ explicitProduct: String?,
+        _ cacheBuildManifest: Bool,
+        _ customBuildParameters: BuildParameters?,
+        _ customPackageGraphLoader: (() throws -> PackageGraph)?,
+        _ customOutputStream: OutputByteStream?,
+        _ customLogLevel: Diagnostic.Severity?,
+        _ customObservabilityScope: ObservabilityScope?
+    ) throws -> BuildSystem
+
+    private let providers: [Kind:Provider]
+
+    public init(providers: [Kind:Provider]) {
+        self.providers = providers
+    }
+
+    public func createBuildSystem(
+        kind: Kind,
+        explicitProduct: String? = .none,
+        cacheBuildManifest: Bool = true,
+        customBuildParameters: BuildParameters? = .none,
+        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
+        customOutputStream: OutputByteStream? = .none,
+        customLogLevel: Diagnostic.Severity? = .none,
+        customObservabilityScope: ObservabilityScope? = .none
+    ) throws -> BuildSystem {
+        guard let provider = self.providers[kind] else {
+            throw Errors.buildSystemProviderNotRegistered(kind: kind)
+        }
+        return try provider(explicitProduct, cacheBuildManifest, customBuildParameters, customPackageGraphLoader, customOutputStream, customLogLevel, customObservabilityScope)
+    }
+}
+
+private enum Errors: Swift.Error {
+    case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
 }
