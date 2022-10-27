@@ -188,15 +188,15 @@ public struct PackageGraph {
         // Create map of test target to set of its direct dependencies.
         let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap({ $0.target })))
+                ($0, Set($0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }))
             })
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
         for target in rootTargets where target.type == .executable {
-            // Find all dependencies of this target within its package.
+            // Find all dependencies of this target within its package. Note that we do not traverse plugin usages.
             let dependencies = try topologicalSort(target.dependencies, successors: {
-                $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
+                $0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }.map{ .target($0, conditions: []) }
             }).compactMap({ $0.target })
 
             // Include the test targets whose dependencies intersect with the
