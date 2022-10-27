@@ -289,7 +289,12 @@ final class BuildToolTests: CommandsTestCase {
             }
 
             do {
-                // test second time, to make sure message is presented even when nothing to build (cached)
+                // test second time, to stabilize the cache
+                let _ = try execute([], packagePath: fixturePath)
+            }
+
+            do {
+                // test third time, to make sure message is presented even when nothing to build (cached)
                 let result = try execute([], packagePath: fixturePath)
                 XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 let lines = result.stdout.split(separator: "\n")
