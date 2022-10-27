@@ -15,6 +15,7 @@ import PackageGraph
 import PackageModel
 import LLBuildManifest
 import SPMBuildCore
+@_implementationOnly import DriverSupport
 @_implementationOnly import SwiftDriver
 import TSCBasic
 
@@ -559,7 +560,7 @@ extension LLBuildManifestBuilder {
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
-                    inputs.append(file: planProduct.binary)
+                    inputs.append(file: planProduct.binaryPath)
                 }
                 return
             }
@@ -588,7 +589,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    inputs.append(file: planProduct.binary)
+                    inputs.append(file: planProduct.binaryPath)
 
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
@@ -742,7 +743,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    let binary = planProduct.binary
+                    let binary = planProduct.binaryPath
                     inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
@@ -894,20 +895,20 @@ extension LLBuildManifestBuilder {
         case .library(.static):
             manifest.addShellCmd(
                 name: cmdName,
-                description: "Archiving \(buildProduct.binary.prettyPath())",
+                description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: buildProduct.objects.map(Node.file),
-                outputs: [.file(buildProduct.binary)],
+                outputs: [.file(buildProduct.binaryPath)],
                 arguments: try buildProduct.archiveArguments()
             )
 
         default:
-            let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
+            let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binaryPath })
 
             manifest.addShellCmd(
                 name: cmdName,
-                description: "Linking \(buildProduct.binary.prettyPath())",
+                description: "Linking \(buildProduct.binaryPath.prettyPath())",
                 inputs: inputs.map(Node.file),
-                outputs: [.file(buildProduct.binary)],
+                outputs: [.file(buildProduct.binaryPath)],
                 arguments: try buildProduct.linkArguments()
             )
         }
@@ -919,7 +920,7 @@ extension LLBuildManifestBuilder {
         manifest.addNode(output, toTarget: targetName)
         manifest.addPhonyCmd(
             name: output.name,
-            inputs: [.file(buildProduct.binary)],
+            inputs: [.file(buildProduct.binaryPath)],
             outputs: [output]
         )
 

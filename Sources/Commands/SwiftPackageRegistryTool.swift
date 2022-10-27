@@ -14,12 +14,10 @@ import ArgumentParser
 import Basics
 import TSCBasic
 import SPMBuildCore
-import Build
 import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import XCBuildSupport
 import Workspace
 import Foundation
 import PackageRegistry

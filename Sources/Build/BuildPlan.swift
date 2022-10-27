@@ -851,16 +851,6 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
-    public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
-        do {
-            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
-            let driver = try Driver(args: ["swiftc"], executor: executor)
-            return driver.supportedFrontendFlags.intersection(flags) == flags
-        } catch {
-            return false
-        }
-    }
-
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
@@ -1262,7 +1252,7 @@ public final class SwiftTargetBuildDescription {
 }
 
 /// The build description for a product.
-public final class ProductBuildDescription {
+public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {
 
     /// The reference to the product.
     public let package: ResolvedPackage
@@ -1276,12 +1266,7 @@ public final class ProductBuildDescription {
     public let toolsVersion: ToolsVersion
 
     /// The build parameters.
-    let buildParameters: BuildParameters
-
-    /// The path to the product binary produced.
-    public var binary: AbsolutePath {
-        return buildParameters.binaryPath(for: product)
-    }
+    public let buildParameters: BuildParameters
 
     /// All object files to link into this product.
     ///
@@ -1387,12 +1372,12 @@ public final class ProductBuildDescription {
         let librarian = buildParameters.toolchain.librarianPath.pathString
         let triple = buildParameters.triple
         if triple.isWindows(), librarian.hasSuffix("link") || librarian.hasSuffix("link.exe") {
-            return [librarian, "/LIB", "/OUT:\(binary.pathString)", "@\(linkFileListPath.pathString)"]
+            return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(linkFileListPath.pathString)"]
         }
         if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-o", binary.pathString, "@\(linkFileListPath.pathString)"]
+            return [librarian, "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
         }
-        return [librarian, "crs", binary.pathString, "@\(linkFileListPath.pathString)"]
+        return [librarian, "crs", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
     }
 
     /// The arguments to link and create this product.
@@ -1416,7 +1401,7 @@ public final class ProductBuildDescription {
         }
 
         args += ["-L", buildParameters.buildPath.pathString]
-        args += ["-o", binary.pathString]
+        args += ["-o", binaryPath.pathString]
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
         args += dylibs.map({ "-l" + $0.product.name })
 
@@ -1639,7 +1624,7 @@ public final class PluginDescription: Codable {
 }
 
 /// A build plan for a package graph.
-public class BuildPlan {
+public class BuildPlan: SPMBuildCore.BuildPlan {
 
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
         /// There is no buildable target in the graph.
@@ -1680,8 +1665,8 @@ public class BuildPlan {
     }
 
     /// The products in this plan.
-    public var buildProducts: AnySequence<ProductBuildDescription> {
-        return AnySequence(productMap.values)
+    public var buildProducts: AnySequence<SPMBuildCore.ProductBuildDescription> {
+        return AnySequence(productMap.values.map { $0 as SPMBuildCore.ProductBuildDescription })
     }
 
     /// The results of invoking any build tool plugins used by targets in this build.
@@ -2055,7 +2040,7 @@ public class BuildPlan {
 
         // Plan products.
         for buildProduct in buildProducts {
-            try plan(buildProduct)
+            try plan(buildProduct as! ProductBuildDescription)
         }
         // FIXME: We need to find out if any product has a target on which it depends
         // both static and dynamically and then issue a suitable diagnostic or auto

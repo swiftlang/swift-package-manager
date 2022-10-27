@@ -343,7 +343,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
         #if os(macOS)
         let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "barpkg")
+        XCTAssertTrue(dylib.binaryPath.basename == "libLogging.dylib" && dylib.package.identity.description == "barpkg")
         #endif
     }
 
@@ -410,7 +410,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BazLogging" && $0.target.moduleAliases?["Logging"] == "BazLogging" })
         #if os(macOS)
         let staticlib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(staticlib.binary.basename == "libLogging.a" && staticlib.package.identity.description == "bazpkg")
+        XCTAssertTrue(staticlib.binaryPath.basename == "libLogging.a" && staticlib.package.identity.description == "bazpkg")
         #endif
     }
 
@@ -513,7 +513,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "B" && $0.target.moduleAliases == nil })
         #if os(macOS)
         let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(dylib.binary.basename == "libLogging.dylib" && dylib.package.identity.description == "xpkg")
+        XCTAssertTrue(dylib.binaryPath.basename == "libLogging.dylib" && dylib.package.identity.description == "xpkg")
         #endif
     }
 

@@ -60,6 +60,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return builtProducts
     }
 
+    public var buildPlan: SPMBuildCore.BuildPlan {
+        get throws {
+            throw StringError("XCBuild does not provide a build plan")
+        }
+    }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,

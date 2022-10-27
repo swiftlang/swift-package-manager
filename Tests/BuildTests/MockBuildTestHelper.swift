@@ -110,13 +110,13 @@ enum BuildError: Swift.Error {
 
 struct BuildPlanResult {
 
-    let plan: BuildPlan
+    let plan: Build.BuildPlan
     let targetMap: [String: TargetBuildDescription]
-    let productMap: [String: ProductBuildDescription]
+    let productMap: [String: Build.ProductBuildDescription]
 
-    init(plan: BuildPlan) throws {
+    init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.map{ ($0.product.name, $0) })
+        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.map{ ($0.product.name, $0) })
         self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map{ ($0.0.name, $0.1) })
     }
 
@@ -135,7 +135,7 @@ struct BuildPlanResult {
         return target
     }
 
-    func buildProduct(for name: String) throws -> ProductBuildDescription {
+    func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
         guard let product = productMap[name] else {
             // <rdar://problem/30162871> Display the thrown error on macOS
             throw BuildError.error("Product \(name) not found.")

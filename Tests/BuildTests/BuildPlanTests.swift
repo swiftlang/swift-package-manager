@@ -2855,7 +2855,7 @@ final class BuildPlanTests: XCTestCase {
              "-target", "x86_64-unknown-windows-msvc",
             ])
 
-        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
+        let executablePathExtension = try result.buildProduct(for: "exe").binaryPath.extension
         XCTAssertMatch(executablePathExtension, "exe")
     }
 
@@ -2937,7 +2937,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let executablePathExtension = appBuildDescription.binary.extension
+        let executablePathExtension = appBuildDescription.binaryPath.extension
         XCTAssertEqual(executablePathExtension, "wasm")
 
         let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
@@ -2954,7 +2954,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let testPathExtension = testBuildDescription.binary.extension
+        let testPathExtension = testBuildDescription.binaryPath.extension
         XCTAssertEqual(testPathExtension, "wasm")
     }
 
@@ -4136,10 +4136,10 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "\(buildPath)", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
 
-        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension ?? ""
+        let executablePathExtension = try result.buildProduct(for: "exe").binaryPath.extension ?? ""
         XCTAssertMatch(executablePathExtension, "")
 
-        let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
+        let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binaryPath.extension
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 

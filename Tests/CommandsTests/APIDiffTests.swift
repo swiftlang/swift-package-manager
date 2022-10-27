@@ -13,6 +13,7 @@
 import Basics
 import Build
 import Commands
+@_implementationOnly import DriverSupport
 import Foundation
 import PackageModel
 import SourceControl
@@ -52,7 +53,7 @@ final class APIDiffTests: CommandsTestCase {
       // not all of which can be tested for easily. Fortunately, we can test for the
       // `-disable-fail-on-error` option, and any version which supports this flag
       // will meet the other requirements.
-      guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fileSystem: localFileSystem) else {
+      guard DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fileSystem: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }

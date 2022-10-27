@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import Build
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo

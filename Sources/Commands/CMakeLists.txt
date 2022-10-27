@@ -7,7 +7,6 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
-
   Options.swift
   Snippets/CardEvent.swift
   Snippets/Cards/SnippetCard.swift
@@ -44,6 +43,7 @@ target_link_libraries(Commands PUBLIC
   Workspace
   XCBuildSupport)
 target_link_libraries(Commands PRIVATE
+  DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES

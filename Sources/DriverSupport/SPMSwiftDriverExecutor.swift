@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,11 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
-import Foundation
-@_implementationOnly import SwiftDriver
+import SwiftDriver
 
-final class SPMSwiftDriverExecutor: DriverExecutor {
+import protocol TSCBasic.FileSystem
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+
+public final class SPMSwiftDriverExecutor: DriverExecutor {
     
     private enum Error: Swift.Error, CustomStringConvertible {
         case inPlaceExecutionUnsupported
@@ -28,11 +30,11 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
         }
     }
     
-    let resolver: ArgsResolver
+    public let resolver: ArgsResolver
     let fileSystem: FileSystem
     let env: EnvironmentVariables
     
-    init(resolver: ArgsResolver,
+    public init(resolver: ArgsResolver,
          fileSystem: FileSystem,
          env: EnvironmentVariables) {
         self.resolver = resolver
@@ -40,7 +42,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
         self.env = env
     }
     
-    func execute(job: Job,
+    public func execute(job: Job,
                  forceResponseFiles: Bool,
                  recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
         let arguments: [String] = try resolver.resolveArgumentList(for: job,
@@ -60,18 +62,18 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
         return try process.waitUntilExit()
     }
     
-    func execute(workload: DriverExecutorWorkload,
+    public func execute(workload: DriverExecutorWorkload,
                  delegate: JobExecutionDelegate,
                  numParallelJobs: Int, forceResponseFiles: Bool,
                  recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
         throw InternalError("Multi-job build plans should be lifted into the SPM build graph.")
     }
     
-    func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+    public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
         return try TSCBasic.Process.checkNonZeroExit(arguments: args, environment: environment)
     }
     
-    func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+    public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
         // FIXME: This is duplicated from SwiftDriver, maybe it shouldn't be a protocol requirement.
         let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job,
                                                                         useResponseFiles: forceResponseFiles ? .forced : .heuristic)

@@ -354,7 +354,7 @@ public struct BuildDescription: Codable {
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
-                binaryPath: desc.binary
+                binaryPath: desc.binaryPath
             )
         }
         self.pluginDescriptions = pluginDescriptions
