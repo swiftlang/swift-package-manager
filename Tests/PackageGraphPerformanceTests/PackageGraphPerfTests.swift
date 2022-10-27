@@ -94,7 +94,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
 
         let fs = InMemoryFileSystem(emptyFiles: packageNumberSequence.map({ "/Package\($0)/Sources/Target\($0)/s.swift" }) + ["/PackageA/Sources/TargetA/s.swift"])
 
-        let packageSequence = try packageNumberSequence.map { sequenceNumber in
+        let packageSequence: [Manifest] = try packageNumberSequence.map { (sequenceNumber: Int) -> Manifest in
             let dependencySequence = sequenceNumber < lastPackageNumber ? Array((sequenceNumber + 1)...lastPackageNumber) : []
             return Manifest.createFileSystemManifest(
                 name: "Package\(sequenceNumber)",
