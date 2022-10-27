@@ -666,7 +666,7 @@ public class SwiftTool {
     }
 
     /// Returns the user toolchain to compile the actual product.
-    func getToolchain() throws -> UserToolchain {
+    func getDestinationToolchain() throws -> UserToolchain {
         return try _destinationToolchain.get()
     }
 
@@ -787,7 +787,7 @@ public class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let toolchain = try self.getToolchain()
+            let toolchain = try self.getDestinationToolchain()
             let triple = toolchain.triple
 
             // Use "apple" as the subdirectory because in theory Xcode build system
