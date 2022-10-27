@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageGraph
+@testable import PackageGraph
 import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
@@ -584,6 +584,183 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
+    func testUnsupportedDependencyProduct() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library product and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            // swift-tools-version: 5.7
+            import PackageDescription
+            let package = Package(
+                name: "MyPackage",
+                dependencies: [
+                  .package(path: "../FooPackage"),
+                ],
+                targets: [
+                    .plugin(
+                        name: "MyPlugin",
+                        capability: .buildTool(),
+                        dependencies: [
+                            .product(name: "FooLib", package: "FooPackage"),
+                        ]
+                    ),
+                ]
+            )
+            """)
+
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import Foo
+                  @main struct MyBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+
+            let fooPkgDir = tmpPath.appending(components: "FooPackage")
+            try localFileSystem.createDirectory(fooPkgDir, recursive: true)
+            try localFileSystem.writeFileContents(fooPkgDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "FooPackage",
+                    products: [
+                        .library(name: "FooLib",
+                                 targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Foo",
+                            dependencies: []
+                        ),
+                    ]
+                )
+                """)
+            let fooTargetDir = fooPkgDir.appending(components: "Sources", "Foo")
+            try localFileSystem.createDirectory(fooTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(fooTargetDir.appending(component: "file.swift"), string: """
+                  public func foo() { }
+                  """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                   realError.description == "plugin 'MyPlugin' cannot depend on 'FooLib' of type 'library' from package 'foopackage'; this dependency is unsupported" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
+            }
+        }
+    }
+
+    func testUnsupportedDependencyTarget() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            dependencies: []
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool(),
+                            dependencies: [
+                                "MyLibrary"
+                            ]
+                        ),
+                    ]
+                )
+                """)
+
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                    public func hello() { }
+                    """)
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import MyLibrary
+                  @main struct MyBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            XCTAssertThrowsError(try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)) { error in
+                var diagnosed = false
+                if let realError = error as? PackageGraphError,
+                   realError.description == "plugin 'MyPlugin' cannot depend on 'MyLibrary' of type 'library'; this dependency is unsupported" {
+                    diagnosed = true
+                }
+                XCTAssertTrue(diagnosed)
+            }
+        }
+    }
+
     func testPrebuildPluginShouldNotUseExecTarget() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -659,7 +836,6 @@ class PluginInvocationTests: XCTestCase {
                               )
                           ]
                       }
-
                   }
                   """)
 

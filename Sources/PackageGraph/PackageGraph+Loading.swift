@@ -792,8 +792,10 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
+                try self.target.validateDependency(target: targetBuilder.target)
                 return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
+                try self.target.validateDependency(product: productBuilder.product, productPackage: productBuilder.packageBuilder.package.identity)
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
                     try self.diagnoseInvalidUseOfUnsafeFlags(product)
@@ -811,6 +813,19 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     }
 }
 
+extension Target {
+
+  func validateDependency(target: Target) throws {
+    if self.type == .plugin && target.type == .library {
+      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: target.name, dependencyType: target.type.rawValue, dependencyPackage: nil)
+    }
+  }
+  func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+    if self.type == .plugin && product.type.isLibrary {
+      throw PackageGraphError.unsupportedPluginDependency(targetName: self.name, dependencyName: product.name, dependencyType: product.type.description, dependencyPackage: productPackage.description)
+    }
+  }
+}
 /// Builder for resolved package.
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 

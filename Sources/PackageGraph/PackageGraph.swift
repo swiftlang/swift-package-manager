@@ -36,7 +36,8 @@ enum PackageGraphError: Swift.Error {
         targetName: String,
         packageIdentifier: String
     )
-
+    /// Dependency between a plugin and a dependent target/product of a given type is unsupported
+    case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [String])
 
@@ -254,6 +255,12 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .invalidSourcesForModuleAliasing(let target, let product, let package):
             return "module aliasing can only be used for Swift based targets; non-Swift sources found in target '\(target)' for product '\(product)' from package '\(package)'"
+        case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
+            var trailingMsg = ""
+            if let depPkg = dependencyPackage {
+              trailingMsg = " from package '\(depPkg)'"
+            }
+            return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }
     }
 }
