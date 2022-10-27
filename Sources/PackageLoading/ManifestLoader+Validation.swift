@@ -78,10 +78,14 @@ public struct ManifestValidator {
                 }
             }
 
-            // Check that products that reference only binary targets don't define a type.
-            let areTargetsBinary = product.targets.allSatisfy { self.manifest.targetMap[$0]?.type == .binary }
-            if areTargetsBinary && product.type != .library(.automatic) {
-                diagnostics.append(.invalidBinaryProductType(productName: product.name))
+            // Check that products that reference only binary targets don't define an explicit library type.
+            if product.targets.allSatisfy({ self.manifest.targetMap[$0]?.type == .binary }) {
+                switch product.type {
+                case .library(.automatic), .executable:
+                    break
+                default:
+                    diagnostics.append(.invalidBinaryProductType(productName: product.name))
+                }
             }
         }
 
@@ -262,7 +266,7 @@ extension Basics.Diagnostic {
     }
 
     static func invalidBinaryProductType(productName: String) -> Self {
-        .error("invalid type for binary product '\(productName)'; products referencing only binary targets must have a type of 'library'")
+        .error("invalid type for binary product '\(productName)'; products referencing only binary targets must be executable or automatic library products")
     }
 
     /*static func duplicateDependency(dependencyIdentity: PackageIdentity) -> Self {

@@ -638,6 +638,11 @@ public final class BinaryTarget: Target {
         }
     }
 
+    public var containsExecutable: Bool {
+        // FIXME: needs to be revisited once libraries are supported in artifact bundles
+        return self.kind == .artifactsArchive
+    }
+
     public enum Origin: Equatable, Codable {
 
         /// Represents an artifact that was downloaded from a remote URL.
@@ -796,6 +801,21 @@ public enum PluginPermission: Hashable, Codable {
         switch desc {
         case .writeToPackageDirectory(let reason):
             self = .writeToPackageDirectory(reason: reason)
+        }
+    }
+}
+
+public extension Sequence where Iterator.Element == Target {
+    var executables: [Target] {
+        return filter {
+            switch $0.type {
+            case .binary:
+                return ($0 as? BinaryTarget)?.containsExecutable == true
+            case .executable:
+                return true
+            default:
+                return false
+            }
         }
     }
 }

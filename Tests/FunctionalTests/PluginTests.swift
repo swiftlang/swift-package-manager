@@ -155,6 +155,19 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    func testUseOfBinaryToolVendedAsProduct() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "BinaryToolProductPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
     
     func testCommandPluginInvocation() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).

@@ -1469,7 +1469,7 @@ public final class ProductBuildDescription {
             // we will instead have generated a source file containing the redirect.
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
-            let executableTarget = try product.executableTarget()
+            let executableTarget = try product.executableTarget
             if executableTarget.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5,
                buildParameters.canRenameEntrypointFunctionName {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
@@ -1988,9 +1988,8 @@ public class BuildPlan {
         }
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
-        // Create product description for each product we have in the package graph except
-        // for automatic libraries and plugins, because they don't produce any output.
-        for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
+        // Create product description for each product we have in the package graph that is eligible.
+        for product in graph.allProducts where product.shouldCreateProductDescription {
             guard let package = graph.package(for: product) else {
                 throw InternalError("unknown package for \(product)")
             }
@@ -2565,5 +2564,24 @@ extension ResolvedPackage {
         case .root, .fileSystem:
             return false
         }
+    }
+}
+
+extension ResolvedProduct {
+    private var isAutomaticLibrary: Bool {
+        return self.type == .library(.automatic)
+    }
+
+    private var isBinaryOnly: Bool {
+        return self.targets.filter({ !($0.underlyingTarget is BinaryTarget) }).isEmpty
+    }
+
+    private var isPlugin: Bool {
+        return self.type == .plugin
+    }
+
+    // We shouldn't create product descriptions for automatic libraries, plugins or products which consist solely of binary targets, because they don't produce any output.
+    fileprivate var shouldCreateProductDescription: Bool {
+        return !isAutomaticLibrary && !isBinaryOnly && !isPlugin
     }
 }

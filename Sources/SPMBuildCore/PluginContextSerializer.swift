@@ -184,9 +184,7 @@ internal struct PluginContextSerializer {
         switch product.type {
             
         case .executable:
-            guard let mainExecTarget = product.targets.first(where: { $0.type == .executable }) else {
-                throw InternalError("could not determine main executable target for product \(product)")
-            }
+            let mainExecTarget = try product.executableTarget
             guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
                 throw InternalError("unable to serialize main executable target \(mainExecTarget) for product \(product)")
             }
