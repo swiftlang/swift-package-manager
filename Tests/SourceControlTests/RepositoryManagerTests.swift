@@ -33,8 +33,8 @@ class RepositoryManagerTests: XCTestCase {
                 delegate: delegate
             )
 
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-            let badDummyRepo = RepositorySpecifier(path: .init("/badDummy"))
+            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
+            let badDummyRepo = RepositorySpecifier(path: .init(path: "/badDummy"))
             var prevHandle: RepositoryManager.RepositoryHandle?
 
             // Check that we can "fetch" a repository.
@@ -220,7 +220,7 @@ class RepositoryManagerTests: XCTestCase {
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
 
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -252,7 +252,7 @@ class RepositoryManagerTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider(fileSystem: fs)
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
 
             // Do the initial fetch.
             do {
@@ -312,7 +312,7 @@ class RepositoryManagerTests: XCTestCase {
                     provider: provider,
                     delegate: delegate
                 )
-                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+                let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
 
                 delegate.prepare(fetchExpected: true, updateExpected: false)
                 _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -340,7 +340,7 @@ class RepositoryManagerTests: XCTestCase {
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
 
             let group = DispatchGroup()
             let results = ThreadSafeKeyValueStore<Int, Result<RepositoryManager.RepositoryHandle, Error>>()
@@ -397,7 +397,7 @@ class RepositoryManagerTests: XCTestCase {
                 provider: provider,
                 delegate: delegate
             )
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+            let dummyRepo = RepositorySpecifier(path: .init(path: "/dummy"))
 
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
@@ -450,7 +450,7 @@ class RepositoryManagerTests: XCTestCase {
         let finishGroup = DispatchGroup()
         let results = ThreadSafeKeyValueStore<RepositorySpecifier, Result<RepositoryManager.RepositoryHandle, Error>>()
         for index in 0 ..< total {
-            let repository = RepositorySpecifier(path: .init("/repo/\(index)"))
+            let repository = RepositorySpecifier(path: try .init(validating: "/repo/\(index)"))
             provider.startGroup.enter()
             finishGroup.enter()
             manager.lookup(

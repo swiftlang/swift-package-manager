@@ -10,7 +10,7 @@ add_library(PackageCollections STATIC
   Model/Collection.swift
   Model/CVE.swift
   Model/License.swift
-  Model/Package.swift
+  Model/PackageTypes.swift
   Model/PackageList.swift
   Model/Search.swift
   Model/TargetListResult.swift

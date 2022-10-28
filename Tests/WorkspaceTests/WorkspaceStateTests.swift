@@ -19,7 +19,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testV4Format() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -93,7 +93,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testV4FormatWithPath() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -167,7 +167,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testV5Format() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -241,7 +241,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testSavedDependenciesAreSorted() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -306,7 +306,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testArtifacts() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -378,7 +378,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testDuplicateDependenciesDoNotCrash() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")
@@ -439,7 +439,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testDuplicateArtifactsDoNotCrash() throws {
         let fs = InMemoryFileSystem()
 
-        let buildDir = AbsolutePath("/.build")
+        let buildDir = AbsolutePath(path: "/.build")
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending(component: "workspace-state.json")

@@ -30,17 +30,6 @@ extension Workspace {
         /// Path to scratch space (working) directory for this workspace (aka .build).
         public var scratchDirectory: AbsolutePath
 
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use scratchDirectory instead")
-        public var workingDirectory: AbsolutePath {
-            get {
-                self.scratchDirectory
-            }
-            set {
-                self.scratchDirectory = newValue
-            }
-        }
-
         /// Path to store the editable versions of dependencies.
         public var editsDirectory: AbsolutePath
 
@@ -58,6 +47,9 @@ extension Workspace {
 
         /// Path to the shared cache directory
         public var sharedCacheDirectory: AbsolutePath?
+
+        /// Whether or not to emit a warning about the existence of deprecated configuration files
+        public var emitDeprecatedConfigurationWarning: Bool
 
         // working directories
 
@@ -90,11 +82,13 @@ extension Workspace {
 
         /// Path to the local mirrors configuration.
         public var localMirrorsConfigurationFile: AbsolutePath {
-            // backwards compatibility
-            if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
-                return AbsolutePath(customPath)
+            get throws {
+                // backwards compatibility
+                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                    return try AbsolutePath(validating: customPath)
+                }
+                return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
             }
-            return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
         }
 
         /// Path to the shared mirrors configuration.
@@ -136,26 +130,6 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use (scratchDirectory:) variant instead")
-        public init(
-            workingDirectory: AbsolutePath,
-            editsDirectory: AbsolutePath,
-            resolvedVersionsFile: AbsolutePath,
-            localConfigurationDirectory: AbsolutePath,
-            sharedConfigurationDirectory: AbsolutePath?,
-            sharedSecurityDirectory: AbsolutePath?,
-            sharedCacheDirectory: AbsolutePath?
-        ) {
-            self.scratchDirectory = workingDirectory
-            self.editsDirectory = editsDirectory
-            self.resolvedVersionsFile = resolvedVersionsFile
-            self.localConfigurationDirectory = localConfigurationDirectory
-            self.sharedConfigurationDirectory = sharedConfigurationDirectory
-            self.sharedSecurityDirectory = sharedSecurityDirectory
-            self.sharedCacheDirectory = sharedCacheDirectory
-        }
-
         /// Create a new workspace location.
         ///
         /// - Parameters:
@@ -172,7 +146,8 @@ extension Workspace {
             localConfigurationDirectory: AbsolutePath,
             sharedConfigurationDirectory: AbsolutePath?,
             sharedSecurityDirectory: AbsolutePath?,
-            sharedCacheDirectory: AbsolutePath?
+            sharedCacheDirectory: AbsolutePath?,
+            emitDeprecatedConfigurationWarning: Bool = true
         ) {
             self.scratchDirectory = scratchDirectory
             self.editsDirectory = editsDirectory
@@ -181,21 +156,22 @@ extension Workspace {
             self.sharedConfigurationDirectory = sharedConfigurationDirectory
             self.sharedSecurityDirectory = sharedSecurityDirectory
             self.sharedCacheDirectory = sharedCacheDirectory
+            self.emitDeprecatedConfigurationWarning = emitDeprecatedConfigurationWarning
         }
 
         /// Create a new workspace location.
         ///
         /// - Parameters:
         ///   - rootPath: Path to the root of the package, from which other locations can be derived.
-        public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) {
+        public init(forRootPackage rootPath: AbsolutePath, fileSystem: FileSystem) throws {
             self.init(
                 scratchDirectory: DefaultLocations.scratchDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
-                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
+                sharedConfigurationDirectory: try fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: try fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: try fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -206,12 +182,6 @@ extension Workspace {
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
-        // deprecated 3/22, remove once client move over
-        @available(*, deprecated, message: "use scratchDirectory instead")
-        public static func workingDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            Self.scratchDirectory(forRootPackage: rootPath)
-        }
-
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
             rootPath.appending(component: ".build")
         }
@@ -252,7 +222,7 @@ extension Workspace {
     public static func migrateMirrorsConfiguration(from legacyPath: AbsolutePath, to newPath: AbsolutePath, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
         if localFileSystem.isFile(legacyPath) {
             if localFileSystem.isSymlink(legacyPath) {
-                let resolvedLegacyPath = resolveSymlinks(legacyPath)
+                let resolvedLegacyPath = try resolveSymlinks(legacyPath)
                 return try migrateMirrorsConfiguration(from: resolvedLegacyPath, to: newPath, observabilityScope: observabilityScope)
             } else if localFileSystem.isFile(newPath.parentDirectory) {
                 observabilityScope.emit(warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists.")
@@ -306,14 +276,14 @@ extension Workspace.Configuration {
                 }
 
                 // user .netrc file (most typical)
-                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
                     providers.append(userHomeProvider)
                 }
             case .user:
                 // user .netrc file (most typical)
-                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
 
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
@@ -406,12 +376,6 @@ extension Workspace.Configuration {
                 localMirrorsFile: localMirrorConfigFile,
                 sharedMirrorsFile: sharedMirrorFile
             )
-        }
-
-        // deprecated 12/21
-        @available(*, deprecated, message: "using init(fileSystem:localMirrorsFile:sharedMirrorsFile) instead")
-        public init(localMirrorFile: AbsolutePath, sharedMirrorFile: AbsolutePath?, fileSystem: FileSystem) throws {
-            try self.init(fileSystem: fileSystem, localMirrorsFile: localMirrorFile, sharedMirrorsFile: sharedMirrorFile)
         }
 
         /// Initialize the workspace mirrors configuration
@@ -693,9 +657,17 @@ public struct WorkspaceConfiguration {
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
 
+    /// Whether to create multiple test products or one per package
+    public var shouldCreateMultipleTestProducts: Bool
+
+    /// Whether to create a product for use in the Swift REPL
+    public var createREPLProduct: Bool
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
+        shouldCreateMultipleTestProducts: Bool,
+        createREPLProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: FingerprintCheckingMode,
@@ -703,6 +675,8 @@ public struct WorkspaceConfiguration {
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
+        self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
+        self.createREPLProduct = createREPLProduct
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -714,6 +688,8 @@ public struct WorkspaceConfiguration {
         .init(
             skipDependenciesUpdates: false,
             prefetchBasedOnResolvedFile: true,
+            shouldCreateMultipleTestProducts: false,
+            createREPLProduct: false,
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
@@ -734,90 +710,5 @@ extension Workspace {
     /// Manages a package workspace's configuration.
     // FIXME change into enum after deprecation grace period
     public final class Configuration {
-        /// The path to the mirrors file.
-        private let configFile: AbsolutePath?
-
-        /// The filesystem to manage the mirrors file on.
-        private var fileSystem: FileSystem?
-
-        /// Persistence support.
-        private let persistence: SimplePersistence?
-
-        /// The schema version of the config file.
-        ///
-        /// * 1: Initial version.
-        static let schemaVersion: Int = 1
-
-        /// The mirrors.
-        public private(set) var mirrors: DependencyMirrors = DependencyMirrors()
-
-        @available(*, deprecated)
-        public convenience init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
-            try self.init(path: path, fileSystem: fs)
-        }
-
-        /// Creates a new, persisted package configuration with a configuration file.
-        /// - Parameters:
-        ///   - path: A path to the configuration file.
-        ///   - fileSystem: The filesystem on which the configuration file is located.
-        /// - Throws: `StringError` if the configuration file is corrupted or malformed.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public init(path: AbsolutePath, fileSystem: FileSystem) throws {
-            self.configFile = path
-            self.fileSystem = fileSystem
-            let persistence = SimplePersistence(
-                fileSystem: fileSystem,
-                schemaVersion: Self.schemaVersion,
-                statePath: path,
-                prettyPrint: true
-            )
-
-            do {
-                self.persistence = persistence
-                _ = try persistence.restoreState(self)
-            } catch SimplePersistence.Error.restoreFailure(_, let error) {
-                throw StringError("Configuration file is corrupted or malformed; fix or delete the file to continue: \(error)")
-            }
-        }
-
-        /// Load the configuration from disk.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public func restoreState() throws {
-            _ = try self.persistence?.restoreState(self)
-        }
-
-        /// Persists the current configuration to disk.
-        ///
-        /// If the configuration is empty, any persisted configuration file is removed.
-        ///
-        /// - Throws: If the configuration couldn't be persisted.
-        @available(*, deprecated, message: "use Configuration.Mirrors instead")
-        public func saveState() throws {
-            guard let persistence = self.persistence else { return }
-
-            // Remove the configuration file if there aren't any mirrors.
-            if mirrors.isEmpty,
-               let fileSystem = self.fileSystem,
-               let configFile = self.configFile
-            {
-                return try fileSystem.removeFileTree(configFile)
-            }
-
-            try persistence.saveState(self)
-        }
-    }
-}
-
-@available(*, deprecated, message: "use Configuration.Mirrors instead")
-extension Workspace.Configuration: JSONSerializable {
-    public func toJSON() -> JSON {
-        return mirrors.toJSON()
-    }
-}
-
-@available(*, deprecated, message: "use Configuration.Mirrors instead")
-extension Workspace.Configuration: SimplePersistanceProtocol {
-    public func restore(from json: JSON) throws {
-        self.mirrors = try DependencyMirrors(json: json)
     }
 }

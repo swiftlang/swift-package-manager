@@ -38,6 +38,7 @@ def main():
         actions like installing the result (with 'install') to a location ('--prefix').
         """)
     subparsers = parser.add_subparsers(dest='command')
+    subparsers.required = True
 
     # clean
     parser_clean = subparsers.add_parser("clean", help="cleans build artifacts")
@@ -212,7 +213,7 @@ def parse_build_args(args):
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
     if args.cross_compile_hosts:
-        if "macosx-arm64" in args.cross_compile_hosts:
+        if re.match("macosx-", args.cross_compile_hosts):
             # Use XCBuild target directory when building for multiple arches.
             args.target_dir = os.path.join(args.build_dir, "apple/Products")
         elif re.match('android-', args.cross_compile_hosts):
@@ -403,7 +404,7 @@ def install(args):
             "SPMLLBuild", "LLBuildManifest",
             "PackageModel", "PackageLoading",
             "PackageGraph", "SPMBuildCore", "Build",
-            "Xcodeproj", "Workspace"
+            "Workspace"
         ]
         install_dylib(args, "SwiftPM", args.libswiftpm_install_dir, libswiftpm_modules)
 
@@ -414,7 +415,7 @@ def install(args):
             "TSCUtility", "SourceControl",
             "PackageModel", "PackageLoading",
             "PackageGraph", "SPMBuildCore",
-            "Xcodeproj", "Workspace"
+            "Workspace"
         ]
         install_dylib(args, "SwiftPMDataModel", args.libswiftpmdatamodel_install_dir, libswiftpmdatamodel_modules)
 
@@ -423,7 +424,7 @@ def install_swiftpm(prefix, args):
     # Install the swift-package tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
     install_binary(args, "swift-package", cli_tool_dest)
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection"]:
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         note("Creating tool symlink from %s to %s" % (src, dest))
@@ -558,6 +559,19 @@ def add_rpath_for_cmake_build(args, rpath):
     note(' '.join(add_rpath_cmd))
     subprocess.call(add_rpath_cmd, stderr=subprocess.PIPE)
 
+def get_swift_backdeploy_library_paths(args):
+    if platform.system() == 'Darwin':
+        # Need to include backwards compatibility libraries for Concurrency
+        if args.release:
+            # For release builds, we need a relative path that finds the compatibility libs in the current toolchain.
+            backdeploy_path = '@executable_path/../lib/swift-5.5/macosx'
+        else:
+            # FIXME: Would be nice if we could get this from `swiftc -print-target-info`
+            backdeploy_path = args.target_info["paths"]["runtimeLibraryPaths"][0] + '/../../swift-5.5/macosx'
+        return ['/usr/lib/swift', backdeploy_path]
+    else:
+        return []
+
 def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
@@ -589,6 +603,10 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
 
+        # rpaths for compatibility libraries
+        for lib_path in get_swift_backdeploy_library_paths(args):
+            add_rpath_for_cmake_build(args, lib_path)
+
 def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
 
@@ -615,6 +633,9 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
+
+    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-concurrency-module-import"]
+    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-string-processing-module-import"]
 
     # Build SwiftPM, including libSwiftPM, all the command line tools, and the current variant of PackageDescription.
     call_swiftpm(args, swiftpm_args)
@@ -738,6 +759,10 @@ def get_swiftpm_flags(args):
     # toolchains that include libraries not part of the OS (e.g. PythonKit or
     # TensorFlow).
     if platform.system() == "Darwin":
+        # rpaths for compatibility libraries
+        for lib_path in get_swift_backdeploy_library_paths(args):
+            build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", lib_path])
+
         swift_library_rpath_prefix = "@executable_path/../"
     elif platform.system() == 'Linux' or platform.system() == 'OpenBSD':
         # `$ORIGIN` is an ELF construct.
@@ -790,12 +815,13 @@ def get_swiftpm_flags(args):
 
     build_target = get_build_target(args)
     cross_compile_hosts = args.cross_compile_hosts
-    if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
-        build_flags += ["--arch", "x86_64", "--arch", "arm64"]
-    elif cross_compile_hosts and re.match('android-', cross_compile_hosts):
-        build_flags.extend(["--destination", args.cross_compile_config])
-    elif cross_compile_hosts:
-        error("cannot cross-compile for %s" % cross_compile_hosts)
+    if cross_compile_hosts:
+        if re.search('-apple-macosx', build_target) and re.match('macosx-', cross_compile_hosts):
+            build_flags += ["--arch", "x86_64", "--arch", "arm64"]
+        elif re.match('android-', cross_compile_hosts):
+            build_flags.extend(["--destination", args.cross_compile_config])
+        else:
+            error("cannot cross-compile for %s" % cross_compile_hosts)
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")

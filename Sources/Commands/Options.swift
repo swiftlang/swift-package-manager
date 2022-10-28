@@ -15,9 +15,7 @@ import TSCBasic
 import PackageFingerprint
 import PackageModel
 import SPMBuildCore
-import Build
 
-import struct TSCUtility.BuildFlags
 import struct TSCUtility.Triple
 
 struct GlobalOptions: ParsableArguments {
@@ -279,10 +277,11 @@ struct BuildOptions: ParsableArguments {
 
     var buildFlags: BuildFlags {
         BuildFlags(
-            xcc: cCompilerFlags,
-            xcxx: cxxCompilerFlags,
-            xswiftc: swiftCompilerFlags,
-            xlinker: linkerFlags)
+            cCompilerFlags: cCompilerFlags,
+            cxxCompilerFlags: cxxCompilerFlags,
+            swiftCompilerFlags: swiftCompilerFlags,
+            linkerFlags: linkerFlags
+        )
     }
 
     /// The compilation destination’s target triple.
@@ -335,21 +334,20 @@ struct BuildOptions: ParsableArguments {
     @Flag()
     var useIntegratedSwiftDriver: Bool = false
 
+    /// A flag that inidcates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    @Option()
+    var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false
 
-    /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    @Flag(
-        name: .customLong("print-manifest-job-graph"),
-        help: "Write the command graph for the build manifest as a graphviz file")
-    var printManifestGraphviz: Bool = false
-
     /// The build system to use.
     @Option(name: .customLong("build-system"))
-    var _buildSystem: BuildSystemKind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .native
 
-    var buildSystem: BuildSystemKind {
+    var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return archs.count > 1 ? .xcode : self._buildSystem
@@ -363,6 +361,12 @@ struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     var enableTestDiscovery: Bool = false
 
+    /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if present).
+    /// This implies `--enable-test-discovery`
+    @Option(name: .customLong("experimental-test-entry-point-path"),
+            help: .hidden)
+    var testEntryPointPath: AbsolutePath?
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
@@ -372,9 +376,10 @@ struct BuildOptions: ParsableArguments {
         case disableIndexStore
     }
 
-    enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
-        case native
-        case xcode
+    enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
+        case none
+        case warn
+        case error
     }
 }
 
@@ -405,7 +410,10 @@ extension BuildConfiguration: ExpressibleByArgument {
 extension AbsolutePath: ExpressibleByArgument {
     public init?(argument: String) {
         if let cwd = localFileSystem.currentWorkingDirectory {
-            self.init(argument, relativeTo: cwd)
+            guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
+                return nil
+            }
+            self = path
         } else {
             guard let path = try? AbsolutePath(validating: argument) else {
                 return nil
@@ -447,4 +455,7 @@ extension Sanitizer {
     fileprivate static var formattedValues: String {
         return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
     }
+}
+
+extension BuildSystemProvider.Kind: ExpressibleByArgument {
 }

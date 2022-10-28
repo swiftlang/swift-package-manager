@@ -40,7 +40,7 @@ final class BuildToolTests: CommandsTestCase {
         let (output, _) = try execute(args, packagePath: packagePath)
         defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath) }
         let (binPathOutput, _) = try execute(["--show-bin-path"], packagePath: packagePath)
-        let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
+        let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
         return BuildResult(binPath: binPath, output: output, binContents: binContents)
     }
@@ -75,10 +75,53 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testImportOfMissedDepWarning() throws {
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-import-prescan'")
+        #endif
+        // Verify the warning flow
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=warn"], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+
+        // Verify the error flow
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=error"], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+
+        // Verify that the default does not run the check
+        try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            XCTAssertThrowsError(try build([], packagePath: fullPath)) { error in
+                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                    XCTFail()
+                    return
+                }
+                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+            }
+        }
+    }
+
     func testBinPathAndSymlink() throws {
         try fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            let fullPath = resolveSymlinks(fixturePath)
-            let targetPath = fullPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent())
+            let fullPath = try resolveSymlinks(fixturePath)
+            let targetPath = fullPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent())
             let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
                            "\(targetPath.appending(component: "debug").pathString)\n")
@@ -98,17 +141,17 @@ final class BuildToolTests: CommandsTestCase {
 
             // Test symlink.
             _ = try execute([], packagePath: fullPath)
-            XCTAssertEqual(resolveSymlinks(fullPath.appending(components: ".build", "debug")),
+            XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "debug")),
                            targetPath.appending(component: "debug"))
             _ = try execute(["-c", "release"], packagePath: fullPath)
-            XCTAssertEqual(resolveSymlinks(fullPath.appending(components: ".build", "release")),
+            XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "release")),
                            targetPath.appending(component: "release"))
         }
     }
 
     func testProductAndTarget() throws {
         try fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
-            let fullPath = resolveSymlinks(fixturePath)
+            let fullPath = try resolveSymlinks(fixturePath)
 
             do {
                 let result = try build(["--product", "exec1"], packagePath: fullPath)
@@ -156,7 +199,7 @@ final class BuildToolTests: CommandsTestCase {
     
     func testAtMainSupport() throws {
         try fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
-            let fullPath = resolveSymlinks(fixturePath)
+            let fullPath = try resolveSymlinks(fixturePath)
 
             do {
                 let result = try build(["--product", "ClangExecSingleFile"], packagePath: fullPath)
@@ -278,7 +321,7 @@ final class BuildToolTests: CommandsTestCase {
             let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: fixturePath).stdout
             
             // Look for certain things in the output from XCBuild.
-            XCTAssertMatch(defaultOutput, .contains("-target \(UserToolchain.default.triple.tripleString(forPlatformVersion: ""))"))
+            XCTAssertMatch(defaultOutput, .contains("-target \(try UserToolchain.default.triple.tripleString(forPlatformVersion: ""))"))
         }
     }
 
@@ -317,7 +360,7 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
             let defaultOutput = try execute(["-c", "debug", "--vv"], packagePath: fixturePath).stdout
-            XCTAssertMatch(defaultOutput, .contains(UserToolchain.default.swiftCompilerPath.pathString))
+            XCTAssertMatch(defaultOutput, .contains(try UserToolchain.default.swiftCompilerPath.pathString))
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
@@ -334,4 +377,10 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testPrintLLBuildManifestJobGraph() throws {
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let output = try execute(["--print-manifest-job-graph"], packagePath: fixturePath).stdout
+            XCTAssertMatch(output, .prefix("digraph Jobs {"))
+        }
+    }
 }

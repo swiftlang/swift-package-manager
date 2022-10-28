@@ -50,7 +50,7 @@ public class Target: PolymorphicCodableProtocol {
         public let moduleAliases: [String: String]?
 
         /// Fully qualified name for this product dependency: package ID + name of the product
-        public var ID: String {
+        public var identity: String {
             if let pkg = package {
                 return pkg.lowercased() + "_" + name
             }
@@ -129,6 +129,10 @@ public class Target: PolymorphicCodableProtocol {
     /// dependent target and the value is a new unique name mapped to the name
     /// of its .swiftmodule binary.
     public private(set) var moduleAliases: [String: String]?
+    /// Used to store pre-chained / pre-overriden module aliases
+    public private(set) var prechainModuleAliases: [String: String]?
+    /// Used to store aliases that should be referenced directly in source code
+    public private(set) var directRefAliases: [String: [String]]?
 
     /// Add module aliases (if applicable) for dependencies of this target.
     ///
@@ -147,10 +151,26 @@ public class Target: PolymorphicCodableProtocol {
             moduleAliases?[name] = alias
         }
     }
+
     public func removeModuleAlias(for name: String) {
         moduleAliases?.removeValue(forKey: name)
         if moduleAliases?.isEmpty ?? false {
             moduleAliases = nil
+        }
+    }
+
+    public func addPrechainModuleAlias(for name: String, as alias: String) {
+        if prechainModuleAliases == nil {
+            prechainModuleAliases = [name: alias]
+        } else {
+            prechainModuleAliases?[name] = alias
+        }
+    }
+    public func addDirectRefAliases(for name: String, as aliases: [String]) {
+        if directRefAliases == nil {
+            directRefAliases = [name: aliases]
+        } else {
+            directRefAliases?[name] = aliases
         }
     }
 
@@ -292,15 +312,20 @@ extension Target: CustomStringConvertible {
 
 public final class SwiftTarget: Target {
 
-    /// The file name of test manifest.
-    public static let testManifestNames = ["XCTMain.swift", "LinuxMain.swift"]
+    /// The default name for the test entry point file located in a package.
+    public static let defaultTestEntryPointName = "XCTMain.swift"
+
+    /// The list of all supported names for the test entry point file located in a package.
+    public static var testEntryPointNames: [String] {
+        [defaultTestEntryPointName, "LinuxMain.swift"]
+    }
 
     public init(name: String, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
 
         super.init(
             name: name,
-            type: .executable,
+            type: .library,
             path: .root,
             sources: testDiscoverySrc,
             dependencies: dependencies,
@@ -342,8 +367,8 @@ public final class SwiftTarget: Target {
         )
     }
 
-    /// Create an executable Swift target from test manifest file.
-    public init(name: String, dependencies: [Target.Dependency], testManifest: AbsolutePath) {
+    /// Create an executable Swift target from test entry point file.
+    public init(name: String, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -357,7 +382,7 @@ public final class SwiftTarget: Target {
         // satisfy the current tools version but there is not a good way to
         // do that currently.
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(SwiftVersion.current.major)) ?? .v4
-        let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
+        let sources = Sources(paths: [testEntryPointPath], root: testEntryPointPath.parentDirectory)
 
         super.init(
             name: name,
@@ -611,13 +636,11 @@ public final class BinaryTarget: Target {
                 return "unknown"
             }
         }
+    }
 
-        public static func forFileExtension(_ fileExtension: String) throws -> Kind {
-            guard let kind = Kind.allCases.first(where: { $0.fileExtension == fileExtension }) else {
-                throw StringError("unknown binary artifact file extension '\(fileExtension)'")
-            }
-            return kind
-        }
+    public var containsExecutable: Bool {
+        // FIXME: needs to be revisited once libraries are supported in artifact bundles
+        return self.kind == .artifactsArchive
     }
 
     public enum Origin: Equatable, Codable {
@@ -778,6 +801,21 @@ public enum PluginPermission: Hashable, Codable {
         switch desc {
         case .writeToPackageDirectory(let reason):
             self = .writeToPackageDirectory(reason: reason)
+        }
+    }
+}
+
+public extension Sequence where Iterator.Element == Target {
+    var executables: [Target] {
+        return filter {
+            switch $0.type {
+            case .binary:
+                return ($0 as? BinaryTarget)?.containsExecutable == true
+            case .executable:
+                return true
+            default:
+                return false
+            }
         }
     }
 }

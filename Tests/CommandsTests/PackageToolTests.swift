@@ -20,7 +20,6 @@ import SourceControl
 import SPMTestSupport
 import TSCBasic
 import Workspace
-import Xcodeproj
 import XCTest
 
 final class PackageToolTests: CommandsTestCase {
@@ -481,7 +480,7 @@ final class PackageToolTests: CommandsTestCase {
     // Returns symbol graph with or without pretty printing.
     private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
         let tool = try SwiftTool(options: GlobalOptions.parse(["--package-path", path.pathString]))
-        let symbolGraphExtractorPath = try tool.getToolchain().getSymbolGraphExtract()
+        let symbolGraphExtractorPath = try tool.getDestinationToolchain().getSymbolGraphExtract()
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
 
@@ -536,7 +535,7 @@ final class PackageToolTests: CommandsTestCase {
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
+            XCTAssertEqual(try resolveSymlinks(try AbsolutePath(validating: path)), try resolveSymlinks(packageRoot))
         }
     }
 
@@ -553,11 +552,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestA = Manifest.createRootManifest(
             name: "PackageA",
-            path: .init("/PackageA"),
+            path: .init(path: "/PackageA"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageB")),
-                .fileSystem(path: .init("/PackageC")),
+                .fileSystem(path: .init(path: "/PackageB")),
+                .fileSystem(path: .init(path: "/PackageC")),
             ],
             products: [
                 try .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -569,11 +568,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestB = Manifest.createFileSystemManifest(
             name: "PackageB",
-            path: .init("/PackageB"),
+            path: .init(path: "/PackageB"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageC")),
-                .fileSystem(path: .init("/PackageD")),
+                .fileSystem(path: .init(path: "/PackageC")),
+                .fileSystem(path: .init(path: "/PackageD")),
             ],
             products: [
                 try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -585,10 +584,10 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestC = Manifest.createFileSystemManifest(
             name: "PackageC",
-            path: .init("/PackageC"),
+            path: .init(path: "/PackageC"),
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init("/PackageD")),
+                .fileSystem(path: .init(path: "/PackageD")),
             ],
             products: [
                 try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -600,7 +599,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestD = Manifest.createFileSystemManifest(
             name: "PackageD",
-            path: .init("/PackageD"),
+            path: .init(path: "/PackageD"),
             toolsVersion: .v5_3,
             products: [
                 try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
@@ -776,7 +775,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -793,7 +792,7 @@ final class PackageToolTests: CommandsTestCase {
 
             XCTAssertMatch(stderr, .contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
-            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
+            XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
@@ -850,7 +849,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -869,7 +868,7 @@ final class PackageToolTests: CommandsTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
+            let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -939,11 +938,11 @@ final class PackageToolTests: CommandsTestCase {
             func build() throws -> String {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "foo").pathString]
 
             // Build and check.
             _ = try build()
-            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
+            XCTAssertEqual(try TSCBasic.Process.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to bar checkout.
             let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)
@@ -1175,39 +1174,6 @@ final class PackageToolTests: CommandsTestCase {
             try fs.createSymbolicLink(depSym, pointingAt: dep, relative: false)
 
             _ = try execute(["resolve"], packagePath: root)
-        }
-    }
-
-    func testWatchmanXcodeprojgen() throws {
-        try testWithTemporaryDirectory { path in
-            let fs = localFileSystem
-            let observability = ObservabilitySystem.makeForTesting()
-
-            let scriptsDir = path.appending(component: "scripts")
-            let packageRoot = path.appending(component: "root")
-
-            let helper = WatchmanHelper(
-                watchmanScriptsDir: scriptsDir,
-                packageRoot: packageRoot,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            )
-
-            let script = try helper.createXcodegenScript(
-                XcodeprojOptions(xcconfigOverrides: .init("/tmp/overrides.xcconfig")))
-
-            XCTAssertEqual(try fs.readFileContents(script), """
-                #!/usr/bin/env bash
-
-
-                # Autogenerated by SwiftPM. Do not edit!
-
-
-                set -eu
-
-                swift package generate-xcodeproj --xcconfig-overrides /tmp/overrides.xcconfig
-
-                """)
         }
     }
 
@@ -2544,8 +2510,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertMatch(output, .contains("Building for debugging..."))
             }
 
@@ -2554,8 +2520,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--target", "MyCommandPlugin"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
 
@@ -2579,13 +2545,81 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
-                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
                 #if false // sometimes this line isn't emitted; being investigated in https://bugs.swift.org/browse/SR-15831
                     XCTAssertMatch(output, .contains("MyCommandPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
                 #endif
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
+        }
+    }
+
+    func testSinglePluginTarget() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                   // swift-tools-version: 5.7
+                   import PackageDescription
+                   let package = Package(
+                       name: "MyPackage",
+                       products: [
+                           .plugin(name: "Foo", targets: ["Foo"])
+                       ],
+                       dependencies: [
+                       ],
+                       targets: [
+                           .plugin(
+                               name: "Foo",
+                               capability: .command(
+                                   intent: .custom(verb: "Foo", description: "Plugin example"),
+                                   permissions: []
+                               )
+                           )
+                       ]
+                   )
+                   """)
+
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                     import PackagePlugin
+                     @main struct FooPlugin: BuildToolPlugin {
+                         func createBuildCommands(
+                             context: PluginContext,
+                             target: Target
+                         ) throws -> [Command] { }
+                     }
+                     """)
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 }

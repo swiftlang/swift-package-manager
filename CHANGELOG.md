@@ -1,11 +1,18 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift 5.8
+-----------
+
+* [#5728]
+
+  In packages that specify resources using tools version 5.8 or later, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
+
 Swift 5.7
 -----------
 
 * [SE-0292]
 
-  SwiftPM can now resolve deepndencies from a server compliant with the package registry server API defined in SE-0292. 
+  SwiftPM can now resolve dependencies from a server compliant with the package registry server API defined in SE-0292. 
   
 * [SE-0339]
 
@@ -247,3 +254,4 @@ Swift 3.0
 [#4131]: https://github.com/apple/swift-package-manager/pull/4131
 [#4135]: https://github.com/apple/swift-package-manager/pull/4135
 [#4168]: https://github.com/apple/swift-package-manager/pull/4168
+[#5728]: https://github.com/apple/swift-package-manager/pull/5728

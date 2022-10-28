@@ -31,8 +31,8 @@ public final class ResolvedProduct {
         return underlyingProduct.type
     }
 
-    /// Executable target for test manifest file.
-    public let testManifestTarget: ResolvedTarget?
+    /// Executable target for test entry point file.
+    public let testEntryPointTarget: ResolvedTarget?
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -43,11 +43,16 @@ public final class ResolvedProduct {
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
-    public func executableTarget() throws -> ResolvedTarget {
-        guard type == .executable || type == .snippet else {
-            throw InternalError("firstExecutableModule should only be called for executable targets")
+    public var executableTarget: ResolvedTarget {
+        get throws {
+            guard type == .executable || type == .snippet else {
+                throw InternalError("`executableTarget` should only be called for executable targets")
+            }
+            guard let underlyingExecutableTarget = targets.map({ $0.underlyingTarget }).executables.first, let executableTarget = targets.first(where: { $0.underlyingTarget == underlyingExecutableTarget }) else {
+                throw InternalError("could not determine executable target")
+            }
+            return executableTarget
         }
-        return targets.first(where: { $0.type == .executable || $0.type == .snippet })!
     }
 
     public init(product: Product, targets: [ResolvedTarget]) {
@@ -55,10 +60,10 @@ public final class ResolvedProduct {
         self.underlyingProduct = product
         self.targets = targets
 
-        self.testManifestTarget = underlyingProduct.testManifest.map{ testManifest in
-            // Create an executable resolved target with the linux main, adding product's targets as dependencies.
+        self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
+            // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(name: product.name, dependencies: dependencies, testManifest: testManifest)
+            let swiftTarget = SwiftTarget(name: product.name, dependencies: dependencies, testEntryPointPath: testEntryPointPath)
             return ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },

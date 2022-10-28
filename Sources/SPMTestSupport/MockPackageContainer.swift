@@ -100,16 +100,16 @@ public class MockPackageContainer: CustomPackageContainer {
     public convenience init(
         name: String,
         dependenciesByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]]
-    ) {
+    ) throws {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
-            dependencies[version.description] = deps.map {
-                let path = AbsolutePath("/\($0.container)")
+            dependencies[version.description] = try deps.map {
+                let path = try AbsolutePath(validating: "/\($0.container)")
                 let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
-        let path = AbsolutePath("/\(name)")
+        let path = try AbsolutePath(validating: "/\(name)")
         let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
         self.init(package: ref, dependencies: dependencies)
     }
@@ -133,16 +133,16 @@ public class MockPackageContainer: CustomPackageContainer {
     public init(
         name: String,
         dependenciesByProductFilter: [ProductFilter: [(container: String, versionRequirement: VersionSetSpecifier)]]
-    ) {
+    ) throws {
         var dependencies: [ProductFilter: [Dependency]] = [:]
         for (filter, deps) in dependenciesByProductFilter {
-            dependencies[filter] = deps.map {
-                let path = AbsolutePath("/\($0.container)")
+            dependencies[filter] = try deps.map {
+                let path = try AbsolutePath(validating: "/\($0.container)")
                 let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
-        let path = AbsolutePath("/\(name)")
+        let path = try AbsolutePath(validating: "/\(name)")
         let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
         self.package = ref
         self._versions = [Version(1, 0, 0)]

@@ -37,7 +37,7 @@ class ResourcesTests: XCTestCase {
         try fixture(name: "Resources/Localized") { fixturePath in
             try executeSwiftBuild(fixturePath)
 
-            let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
+            let exec = AbsolutePath(path: ".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try Process.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
             XCTAssertEqual(output, """
@@ -58,7 +58,7 @@ class ResourcesTests: XCTestCase {
             executables.append("SeaResource")
             #endif
 
-            let binPath = try AbsolutePath(
+            let binPath = try AbsolutePath(validating:
                 executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
@@ -86,6 +86,20 @@ class ResourcesTests: XCTestCase {
                     XCTAssertTrue(output.contains("foo"))
                 }
             }
+        }
+    }
+
+    func testFoundationlessClient() throws {
+        try fixture(name: "Resources/FoundationlessClient") { fixturePath in
+            #if os(Linux) && swift(>=5.8)
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            guard let failure = XCTAssertBuildFails(pkgPath) else {
+                XCTFail("missing expected command execution error")
+                return
+            }
+            // Check that the following code expectedly doesn't compile for lack of 'import Foundation'
+            XCTAssertMatch(failure.stdout, .contains("print(FooUtils.foo.trimmingCharacters(in: .whitespaces))"))
+            #endif
         }
     }
 }

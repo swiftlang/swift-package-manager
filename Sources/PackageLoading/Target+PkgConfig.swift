@@ -58,13 +58,13 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsolutePath? = .none, fileSystem: FileSystem, observabilityScope: ObservabilityScope) -> [PkgConfigResult] {
+public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsolutePath? = .none, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> [PkgConfigResult] {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigNames = target.pkgConfig else { return [] }
 
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
-    let additionalSearchPaths = provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
+    let additionalSearchPaths = try provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
 
    var ret: [PkgConfigResult] = []
     // Get the pkg config flags.
@@ -161,7 +161,7 @@ extension SystemPackageProviderDescription {
         return false
     }
 
-    func pkgConfigSearchPath(brewPrefixOverride: AbsolutePath?) -> [AbsolutePath] {
+    func pkgConfigSearchPath(brewPrefixOverride: AbsolutePath?) throws -> [AbsolutePath] {
         switch self {
         case .brew(let packages):
             let brewPrefix: String
@@ -174,7 +174,7 @@ extension SystemPackageProviderDescription {
                 // to the latest version. Instead use the version as symlinked
                 // in /usr/local/opt/(NAME)/lib/pkgconfig.
                 struct Static {
-                    static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                    static let value = { try? TSCBasic.Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
                 }
                 if let value = Static.value {
                     brewPrefix = value
@@ -182,7 +182,7 @@ extension SystemPackageProviderDescription {
                     return []
                 }
             }
-            return packages.map({ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
+            return try packages.map({ try AbsolutePath(validating: brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
         case .apt:
             return []
         case .yum:

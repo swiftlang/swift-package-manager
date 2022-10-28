@@ -18,9 +18,10 @@ import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
+import SPMBuildCore
 
 /// The parameters required by `PIFBuilder`.
-public struct PIFBuilderParameters {
+struct PIFBuilderParameters {
 
     /// Whether or not build for testability is enabled.
     public let enableTestability: Bool
@@ -52,16 +53,16 @@ public final class PIFBuilder {
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
     /// The package graph to build from.
-    public let graph: PackageGraph
+    let graph: PackageGraph
 
     /// The parameters used to configure the PIF.
-    public let parameters: PIFBuilderParameters
+    let parameters: PIFBuilderParameters
 
     /// The ObservabilityScope to emit diagnostics to.
-    public let observabilityScope: ObservabilityScope
+    let observabilityScope: ObservabilityScope
 
     /// The file system to read from.
-    public let fileSystem: FileSystem
+    let fileSystem: FileSystem
 
     private var pif: PIF.TopLevelObject?
 
@@ -71,7 +72,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    public init(
+    init(
         graph: PackageGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
@@ -87,7 +88,7 @@ public final class PIFBuilder {
     /// - Parameters:
     ///   - prettyPrint: Whether to return a formatted JSON.
     /// - Returns: The package graph in the JSON PIF format.
-    public func generatePIF(
+    func generatePIF(
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false
     ) throws -> String {
@@ -132,6 +133,18 @@ public final class PIFBuilder {
 
             return PIF.TopLevelObject(workspace: workspace)
         }
+    }
+
+    // Convenience method for generating PIF.
+    public static func generatePIF(buildParameters: BuildParameters, packageGraph: PackageGraph, fileSystem: FileSystem, observabilityScope: ObservabilityScope, preservePIFModelStructure: Bool) throws -> String {
+        let parameters = PIFBuilderParameters(buildParameters)
+        let builder = Self.init(
+            graph: packageGraph,
+            parameters: parameters,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+        return try builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure)
     }
 }
 
@@ -327,7 +340,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         addBuildConfiguration(name: "Release", settings: releaseSettings)
 
         for product in package.products.sorted(by: { $0.name < $1.name }) {
-            addTarget(for: product)
+            try addTarget(for: product)
         }
 
         for target in package.targets.sorted(by: { $0.name < $1.name }) {
@@ -339,10 +352,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
-    private func addTarget(for product: ResolvedProduct) {
+    private func addTarget(for product: ResolvedProduct) throws {
         switch product.type {
         case .executable, .snippet, .test:
-            addMainModuleTarget(for: product)
+            try addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
         case .plugin:
@@ -377,7 +390,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         return "\(productName)_\(String(productName.hash, radix: 16, uppercase: true))_PackageProduct"
     }
 
-    private func addMainModuleTarget(for product: ResolvedProduct) {
+    private func addMainModuleTarget(for product: ResolvedProduct) throws {
         let productType: PIF.Target.ProductType = product.type == .executable ? .executable : .unitTest
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
@@ -460,7 +473,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var releaseSettings = settings
 
         var impartedSettings = PIF.BuildSettings()
-        addManifestBuildSettings(
+        try addManifestBuildSettings(
             from: mainTarget.underlyingTarget,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
@@ -671,7 +684,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var debugSettings = settings
         var releaseSettings = settings
 
-        addManifestBuildSettings(
+        try addManifestBuildSettings(
             from: target.underlyingTarget,
             debugSettings: &debugSettings,
             releaseSettings: &releaseSettings,
@@ -697,7 +710,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var impartedSettings = PIF.BuildSettings()
 
         var cFlags: [String] = []
-        for result in pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
+        for result in try pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
             if let error = result.error {
                 self.observabilityScope.emit(
                     warning: "\(error)",
@@ -859,12 +872,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         debugSettings: inout PIF.BuildSettings,
         releaseSettings: inout PIF.BuildSettings,
         impartedSettings: inout PIF.BuildSettings
-    ) {
+    ) throws {
         for (setting, assignments) in target.buildSettings.pifAssignments {
             for assignment in assignments {
                 var value = assignment.value
                 if setting == .HEADER_SEARCH_PATHS {
-                    value = value.map { AbsolutePath($0, relativeTo: target.sources.root).pathString }
+                    value = try value.map { try AbsolutePath(validating: $0, relativeTo: target.sources.root).pathString }
                 }
 
                 if let platforms = assignment.platforms {

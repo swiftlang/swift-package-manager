@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
@@ -172,6 +173,27 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
                 PlatformDescription(name: "customos", version: "1.0"),
                 PlatformDescription(name: "anothercustomos", version: "2.3"),
             ])
+        }
+
+        // Invalid custom platform version.
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .custom("customos", versionString: "xx"),
+                   ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            do {
+                _  = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+                XCTFail("manifest loading unexpectedly did not throw an error")
+            } catch ManifestParseError.runtimeManifestErrors(let errors) {
+                XCTAssertEqual(errors, ["invalid custom platform version xx; xx should be a positive integer"])
+            }
         }
     }
     

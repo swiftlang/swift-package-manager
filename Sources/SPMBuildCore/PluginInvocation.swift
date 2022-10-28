@@ -121,7 +121,7 @@ extension PluginTarget {
         }
         
         // Handle messages and output from the plugin.
-        class ScriptRunnerDelegate: PluginScriptRunnerDelegate {
+        class ScriptRunnerDelegate: PluginScriptCompilerDelegate, PluginScriptRunnerDelegate {
             /// Delegate that should be told about events involving the plugin.
             let invocationDelegate: PluginInvocationDelegate
             
@@ -134,6 +134,18 @@ extension PluginTarget {
             init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
                 self.observabilityScope = observabilityScope
+            }
+            
+            func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables) {
+                invocationDelegate.pluginCompilationStarted(commandLine: commandLine, environment: environment)
+            }
+            
+            func didCompilePlugin(result: PluginCompilationResult) {
+                invocationDelegate.pluginCompilationEnded(result: result)
+            }
+            
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
+                invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
             
             /// Invoked when the plugin emits arbtirary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
@@ -276,7 +288,6 @@ fileprivate extension PluginToHostMessage {
     }
 }
 
-
 extension PackageGraph {
 
     /// Traverses the graph of reachable targets in a package graph, and applies plugins to targets as needed. Each
@@ -344,7 +355,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, for: pluginScriptRunner.hostTriple)
+                let accessibleTools = try pluginTarget.accessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
@@ -353,6 +364,9 @@ extension PackageGraph {
                         dict[name] = path
                     }
                 })
+                
+                // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
+                let toolPaths = toolNamesToPaths.values.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -366,16 +380,29 @@ extension PackageGraph {
                 // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
                 class PluginDelegate: PluginInvocationDelegate {
+                    let fileSystem: FileSystem
                     let delegateQueue: DispatchQueue
+                    let toolPaths: [AbsolutePath]
                     var outputData = Data()
                     var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(delegateQueue: DispatchQueue) {
+                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                        self.fileSystem = fileSystem
                         self.delegateQueue = delegateQueue
+                        self.toolPaths = toolPaths
                     }
                     
+                    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                    }
+                    
+                    func pluginCompilationEnded(result: PluginCompilationResult) {
+                    }
+                    
+                    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+                    }
+
                     func pluginEmittedOutput(_ data: Data) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         outputData.append(contentsOf: data)
@@ -395,12 +422,17 @@ extension PackageGraph {
                                 arguments: arguments,
                                 environment: environment,
                                 workingDirectory: workingDirectory),
-                            inputFiles: inputFiles,
+                            inputFiles: toolPaths + inputFiles,
                             outputFiles: outputFiles))
                     }
                     
                     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        // executable must exist before running prebuild command
+                        if !fileSystem.exists(executable) {
+                            diagnostics.append(.error("exectuable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
+                            return
+                        }
                         prebuildCommands.append(.init(
                             configuration: .init(
                                 displayName: displayName,
@@ -411,7 +443,7 @@ extension PackageGraph {
                             outputFilesDirectory: outputFilesDirectory))
                     }
                 }
-                let delegate = PluginDelegate(delegateQueue: delegateQueue)
+                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
@@ -465,32 +497,54 @@ public enum PluginAccessibleTool: Hashable {
 
 public extension PluginTarget {
 
+    func dependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
+        return self.dependencies.filter { $0.satisfies(environment) }
+    }
+
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(fileSystem: FileSystem, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
-        return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
+    func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
+        return try Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
+            let builtToolName: String
+            let executableOrBinaryTarget: Target
             switch dependency {
             case .target(let target, _):
-                // For a binary target we create a `vendedTool`.
-                if let target = target as? BinaryTarget {
-                    // TODO: Memoize this result for the host triple
-                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem) else {
-                        // TODO: Deal better with errors in parsing the artifacts
-                        return []
-                    }
-                    return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+                builtToolName = target.name
+                executableOrBinaryTarget = target
+            case .product(let productRef, _):
+                guard let product = packageGraph.allProducts.first(where: { $0.name == productRef.name }), let executableTarget = product.targets.map({ $0.underlyingTarget }).executables.spm_only else {
+                    throw StringError("no product named \(productRef.name)")
                 }
-                // For an executable target we create a `builtTool`.
-                else if target.type == .executable {
-                    // TODO: How do we determine what the executable name will be for the host platform?
-                    return [.builtTool(name: target.name, path: RelativePath(target.name))]
-                }
-                else {
-                    return []
-                }
-            case .product(let product, _):
-                return [.builtTool(name: product.name, path: RelativePath(product.name))]
+                builtToolName = productRef.name
+                executableOrBinaryTarget = executableTarget
+            }
+
+            // For a binary target we create a `vendedTool`.
+            if let target = executableOrBinaryTarget as? BinaryTarget {
+                // TODO: Memoize this result for the host triple
+                let execInfos = try target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+            }
+            // For an executable target we create a `builtTool`.
+            else if executableOrBinaryTarget.type == .executable {
+                return [.builtTool(name: builtToolName, path: RelativePath(executableOrBinaryTarget.name))]
+            }
+            else {
+                return []
             }
         })
+    }
+}
+
+fileprivate extension Target.Dependency {
+    var conditions: [PackageConditionProtocol] {
+        switch self {
+        case .target(_, let conditions): return conditions
+        case .product(_, let conditions): return conditions
+        }
+    }
+
+    func satisfies(_ environment: BuildEnvironment) -> Bool {
+        conditions.allSatisfy { $0.satisfies(environment) }
     }
 }
 
@@ -570,8 +624,16 @@ public enum PluginEvaluationError: Swift.Error {
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
 
-
 public protocol PluginInvocationDelegate {
+    /// Called before a plugin is compiled. This call is always followed by a `pluginCompilationEnded()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
+    func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables)
+    
+    /// Called after a plugin is compiled. This call always follows a `pluginCompilationStarted()`, but is mutually exclusive with `pluginCompilationWasSkipped()` (which is called if the plugin didn't need to be recompiled).
+    func pluginCompilationEnded(result: PluginCompilationResult)
+    
+    /// Called if a plugin didn't need to be recompiled. This call is always mutually exclusive with `pluginCompilationStarted()` and `pluginCompilationEnded()`.
+    func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult)
+    
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func pluginEmittedOutput(_: Data)
     

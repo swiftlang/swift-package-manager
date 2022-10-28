@@ -380,7 +380,7 @@ Selecting the version requirement is the recommended way to add a package depend
 
 Select the name of the branch for your package dependency to follow.
 Use branch-based dependencies when you're developing multiple packages
-n tandem or when you don't want to publish versions of your package dependencies.
+in tandem or when you don't want to publish versions of your package dependencies.
 
 Note that packages which use branch-based dependency requirements
 can't be added as dependencies to packages that use version-based dependency
@@ -476,7 +476,7 @@ A package version is a three period-separated integer, for example `1.0.0`. It m
 that your package behaves in a predictable manner once developers update their
 package dependency to a newer version. To achieve predictability, the semantic versioning specification proposes a set of rules and
 requirements that dictate how version numbers are assigned and incremented. To learn more about the semantic versioning specification, visit
-[semver.org](www.semver.org).
+[semver.org](https://semver.org).
 
 **The Major Version**
 

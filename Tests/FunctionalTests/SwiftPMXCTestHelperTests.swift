@@ -25,7 +25,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
         try fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { fixturePath in
             // Build the package.
             XCTAssertBuilds(fixturePath)
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             XCTAssertFileExists(fixturePath.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
             XCTAssertSwiftTest(fixturePath)
@@ -49,7 +49,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
 
     func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) throws {
         #if os(macOS)
-        let env = ["DYLD_FRAMEWORK_PATH": UserToolchain.default.sdkPlatformFrameworksPath.pathString]
+        let env = ["DYLD_FRAMEWORK_PATH": try UserToolchain.default.sdkPlatformFrameworksPath.pathString]
         let outputFile = bundlePath.parentDirectory.appending(component: "tests.txt")
         let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
         guard let data = NSData(contentsOfFile: outputFile.pathString) else {

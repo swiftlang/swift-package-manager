@@ -59,7 +59,7 @@ private extension IndexStore.TestCaseClass.TestMethod {
     }
 }
 
-final class TestDiscoveryCommand: CustomLLBuildCommand {
+final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
     private func write(
         tests: [IndexStore.TestCaseClass],
@@ -98,7 +98,6 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             let className = iterator.key
             stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
         }
-
         stream <<< """
             ]
         }
@@ -113,9 +112,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try tool.inputs.flatMap {
-            try store.listTests(inObjectFile: AbsolutePath($0.name))
-        }
+        let tests = try store.listTests(in: tool.inputs.map{ try AbsolutePath(validating: $0.name) })
 
         let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
@@ -151,29 +148,26 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             throw InternalError("main output (\(LLBuildManifest.TestDiscoveryTool.mainFileName)) not found")
         }
 
+        let testsKeyword = tests.isEmpty ? "let" : "var"
+
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream <<< "import XCTest" <<< "\n\n"
 
-        stream <<< "@main" <<< "\n"
         stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
-        stream <<< "struct Runner" <<< " {" <<< "\n"
-        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
-        stream <<< indent(8) <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+        stream <<< "public func __allDiscoveredTests() -> [XCTestCaseEntry] {" <<< "\n"
+        stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
+
         for module in testsByModule.keys {
-            stream <<< indent(8) <<< "tests += __\(module)__allTests()" <<< "\n"
+            stream <<< indent(4) <<< "tests += __\(module)__allTests()" <<< "\n"
         }
-        stream <<< indent(8) <<< "\n"
-        stream <<< indent(8) <<< "XCTMain(tests)" <<< "\n"
-        stream <<< indent(4) <<< "}" <<< "\n"
+
+        stream <<< "\n"
+        stream <<< indent(4) <<< "return tests" <<< "\n"
         stream <<< "}" <<< "\n"
 
         stream.flush()
-    }
-
-    private func indent(_ spaces: Int) -> ByteStreamable {
-        return Format.asRepeating(string: " ", count: spaces)
     }
 
     override func execute(
@@ -186,7 +180,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
                 throw InternalError("unknown build description")
             }
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
-                throw StringError("command \(command.name) not registered")
+                throw InternalError("command \(command.name) not registered")
             }
             try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
@@ -195,6 +189,76 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return false
         }
     }
+}
+
+final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
+
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
+        // Find the inputs, which are the names of the test discovery module(s)
+        let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
+        let discoveryModuleNames = inputs.map { $0.basenameWithoutExt }
+
+        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
+
+        // Find the main output file
+        guard let mainFile = outputs.first(where: { path in
+            path.basename == LLBuildManifest.TestEntryPointTool.mainFileName
+        }) else {
+            throw InternalError("main file output (\(LLBuildManifest.TestEntryPointTool.mainFileName)) not found")
+        }
+
+        // Write the main file.
+        let stream = try LocalFileOutputByteStream(mainFile)
+
+        stream <<< "import XCTest" <<< "\n"
+        for discoveryModuleName in discoveryModuleNames {
+            stream <<< "import \(discoveryModuleName)" <<< "\n"
+        }
+        stream <<< "\n"
+
+        stream <<< "@main" <<< "\n"
+        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<< "struct Runner" <<< " {" <<< "\n"
+        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(__allDiscoveredTests())" <<< "\n"
+        stream <<< indent(4) <<< "}" <<< "\n"
+        stream <<< "}" <<< "\n"
+
+        stream.flush()
+    }
+
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.testEntryPointCommands[command.name] else {
+                throw InternalError("command \(command.name) not registered")
+            }
+            try execute(fileSystem: self.context.fileSystem, tool: tool)
+            return true
+        } catch {
+            self.context.observabilityScope.emit(error)
+            return false
+        }
+    }
+}
+
+private protocol TestBuildCommand {}
+
+/// Functionality common to all build commands related to test targets.
+extension TestBuildCommand {
+
+    /// Returns a value containing `spaces` number of space characters.
+    /// Intended to facilitate indenting generated code a specified number of levels.
+    fileprivate func indent(_ spaces: Int) -> ByteStreamable {
+        return Format.asRepeating(string: " ", count: spaces)
+    }
+
 }
 
 private final class InProcessTool: Tool {
@@ -206,7 +270,7 @@ private final class InProcessTool: Tool {
         self.type = type
     }
 
-    func createCommand(_ name: String) -> ExternalCommand {
+    func createCommand(_ name: String) -> ExternalCommand? {
         return type.init(self.context)
     }
 }
@@ -215,6 +279,7 @@ private final class InProcessTool: Tool {
 public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
+    public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
     let swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool]
@@ -225,8 +290,24 @@ public struct BuildDescription: Codable {
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
+    /// The map of test entry point commands.
+    let testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool]
+
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+
+    /// A flag that inidcates this build should perform a check for whether targets only import
+    /// their explicitly-declared dependencies
+    let explicitTargetDependencyImportCheckingMode: BuildParameters.TargetDependencyImportCheckingMode
+
+    /// Every target's set of dependencies.
+    let targetDependencyMap: [TargetName: [TargetName]]
+
+    /// A full swift driver command-line invocation used to dependency-scan a given Swift target
+    let swiftTargetScanArgs: [TargetName: [CommandLineFlag]]
+
+    /// A set of all targets with generated source
+    let generatedSourceTargetSet: Set<TargetName>
 
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
@@ -239,17 +320,41 @@ public struct BuildDescription: Codable {
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
         pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
+        self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
+        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
+        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
+            let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment).compactMap { $0.target }.map { $0.c99name }
+            $0[$1.target.c99name] = deps
+        }
+        var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
+        var generatedSourceTargets: [TargetName] = []
+        for (target, description) in plan.targetMap {
+            guard case .swift(let desc) = description else {
+                continue
+            }
+            targetCommandLines[target.c99name] =
+                try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
+                                                                  plan.buildParameters.toolchain.swiftCompilerPath.pathString]
+            if case .discovery = desc.testTargetRole {
+                generatedSourceTargets.append(target.c99name)
+            }
+        }
+        generatedSourceTargets.append(contentsOf: plan.graph.allTargets.filter {$0.type == .plugin}
+                                                                       .map { $0.c99name })
+        self.swiftTargetScanArgs = targetCommandLines
+        self.generatedSourceTargetSet = Set(generatedSourceTargets)
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
-                binaryPath: desc.binary
+                binaryPath: desc.binaryPath
             )
         }
         self.pluginDescriptions = pluginDescriptions
@@ -340,7 +445,7 @@ public final class BuildExecutionContext {
                                     .appending(component: "libIndexStore.dll")
 #else
             let ext = buildParameters.hostTriple.dynamicLibraryExtension
-            let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
+            let indexStoreLib = try buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
 #endif
             return try IndexStoreAPI(dylib: indexStoreLib)
         }
@@ -384,8 +489,8 @@ final class CopyCommand: CustomLLBuildCommand {
                 throw StringError("command \(command.name) not registered")
             }
 
-            let input = AbsolutePath(tool.inputs[0].name)
-            let output = AbsolutePath(tool.outputs[0].name)
+            let input = try AbsolutePath(validating: tool.inputs[0].name)
+            let output = try AbsolutePath(validating: tool.outputs[0].name)
             try self.context.fileSystem.createDirectory(output.parentDirectory, recursive: true)
             try self.context.fileSystem.removeFileTree(output)
             try self.context.fileSystem.copy(from: input, to: output)
@@ -460,6 +565,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
+        case TestEntryPointTool.name:
+            return InProcessTool(buildExecutionContext, type: TestEntryPointCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:
@@ -620,22 +727,30 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
-        self.outputStream <<< name <<< "\n"
-        self.outputStream.flush()
+        queue.async {
+            self.taskTracker.buildPreparationStepStarted(name)
+            self.updateProgress()
+        }
     }
 
     /// Invoked when an action taken before building emits output.
     func preparationStepHadOutput(_ name: String, output: String) {
         queue.async {
             self.progressAnimation.clear()
-            self.outputStream <<< output.spm_chomp() <<< "\n"
-            self.outputStream.flush()
+            if self.logLevel.isVerbose {
+                self.outputStream <<< output.spm_chomp() <<< "\n"
+                self.outputStream.flush()
+            }
         }
     }
 
     /// Invoked right after running an action taken before building. The result
     /// indicates whether the action succeeded, failed, or was cancelled.
     func preparationStepFinished(_ name: String, result: CommandResult) {
+        queue.async {
+            self.taskTracker.buildPreparationStepFinished(name)
+            self.updateProgress()
+        }
     }
 
     // MARK: SwiftCompilerOutputParserDelegate
@@ -788,7 +903,8 @@ fileprivate struct CommandTaskTracker {
             switch message.name {
             case "compile":
                 if let sourceFile = info.inputs.first {
-                    return "Compiling \(targetName) \(AbsolutePath(sourceFile).components.last!)"
+                    let sourceFilePath = try! AbsolutePath(validating: sourceFile)
+                    return "Compiling \(targetName) \(sourceFilePath.components.last!)"
                 }
             case "link":
                 return "Linking \(targetName)"
@@ -806,6 +922,15 @@ fileprivate struct CommandTaskTracker {
         }
 
         return nil
+    }
+    
+    mutating func buildPreparationStepStarted(_ name: String) {
+        self.totalCount += 1
+    }
+
+    mutating func buildPreparationStepFinished(_ name: String) {
+        latestFinishedText = name
+        self.finishedCount += 1
     }
 }
 

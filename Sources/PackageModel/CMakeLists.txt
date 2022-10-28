@@ -9,6 +9,7 @@
 add_library(PackageModel
   BuildConfiguration.swift
   BuildEnvironment.swift
+  BuildFlags.swift
   BuildSettings.swift
   Destination.swift
   Diagnostics.swift
@@ -23,7 +24,7 @@ add_library(PackageModel
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
   ModuleMapType.swift
-  Package.swift
+  PackageModel.swift
   PackageIdentity.swift
   PackageReference.swift
   Platform.swift

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -35,13 +35,64 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
                     version: Version,
                     observabilityScope: ObservabilityScope,
                     callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void)
-    {
+                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
+        self.get(reference: package,
+                 version: version,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
+    }
+
+    public func put(package: PackageIdentity,
+                    version: Version,
+                    fingerprint: Fingerprint,
+                    observabilityScope: ObservabilityScope,
+                    callbackQueue: DispatchQueue,
+                    callback: @escaping (Result<Void, Error>) -> Void) {
+        self.put(reference: package,
+                 version: version,
+                 fingerprint: fingerprint,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
+    }
+
+    public func get(package: PackageReference,
+                    version: Version,
+                    observabilityScope: ObservabilityScope,
+                    callbackQueue: DispatchQueue,
+                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
+        self.get(reference: package,
+                 version: version,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
+    }
+
+    public func put(package: PackageReference,
+                    version: Version,
+                    fingerprint: Fingerprint,
+                    observabilityScope: ObservabilityScope,
+                    callbackQueue: DispatchQueue,
+                    callback: @escaping (Result<Void, Error>) -> Void) {
+        self.put(reference: package,
+                 version: version,
+                 fingerprint: fingerprint,
+                 observabilityScope: observabilityScope,
+                 callbackQueue: callbackQueue,
+                 callback: callback)
+    }
+
+    private func get(reference: FingerprintReference,
+                     version: Version,
+                     observabilityScope: ObservabilityScope,
+                     callbackQueue: DispatchQueue,
+                     callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
         let callback = self.makeAsync(callback, on: callbackQueue)
 
         do {
             let packageFingerprints = try self.withLock {
-                try self.loadFromDisk(package: package)
+                try self.loadFromDisk(reference: reference)
             }
 
             guard let fingerprints = packageFingerprints[version] else {
@@ -54,18 +105,17 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         }
     }
 
-    public func put(package: PackageIdentity,
-                    version: Version,
-                    fingerprint: Fingerprint,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<Void, Error>) -> Void)
-    {
+    private func put(reference: FingerprintReference,
+                     version: Version,
+                     fingerprint: Fingerprint,
+                     observabilityScope: ObservabilityScope,
+                     callbackQueue: DispatchQueue,
+                     callback: @escaping (Result<Void, Error>) -> Void) {
         let callback = self.makeAsync(callback, on: callbackQueue)
 
         do {
             try self.withLock {
-                var packageFingerprints = try self.loadFromDisk(package: package)
+                var packageFingerprints = try self.loadFromDisk(reference: reference)
 
                 if let existing = packageFingerprints[version]?[fingerprint.origin.kind] {
                     // Error if we try to write a different fingerprint
@@ -80,7 +130,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
                 fingerprints[fingerprint.origin.kind] = fingerprint
                 packageFingerprints[version] = fingerprints
 
-                try self.saveToDisk(package: package, fingerprints: packageFingerprints)
+                try self.saveToDisk(reference: reference, fingerprints: packageFingerprints)
             }
             callback(.success(()))
         } catch {
@@ -88,8 +138,8 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         }
     }
 
-    private func loadFromDisk(package: PackageIdentity) throws -> PackageFingerprints {
-        let path = self.directoryPath.appending(component: package.fingerprintFilename)
+    private func loadFromDisk(reference: FingerprintReference) throws -> PackageFingerprints {
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
 
         guard self.fileSystem.exists(path) else {
             return .init()
@@ -104,7 +154,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         return try container.packageFingerprints()
     }
 
-    private func saveToDisk(package: PackageIdentity, fingerprints: PackageFingerprints) throws {
+    private func saveToDisk(reference: FingerprintReference, fingerprints: PackageFingerprints) throws {
         if !self.fileSystem.exists(self.directoryPath) {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
@@ -112,7 +162,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         let container = try StorageModel.Container(fingerprints)
         let buffer = try encoder.encode(container)
 
-        let path = self.directoryPath.appending(component: package.fingerprintFilename)
+        let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
         try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
     }
 
@@ -179,9 +229,25 @@ private enum StorageModel {
     }
 }
 
-extension PackageIdentity {
-    var fingerprintFilename: String {
+protocol FingerprintReference {
+    func fingerprintsFilename() throws -> String
+}
+
+extension PackageIdentity: FingerprintReference {
+    func fingerprintsFilename() -> String {
         "\(self.description).json"
+    }
+}
+
+extension PackageReference: FingerprintReference {
+    func fingerprintsFilename() throws -> String {
+        guard case .remoteSourceControl(let sourceControlURL) = self.kind else {
+            throw StringError("Package kind [\(self.kind)] does not support fingerprints")
+        }
+
+        let canonicalLocation = CanonicalPackageLocation(sourceControlURL.absoluteString)
+        let locationHash = String(format: "%02x", canonicalLocation.description.hashValue)
+        return "\(self.identity.description)-\(locationHash).json"
     }
 }
 

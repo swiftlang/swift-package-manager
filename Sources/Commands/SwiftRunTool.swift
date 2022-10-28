@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import Build
 import PackageGraph
 import PackageModel
 import TSCBasic
@@ -102,6 +101,10 @@ public struct SwiftRunTool: SwiftCommand {
     @OptionGroup()
     var options: RunToolOptions
 
+    var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        return .init(wantsREPLProduct: options.mode == .repl)
+    }
+
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftTool.observabilityScope.emit(
@@ -115,29 +118,29 @@ public struct SwiftRunTool: SwiftCommand {
             // Load a custom package graph which has a special product for REPL.
             let graphLoader = {
                 try swiftTool.loadPackageGraph(
-                    explicitProduct: self.options.executable,
-                    createREPLProduct: true
+                    explicitProduct: self.options.executable
                 )
             }
             let buildParameters = try swiftTool.buildParameters()
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildOp = try swiftTool.createBuildOperation(
+            let buildSystem = try swiftTool.createBuildSystem(
+                explicitBuildSystem: .native,
                 cacheBuildManifest: false,
                 customBuildParameters: buildParameters,
                 customPackageGraphLoader: graphLoader
             )
 
             // Perform build.
-            try buildOp.build()
+            try buildSystem.build()
 
             // Execute the REPL.
-            let arguments = buildOp.buildPlan!.createREPLArguments()
+            let arguments = try buildSystem.buildPlan.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try self.run(
                 fileSystem: swiftTool.fileSystem,
-                executablePath: swiftTool.getToolchain().swiftInterpreterPath,
+                executablePath: swiftTool.getDestinationToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                 arguments: arguments
             )
@@ -161,7 +164,7 @@ public struct SwiftRunTool: SwiftCommand {
                 }
 
                 let pathRelativeToWorkingDirectory = executablePath.relative(to: swiftTool.originalWorkingDirectory)
-                let lldbPath = try swiftTool.getToolchain().getLLDB()
+                let lldbPath = try swiftTool.getDestinationToolchain().getLLDB()
                 try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
             } catch let error as RunError {
                 swiftTool.observabilityScope.emit(error)
@@ -173,7 +176,7 @@ public struct SwiftRunTool: SwiftCommand {
             if let executable = options.executable, isValidSwiftFilePath(fileSystem: swiftTool.fileSystem, path: executable) {
                 swiftTool.observabilityScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
+                let swiftInterpreterPath = try swiftTool.getDestinationToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try self.run(
@@ -262,7 +265,11 @@ public struct SwiftRunTool: SwiftCommand {
         //FIXME: Return false when the path is not a valid path string.
         let absolutePath: AbsolutePath
         if path.first == "/" {
-            absolutePath = AbsolutePath(path)
+            do {
+                absolutePath = try AbsolutePath(validating: path)
+            } catch {
+                return false
+            }
         } else {
             guard let cwd = fileSystem.currentWorkingDirectory else {
                 return false

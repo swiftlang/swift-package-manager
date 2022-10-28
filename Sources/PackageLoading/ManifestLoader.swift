@@ -168,7 +168,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
 
-        self.databaseCacheDir = cacheDir.map(resolveSymlinks)
+        self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
 
         // this queue and semaphore is used to limit the amount of concurrent manifest loading taking place
         self.evaluationQueue = OperationQueue()
@@ -290,18 +290,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
         if let compilerOutput = result.compilerOutput {
-            // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
-            if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
-                    var metadata = ObservabilityMetadata()
-                    metadata.manifestLoadingDiagnosticFile = diagnosticFile
-                    return metadata
-                }
-                observabilityScope.emit(warning: compilerOutput, metadata: metadata)
-
-                // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-                //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
+            let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                var metadata = ObservabilityMetadata()
+                metadata.manifestLoadingDiagnosticFile = diagnosticFile
+                return metadata
             }
+            observabilityScope.emit(warning: compilerOutput, metadata: metadata)
         }
 
         return try ManifestJSONParser.parse(
@@ -390,43 +384,49 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // shells out and compiles the manifest, finally output a JSON
         observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown")")
-        self.evaluateManifest(
-            packageIdentity: key.packageIdentity,
-            manifestPath: key.manifestPath,
-            manifestContents: key.manifestContents,
-            toolsVersion: key.toolsVersion,
-            delegateQueue: delegateQueue,
-            callbackQueue: callbackQueue
-        ) { result in
-            dispatchPrecondition(condition: .onQueue(callbackQueue))
-
-            do {
-                defer { closeAfterWrite.perform() }
-                
-                let evaluationResult = try result.get()
-                // only cache successfully parsed manifests
-                let parseManifest = try self.parseManifest(
-                    evaluationResult,
-                    packageIdentity: packageIdentity,
-                    packageKind: packageKind,
-                    toolsVersion: toolsVersion,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                )
+        do {
+            try self.evaluateManifest(
+                packageIdentity: key.packageIdentity,
+                manifestPath: key.manifestPath,
+                manifestContents: key.manifestContents,
+                toolsVersion: key.toolsVersion,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue
+            ) { result in
+                dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                 do {
-                    // FIXME: (diagnostics) pass in observability scope when we have one
-                    try cache?.put(key: key.sha256Checksum, value: evaluationResult)
-                } catch {
-                    observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
-                }
+                    defer { closeAfterWrite.perform() }
 
-                completion(.success(parseManifest))
-            } catch {
-                callbackQueue.async {
-                    completion(.failure(error))
+                    let evaluationResult = try result.get()
+                    // only cache successfully parsed manifests
+                    let parseManifest = try self.parseManifest(
+                        evaluationResult,
+                        packageIdentity: packageIdentity,
+                        packageKind: packageKind,
+                        toolsVersion: toolsVersion,
+                        identityResolver: identityResolver,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
+
+                    do {
+                        // FIXME: (diagnostics) pass in observability scope when we have one
+                        try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+                    } catch {
+                        observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+                    }
+
+                    completion(.success(parseManifest))
+                } catch {
+                    callbackQueue.async {
+                        completion(.failure(error))
+                    }
                 }
+            }
+        } catch {
+            callbackQueue.async {
+                completion(.failure(error))
             }
         }
     }
@@ -440,10 +440,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
-    ) {
+    ) throws {
         do {
             if localFileSystem.isFile(manifestPath) {
-                self.evaluateManifest(
+                try self.evaluateManifest(
                     at: manifestPath,
                     packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
@@ -454,7 +454,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             } else {
                 try withTemporaryFile(suffix: ".swift") { tempFile, cleanupTempFile in
                     try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
-                    self.evaluateManifest(
+                    try self.evaluateManifest(
                         at: tempFile.path,
                         packageIdentity: packageIdentity,
                         toolsVersion: toolsVersion,
@@ -482,7 +482,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
-    ) {
+    ) throws {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         guard manifestPath.extension == "swift" else {
@@ -507,7 +507,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
-        let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
+        let moduleCachePath = try (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -588,7 +588,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     cmd += ["-o", compiledManifestFile.pathString]
 
                     // Compile the manifest.
-                    Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
+                    TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
@@ -637,7 +637,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         if self.isManifestSandboxEnabled {
                             let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
                             let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
-                            cmd = Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                            do {
+                                cmd = try Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                            } catch {
+                                return completion(.failure(error))
+                            }
                         }
 
                         // Run the compiled manifest.
@@ -648,7 +652,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         #endif
 
                         let cleanupAfterRunning = cleanupIfError.delay()
-                        Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
+                        TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                             defer { cleanupAfterRunning.perform() }
@@ -697,14 +701,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var sdkRootPath: AbsolutePath? = nil
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? Process.checkNonZeroExit(
+        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        let path = AbsolutePath(sdkRoot)
-        sdkRootPath = path
-        self.sdkRootCache.put(path)
+        if let path = try? AbsolutePath(validating: sdkRoot) {
+            sdkRootPath = path
+            self.sdkRootCache.put(path)
+        }
         #endif
 
         return sdkRootPath

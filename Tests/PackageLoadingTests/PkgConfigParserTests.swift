@@ -22,7 +22,7 @@ final class PkgConfigParserTests: XCTestCase {
 
         _ = try PkgConfig(
             name: "harfbuzz",
-            additionalSearchPaths: [AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs")],
+            additionalSearchPaths: [AbsolutePath(path: #file).parentDirectory.appending(components: "pkgconfigInputs")],
             fileSystem: localFileSystem,
             observabilityScope: observability.topScope
         )
@@ -66,6 +66,12 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testCFlagsCaseInsensitveKeys() {
+        try! loadPCFile("case_insensitive.pc") { parser in
+            XCTAssertEqual(parser.cFlags, ["-I/usr/local/include"])
+        }
+    }
+
     func testVariableinDependency() {
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, [
@@ -105,6 +111,20 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testDummyDependency() throws {
+        try loadPCFile("dummy_dependency.pc") { parser in
+            XCTAssertEqual(parser.variables, [
+                "prefix": "/usr/local/bin",
+                "exec_prefix": "/usr/local/bin",
+                "pcfiledir": parser.pcFile.parentDirectory.pathString,
+                "pc_sysrootdir": AbsolutePath.root.pathString
+            ])
+            XCTAssertEqual(parser.dependencies, ["pango", "fontconfig"])
+            XCTAssertEqual(parser.cFlags, [])
+            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lpangoft2-1.0"])
+        }
+    }
+
     /// Test custom search path get higher priority for locating pc files.
     func testCustomPcFileSearchPath() throws {
         let observability = ObservabilitySystem.makeForTesting()
@@ -117,19 +137,19 @@ final class PkgConfigParserTests: XCTestCase {
             "/usr/local/opt/foo/lib/pkgconfig/foo.pc",
             "/custom/foo.pc")
         XCTAssertEqual(
-            AbsolutePath("/custom/foo.pc"),
-            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope)
+            AbsolutePath(path: "/custom/foo.pc"),
+            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [AbsolutePath(path: "/custom")], fileSystem: fs, observabilityScope: observability.topScope)
         )
         XCTAssertEqual(
-            AbsolutePath("/custom/foo.pc"),
-            try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath("/custom")], fileSystem: fs, observabilityScope: observability.topScope).pcFile
+            AbsolutePath(path: "/custom/foo.pc"),
+            try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath(path: "/custom")], fileSystem: fs, observabilityScope: observability.topScope).pcFile
         )
         XCTAssertEqual(
-            AbsolutePath("/usr/lib/pkgconfig/foo.pc"),
+            AbsolutePath(path: "/usr/lib/pkgconfig/foo.pc"),
             try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs, observabilityScope: observability.topScope)
         )
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig"]) {
-            XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
+            XCTAssertEqual(AbsolutePath(path: "/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
 #if os(Windows)
         let separator = ";"
@@ -137,7 +157,7 @@ final class PkgConfigParserTests: XCTestCase {
         let separator = ":"
 #endif
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig\(separator)/usr/lib/pkgconfig"]) {
-            XCTAssertEqual(AbsolutePath("/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
+            XCTAssertEqual(AbsolutePath(path: "/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
     }
 
@@ -175,7 +195,7 @@ final class PkgConfigParserTests: XCTestCase {
 #endif
         }
 
-        XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath("/Volumes/BestDrive/pkgconfig")])
+        XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath(path: "/Volumes/BestDrive/pkgconfig")])
     }
 
     func testAbsolutePathDependency() throws {
@@ -204,8 +224,8 @@ final class PkgConfigParserTests: XCTestCase {
         XCTAssertNoThrow(
             try PkgConfig(
                 name: "gobject-2.0",
-                additionalSearchPaths: [AbsolutePath("/usr/local/opt/glib/lib/pkgconfig")],
-                brewPrefix: AbsolutePath("/usr/local"),
+                additionalSearchPaths: [AbsolutePath(path: "/usr/local/opt/glib/lib/pkgconfig")],
+                brewPrefix: AbsolutePath(path: "/usr/local"),
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
             )
@@ -222,7 +242,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     private func pcFilePath(_ inputName: String) -> AbsolutePath {
-        return AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
+        return AbsolutePath(path: #file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
     }
 
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {

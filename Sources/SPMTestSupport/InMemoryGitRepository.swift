@@ -247,7 +247,7 @@ extension InMemoryGitRepository: FileSystem {
     }
 
     public var currentWorkingDirectory: AbsolutePath? {
-        return AbsolutePath("/")
+        return AbsolutePath(path: "/")
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {

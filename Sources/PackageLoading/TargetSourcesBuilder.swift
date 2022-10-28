@@ -77,7 +77,7 @@ public struct TargetSourcesBuilder {
         self.targetPath = path
         self.rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion)
         self.toolsVersion = toolsVersion
-        let excludedPaths = target.exclude.map { AbsolutePath($0, relativeTo: path) }
+        let excludedPaths = target.exclude.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
         self.excludedPaths = Set(excludedPaths)
         self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(
             additionalFileRules.reduce(into: Set<String>(), { partial, item in
@@ -92,7 +92,7 @@ public struct TargetSourcesBuilder {
             return metadata
         }
 
-        let declaredSources = target.sources?.map { AbsolutePath($0, relativeTo: path) }
+        let declaredSources = target.sources?.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
         if let declaredSources = declaredSources {
             // Diagnose duplicate entries.
             let duplicates = declaredSources.spm_findDuplicateElements()
@@ -164,7 +164,7 @@ public struct TargetSourcesBuilder {
         var pathToRule: [AbsolutePath: FileRuleDescription.Rule] = [:]
 
         for path in contents {
-            pathToRule[path] = self.computeRule(for: path)
+            pathToRule[path] = try self.computeRule(for: path)
         }
 
         let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
@@ -260,8 +260,8 @@ public struct TargetSourcesBuilder {
         return matchedRule
     }
 
-    private func computeRule(for path: AbsolutePath) -> FileRuleDescription.Rule {
-        let declaredResources = target.resources.map { (path: AbsolutePath($0.path, relativeTo: self.targetPath), rule: $0.rule) }
+    private func computeRule(for path: AbsolutePath) throws -> FileRuleDescription.Rule {
+        let declaredResources = try target.resources.map { (path: try AbsolutePath(validating: $0.path, relativeTo: self.targetPath), rule: $0.rule) }
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: declaredResources, declaredSources: declaredSources, observabilityScope: observabilityScope)
     }
 
@@ -356,7 +356,9 @@ public struct TargetSourcesBuilder {
 
     private func diagnoseInvalidResource(in resources: [TargetDescription.Resource]) {
         resources.forEach { resource in
-            let resourcePath = AbsolutePath(resource.path, relativeTo: self.targetPath)
+            guard let resourcePath = try? AbsolutePath(validating: resource.path, relativeTo: self.targetPath) else {
+                return
+            }
             if let message = validTargetPath(at: resourcePath), self.packageKind.emitAuthorWarnings {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
                 self.observabilityScope.emit(warning: warning)
@@ -445,7 +447,7 @@ public struct TargetSourcesBuilder {
 
             // Check if the directory is marked to be copied.
             let directoryMarkedToBeCopied = target.resources.contains{ resource in
-                let resourcePath = AbsolutePath(resource.path, relativeTo: self.targetPath)
+                let resourcePath = try? AbsolutePath(validating: resource.path, relativeTo: self.targetPath)
                 if resource.rule == .copy && resourcePath == path {
                     return true
                 }

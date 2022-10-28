@@ -40,6 +40,10 @@ extension Basics.Diagnostic {
         return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
 
+    static func duplicateProduct(name: String, package: String) -> Self {
+        return .warning("ignoring duplicate product '\(name)' from package '\(package)'")
+    }
+
     static func duplicateTargetDependency(dependency: String, target: String, package: String) -> Self {
         .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)' from package '\(package)'")
     }
@@ -54,6 +58,10 @@ extension Basics.Diagnostic {
 
     static func systemPackageProductValidation(product: String) -> Self {
         .error("system library product \(product) shouldn't have a type and contain only one target")
+    }
+
+    static func libraryProductWithExecutableTarget(product: String, executableTargets: [String]) -> Self {
+        .error("library product '\(product)' should not contain executable targets (it has \(executableTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
     static func nonPluginProductWithPluginTargets(product: String, type: ProductType, pluginTargets: [String]) -> Self {
@@ -76,6 +84,10 @@ extension Basics.Diagnostic {
 
     static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Self {
         .error("executable product '\(product)' should not have more than one executable target")
+    }
+
+    static func pluginNotFound(name: String) -> Self {
+        .error("no plugin named '\(name)' found")
     }
 
     static func pluginProductWithNoTargets(product: String) -> Self {

@@ -31,6 +31,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -47,6 +49,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
@@ -65,6 +69,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -81,6 +87,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
@@ -99,6 +107,8 @@ final class SwiftToolTests: CommandsTestCase {
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
 
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
@@ -114,7 +124,7 @@ final class SwiftToolTests: CommandsTestCase {
 
             // custom .netrc file
             do {
-                let customPath = fs.homeDirectory.appending(component: UUID().uuidString)
+                let customPath = try fs.homeDirectory.appending(component: UUID().uuidString)
                 try fs.writeFileContents(customPath) {
                     "machine mymachine.labkey.org login custom@labkey.org password custom"
                 }
@@ -125,7 +135,7 @@ final class SwiftToolTests: CommandsTestCase {
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
                 let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
                 XCTAssertEqual(netrcProviders.count, 1)
-                XCTAssertEqual(netrcProviders.first.map { resolveSymlinks($0.path) }, resolveSymlinks(customPath))
+                XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
                 let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
@@ -150,7 +160,7 @@ final class SwiftToolTests: CommandsTestCase {
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
                 let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
                 XCTAssertTrue(netrcProviders.count >= 1) // This might include .netrc in user's home dir
-                XCTAssertNotNil(netrcProviders.first { resolveSymlinks($0.path) == resolveSymlinks(localPath) })
+                XCTAssertNotNil(try netrcProviders.first { try resolveSymlinks($0.path) == resolveSymlinks(localPath) })
 
                 let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
                 XCTAssertEqual(auth?.user, "local@labkey.org")

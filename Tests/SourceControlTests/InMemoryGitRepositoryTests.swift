@@ -22,9 +22,9 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let repo = InMemoryGitRepository(path: .root, fs: fs)
 
-        try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
+        try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
         XCTAssertTrue(!repo.hasUncommittedChanges())
-        let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
+        let filePath = AbsolutePath(path: "/new-dir/subdir").appending(component: "new-file.txt")
 
         try repo.writeFileContents(filePath, bytes: "one")
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
@@ -78,9 +78,9 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let v2 = "2.0.0"
         let repo = InMemoryGitRepository(path: .root, fs: InMemoryFileSystem())
 
-        let specifier = RepositorySpecifier(path: .init("/foo"))
-        try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
-        let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
+        let specifier = RepositorySpecifier(path: .init(path: "/foo"))
+        try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
+        let filePath = AbsolutePath(path: "/new-dir/subdir").appending(component: "new-file.txt")
         try repo.writeFileContents(filePath, bytes: "one")
         try repo.commit()
         try repo.tag(name: v1)
@@ -91,7 +91,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let provider = InMemoryGitRepositoryProvider()
         provider.add(specifier: specifier, repository: repo)
 
-        let fooRepoPath = AbsolutePath("/fooRepo")
+        let fooRepoPath = AbsolutePath(path: "/fooRepo")
         try provider.fetch(repository: specifier, to: fooRepoPath)
         let fooRepo = try provider.open(repository: specifier, at: fooRepoPath)
 
@@ -100,7 +100,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertEqual(try fooRepo.getTags().sorted(), [v1, v2])
         XCTAssert(fooRepo.exists(revision: try fooRepo.resolveRevision(tag: v1)))
 
-        let fooCheckoutPath = AbsolutePath("/fooCheckout")
+        let fooCheckoutPath = AbsolutePath(path: "/fooCheckout")
         XCTAssertFalse(try provider.workingCopyExists(at: fooCheckoutPath))
         _ = try provider.createWorkingCopy(repository: specifier, sourcePath: fooRepoPath, at: fooCheckoutPath, editable: false)
         XCTAssertTrue(try provider.workingCopyExists(at: fooCheckoutPath))

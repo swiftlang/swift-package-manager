@@ -105,7 +105,7 @@ internal struct PluginContextSerializer {
             var ldFlags: [String] = []
             // FIXME: What do we do with any diagnostics here?
             let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
-            for result in pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: observabilityScope) {
+            for result in try pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: observabilityScope) {
                 if let error = result.error {
                     observabilityScope.emit(
                         warning: "\(error)",
@@ -184,9 +184,7 @@ internal struct PluginContextSerializer {
         switch product.type {
             
         case .executable:
-            guard let mainExecTarget = product.targets.first(where: { $0.type == .executable }) else {
-                throw InternalError("could not determine main executable target for product \(product)")
-            }
+            let mainExecTarget = try product.executableTarget
             guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
                 throw InternalError("unable to serialize main executable target \(mainExecTarget) for product \(product)")
             }

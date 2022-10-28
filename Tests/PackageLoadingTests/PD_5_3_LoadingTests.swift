@@ -177,29 +177,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
-            }
-        }
-
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    products: [
-                        .executable(name: "FooLibrary", targets: ["Foo"]),
-                    ],
-                    targets: [
-                        .binaryTarget(name: "Foo", path: "Foo.xcframework"),
-                    ]
-                )
-                """
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
+                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must be executable or automatic library products", severity: .error)
             }
         }
 

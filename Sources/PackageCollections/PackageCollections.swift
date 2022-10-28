@@ -393,21 +393,6 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
 
     // MARK: - Package Metadata
 
-    // deprecated 9/21
-    @available(*, deprecated, message: "user identity based API instead")
-    public func getPackageMetadata(_ reference: PackageReference,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(reference, collections: nil, callback: callback)
-    }
-
-    // deprecated 9/21
-    @available(*, deprecated, message: "user identity based API instead")
-    public func getPackageMetadata(_ reference: PackageReference,
-                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(identity: reference.identity, location: reference.locationString, collections: .none, callback: callback)
-    }
-
     public func getPackageMetadata(identity: PackageIdentity,
                                    location: String? = .none,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {

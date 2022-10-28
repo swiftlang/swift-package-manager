@@ -28,6 +28,7 @@ public protocol PluginScriptRunner {
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     )
 
@@ -52,16 +53,28 @@ public protocol PluginScriptRunner {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginScriptRunnerDelegate,
+        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
         completion: @escaping (Result<Int32, Error>) -> Void
     )
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
-    var hostTriple: Triple { get }
+    var hostTriple: Triple { get throws }
 }
 
-/// Protocol by which `PluginScriptRunner.runPluginScript()` communicates back to the caller.
+/// Protocol by which `PluginScriptRunner` communicates back to the caller as it compiles plugins.
+public protocol PluginScriptCompilerDelegate {
+    /// Called immediately before compiling a plugin. Will not be called if the plugin didn't have to be compiled. This call is always followed by a `didCompilePlugin()` but is mutually exclusive with a `skippedCompilingPlugin()` call.
+    func willCompilePlugin(commandLine: [String], environment: EnvironmentVariables)
+    
+    /// Called immediately after compiling a plugin (regardless of whether it succeeded or failed). Will not be called if the plugin didn't have to be compiled. This call is always follows a `willCompilePlugin()` but is mutually exclusive with a `skippedCompilingPlugin()` call.
+    func didCompilePlugin(result: PluginCompilationResult)
+    
+    /// Called if a plugin didn't need to be compiled because previous compilation results were still valid. In this case neither `willCompilePlugin()` nor `didCompilePlugin()` will be called.
+    func skippedCompilingPlugin(cachedResult: PluginCompilationResult)
+}
+
+/// Protocol by which `PluginScriptRunner` communicates back to the caller as it runs plugins.
 public protocol PluginScriptRunnerDelegate {
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func handleOutput(data: Data)
@@ -70,9 +83,8 @@ public protocol PluginScriptRunnerDelegate {
     func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws
 }
 
-
 /// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
-public struct PluginCompilationResult {
+public struct PluginCompilationResult: Equatable {
     /// Whether compilation succeeded.
     public var succeeded: Bool
     

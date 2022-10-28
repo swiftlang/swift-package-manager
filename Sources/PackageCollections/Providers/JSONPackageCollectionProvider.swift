@@ -60,7 +60,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.observabilityScope = observabilityScope
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigurationDirectory.appending(component: "trust-root-certs").asURL,
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? (try? fileSystem.swiftPMConfigurationDirectory.appending(component: "trust-root-certs").asURL) ?? AbsolutePath.root.asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             observabilityScope: observabilityScope,
             callbackQueue: .sharedConcurrent

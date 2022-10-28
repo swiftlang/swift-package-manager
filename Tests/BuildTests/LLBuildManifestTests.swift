@@ -20,7 +20,7 @@ final class LLBuildManifestTests: XCTestCase {
     func testBasics() throws {
         var manifest = BuildManifest()
 
-        let root: AbsolutePath = AbsolutePath("/some")
+        let root: AbsolutePath = AbsolutePath(path: "/some")
 
         manifest.defaultTarget = "main"
         manifest.addPhonyCmd(
@@ -36,9 +36,9 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.virtual("Foo"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath("/manifest.yaml"))
+        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath(path: "/manifest.yaml"))
 
-        let contents: String = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
+        let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
 
         // FIXME(#5475) - use the platform's preferred separator for directory
         // indicators
@@ -52,6 +52,7 @@ final class LLBuildManifestTests: XCTestCase {
             nodes:
               "\(root.appending(components: "dir", "structure"))/":
                 is-directory-structure: true
+                content-exclusion-patterns: [".git",".build"]
             commands:
               "C.Foo":
                 tool: phony
@@ -88,12 +89,12 @@ final class LLBuildManifestTests: XCTestCase {
             allowMissingInputs: true
         )
 
-        manifest.addNode(.file(AbsolutePath("/file.out")), toTarget: "main")
+        manifest.addNode(.file(AbsolutePath(path: "/file.out")), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath("/manifest.yaml"))
+        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath(path: "/manifest.yaml"))
 
-        let contents: String = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
+        let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
 
         XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
             client:

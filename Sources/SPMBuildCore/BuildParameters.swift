@@ -16,7 +16,6 @@ import TSCBasic
 import PackageModel
 import PackageGraph
 
-import struct TSCUtility.BuildFlags
 import struct TSCUtility.Triple
 
 public struct BuildParameters: Encodable {
@@ -41,35 +40,79 @@ public struct BuildParameters: Encodable {
         case modulewrap
     }
 
-    /// Represents the test discovery strategy.
-    public enum TestDiscoveryStrategy: Encodable {
-        // Rely on objective C runtime
-        case objectiveC
-        // Use a test-manifest that lists the tests
-        // generate: Whether test-manifest generation is forced
-        //           This flag is or backwards compatibility, remove with --enable-test-discovery
-        case manifest(generate: Bool)
+    /// Represents the test product style.
+    public enum TestProductStyle: Encodable {
+        /// Test product is a loadable bundle. This style is used on Darwin platforms and, for XCTest tests, relies on the Objective-C
+        /// runtime to automatically discover all tests.
+        case loadableBundle
+
+        /// Test product is an executable which serves as the testing entry point. This style is used on non-Darwin platforms and,
+        /// for XCTests, relies on the testing entry point file to indicate which tests to run. By default, the test entry point file is
+        /// synthesized automatically, and uses indexer data to locate all tests and run them. But the entry point may be customized
+        /// in one of two ways: if a path to a test entry point file was explicitly passed via the
+        /// `--experimental-test-entry-point-path <file>` option, that file is used, otherwise if an `XCTMain.swift`
+        /// (formerly `LinuxMain.swift`) file is located in the package, it is used.
+        ///
+        /// - Parameter explicitlyEnabledDiscovery: Whether test discovery generation was forced by passing
+        ///   `--enable-test-discovery`, overriding any custom test entry point file specified via other CLI options or located in
+        ///   the package.
+        /// - Parameter explicitlySpecifiedPath: The path to the test entry point file, if one was specified explicitly via
+        ///   `--experimental-test-entry-point-path <file>`.
+        case entryPointExecutable(
+            explicitlyEnabledDiscovery: Bool,
+            explicitlySpecifiedPath: AbsolutePath?
+        )
+
+        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
+        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
+        public var requiresAdditionalDerivedTestTargets: Bool {
+            switch self {
+            case .loadableBundle:
+                return false
+            case .entryPointExecutable:
+                return true
+            }
+        }
+
+        /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
+        public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
+            switch self {
+            case .loadableBundle:
+                return nil
+            case .entryPointExecutable(explicitlyEnabledDiscovery: _, explicitlySpecifiedPath: let entryPointPath):
+                return entryPointPath
+            }
+        }
 
         public enum DiscriminatorKeys: String, Codable {
-            case objectiveC
-            case manifest
+            case loadableBundle
+            case entryPointExecutable
         }
 
         public enum CodingKeys: CodingKey {
             case _case
-            case generate
+            case explicitlyEnabledDiscovery
+            case explicitlySpecifiedPath
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
-            case .objectiveC:
-                try container.encode(DiscriminatorKeys.objectiveC, forKey: ._case)
-            case .manifest(let generate):
-                try container.encode(DiscriminatorKeys.manifest, forKey: ._case)
-                try container.encode(generate, forKey: .generate)
+            case .loadableBundle:
+                try container.encode(DiscriminatorKeys.loadableBundle, forKey: ._case)
+            case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
+                try container.encode(DiscriminatorKeys.entryPointExecutable, forKey: ._case)
+                try container.encode(explicitlyEnabledDiscovery, forKey: .explicitlyEnabledDiscovery)
+                try container.encode(explicitlySpecifiedPath, forKey: .explicitlySpecifiedPath)
             }
         }
+    }
+
+    /// A mode for explicit import checking
+    public enum TargetDependencyImportCheckingMode : Codable {
+        case none
+        case warn
+        case error
     }
 
     /// The path to the data directory.
@@ -128,8 +171,9 @@ public struct BuildParameters: Encodable {
     /// Whether to use the explicit module build flow (with the integrated driver)
     public var useExplicitModuleBuild: Bool
 
-    /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    public var printManifestGraphviz: Bool
+    /// A flag that inidcates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
@@ -168,8 +212,8 @@ public struct BuildParameters: Encodable {
     // Whether building for testability is enabled.
     public var enableTestability: Bool
 
-    // What strategy to use to discover tests
-    public var testDiscoveryStrategy: TestDiscoveryStrategy
+    /// The style of test product to produce.
+    public var testProductStyle: TestProductStyle
 
     /// Whether to disable dead code stripping by the linker
     public var linkerDeadStrip: Bool
@@ -200,9 +244,10 @@ public struct BuildParameters: Encodable {
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
-        printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
+        testEntryPointPath: AbsolutePath? = nil,
+        explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false
@@ -230,7 +275,6 @@ public struct BuildParameters: Encodable {
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
-        self.printManifestGraphviz = printManifestGraphviz
         // decide on testability based on debug/release config
         // the goals of this being based on the build configuration is
         // that `swift build` followed by a `swift test` will need to do minimal rebuilding
@@ -239,8 +283,11 @@ public struct BuildParameters: Encodable {
         // when building and testing in release mode, one can use the '--disable-testable-imports' flag
         // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
-        // decide if to enable the use of test manifests based on platform. this is likely to change in the future
-        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
+        self.testProductStyle = triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+            explicitlyEnabledDiscovery: forceTestDiscovery,
+            explicitlySpecifiedPath: testEntryPointPath
+        )
+        self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
         self.linkerDeadStrip = linkerDeadStrip
         self.colorizedOutput = colorizedOutput
         self.verboseOutput = verboseOutput
@@ -344,9 +391,10 @@ private struct _Toolchain: Encodable {
         try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
         try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
 
-        try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
-        try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
-        try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
+        try container.encode(toolchain.extraFlags.cCompilerFlags, forKey: .extraCCFlags)
+        // Maintaining `extraCPPFlags` key for compatibility with older encoding.
+        try container.encode(toolchain.extraFlags.cxxCompilerFlags, forKey: .extraCPPFlags)
+        try container.encode(toolchain.extraFlags.swiftCompilerFlags, forKey: .extraSwiftCFlags)
         try container.encode(toolchain.swiftCompilerPath, forKey: .swiftCompiler)
     }
 }

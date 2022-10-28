@@ -102,6 +102,20 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+    
+    func testBuildToolPluginDependencies() throws {        
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MyBuildToolPluginDependencies"))
+            XCTAssert(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling MyLocalTool foo.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 
     func testContrivedTestCases() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
@@ -137,6 +151,19 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
+
+    func testUseOfBinaryToolVendedAsProduct() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "BinaryToolProductPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
@@ -360,6 +387,15 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
+                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                }
+                
+                func pluginCompilationEnded(result: PluginCompilationResult) {
+                }
+                    
+                func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+                }
+
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -384,7 +420,6 @@ class PluginTests: XCTestCase {
                 plugin pluginName: String,
                 targets targetNames: [String],
                 arguments: [String],
-                toolSearchDirectories: [AbsolutePath] = [UserToolchain.default.swiftCompilerPath.parentDirectory],
                 toolNamesToPaths: [String: AbsolutePath] = [:],
                 file: StaticString = #file,
                 line: UInt = #line,
@@ -409,20 +444,22 @@ class PluginTests: XCTestCase {
                 }
 
                 let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
-                let scriptRunner = DefaultPluginScriptRunner(
-                    fileSystem: localFileSystem,
-                    cacheDir: pluginDir.appending(component: "cache"),
-                    toolchain: UserToolchain.default
-                )
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
+                    let scriptRunner = DefaultPluginScriptRunner(
+                        fileSystem: localFileSystem,
+                        cacheDir: pluginDir.appending(component: "cache"),
+                        toolchain: try UserToolchain.default
+                    )
+
+                    let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
                     let success = try tsc_await { plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending(component: "output"),
-                        toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                        toolSearchDirectories: toolSearchDirectories,
                         toolNamesToPaths: [:],
                         writableDirectories: [pluginDir.appending(component: "output")],
                         readOnlyDirectories: [package.path],
@@ -482,6 +519,42 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
             XCTAssert(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
+        }
+    }
+
+    func testPluginUsageDoesntAffectTestTargetMappings() throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { packageDir in
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            // Make sure that the use of plugins doesn't bleed into the use of plugins by tools.
+            let testTargetMappings = try packageGraph.computeTestTargetsForExecutableTargets()
+            for (target, testTargets) in testTargetMappings {
+                XCTAssertFalse(testTargets.contains{ $0.name == "MySourceGenPluginTests" }, "target: \(target), testTargets: \(testTargets)")
+            }
         }
     }
 
@@ -589,6 +662,15 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
+                func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
+                }
+                
+                func pluginCompilationEnded(result: PluginCompilationResult) {
+                }
+                    
+                func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
+                }
+                
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -628,7 +710,7 @@ class PluginTests: XCTestCase {
             let scriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginDir.appending(component: "cache"),
-                toolchain: UserToolchain.default
+                toolchain: try UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
@@ -638,7 +720,7 @@ class PluginTests: XCTestCase {
                 scriptRunner: scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginDir.appending(component: "output"),
-                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
                 toolNamesToPaths: [:],
                 writableDirectories: [pluginDir.appending(component: "output")],
                 readOnlyDirectories: [package.path],
@@ -882,5 +964,43 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
         }
 
+    }
+
+    func testTransitivePluginOnlyDependency() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "TransitivePluginOnlyDependency"))
+            XCTAssert(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling Library Library.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
+
+    func testMissingPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try executeSwiftBuild(fixturePath.appending(component: "MissingPlugin"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
+            }
+        }
+    }
+
+    func testPluginCanBeReferencedByProductName() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "PluginCanBeReferencedByProductName"))
+            XCTAssert(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName PluginCanBeReferencedByProductName.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
     }
 }

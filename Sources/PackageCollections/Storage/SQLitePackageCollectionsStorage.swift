@@ -20,8 +20,6 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
-import struct TSCUtility.SQLite
-
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"
@@ -55,7 +53,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let populateTargetTrieLock = NSLock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
-        self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
+        self.location = location ?? (try? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))) ?? .memory
         switch self.location {
         case .path, .temporary:
             self.fileSystem = localFileSystem

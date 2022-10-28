@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Foundation
+#if swift(>=5.7)
+@preconcurrency import TSCBasic
+#else
 import TSCBasic
+#endif
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when
@@ -88,13 +93,13 @@ private func createTemporaryDirectory(fileSystem: FileSystem, dir: AbsolutePath?
     
     let randomSuffix = String((0..<6).map { _ in letters.randomElement()! })
     
-    let tempDirectory = dir ?? fileSystem.tempDirectory
+    let tempDirectory = try dir ?? fileSystem.tempDirectory
     guard fileSystem.isDirectory(tempDirectory) else {
         throw TempFileError.couldNotFindTmpDir(tempDirectory.pathString)
     }
 
     // Construct path to the temporary directory.
-    let templatePath = AbsolutePath(prefix + ".\(randomSuffix)", relativeTo: tempDirectory)
+    let templatePath = try AbsolutePath(validating: prefix + ".\(randomSuffix)", relativeTo: tempDirectory)
     
     try fileSystem.createDirectory(templatePath, recursive: true)
     return templatePath

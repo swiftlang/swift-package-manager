@@ -7,16 +7,24 @@ import TSCBasic
 import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
-    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
-    let extraCCFlags: [String] = []
-    let extraSwiftCFlags: [String] = []
+#if os(Windows)
+    let librarianPath = AbsolutePath(path: "/fake/path/to/link.exe")
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+    let librarianPath = AbsolutePath(path: "/fake/path/to/libtool")
+#elseif os(Android)
+    let librarianPath = AbsolutePath(path: "/fake/path/to/llvm-ar")
+#else
+    let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
+#endif
+    let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
+    
     #if os(macOS)
-    let extraCPPFlags: [String] = ["-lc++"]
+    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
     #else
-    let extraCPPFlags: [String] = ["-lstdc++"]
+    let extraFlags = BuildFlags(cxxCompilerFlags: ["-lstdc++"])
     #endif
     func getClangCompiler() throws -> AbsolutePath {
-        return AbsolutePath("/fake/path/to/clang")
+        return AbsolutePath(path: "/fake/path/to/clang")
     }
 
     func _isClangCompilerVendorApple() throws -> Bool? {
@@ -43,18 +51,18 @@ extension AbsolutePath {
     }
 }
 
-let hostTriple = UserToolchain.default.triple
+let hostTriple = try! UserToolchain.default.triple
 #if os(macOS)
-    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
+    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
+    buildPath: AbsolutePath = AbsolutePath(path: "/path/to/build"),
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
-    flags: BuildFlags = BuildFlags(),
+    flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     destinationTriple: TSCUtility.Triple = hostTriple,
@@ -93,7 +101,7 @@ func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(config: environment.configuration, destinationTriple: triple)
+    return mockBuildParameters(config: environment.configuration ?? .debug, destinationTriple: triple)
 }
 
 enum BuildError: Swift.Error {
@@ -102,13 +110,13 @@ enum BuildError: Swift.Error {
 
 struct BuildPlanResult {
 
-    let plan: BuildPlan
+    let plan: Build.BuildPlan
     let targetMap: [String: TargetBuildDescription]
-    let productMap: [String: ProductBuildDescription]
+    let productMap: [String: Build.ProductBuildDescription]
 
-    init(plan: BuildPlan) throws {
+    init(plan: Build.BuildPlan) throws {
         self.plan = plan
-        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.map{ ($0.product.name, $0) })
+        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.map{ ($0.product.name, $0) })
         self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map{ ($0.0.name, $0.1) })
     }
 
@@ -127,7 +135,7 @@ struct BuildPlanResult {
         return target
     }
 
-    func buildProduct(for name: String) throws -> ProductBuildDescription {
+    func buildProduct(for name: String) throws -> Build.ProductBuildDescription {
         guard let product = productMap[name] else {
             // <rdar://problem/30162871> Display the thrown error on macOS
             throw BuildError.error("Product \(name) not found.")

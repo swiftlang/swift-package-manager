@@ -11,7 +11,6 @@ add_library(Build
   BuildOperation.swift
   BuildPlan.swift
   LLBuildManifestBuilder.swift
-  SPMSwiftDriverExecutor.swift
   SwiftCompilerOutputParser.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
@@ -21,6 +20,7 @@ target_link_libraries(Build PUBLIC
   SPMBuildCore
   SPMLLBuild)
 target_link_libraries(Build PRIVATE
+  DriverSupport
   SwiftDriver)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

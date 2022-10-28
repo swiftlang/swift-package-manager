@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageLoading
 import PackageModel
 import TSCBasic
 
@@ -35,7 +36,8 @@ enum PackageGraphError: Swift.Error {
         targetName: String,
         packageIdentifier: String
     )
-
+    /// Dependency between a plugin and a dependent target/product of a given type is unsupported
+    case unsupportedPluginDependency(targetName: String, dependencyName: String, dependencyType: String, dependencyPackage: String?)
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [String])
 
@@ -79,10 +81,23 @@ public struct PackageGraph {
     /// in the graph due to loading errors. This set doesn't include the root packages.
     public let requiredDependencies: Set<PackageReference>
 
-    /// Returns true if a given target is present in root packages.
-    public func isInRootPackages(_ target: ResolvedTarget) -> Bool {
+    /// Returns true if a given target is present in root packages and is not excluded for the given build environment.
+    public func isInRootPackages(_ target: ResolvedTarget, satisfying buildEnvironment: BuildEnvironment) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap({ $0.targets }).contains(target)
+        return rootPackages.flatMap({ (package: ResolvedPackage) -> Set<ResolvedTarget> in
+            let allDependencies = package.targets.flatMap { $0.dependencies }
+            let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
+            let unsatisfiedDependencyTargets = unsatisfiedDependencies.compactMap { (dep: ResolvedTarget.Dependency) -> ResolvedTarget? in
+                switch dep {
+                case .target(let target, _):
+                    return target
+                default:
+                    return nil
+                }
+            }
+
+            return Set(package.targets).subtracting(unsatisfiedDependencyTargets)
+        }).contains(target)
     }
 
     public func isRootPackage(_ package: ResolvedPackage) -> Bool {
@@ -106,15 +121,20 @@ public struct PackageGraph {
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
+    /// Any binary artifacts referenced by the graph.
+    public let binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
+
     /// Construct a package graph directly.
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        dependencies requiredDependencies: Set<PackageReference>
+        dependencies requiredDependencies: Set<PackageReference>,
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
     ) throws {
         self.rootPackages = rootPackages
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
+        self.binaryArtifacts = binaryArtifacts
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
 
         // Create a mapping from targets to the packages that define them.  Here
@@ -169,15 +189,15 @@ public struct PackageGraph {
         // Create map of test target to set of its direct dependencies.
         let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
-                ($0, Set($0.dependencies.compactMap({ $0.target })))
+                ($0, Set($0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }))
             })
             return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
         for target in rootTargets where target.type == .executable {
-            // Find all dependencies of this target within its package.
+            // Find all dependencies of this target within its package. Note that we do not traverse plugin usages.
             let dependencies = try topologicalSort(target.dependencies, successors: {
-                $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
+                $0.dependencies.compactMap{ $0.target }.filter{ $0.type != .plugin }.map{ .target($0, conditions: []) }
             }).compactMap({ $0.target })
 
             // Include the test targets whose dependencies intersect with the
@@ -235,6 +255,12 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .invalidSourcesForModuleAliasing(let target, let product, let package):
             return "module aliasing can only be used for Swift based targets; non-Swift sources found in target '\(target)' for product '\(product)' from package '\(package)'"
+        case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
+            var trailingMsg = ""
+            if let depPkg = dependencyPackage {
+              trailingMsg = " from package '\(depPkg)'"
+            }
+            return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }
     }
 }

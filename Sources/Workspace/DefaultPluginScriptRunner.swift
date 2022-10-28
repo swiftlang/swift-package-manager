@@ -17,6 +17,7 @@ import PackageModel
 import SPMBuildCore
 import TSCBasic
 
+import struct TSCUtility.SerializedDiagnostics
 import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
@@ -26,15 +27,17 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let toolchain: UserToolchain
     private let enableSandbox: Bool
     private let cancellator: Cancellator
+    private let verboseOutput: Bool
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true, verboseOutput: Bool = false) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
         self.cancellator = Cancellator(observabilityScope: .none)
+        self.verboseOutput = verboseOutput
     }
     
     /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
@@ -49,7 +52,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginScriptRunnerDelegate,
+        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
         completion: @escaping (Result<Int32, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
@@ -59,6 +62,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             toolsVersion: toolsVersion,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
+            delegate: delegate,
             completion: {
                 dispatchPrecondition(condition: .onQueue(DispatchQueue.sharedConcurrent))
                 switch $0 {
@@ -99,6 +103,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
         // Determine the path of the executable and other produced files.
@@ -117,6 +122,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // We use the toolchain's Swift compiler for compiling the plugin.
         var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
+        
+        observabilityScope.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
@@ -162,6 +169,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Add any extra flags required as indicated by the ManifestLoader.
         commandLine += self.toolchain.swiftCompilerFlags
 
+        commandLine.append("-g")
+
         // Add the Swift language version implied by the package tools version.
         commandLine += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
 
@@ -198,6 +207,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Finally add the output path of the compiled executable.
         commandLine += ["-o", execFilePath.pathString]
+
+        if (verboseOutput) {
+            commandLine.append("-v")
+        }
+        
+        // Pass through the compilation environment.
+        let environment = toolchain.swiftCompilerEnvironment
 
         // First try to create the output directory.
         do {
@@ -296,12 +312,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 diagnosticsFile: diagFilePath,
                 compilerOutput: compilationState.output,
                 cached: true)
+            delegate.skippedCompilingPlugin(cachedResult: result)
             return callbackQueue.async {
                 completion(.success(result))
             }
         }
 
-        // Otherwise we need to recompile. We start by cleaning up any old files to avoid confusion if the compiler can't be invoked.
+        // Otherwise we need to recompile. We start by telling the delegate.
+        delegate.willCompilePlugin(commandLine: commandLine, environment: environment)
+        
+        // Clean up any old files to avoid confusion if the compiler can't be invoked.
         do {
             try fileSystem.removeFileTree(execFilePath)
             try fileSystem.removeFileTree(diagFilePath)
@@ -312,7 +332,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         
         // Now invoke the compiler asynchronously.
-        Process.popen(arguments: commandLine, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
+        TSCBasic.Process.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
@@ -337,14 +357,20 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     observabilityScope.emit(debug: "Couldn't save plugin compilation state (\(error))")
                 }
 
-                // Return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
-                return PluginCompilationResult(
+                // Construct a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
+                let result = PluginCompilationResult(
                     succeeded: compilationState.succeeded,
                     commandLine: commandLine,
                     executableFile: execFilePath,
                     diagnosticsFile: diagFilePath,
                     compilerOutput: compilerOutput,
                     cached: false)
+
+                // Tell the delegate that we're done compiling the plugin, passing it the result.
+                delegate.didCompilePlugin(result: result)
+                
+                // Also return the result to the caller.
+                return result
             })
         }
     }
@@ -359,15 +385,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? Process.checkNonZeroExit(
+        let foundPath = try? TSCBasic.Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
         )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        let path = AbsolutePath(sdkRoot)
-        sdkRootPath = path
-        self.sdkRootCache.put(path)
+        if let path = try? AbsolutePath(validating: sdkRoot) {
+            sdkRootPath = path
+            self.sdkRootCache.put(path)
+        }
         #endif
 
         return sdkRootPath
@@ -395,7 +422,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+            do {
+                command = try Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+            } catch {
+                return callbackQueue.async {
+                    completion(.failure(error))
+                }
+            }
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
@@ -403,6 +436,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         process.executableURL = URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment
+#if os(Windows)
+        let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
+        var env = ProcessInfo.processInfo.environment
+        if let Path = env["Path"] {
+            env["Path"] = "\(pluginLibraryPath);\(Path)"
+        } else {
+            env["Path"] = pluginLibraryPath
+        }
+        process.environment = env
+#endif
         process.currentDirectoryURL = workingDirectory.asURL
         
         // Set up a pipe for sending structured messages to the plugin on its stdin.
@@ -485,7 +528,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
 
             // Read and pass on any remaining messages from the plugin.
-            stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
+            let handle = stdoutPipe.fileHandleForReading
+            if let handler = handle.readabilityHandler {
+                handler(handle)
+            }
 
             // Call the completion block with a result that depends on how the process ended.
             callbackQueue.async {

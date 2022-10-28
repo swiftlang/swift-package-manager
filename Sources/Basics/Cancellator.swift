@@ -51,7 +51,7 @@ public class Cancellator: Cancellable {
     }
 
     public func register(_ process: TSCBasic.Process) -> RegistrationKey? {
-        self.register(name: "\(process.arguments.joined(separator: " "))", handler:  process.terminate)
+        self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
     }
 
     #if !os(iOS) && !os(watchOS) && !os(tvOS)
@@ -145,6 +145,10 @@ extension TSCBasic.Process {
 #if !os(iOS) && !os(watchOS) && !os(tvOS)
 extension Foundation.Process {
     fileprivate func terminate(timeout: DispatchTime) {
+        guard self.isRunning else {
+            return
+        }
+
         // send graceful shutdown signal (SIGINT)
         self.interrupt()
 
@@ -152,6 +156,10 @@ extension Foundation.Process {
         let forceKillSemaphore = DispatchSemaphore(value: 0)
         let forceKillThread = TSCBasic.Thread {
             if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
+                guard self.isRunning else {
+                    return
+                }
+
                 // force kill (SIGTERM)
                 self.terminate()
             }

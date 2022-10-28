@@ -76,7 +76,7 @@ public struct PkgConfig {
             let pkgFileFinder = PCFileFinder(brewPrefix: brewPrefix)
             self.pcFile = try pkgFileFinder.locatePCFile(
                 name: name,
-                customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
+                customSearchPaths: try PkgConfig.envSearchPaths + additionalSearchPaths,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
@@ -122,14 +122,16 @@ public struct PkgConfig {
     }
 
     private static var envSearchPaths: [AbsolutePath] {
-        if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
-#if os(Windows)
-            return configPath.split(separator: ";").map({ AbsolutePath(String($0)) })
-#else
-            return configPath.split(separator: ":").map({ AbsolutePath(String($0)) })
-#endif
+        get throws {
+            if let configPath = ProcessEnv.vars["PKG_CONFIG_PATH"] {
+                #if os(Windows)
+                return try configPath.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
+                #else
+                return try configPath.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
+                #endif
+            }
+            return []
         }
-        return []
     }
 }
 
@@ -208,14 +210,14 @@ internal struct PkgConfigParser {
         }
         let (key, maybeValue) = line.spm_split(around: ":")
         let value = try resolveVariables(maybeValue?.spm_chuzzle() ?? "")
-        switch key {
-        case "Requires":
+        switch key.lowercased() {
+        case "requires":
             dependencies = try parseDependencies(value)
-        case "Requires.private":
+        case "requires.private":
             privateDependencies = try parseDependencies(value)
-        case "Libs":
+        case "libs":
             libs = try splitEscapingSpace(value)
-        case "Cflags":
+        case "cflags":
             cFlags = try splitEscapingSpace(value)
         default:
             break
@@ -271,7 +273,7 @@ internal struct PkgConfigParser {
                         \(pcFile)
                         """)
                 }
-            } else {
+            } else if !arg.isEmpty {
                 // Otherwise it is a dependency.
                 deps.append(arg)
             }
@@ -379,11 +381,11 @@ internal struct PCFileFinder {
     /// By default, this is combined with the search paths inferred from
     /// `pkg-config` itself.
     static let searchPaths = [
-        AbsolutePath("/usr/local/lib/pkgconfig"),
-        AbsolutePath("/usr/local/share/pkgconfig"),
-        AbsolutePath("/usr/lib/pkgconfig"),
-        AbsolutePath("/usr/share/pkgconfig"),
-    ]
+        try? AbsolutePath(validating: "/usr/local/lib/pkgconfig"),
+        try? AbsolutePath(validating: "/usr/local/share/pkgconfig"),
+        try? AbsolutePath(validating: "/usr/lib/pkgconfig"),
+        try? AbsolutePath(validating: "/usr/share/pkgconfig"),
+    ].compactMap({ $0 })
 
     /// Get search paths from `pkg-config` itself to locate `.pc` files.
     ///
@@ -392,14 +394,14 @@ internal struct PCFileFinder {
     private init(pkgConfigPath: String) {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
-                let searchPaths = try Process.checkNonZeroExit(args:
+                let searchPaths = try TSCBasic.Process.checkNonZeroExit(args:
                     pkgConfigPath, "--variable", "pc_path", "pkg-config"
                 ).spm_chomp()
 
 #if os(Windows)
-                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ";").map({ AbsolutePath(String($0)) })
+                PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
 #else
-                PCFileFinder.pkgConfigPaths = searchPaths.split(separator: ":").map({ AbsolutePath(String($0)) })
+                PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
 #endif
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true

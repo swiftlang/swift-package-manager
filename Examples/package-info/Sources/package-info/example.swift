@@ -1,5 +1,10 @@
+#if swift(>=5.7)
+@preconcurrency import Basics
+@preconcurrency import TSCBasic
+#else
 import Basics
 import TSCBasic
+#endif
 import Workspace
 
 @main
@@ -11,7 +16,7 @@ struct Example {
 
         // We need a package to work with.
         // This computes the path of this package root based on the file location
-        let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+        let packagePath = try AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
 
         // LOADING
         // =======

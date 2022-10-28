@@ -25,14 +25,14 @@ final class PinsStoreTests: XCTestCase {
 
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
 
         do {
-            let fooPath = AbsolutePath("/foo")
+            let fooPath = AbsolutePath(path: "/foo")
             let foo = PackageIdentity(path: fooPath)
             let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
 
-            let barPath = AbsolutePath("/bar")
+            let barPath = AbsolutePath(path: "/bar")
             let bar = PackageIdentity(path: barPath)
             let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
@@ -78,7 +78,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control version pin.
 
         do {
-            let path = AbsolutePath("/foo")
+            let path = AbsolutePath(path: "/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -98,7 +98,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control branch pin.
 
         do {
-            let path = AbsolutePath("/foo")
+            let path = AbsolutePath(path: "/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -118,7 +118,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control revision pin.
 
         do {
-            let path = AbsolutePath("/foo")
+            let path = AbsolutePath(path: "/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -156,7 +156,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string:
             """
@@ -194,7 +194,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingSchema2() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string:
             """
@@ -238,7 +238,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingUnknownSchemaVersion() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
 
         let version = -1
         try fs.writeFileContents(pinsFile, string: "{ \"version\": \(version) }");
@@ -251,7 +251,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingBadFormat() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string: "boom")
 
@@ -262,13 +262,13 @@ final class PinsStoreTests: XCTestCase {
 
     func testEmptyPins() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         try store.saveState(toolsVersion: ToolsVersion.current)
         XCTAssertFalse(fs.exists(pinsFile))
 
-        let fooPath = AbsolutePath("/foo")
+        let fooPath = AbsolutePath(path: "/foo")
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
@@ -302,7 +302,7 @@ final class PinsStoreTests: XCTestCase {
         mirrors.set(mirrorURL: barMirroredURL.absoluteString, forURL: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins.txt")
+        let pinsFile = AbsolutePath(path: "/pins.txt")
 
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
@@ -354,7 +354,7 @@ final class PinsStoreTests: XCTestCase {
         mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL4.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath("/pins.txt")
+        let pinsFile = AbsolutePath(path: "/pins.txt")
 
         let store1 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
         store1.pin(

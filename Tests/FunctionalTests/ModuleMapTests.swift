@@ -22,7 +22,7 @@ class ModuleMapsTestCase: XCTestCase {
     private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) throws {
         try SPMTestSupport.fixture(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent(), "debug")
             try makeDirectories(outdir)
             let output = outdir.appending(component: "libfoo\(triple.dynamicLibraryExtension)")
@@ -42,7 +42,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(fixturePath.appending(component: "App"), Xld: Xld)
 
-            let triple = UserToolchain.default.triple
+            let triple = try UserToolchain.default.triple
             let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent())
             let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").pathString)
             XCTAssertEqual(debugout, "123\n")
@@ -57,7 +57,7 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(fixturePath.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String) throws {
-                let triple = UserToolchain.default.triple
+                let triple = try UserToolchain.default.triple
                 let out = try Process.checkNonZeroExit(args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent(), conf, "packageA").pathString)
                 XCTAssertEqual(out, """
                     calling Y.bar()

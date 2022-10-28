@@ -252,6 +252,11 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.6)
     public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
+        do {
+            try CustomPlatformVersion.validateVersion(versionString)
+        } catch {
+            errors.append("\(error)")
+        }
         return SupportedPlatform(platform: .custom(platformName), version: versionString)
     }
 }
@@ -274,16 +279,19 @@ extension SupportedPlatform {
         /// The value that represents macOS 10.10.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "macOS 10.13 is the oldest supported version")
         public static let v10_10: MacOSVersion = .init(string: "10.10")
 
         /// The value that represents macOS 10.11.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "macOS 10.13 is the oldest supported version")
         public static let v10_11: MacOSVersion = .init(string: "10.11")
 
         /// The value that represents macOS 10.12.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "macOS 10.13 is the oldest supported version")
         public static let v10_12: MacOSVersion = .init(string: "10.12")
 
         /// The value that represents macOS 10.13.
@@ -339,11 +347,13 @@ extension SupportedPlatform {
         /// The value that represents tvOS 9.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "tvOS 11.0 is the oldest supported version")
         public static let v9: TVOSVersion = .init(string: "9.0")
 
         /// The value that represents tvOS 10.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "tvOS 11.0 is the oldest supported version")
         public static let v10: TVOSVersion = .init(string: "10.0")
 
         /// The value that represents tvOS 11.0.
@@ -433,16 +443,19 @@ extension SupportedPlatform {
         /// The value that represents iOS 8.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
         public static let v8: IOSVersion = .init(string: "8.0")
 
         /// The value that represents iOS 9.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
         public static let v9: IOSVersion = .init(string: "9.0")
 
         /// The value that represents iOS 10.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "iOS 11.0 is the oldest supported version")
         public static let v10: IOSVersion = .init(string: "10.0")
 
         /// The value that represents iOS 11.0.
@@ -495,11 +508,13 @@ extension SupportedPlatform {
         /// The value that represents watchOS 2.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "watchOS 4.0 is the oldest supported version")
         public static let v2: WatchOSVersion = .init(string: "2.0")
 
         /// The value that represents watchOS 3.0.
         ///
         /// - Since: First available in PackageDescription 5.0.
+        @available(_PackageDescription, deprecated: 5.7, message: "watchOS 4.0 is the oldest supported version")
         public static let v3: WatchOSVersion = .init(string: "3.0")
 
         /// The value that represents watchOS 4.0.
@@ -564,6 +579,14 @@ extension SupportedPlatform {
         /// The value that represents DriverKit 22.0.
         @available(_PackageDescription, introduced: 5.7)
         public static let v22: DriverKitVersion = .init(string: "22.0")
+    }
+
+    public struct CustomPlatformVersion: AppleOSVersion {
+        static var name: String = "custom platform"
+        static var minimumMajorVersion = 0
+
+        fileprivate init(uncheckedVersion version: String) {
+        }
     }
 }
 

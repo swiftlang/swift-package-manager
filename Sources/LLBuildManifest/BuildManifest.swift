@@ -68,6 +68,16 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
+    public mutating func addTestEntryPointCmd(
+        name: String,
+        inputs: [Node],
+        outputs: [Node]
+    ) {
+        assert(commands[name] == nil, "already had a command named '\(name)'")
+        let tool = TestEntryPointTool(inputs: inputs, outputs: outputs)
+        commands[name] = Command(name: name, tool: tool)
+    }
+
     public mutating func addCopyCmd(
         name: String,
         inputs: [Node],
@@ -85,16 +95,6 @@ public struct BuildManifest {
     ) {
         assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = PackageStructureTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
-    }
-
-    public mutating func addArchiveCmd(
-        name: String,
-        inputs: [Node],
-        outputs: [Node]
-    ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
-        let tool = ArchiveTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
 

@@ -19,6 +19,21 @@ import TSCBasic
 import Workspace
 import XCTest
 
+extension String {
+    fileprivate func nativePathString(escaped: Bool) -> String {
+#if _runtime(_ObjC)
+        return self
+#else
+        let fsr = self.fileSystemRepresentation
+        defer { fsr.deallocate() }
+        if escaped {
+            return String(cString: fsr).replacingOccurrences(of: "\\", with: "\\\\")
+        }
+        return String(cString: fsr)
+#endif
+    }
+}
+
 class ManifestSourceGenerationTests: XCTestCase {
 
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
@@ -36,7 +51,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             let manifestPath = packageDir.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, string: manifestContents)
-            let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(
@@ -59,6 +74,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
             // Generate source code for the loaded manifest,
             let newContents = try manifest.generateManifestFileContents(
+                packageDirectory: packageDir,
                 toolsVersionHeaderComment: toolsVersionHeaderComment,
                 additionalImportModuleNames: additionalImportModuleNames)
 
@@ -236,27 +252,39 @@ class ManifestSourceGenerationTests: XCTestCase {
             // swift-tools-version:5.4
             import PackageDescription
 
+            #if os(Windows)
+            let absolutePath = "file:///C:/Users/user/SourceCache/path/to/MyPkg16"
+            #else
+            let absolutePath = "file:///path/to/MyPkg16"
+            #endif
+
             let package = Package(
                 name: "MyPackage",
                 dependencies: [
-                   .package(url: "/foo1", from: "1.0.0"),
-                   .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
-                   .package(path: "../foo3"),
-                   .package(path: "/path/to/foo4"),
-                   .package(url: "/foo5", .exact("1.2.3")),
-                   .package(url: "/foo6", "1.2.3"..<"2.0.0"),
-                   .package(url: "/foo7", .branch("master")),
-                   .package(url: "/foo8", .upToNextMinor(from: "1.3.4")),
-                   .package(url: "/foo9", .upToNextMajor(from: "1.3.4")),
-                   .package(path: "~/path/to/foo10"),
-                   .package(path: "~foo11"),
-                   .package(path: "~/path/to/~/foo12"),
+                   .package(url: "https://example.com/MyPkg1", from: "1.0.0"),
+                   .package(url: "https://example.com/MyPkg2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "https://example.com/MyPkg5", .exact("1.2.3")),
+                   .package(url: "https://example.com/MyPkg6", "1.2.3"..<"2.0.0"),
+                   .package(url: "https://example.com/MyPkg7", .branch("main")),
+                   .package(url: "https://example.com/MyPkg8", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "ssh://git@example.com/MyPkg9", .branch("my branch with spaces")),
+                   .package(url: "../MyPkg10", from: "0.1.0"),
+                   .package(path: "../MyPkg11"),
+                   .package(path: "packages/path/to/MyPkg12"),
+                   .package(path: "~/path/to/MyPkg13"),
+                   .package(path: "~MyPkg14"),
+                   .package(path: "~/path/to/~/MyPkg15"),
                    .package(path: "~"),
-                   .package(path: "file:///path/to/foo13"),
+                   .package(path: absolutePath),
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+
+        // Check some things about the contents of the manifest.
+        XCTAssertTrue(newContents.contains("url: \"\("../MyPkg10".nativePathString(escaped: true))\""), newContents)
+        XCTAssertTrue(newContents.contains("path: \"\("../MyPkg11".nativePathString(escaped: true))\""), newContents)
+        XCTAssertTrue(newContents.contains("path: \"\("packages/path/to/MyPkg12".nativePathString(escaped: true))"), newContents)
     }
 
     func testResources() throws {
@@ -397,11 +425,12 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
+        let packageDir = AbsolutePath(path: "/tmp/MyLibrary")
         let manifest = Manifest(
             displayName: "MyLibrary",
-            path: AbsolutePath("/tmp/MyLibrary/Package.swift"),
-            packageKind: .root(AbsolutePath("/tmp/MyLibrary")),
-            packageLocation: "/tmp/MyLibrary",
+            path: packageDir.appending(component: "Package.swift"),
+            packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
+            packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
             products: [
@@ -410,7 +439,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         )
 
         // Generate the manifest contents, using a custom source generator for the product type.
-        let contents = manifest.generateManifestFileContents(customProductTypeSourceGenerator: { product in
+        let contents = manifest.generateManifestFileContents(packageDirectory: packageDir, customProductTypeSourceGenerator: { product in
             // This example handles library types in a custom way, for testing purposes.
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "name", string: product.name))
@@ -436,11 +465,11 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
             name: "thisPkg",
-            path: .init("/thisPkg"),
+            path: .init(path: "/thisPkg"),
             toolsVersion: .v5_7,
             dependencies: [
-                .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
                 try TargetDescription(name: "exe",
@@ -456,7 +485,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                                                 ]),
                 try TargetDescription(name: "Logging", dependencies: []),
             ])
-        let contents = manifest.generatedManifestFileContents
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         let parts =
         """
             dependencies: [

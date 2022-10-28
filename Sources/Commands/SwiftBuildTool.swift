@@ -69,6 +69,11 @@ struct BuildToolOptions: ParsableArguments {
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
     var shouldPrintBinPath: Bool = false
 
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    @Flag(name: .customLong("print-manifest-job-graph"),
+          help: "Write the command graph for the build manifest as a graphviz file")
+    var printManifestGraphviz: Bool = false
+
     /// Specific target to build.
     @Option(help: "Build the specified target")
     var target: String?
@@ -96,7 +101,20 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            try print(swiftTool.buildParameters().buildPath.description)
+            return try print(swiftTool.buildParameters().buildPath.description)
+        }
+
+        if options.printManifestGraphviz {
+            // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
+            guard let buildOperation = try swiftTool.createBuildSystem(explicitBuildSystem: .native) as? BuildOperation else {
+                throw StringError("asked for native build system but did not get it")
+            }
+            let buildManifest = try buildOperation.getBuildManifest()
+            var serializer = DOTManifestSerializer(manifest: buildManifest)
+            // print to stdout
+            let outputStream = stdoutStream
+            serializer.writeDOT(to: outputStream)
+            outputStream.flush()
             return
         }
 
@@ -124,9 +142,9 @@ public struct SwiftBuildTool: SwiftCommand {
 
     private func checkClangVersion(observabilityScope: ObservabilityScope) {
         // We only care about this on Ubuntu 14.04
-        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
+        guard let uname = try? TSCBasic.Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
               uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
+              let clangVersionOutput = try? TSCBasic.Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
               let clang = getClangVersion(versionOutput: clangVersionOutput) else {
             return
         }

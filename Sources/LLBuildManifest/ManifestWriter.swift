@@ -48,9 +48,11 @@ public struct ManifestWriter {
         if !directoryStructureNodes.isEmpty {
             stream <<< "nodes:\n"
         }
+        let namesToExclude = [".git", ".build"]
         for node in directoryStructureNodes.sorted(by: { $0.name < $1.name }) {
             stream <<< "  " <<< Format.asJSON(node) <<< ":\n"
             stream <<< "    is-directory-structure: true\n"
+            stream <<< "    content-exclusion-patterns: " <<< Format.asJSON(namesToExclude) <<< "\n"
         }
 
         stream <<< "commands:\n"

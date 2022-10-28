@@ -7,12 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
-  APIDigester.swift
-  Describe.swift
-  GenerateLinuxMain.swift
-  MultiRootSupport.swift
   Options.swift
-  show-dependencies.swift
   Snippets/CardEvent.swift
   Snippets/Cards/SnippetCard.swift
   Snippets/Cards/SnippetGroupCard.swift
@@ -27,9 +22,14 @@ add_library(Commands
   SwiftRunTool.swift
   SwiftTestTool.swift
   SwiftTool.swift
-  SymbolGraphExtract.swift
-  TestingSupport.swift
-  WatchmanHelper.swift)
+  Utilities/APIDigester.swift
+  Utilities/DependenciesSerializer.swift
+  Utilities/Describe.swift
+  Utilities/DOTManifestSerializer.swift
+  Utilities/GenerateLinuxMain.swift
+  Utilities/MultiRootSupport.swift
+  Utilities/SymbolGraphExtract.swift
+  Utilities/TestingSupport.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics
@@ -41,9 +41,9 @@ target_link_libraries(Commands PUBLIC
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport
-  Xcodeproj)
+  XCBuildSupport)
 target_link_libraries(Commands PRIVATE
+  DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES

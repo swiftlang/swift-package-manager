@@ -67,7 +67,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
         // Check dependencies.
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init(path: "/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
         let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -366,7 +366,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let manifestPath = path.appending(components: "pkg", "Package.swift")
 
             let loader = ManifestLoader(
-                toolchain: UserToolchain.default,
+                toolchain: try UserToolchain.default,
                 serializedDiagnostics: true,
                 cacheDir: path)
 

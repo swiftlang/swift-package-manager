@@ -31,8 +31,8 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: Process.OutputRedirection = .collect) throws -> String {
-        let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
+    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+        let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
@@ -590,7 +590,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         guard let firstLine = ByteString(split[0]).validDescription else {
             return false
         }
-        return localFileSystem.isDirectory(AbsolutePath(firstLine))
+        return (try? localFileSystem.isDirectory(AbsolutePath(validating: firstLine))) == true
     }
 
     /// Returns true if the file at `path` is ignored by `git`

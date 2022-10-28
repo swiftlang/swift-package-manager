@@ -18,7 +18,7 @@ import TSCBasic
 import XCTest
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
-    let manifestLoader = ManifestLoader(toolchain: UserToolchain.default)
+    let manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default)
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
         try testWithTemporaryDirectory { tmpdir in
@@ -42,7 +42,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         manifestPath: path,
-                        packageKind: .root(.init("/Trivial")),
+                        packageKind: .root(.init(path: "/Trivial")),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP
@@ -77,7 +77,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         manifestPath: path,
-                        packageKind: .root(.init("/Trivial")),
+                        packageKind: .root(.init(path: "/Trivial")),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP
