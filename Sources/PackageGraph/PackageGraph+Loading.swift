@@ -884,6 +884,8 @@ fileprivate func findCycle(
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
     // Ordered set to hold the current traversed path.
     var path = OrderedCollections.OrderedSet<Manifest>()
+    
+    var fullyVisitedManifests = Set<Manifest>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
@@ -891,6 +893,12 @@ fileprivate func findCycle(
       _ node: GraphLoadingNode,
       _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
+        // Once all successors have been visited, this node cannot participate
+        // in a cycle.
+        if fullyVisitedManifests.contains(node.manifest) {
+            return nil
+        }
+        
         // If this node is already in the current path then we have found a cycle.
         if !path.append(node.manifest).inserted {
             let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
@@ -905,6 +913,8 @@ fileprivate func findCycle(
         // No cycle found for this node, remove it from the path.
         let item = path.removeLast()
         assert(item == node.manifest)
+        // Track fully visited nodes
+        fullyVisitedManifests.insert(node.manifest)
         return nil
     }
 

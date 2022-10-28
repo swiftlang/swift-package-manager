@@ -87,4 +87,48 @@ class PackageGraphPerfTests: XCTestCasePerf {
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
+
+    func testEfficientCycleDetection() throws {
+        let lastPackageNumber = 20
+        let packageNumberSequence = (1...lastPackageNumber)
+
+        let fs = InMemoryFileSystem(emptyFiles: packageNumberSequence.map({ "/Package\($0)/Sources/Target\($0)/s.swift" }) + ["/PackageA/Sources/TargetA/s.swift"])
+
+        let packageSequence: [Manifest] = try packageNumberSequence.map { (sequenceNumber: Int) -> Manifest in
+            let dependencySequence = sequenceNumber < lastPackageNumber ? Array((sequenceNumber + 1)...lastPackageNumber) : []
+            return Manifest.createFileSystemManifest(
+                name: "Package\(sequenceNumber)",
+                path: try .init(validating: "/Package\(sequenceNumber)"),
+                toolsVersion: .v5_7,
+                dependencies: try dependencySequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),
+                products: [
+                    try .init(name: "Package\(sequenceNumber)", type: .library(.dynamic), targets: ["Target\(sequenceNumber)"])
+                ],
+                targets: [
+                    try .init(name: "Target\(sequenceNumber)", dependencies: dependencySequence.map { .product(name: "Target\($0)", package: "Package\($0)") })
+                ]
+            )
+        }
+
+        let root = Manifest.createRootManifest(
+            name: "PackageA",
+            path: .init(path: "/PackageA"),
+            toolsVersion: .v5_7,
+            dependencies: try packageNumberSequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),
+            targets: [try .init(name: "TargetA", dependencies: ["Target1"]) ]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let N = 1
+        measure {
+            do {
+                for _ in 0..<N {
+                    _ = try loadPackageGraph(fileSystem: fs, manifests: [root] + packageSequence, observabilityScope: observability.topScope)
+                }
+            } catch {
+                XCTFail("Loading package graph is not expected to fail in this test.")
+            }
+        }
+    }
 }
