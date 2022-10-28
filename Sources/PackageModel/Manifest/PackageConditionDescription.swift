@@ -78,6 +78,10 @@ public struct ConfigurationCondition: PackageConditionProtocol {
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        configuration == environment.configuration
+        if environment.configuration == nil {
+            return true
+        } else {
+            return configuration == environment.configuration
+        }
     }
 }
