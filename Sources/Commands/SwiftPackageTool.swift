@@ -1467,7 +1467,7 @@ extension SwiftPackageTool {
     // This command is the default when no other subcommand is passed. It is not shown in the help and is never invoked directly.
     struct DefaultCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "",
+            commandName: nil,
             shouldDisplay: false)
 
         @OptionGroup(_hiddenFromHelp: true)
