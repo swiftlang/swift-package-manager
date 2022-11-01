@@ -626,17 +626,22 @@ extension LLBuildManifestBuilder {
                 if !self.disableSandboxForPluginCommands {
                     let sandboxProfile = SandboxProfile([
                         .writable(result.pluginOutputDirectory),
-                        .writable(try AbsolutePath(validating: "/tmp")),
                         .writable(try self.fileSystem.tempDirectory)])
                     commandLine = try sandboxProfile.apply(to: commandLine)
                 }
+
+                // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies, in case we have an
+                // override in our own environment.
+                var environment = command.configuration.environment
+                environment["TMPDIR"] = try self.fileSystem.tempDirectory.pathString
+
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
                     description: displayName,
                     inputs: command.inputFiles.map{ .file($0) },
                     outputs: command.outputFiles.map{ .file($0) },
                     arguments: commandLine,
-                    environment: command.configuration.environment,
+                    environment: environment,
                     workingDirectory: command.configuration.workingDirectory?.pathString)
             }
         }

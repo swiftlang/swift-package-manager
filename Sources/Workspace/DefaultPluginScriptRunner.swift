@@ -425,8 +425,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             do {
                 var sandbox = SandboxProfile()
 
-                // Allow writing inside the temporary directories.
-                sandbox.pathAccessRules.append(.writable(try AbsolutePath(validating: "/tmp")))
+                // Allow writing inside the temporary directory.
                 sandbox.pathAccessRules.append(.writable(try self.fileSystem.tempDirectory))
 
                 // But prevent writing in any read-only directories.
@@ -464,6 +463,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 #endif
         process.currentDirectoryURL = workingDirectory.asURL
         
+        // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies. This lets us respect our own
+        // override, and also makes sure that the plugin always knows what temporary directory we opened up for it.
+        var environment = ProcessInfo.processInfo.environment
+        do {
+            environment["TMPDIR"] = try localFileSystem.tempDirectory.pathString
+        } catch {
+            return completion(.failure(error))
+        }
+        process.environment = environment
+
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
         let outputHandle = stdinPipe.fileHandleForWriting

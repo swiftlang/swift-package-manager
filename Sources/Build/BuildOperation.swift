@@ -557,12 +557,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     // Allow access to the plugin's output directory as well as to the local temporary directory.
                     let sandboxProfile = SandboxProfile([
                         .writable(pluginResult.pluginOutputDirectory),
-                        .writable(try AbsolutePath(validating: "/tmp")),
                         .writable(try self.fileSystem.tempDirectory)])
                     commandLine = try sandboxProfile.apply(to: commandLine)
                 }
-                let processResult = try TSCBasic.Process.popen(arguments: commandLine, environment: command.configuration.environment)
+
+                // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies, in case we have an
+                // override in our own environment.
+                var environment = command.configuration.environment
+                environment["TMPDIR"] = try self.fileSystem.tempDirectory.pathString
+
+                // Run the command and wait for it to finish.
+                let processResult = try Process.popen(arguments: commandLine, environment: environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
+
+                // Throw an error if it failed.
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
                 }

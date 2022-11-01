@@ -1621,6 +1621,26 @@ final class PackageToolTests: CommandsTestCase {
                         let targetNames = argExtractor.extractOption(named: "target")
                         let targets = try context.package.targets(named: targetNames)
 
+                        // Check that we are able to write to the package plugin directory.
+                        print("Trying to write to the plugin output directory...")
+                        let outputPath = context.pluginWorkDirectory.appending("Foo")
+                        guard FileManager.default.createFile(atPath: outputPath.string, contents: Data("Hello".utf8)) else {
+                            throw "Couldn’t create file at path \\(outputPath)"
+                        }
+                        print("... successfully created file at path \\(outputPath)")
+
+                      #if os(macOS)
+                        // Check that we cannot write to `/tmp/`.
+                        print("Trying to write inside `/tmp/`...")
+                        let outputPath2 = Path("/tmp/_this_file_should_not_be_possible_to_create_")
+                        if FileManager.default.createFile(atPath: outputPath2.string, contents: Data("Hello".utf8)) {
+                            throw "Unexpectedly could create file at path \\(outputPath2)"
+                        }
+                        print("... correctly couldn't create file at path \\(outputPath2)")
+                      #else
+                        // Sandboxing is currently only supported on macOS
+                      #endif
+
                         // Print out the source files so that we can check them.
                         if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
                             for file in sourceFiles {
@@ -1629,6 +1649,7 @@ final class PackageToolTests: CommandsTestCase {
                         }
                     }
                 }
+                extension String: Error {}
                 """
             }
 
@@ -1677,6 +1698,12 @@ final class PackageToolTests: CommandsTestCase {
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
+                XCTAssertMatch(output, .contains("successfully created file at path \(try resolveSymlinks(packageDir).appending(components: ".build", "plugins", "MyPlugin", "outputs", "Foo"))"))
+              #if os(macOS)
+                XCTAssertMatch(output, .contains("correctly couldn't create file at path /tmp/_this_file_should_not_be_possible_to_create_"))
+              #else
+                // Sandboxing is currently only supported on macOS
+              #endif
             }
 
             // Check that we can also invoke it without the "plugin" subcommand.

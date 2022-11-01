@@ -638,8 +638,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             do {
                                 var sandbox = SandboxProfile()
 
-                                // Allow writing inside the temporary directories.
-                                sandbox.pathAccessRules.append(.writable(try AbsolutePath(validating: "/tmp")))
+                                // Allow writing inside the temporary directory.
                                 sandbox.pathAccessRules.append(.writable(try localFileSystem.tempDirectory))
 
                                 // Allow writing in the database cache directory, if we have one.
@@ -663,13 +662,22 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             }
                         }
 
-                        // Run the compiled manifest.
+                        // Set up the environment so that the manifest inherits our own environment, but make sure that
+                        // `TMPDIR` is set to whatever the temporary directory is that is allowed in the sandbox.
                         var environment = ProcessEnv.vars
+                        do {
+                            environment["TMPDIR"] = try localFileSystem.tempDirectory.pathString
+                        } catch {
+                            return completion(.failure(error))
+                        }
+
+                        // On Windows, also make sure that the `Path` is set up correctly in the environment.
                         #if os(Windows)
                         let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
                         environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
                         #endif
 
+                        // Run the compiled manifest.
                         let cleanupAfterRunning = cleanupIfError.delay()
                         TSCBasic.Process.popen(arguments: cmd, environment: environment, queue: callbackQueue) { result in
                             dispatchPrecondition(condition: .onQueue(callbackQueue))
