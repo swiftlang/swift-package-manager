@@ -21,7 +21,7 @@ import XCTest
 
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -53,7 +53,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_RSA_signAndValidate_collectionMismatch() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let collection1 = PackageCollectionModel.V1.Collection(
@@ -109,7 +109,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_EC_signAndValidate_happyCase() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -141,7 +141,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_EC_signAndValidate_collectionMismatch() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let collection1 = PackageCollectionModel.V1.Collection(
@@ -202,7 +202,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -311,7 +311,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -405,7 +405,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -499,7 +499,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -553,7 +553,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -618,7 +618,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()

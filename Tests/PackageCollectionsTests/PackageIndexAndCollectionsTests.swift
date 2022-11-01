@@ -20,7 +20,7 @@ import XCTest
 
 class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -57,7 +57,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testRefreshCollections() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -79,7 +79,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testRefreshCollection() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -101,7 +101,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testListPackages() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -200,7 +200,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testListTargets() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -238,7 +238,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testFindTargets() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -354,7 +354,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testGetPackageMetadata() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -393,7 +393,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testGetPackageMetadata_brokenIndex() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -433,7 +433,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testGetPackageMetadata_indexAndCollectionError() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -454,7 +454,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testFindPackages() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -555,7 +555,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
     }
     
     func testFindPackages_brokenIndex() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
         
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }

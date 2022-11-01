@@ -19,7 +19,7 @@ import TSCBasic
 
 class ECKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "Signing", "Test_ec.cer")
@@ -31,13 +31,13 @@ class ECKeyTests: XCTestCase {
     }
 
     func testPublicKeyFromPEM() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try ECPublicKey(pem: ecPublicKey.bytes))
     }
 
     func testPrivateKeyFromPEM() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try ECPrivateKey(pem: ecPrivateKey.bytes))
     }

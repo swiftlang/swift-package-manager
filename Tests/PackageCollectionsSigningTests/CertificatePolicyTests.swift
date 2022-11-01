@@ -20,7 +20,7 @@ import XCTest
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
@@ -40,7 +40,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_EC_validate_happyCase() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "Test_ec.cer")
@@ -60,7 +60,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_untrustedRoot() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
@@ -91,7 +91,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_expiredCert() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
@@ -121,7 +121,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "development-revoked.cer")
@@ -168,7 +168,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "development.cer")
@@ -236,7 +236,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Swift Package Collection cert
@@ -305,7 +305,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Distribution cert
@@ -374,7 +374,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let certPath = fixturePath.appending(components: "Signing", "development.cer")
@@ -449,7 +449,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Swift Package Collection cert
@@ -527,7 +527,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             // This must be an Apple Distribution cert

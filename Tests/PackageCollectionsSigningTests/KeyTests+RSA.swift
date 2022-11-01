@@ -19,7 +19,7 @@ import TSCBasic
 
 class RSAKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "Signing", "Test_rsa.cer")
@@ -31,13 +31,13 @@ class RSAKeyTests: XCTestCase {
     }
 
     func testPublicKeyFromPEM() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try RSAPublicKey(pem: rsaPublicKey.bytes))
     }
 
     func testPrivateKeyFromPEM() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try RSAPrivateKey(pem: rsaPrivateKey.bytes))
     }
