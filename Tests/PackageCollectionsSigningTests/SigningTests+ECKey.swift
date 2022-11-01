@@ -17,7 +17,7 @@ import XCTest
 
 class ECKeySigningTests: XCTestCase {
     func test_signAndValidate_happyCase() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         let privateKey = try ECPrivateKey(pem: ecPrivateKey.bytes)
         let publicKey = try ECPublicKey(pem: ecPublicKey.bytes)
@@ -28,7 +28,7 @@ class ECKeySigningTests: XCTestCase {
     }
 
     func test_signAndValidate_mismatch() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
 
         let privateKey = try ECPrivateKey(pem: ecPrivateKey.bytes)
         let publicKey = try ECPublicKey(pem: ecPublicKey.bytes)

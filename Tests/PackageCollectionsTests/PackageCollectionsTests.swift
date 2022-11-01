@@ -56,7 +56,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testBasicRegistration() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -83,7 +83,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testAddDuplicates() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -111,7 +111,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testAddUnsigned() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -154,7 +154,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testInvalidCollectionNotAdded() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
@@ -192,7 +192,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
@@ -230,7 +230,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testCollectionWithInvalidSignatureNotAdded() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
@@ -268,7 +268,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testDelete() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -319,7 +319,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testDeleteFromBothStorages() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -354,7 +354,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testOrdering() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -425,7 +425,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testReorder() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -527,7 +527,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testUpdateTrust() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -578,7 +578,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testList() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -600,7 +600,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testListSubset() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -628,7 +628,7 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -658,7 +658,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testPackageSearch() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -795,7 +795,7 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -825,7 +825,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testTargetsSearch() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -929,7 +929,7 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -959,7 +959,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testHappyRefresh() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -981,7 +981,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testBrokenRefresh() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         struct BrokenProvider: PackageCollectionProvider {
             let brokenSources: [PackageCollectionsModel.CollectionSource]
@@ -1055,7 +1055,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testRefreshOne() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1077,7 +1077,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testRefreshOneTrustedUnsigned() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1097,7 +1097,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testRefreshOneNotFound() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1115,7 +1115,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testListTargets() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1153,7 +1153,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataHappy() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1191,7 +1191,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataInOrder() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1229,7 +1229,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataInCollections() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1266,7 +1266,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testMergedPackageMetadata() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let packageId = UUID().uuidString
 
@@ -1355,7 +1355,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataNotFoundInCollections() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1378,7 +1378,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataNotFoundByProvider() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1416,7 +1416,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataProviderError() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         struct BrokenMetadataProvider: PackageMetadataProvider {
             var name: String = "BrokenMetadataProvider"
@@ -1470,7 +1470,7 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1500,7 +1500,7 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testListPackages() throws {
-        try skipIfUnsupportedPlatform()
+        try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1617,7 +1617,7 @@ private extension PackageCollections {
 }
 
 extension XCTestCase {
-    func skipIfUnsupportedPlatform() throws {
+    func PackageCollectionsTests_skipIfUnsupportedPlatform() throws {
         if !PackageCollections.isSupportedPlatform {
             throw XCTSkip("Skipping test on unsupported platform")
         }
