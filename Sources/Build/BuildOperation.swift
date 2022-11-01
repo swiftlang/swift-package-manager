@@ -102,7 +102,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         additionalFileRules: [FileRuleDescription],
         pluginScriptRunner: PluginScriptRunner,
         pluginWorkDirectory: AbsolutePath,
-        disableSandboxForPluginCommands: Bool,
+        disableSandboxForPluginCommands: Bool = false,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,

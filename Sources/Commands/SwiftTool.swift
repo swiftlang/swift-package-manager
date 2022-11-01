@@ -263,7 +263,6 @@ extension SwiftCommand {
                     additionalFileRules: FileRuleDescription.swiftpmFileTypes,
                     pluginScriptRunner: swiftTool.getPluginScriptRunner(),
                     pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-                    disableSandboxForPluginCommands: swiftTool.options.security.shouldDisableSandbox,
                     outputStream: customOutputStream ?? swiftTool.outputStream,
                     logLevel: customLogLevel ?? swiftTool.logLevel,
                     fileSystem: swiftTool.fileSystem,
