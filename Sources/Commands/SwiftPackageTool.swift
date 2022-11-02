@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import CoreCommands
 import TSCBasic
 import SPMBuildCore
 import PackageModel
@@ -1191,7 +1190,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
 
         // Configure the verbosity of the output.
-        let logLevel: Basics.Diagnostic.Severity
+        let logLevel: Diagnostic.Severity
         switch parameters.logging {
         case .concise:
             logLevel = .warning

@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import CoreCommands
 import Foundation
 import PackageCollections
 import PackageModel

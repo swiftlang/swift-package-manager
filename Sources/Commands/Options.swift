@@ -11,135 +11,153 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import TSCBasic
+import PackageFingerprint
+import PackageModel
+import SPMBuildCore
 
-import enum PackageFingerprint.FingerprintCheckingMode
-import enum PackageModel.BuildConfiguration
-import struct PackageModel.BuildFlags
-import struct PackageModel.EnabledSanitizers
-import enum PackageModel.Sanitizer
-
-import struct SPMBuildCore.BuildSystemProvider
-
-import struct TSCBasic.AbsolutePath
-import struct TSCBasic.StringError
 import struct TSCUtility.Triple
-import var TSCBasic.localFileSystem
 
-public struct GlobalOptions: ParsableArguments {
-    public init() {}
-
-    @OptionGroup()
-    public var locations: LocationOptions
+struct GlobalOptions: ParsableArguments {
+    init() {}
 
     @OptionGroup()
-    public var caching: CachingOptions
+    var locations: LocationOptions
 
     @OptionGroup()
-    public var logging: LoggingOptions
+    var caching: CachingOptions
 
     @OptionGroup()
-    public var security: SecurityOptions
+    var logging: LoggingOptions
 
     @OptionGroup()
-    public var resolver: ResolverOptions
+    var security: SecurityOptions
 
     @OptionGroup()
-    public var build: BuildOptions
+    var resolver: ResolverOptions
 
     @OptionGroup()
-    public var linker: LinkerOptions
+    var build: BuildOptions
+
+    @OptionGroup()
+    var linker: LinkerOptions
 }
 
-public struct LocationOptions: ParsableArguments {
-    public init() {}
+struct LocationOptions: ParsableArguments {
+    init() {}
 
     @Option(name: .customLong("package-path"), help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation", completion: .directory)
-    public var packageDirectory: AbsolutePath?
+    var _packageDirectory: AbsolutePath?
 
     @Option(name: .customLong("cache-path"), help: "Specify the shared cache directory path", completion: .directory)
-    public var cacheDirectory: AbsolutePath?
+    var cacheDirectory: AbsolutePath?
 
     @Option(name: .customLong("config-path"), help: "Specify the shared configuration directory path", completion: .directory)
-    public var configurationDirectory: AbsolutePath?
+    var configurationDirectory: AbsolutePath?
 
     @Option(name: .customLong("security-path"), help: "Specify the shared security directory path", completion: .directory)
-    public var securityDirectory: AbsolutePath?
+    var securityDirectory: AbsolutePath?
+
+    @Option(name: [.long, .customShort("C")], help: .hidden)
+    var _deprecated_chdir: AbsolutePath?
+
+    var packageDirectory: AbsolutePath? {
+        self._packageDirectory ?? self._deprecated_chdir
+    }
 
     /// The custom .build directory, if provided.
     @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
-    public var scratchDirectory: AbsolutePath?
+    var _scratchDirectory: AbsolutePath?
+
+    @Option(name: .customLong("build-path"), help: .hidden)
+    var _deprecated_buildPath: AbsolutePath?
+
+    var scratchDirectory: AbsolutePath? {
+        self._scratchDirectory ?? self._deprecated_buildPath
+    }
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
     @Option(name: .customLong("multiroot-data-file"), help: .hidden, completion: .directory)
-    public var multirootPackageDataFile: AbsolutePath?
+    var multirootPackageDataFile: AbsolutePath?
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
-    public var customCompileDestination: AbsolutePath?
+    var customCompileDestination: AbsolutePath?
 }
 
-public struct CachingOptions: ParsableArguments {
-    public init() {}
-
+struct CachingOptions: ParsableArguments {
     /// Disables package caching.
     @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
-    public var useDependenciesCache: Bool = true
+    var _useDependenciesCache: Bool = true
+
+    // TODO: simplify when deprecating the older flag
+    var useDependenciesCache: Bool {
+        if let value = self._deprecated_useRepositoriesCache {
+            return value
+        }  else {
+            return self._useDependenciesCache
+        }
+    }
 
     /// Disables manifest caching.
     @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
-    public var shouldDisableManifestCaching: Bool = false
+    var shouldDisableManifestCaching: Bool = false
 
     /// Whether to enable llbuild manifest caching.
     @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
-    public var cacheBuildManifest: Bool = true
+    var cacheBuildManifest: Bool = true
 
     /// Disables manifest caching.
     @Option(name: .customLong("manifest-cache"), help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled")
-    public var manifestCachingMode: ManifestCachingMode = .shared
+    var manifestCachingMode: ManifestCachingMode = .shared
 
-    public enum ManifestCachingMode: String, ExpressibleByArgument {
+    enum ManifestCachingMode: String, ExpressibleByArgument {
         case none
         case local
         case shared
 
-        public init?(argument: String) {
+        init?(argument: String) {
             self.init(rawValue: argument)
         }
     }
+
+    /// Disables repository caching.
+    @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: .hidden)
+    var _deprecated_useRepositoriesCache: Bool?
 }
 
-public struct LoggingOptions: ParsableArguments {
-    public init() {}
+struct LoggingOptions: ParsableArguments {
+    init() {}
 
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
-    public var verbose: Bool = false
+    var verbose: Bool = false
 
     /// The verbosity of informational output.
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
-    public var veryVerbose: Bool = false
+    var veryVerbose: Bool = false
 }
 
-public struct SecurityOptions: ParsableArguments {
-    public init() {}
+struct SecurityOptions: ParsableArguments {
+    init() {}
 
     /// Disables sandboxing when executing subprocesses.
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
-    public var shouldDisableSandbox: Bool = false
+    var shouldDisableSandbox: Bool = false
 
     /// Whether to load .netrc files for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
           help: "Load credentials from a .netrc file")
-    public var netrc: Bool = true
+    var netrc: Bool = true
 
     /// The path to the .netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
         help: "Specify the .netrc file path.",
         completion: .file())
-    public var netrcFilePath: AbsolutePath?
+    var netrcFilePath: AbsolutePath?
 
     /// Whether to use keychain for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
@@ -147,43 +165,53 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
           help: "Search credentials in macOS keychain")
-    public var keychain: Bool = true
+    var keychain: Bool = true
     #else
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
           help: .hidden)
-    public var keychain: Bool = false
+    var keychain: Bool = false
     #endif
 
     @Option(name: .customLong("resolver-fingerprint-checking"))
-    public var fingerprintCheckingMode: FingerprintCheckingMode = .strict
+    var fingerprintCheckingMode: FingerprintCheckingMode = .strict
+
+    @Flag(name: .customLong("netrc"), help: .hidden)
+    var _deprecated_netrc: Bool = false
+
+    @Flag(name: .customLong("netrc-optional"), help: .hidden)
+    var _deprecated_netrcOptional: Bool = false
 }
 
-public struct ResolverOptions: ParsableArguments {
-    public init() {}
+struct ResolverOptions: ParsableArguments {
+    init() {}
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
-    public var shouldEnableResolverPrefetching: Bool = true
+    var shouldEnableResolverPrefetching: Bool = true
 
     /// Use Package.resolved file for resolving dependencies.
     @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
-    public var forceResolvedVersions: Bool = false
+    var forceResolvedVersions: Bool = false
 
     /// Skip updating dependencies from their remote during a resolution.
     @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
-    public var skipDependencyUpdate: Bool = false
+    var skipDependencyUpdate: Bool = false
 
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
+    var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
 
-    public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
+    /// Write dependency resolver trace to a file.
+    @Flag(name: .customLong("trace-resolver"), help: .hidden)
+    var _deprecated_enableResolverTrace: Bool = false
+
+    enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
         case disabled
         case identity
         case swizzle
 
-        public static func name(for value: Self) -> NameSpecification {
+        static func name(for value: Self) -> NameSpecification {
             switch value {
             case .disabled:
                 return .customLong("disable-scm-to-registry-transformation")
@@ -194,7 +222,7 @@ public struct ResolverOptions: ParsableArguments {
             }
         }
 
-        public static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
+        static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
             switch value {
             case .disabled:
                 return "disable source control to registry transformation"
@@ -207,12 +235,12 @@ public struct ResolverOptions: ParsableArguments {
     }
 }
 
-public struct BuildOptions: ParsableArguments {
-    public init() {}
+struct BuildOptions: ParsableArguments {
+    init() {}
 
     /// Build configuration.
     @Option(name: .shortAndLong, help: "Build with configuration")
-    public var configuration: BuildConfiguration = .debug
+    var configuration: BuildConfiguration = .debug
 
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
@@ -239,15 +267,15 @@ public struct BuildOptions: ParsableArguments {
             help: ArgumentHelp(
                 "Pass flag through to the Xcode build system invocations",
                 shouldDisplay: false))
-    public var xcbuildFlags: [String] = []
+    var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xmanifest", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
                                shouldDisplay: false))
-    public var manifestFlags: [String] = []
+    var manifestFlags: [String] = []
 
-    public var buildFlags: BuildFlags {
+    var buildFlags: BuildFlags {
         BuildFlags(
             cCompilerFlags: cCompilerFlags,
             cxxCompilerFlags: cxxCompilerFlags,
@@ -258,15 +286,15 @@ public struct BuildOptions: ParsableArguments {
 
     /// The compilation destination’s target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
-    public var customCompileTriple: Triple?
+    var customCompileTriple: Triple?
 
     /// Path to the compilation destination’s SDK.
     @Option(name: .customLong("sdk"))
-    public var customCompileSDK: AbsolutePath?
+    var customCompileSDK: AbsolutePath?
 
     /// Path to the compilation destination’s toolchain.
     @Option(name: .customLong("toolchain"))
-    public var customCompileToolchain: AbsolutePath?
+    var customCompileToolchain: AbsolutePath?
 
     /// The architectures to compile for.
     @Option(
@@ -280,46 +308,46 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("sanitize"),
             help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)",
             transform: { try Sanitizer(argument: $0) })
-    public var sanitizers: [Sanitizer] = []
+    var sanitizers: [Sanitizer] = []
 
-    public var enabledSanitizers: EnabledSanitizers {
+    var enabledSanitizers: EnabledSanitizers {
         EnabledSanitizers(Set(sanitizers))
     }
 
     @Flag(help: "Enable or disable indexing-while-building feature")
-    public var indexStoreMode: StoreMode = .autoIndexStore
+    var indexStoreMode: StoreMode = .autoIndexStore
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
-    public var shouldEnableParseableModuleInterfaces: Bool = false
+    var shouldEnableParseableModuleInterfaces: Bool = false
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
-    public var jobs: UInt32?
+    var jobs: UInt32?
 
     /// Emit the Swift module separately from the object files.
     @Flag()
-    public var emitSwiftModuleSeparately: Bool = false
+    var emitSwiftModuleSeparately: Bool = false
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    public var useIntegratedSwiftDriver: Bool = false
+    var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that inidcates this build should check whether targets only import
     /// their explicitly-declared dependencies
     @Option()
-    public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
+    var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
-    public var useExplicitModuleBuild: Bool = false
+    var useExplicitModuleBuild: Bool = false
 
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
 
-    public var buildSystem: BuildSystemProvider.Kind {
+    var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
         return archs.count > 1 ? .xcode : self._buildSystem
@@ -331,42 +359,42 @@ public struct BuildOptions: ParsableArguments {
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
     @Flag(help: .hidden)
-    public var enableTestDiscovery: Bool = false
+    var enableTestDiscovery: Bool = false
 
     /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if present).
     /// This implies `--enable-test-discovery`
     @Option(name: .customLong("experimental-test-entry-point-path"),
             help: .hidden)
-    public var testEntryPointPath: AbsolutePath?
+    var testEntryPointPath: AbsolutePath?
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
-    public enum StoreMode: EnumerableFlag {
+    enum StoreMode: EnumerableFlag {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
     }
 
-    public enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
+    enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
         case none
         case warn
         case error
     }
 }
 
-public struct LinkerOptions: ParsableArguments {
-    public init() {}
+struct LinkerOptions: ParsableArguments {
+    init() {}
 
     @Flag(
         name: .customLong("dead-strip"),
         inversion: .prefixedEnableDisable,
         help: "Disable/enable dead code stripping by the linker")
-    public var linkerDeadStrip: Bool = true
+    var linkerDeadStrip: Bool = true
 
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    public var shouldLinkStaticSwiftStdlib: Bool = false
+    var shouldLinkStaticSwiftStdlib: Bool = false
 }
 
 
@@ -408,7 +436,7 @@ extension FingerprintCheckingMode: ExpressibleByArgument {
     }
 }
 
-public extension Sanitizer {
+extension Sanitizer {
     init(argument: String) throws {
         if let sanitizer = Sanitizer(rawValue: argument) {
             self = sanitizer
