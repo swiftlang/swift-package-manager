@@ -221,9 +221,8 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             
             let fileManager = FileManager.default
             let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
-            let swiftFiles = contents.filter { $0.hasPrefix("TemporaryFile") && $0.hasSuffix(".swift") }
             
-            let package = Package(name: swiftFiles.joined(separator: ","))
+            let package = Package(name: contents.joined(separator: ","))
             """
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -231,9 +230,10 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let name = parsedManifest.components?.last ?? ""
-        let swiftFiles = manifest.displayName.split(separator: ",").map(String.init)
-        XCTAssertNotNil(swiftFiles.firstIndex(of: name))
+        let files = manifest.displayName.split(separator: ",").map(String.init)
+        // Since we're loading `/Package.swift` in these tests, the context's package directory is supposed to be /.
+        let expectedFiles = try FileManager.default.contentsOfDirectory(atPath: "/")
+        XCTAssertEqual(files, expectedFiles)
     }
 
     func testCommandPluginTarget() throws {

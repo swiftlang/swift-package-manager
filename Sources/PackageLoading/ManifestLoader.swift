@@ -442,29 +442,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) throws {
         do {
-            if localFileSystem.isFile(manifestPath) {
+            try withTemporaryDirectory { tempDir, cleanupTempDir in
+                let manifestTempFilePath = tempDir.appending(component: "manifest.swift")
+                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents))
+
+                let vfsOverlayTempFilePath = tempDir.appending(component: "vfs.yaml")
+                try VFSOverlay(roots: [
+                    VFSOverlay.File(name: manifestPath.pathString, externalContents: manifestTempFilePath.pathString)
+                ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
+
                 try self.evaluateManifest(
                     at: manifestPath,
+                    vfsOverlayPath: vfsOverlayTempFilePath,
                     packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
-                    delegateQueue:  delegateQueue,
-                    callbackQueue: callbackQueue,
-                    completion: completion
-                )
-            } else {
-                try withTemporaryFile(suffix: ".swift") { tempFile, cleanupTempFile in
-                    try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
-                    try self.evaluateManifest(
-                        at: tempFile.path,
-                        packageIdentity: packageIdentity,
-                        toolsVersion: toolsVersion,
-                        delegateQueue: delegateQueue,
-                        callbackQueue: callbackQueue
-                    ) { result in
-                        dispatchPrecondition(condition: .onQueue(callbackQueue))
-                        cleanupTempFile(tempFile)
-                        completion(result)
-                    }
+                    delegateQueue: delegateQueue,
+                    callbackQueue: callbackQueue
+                ) { result in
+                    dispatchPrecondition(condition: .onQueue(callbackQueue))
+                    cleanupTempDir(tempDir)
+                    completion(result)
                 }
             }
         } catch {
@@ -477,6 +474,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Helper method for evaluating the manifest.
     func evaluateManifest(
         at manifestPath: AbsolutePath,
+        vfsOverlayPath: AbsolutePath? = nil,
         packageIdentity: PackageIdentity,
         toolsVersion: ToolsVersion,
         delegateQueue: DispatchQueue,
@@ -511,6 +509,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
+
+        if let vfsOverlayPath = vfsOverlayPath {
+            cmd += ["-vfsoverlay", vfsOverlayPath.pathString]
+        }
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
