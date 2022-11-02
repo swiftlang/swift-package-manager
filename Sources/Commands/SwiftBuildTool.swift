@@ -13,9 +13,11 @@
 import ArgumentParser
 import Basics
 import Build
+import CoreCommands
 import PackageGraph
 import SPMBuildCore
 import TSCBasic
+import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 import func TSCUtility.getClangVersion
@@ -94,7 +96,7 @@ public struct SwiftBuildTool: SwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    var globalOptions: GlobalOptions
+    public var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: BuildToolOptions
@@ -157,8 +159,22 @@ public struct SwiftBuildTool: SwiftCommand {
     public init() {}
 }
 
-extension Basics.Diagnostic {
-    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
-        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+extension SwiftCommand {
+    public func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
+        return .init(providers: try swiftTool.defaultBuildSystemProvider.providers.merging([
+            .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Basics.Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
+                let graphLoader = { try swiftTool.loadPackageGraph(explicitProduct: explicitProduct) }
+                return try XcodeBuildSystem(
+                    buildParameters: customBuildParameters ?? swiftTool.buildParameters(),
+                    packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+                    outputStream: customOutputStream ?? swiftTool.outputStream,
+                    logLevel: customLogLevel ?? swiftTool.logLevel,
+                    fileSystem: swiftTool.fileSystem,
+                    observabilityScope: customObservabilityScope ?? swiftTool.observabilityScope
+                )
+            },
+        ], uniquingKeysWith: { a, b in
+            return b
+        }))
     }
 }

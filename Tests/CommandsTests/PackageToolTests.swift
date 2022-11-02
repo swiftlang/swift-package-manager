@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@testable import CoreCommands
 @testable import Commands
 import Foundation
 import PackageGraph
@@ -104,17 +105,6 @@ final class PackageToolTests: CommandsTestCase {
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("Value to be set with flag '--disable-netrc' had already been set with flag '--enable-netrc'"))
             }
-
-            // deprecated --netrc flag
-            let stderr = try self.execute(["resolve", "--netrc"], packagePath: fixturePath).stderr
-            XCTAssertMatch(stderr, .contains("'--netrc' option is deprecated"))
-        }
-    }
-
-    func testNetrcOptional() throws {
-        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
-            let stderr = try self.execute(["resolve", "--netrc-optional"], packagePath: fixturePath).stderr
-            XCTAssertMatch(stderr, .contains("'--netrc-optional' option is deprecated"))
         }
     }
 
@@ -206,8 +196,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                let (_, stderr) = try self.execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead"))
+                let (_, _) = try self.execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -218,7 +207,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
 
                 // Perform another cache this time from the cache
-                _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
 
                 // Remove .build and cache folder
@@ -226,7 +215,7 @@ final class PackageToolTests: CommandsTestCase {
                 try localFileSystem.removeFileTree(cachePath)
 
                 // Perform another fetch
-                _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
             }
@@ -236,8 +225,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                let (_, stderr) = try self.execute(["resolve", "--disable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead"))
+                let (_, _) = try self.execute(["resolve", "--disable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -479,7 +467,7 @@ final class PackageToolTests: CommandsTestCase {
 
     // Returns symbol graph with or without pretty printing.
     private func symbolGraph(atPath path: AbsolutePath, withPrettyPrinting: Bool, file: StaticString = #file, line: UInt = #line) throws -> Data? {
-        let tool = try SwiftTool(options: GlobalOptions.parse(["--package-path", path.pathString]))
+        let tool = try SwiftTool.createSwiftToolForTest(options: GlobalOptions.parse(["--package-path", path.pathString]))
         let symbolGraphExtractorPath = try tool.getDestinationToolchain().getSymbolGraphExtract()
 
         let arguments = withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
