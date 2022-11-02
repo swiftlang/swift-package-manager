@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import CoreCommands
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
@@ -150,7 +151,7 @@ public struct SwiftTestTool: SwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    var globalOptions: GlobalOptions
+    public var globalOptions: GlobalOptions
 
     @OptionGroup()
     var sharedOptions: SharedOptions

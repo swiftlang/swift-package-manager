@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
+@testable import CoreCommands
 @testable import Commands
 import SPMTestSupport
 import TSCBasic
@@ -23,7 +24,7 @@ final class SwiftToolTests: CommandsTestCase {
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
-                let tool = try SwiftTool(outputStream: outputStream, options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .warning)
 
                 tool.observabilityScope.emit(error: "error")
@@ -42,7 +43,7 @@ final class SwiftToolTests: CommandsTestCase {
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
-                let tool = try SwiftTool(outputStream: outputStream, options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
                 tool.observabilityScope.emit(error: "error")
@@ -61,7 +62,7 @@ final class SwiftToolTests: CommandsTestCase {
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "-v"])
-                let tool = try SwiftTool(outputStream: outputStream, options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
                 tool.observabilityScope.emit(error: "error")
@@ -80,7 +81,7 @@ final class SwiftToolTests: CommandsTestCase {
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
-                let tool = try SwiftTool(outputStream: outputStream, options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
                 tool.observabilityScope.emit(error: "error")
@@ -99,7 +100,7 @@ final class SwiftToolTests: CommandsTestCase {
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
-                let tool = try SwiftTool(outputStream: outputStream, options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
                 tool.observabilityScope.emit(error: "error")
@@ -130,7 +131,7 @@ final class SwiftToolTests: CommandsTestCase {
                 }
 
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
                 let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
@@ -155,7 +156,7 @@ final class SwiftToolTests: CommandsTestCase {
                 }
 
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool.createSwiftToolForTest(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
                 let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
@@ -169,5 +170,23 @@ final class SwiftToolTests: CommandsTestCase {
 
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
         }
+    }
+}
+
+extension SwiftTool {
+    static func createSwiftToolForTest(
+        outputStream: OutputByteStream = stderrStream,
+        options: GlobalOptions
+    ) throws -> SwiftTool {
+        return try SwiftTool(
+            outputStream: outputStream,
+            options: options,
+            toolWorkspaceConfiguration: .init(),
+            workspaceDelegateProvider: {
+                ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)
+            },
+            workspaceLoaderProvider: {
+                XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
+            })
     }
 }
