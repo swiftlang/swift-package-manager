@@ -258,7 +258,7 @@ public final class UserToolchain: Toolchain {
     }
 
     internal static func deriveSwiftCFlags(triple: Triple, destination: Destination, environment: EnvironmentVariables) throws -> [String] {
-        guard let sdk = destination.sdkRootDir else {
+        guard let sdkDir = destination.sdkRootDir else {
             if triple.isWindows() {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
@@ -336,7 +336,7 @@ public final class UserToolchain: Toolchain {
         }
 
         return (triple.isDarwin() || triple.isAndroid() || triple.isWASI() || triple.isWindows()
-                ? ["-sdk", sdk.pathString]
+                ? ["-sdk", sdkDir.pathString]
                 : [])
         + destination.extraFlags.swiftCompilerFlags
     }
@@ -389,9 +389,9 @@ public final class UserToolchain: Toolchain {
 
         self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
 
-        if let sdk = destination.sdkRootDir {
+        if let sdkDir = destination.sdkRootDir {
             self.extraFlags.cCompilerFlags = [
-                triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
+                triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString
             ] + destination.extraFlags.cCompilerFlags
 
             self.extraFlags.cxxCompilerFlags = destination.extraFlags.cxxCompilerFlags
@@ -521,12 +521,12 @@ public final class UserToolchain: Toolchain {
                 return try AbsolutePath(validating: path)
             }
         } else if triple.isWindows() {
-            let sdkroot: AbsolutePath
+            let sdkRoot: AbsolutePath
 
-            if let sdk = destination.sdkRootDir {
-                sdkroot = sdk
-            } else if let SDKROOT = environment["SDKROOT"], let sdk = try? AbsolutePath(validating: SDKROOT) {
-                sdkroot = sdk
+            if let sdkDir = destination.sdkRootDir {
+                sdkRoot = sdkDir
+            } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
+                sdkRoot = sdkDir
             } else {
                 return .none
             }
@@ -537,7 +537,7 @@ public final class UserToolchain: Toolchain {
             // Library/Developer/Platforms/[PLATFORM].platform/Developer/SDKs/[PLATFORM].sdk/...
             //
             // SDKROOT points to [PLATFORM].sdk
-            let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
+            let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
 
             if let info = WindowsPlatformInfo(reading: platform.appending(component: "Info.plist"),
                                               diagnostics: nil, filesystem: localFileSystem) {

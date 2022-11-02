@@ -180,14 +180,14 @@ public final class Manifest {
         }
 
         var requiredDependencies: Set<PackageIdentity> = []
-        for target in self.targetsRequired(for: products) {
-            for targetDependency in target.dependencies {
+        for destinationTriple in self.targetsRequired(for: products) {
+            for targetDependency in destinationTriple.dependencies {
                 if let dependency = self.packageDependency(referencedBy: targetDependency) {
                     requiredDependencies.insert(dependency.identity)
                 }
             }
 
-            target.pluginUsages?.forEach {
+            destinationTriple.pluginUsages?.forEach {
                 if let dependency = self.packageDependency(referencedBy: $0) {
                     requiredDependencies.insert(dependency.identity)
                 }

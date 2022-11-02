@@ -259,7 +259,7 @@ public struct Destination: Encodable, Equatable {
 }
 
 extension Destination {
-    /// Load a Destination description from a JSON representation from disk.
+    /// Load a ``Destination`` description from a JSON representation from disk.
     public init(fromFile path: AbsolutePath, fileSystem: FileSystem) throws {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
@@ -269,9 +269,9 @@ extension Destination {
         case 1:
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV1.self)
             try self.init(
-                target: destination.target.map{ try Triple($0) },
-                sdk: destination.sdk,
-                binDir: destination.binDir,
+                destinationTriple: destination.target.map{ try Triple($0) },
+                sdkRootDir: destination.sdk,
+                toolchainBinDir: destination.binDir,
                 extraFlags: .init(
                     cCompilerFlags: destination.extraCCFlags,
                     cxxCompilerFlags: destination.extraCPPFlags,
@@ -283,9 +283,10 @@ extension Destination {
             let destinationDirectory = path.parentDirectory
             
             try self.init(
-                target: Triple(destination.destinationTriple),
-                sdk: AbsolutePath(validating: destination.sdkDir, relativeTo: destinationDirectory),
-                binDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
+                hostTriple: Triple(destination.hostTriple),
+                destinationTriple: Triple(destination.destinationTriple),
+                sdkRootDir: AbsolutePath(validating: destination.sdkDir, relativeTo: destinationDirectory),
+                toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
                 extraFlags: .init(
                     cCompilerFlags: destination.extraCCFlags,
                     cxxCompilerFlags: destination.extraCPPFlags,
