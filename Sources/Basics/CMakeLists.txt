@@ -1,6 +1,6 @@
 # This source file is part of the Swift open source project
 #
-# Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+# Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -18,7 +18,7 @@ add_library(Basics
   EnvironmentVariables.swift
   Errors.swift
   FileSystem+Extensions.swift
-  HTPClient+URLSession.swift
+  HTTPClient+URLSession.swift
   HTTPClient.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
