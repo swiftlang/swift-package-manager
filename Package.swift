@@ -343,27 +343,12 @@ let package = Package(
         // MARK: Commands
 
         .target(
-            /** Minimal set of commands required for bootstrapping a new SwiftPM */
-            name: "CoreCommands",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "Basics",
-                "Build",
-                "PackageFingerprint",
-                "PackageModel",
-                "Workspace",
-            ],
-            exclude: ["CMakeLists.txt"]
-        ),
-
-        .target(
             /** High-level commands */
             name: "Commands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Build",
-                "CoreCommands",
                 "PackageCollections",
                 "PackageFingerprint",
                 "PackageGraph",

@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
+  Options.swift
   Snippets/CardEvent.swift
   Snippets/Cards/SnippetCard.swift
   Snippets/Cards/SnippetGroupCard.swift
@@ -20,7 +21,7 @@ add_library(Commands
   SwiftPackageTool.swift
   SwiftRunTool.swift
   SwiftTestTool.swift
-  ToolWorkspaceDelegate.swift
+  SwiftTool.swift
   Utilities/APIDigester.swift
   Utilities/DependenciesSerializer.swift
   Utilities/Describe.swift
@@ -33,7 +34,6 @@ target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics
   Build
-  CoreCommands
   PackageCollections
   PackageFingerprint
   PackageGraph

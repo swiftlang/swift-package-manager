@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import CoreCommands
 import PackageModel
 import SPMBuildCore
 import TSCBasic

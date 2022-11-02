@@ -727,7 +727,7 @@ def get_swiftpm_env_cmd(args):
 def get_swiftpm_flags(args):
     """Returns the flags to run SwiftPM binaries."""
     build_flags = [
-        "--scratch-path", args.build_dir,
+        "--build-path", args.build_dir,
     ]
 
     if args.release:

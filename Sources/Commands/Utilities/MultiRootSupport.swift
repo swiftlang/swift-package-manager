@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import CoreCommands
 import Foundation
 #if canImport(FoundationXML)
 import FoundationXML
@@ -22,7 +21,7 @@ import TSCBasic
 /// A bare minimum loader for Xcode workspaces.
 ///
 /// Warning: This is only useful for debugging workspaces that contain Swift packages.
-public struct XcodeWorkspaceLoader: WorkspaceLoader {
+public struct XcodeWorkspaceLoader {
 
     /// The parsed location.
     private struct Location {
