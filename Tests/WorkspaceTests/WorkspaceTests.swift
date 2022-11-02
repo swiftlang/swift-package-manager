@@ -12220,7 +12220,7 @@ final class WorkspaceTests: XCTestCase {
         packageIdentity: PackageIdentity,
         packageVersion: Version,
         fileSystem: FileSystem,
-        configuration: PackageRegistry.RegistryConfiguration? = .none,
+        configuration: RegistryConfiguration? = .none,
         identityResolver: IdentityResolver? = .none,
         fingerprintStorage: PackageFingerprintStorage? = .none,
         fingerprintCheckingMode: FingerprintCheckingMode = .strict,
@@ -12239,7 +12239,7 @@ final class WorkspaceTests: XCTestCase {
 
         var configuration = configuration
         if configuration == nil {
-            configuration = PackageRegistry.RegistryConfiguration()
+            configuration = RegistryConfiguration()
             configuration!.defaultRegistry = .init(url: URL(string: "http://localhost")!)
         }
 

@@ -15,13 +15,12 @@ import Dispatch
 import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageRegistry
 import TSCBasic
 
 public class RegistryPackageContainer: PackageContainer {
     public let package: PackageReference
 
-    private let registryClient: RegistryClient
+    private let registryClient: RegistryClientInterface
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
@@ -36,7 +35,7 @@ public class RegistryPackageContainer: PackageContainer {
     public init(
         package: PackageReference,
         identityResolver: IdentityResolver,
-        registryClient: RegistryClient,
+        registryClient: RegistryClientInterface,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope

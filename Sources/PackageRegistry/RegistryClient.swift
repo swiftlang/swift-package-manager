@@ -14,13 +14,14 @@ import Basics
 import Dispatch
 import Foundation
 import PackageFingerprint
+import PackageGraph
 import PackageLoading
 import PackageModel
 import TSCBasic
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
-public final class RegistryClient: Cancellable {
+public final class RegistryClient: RegistryClientInterface, Cancellable {
     private let apiVersion: APIVersion = .v1
 
     private let configuration: RegistryConfiguration
@@ -62,7 +63,7 @@ public final class RegistryClient: Cancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageMetadata, Error>) -> Void
+        completion: @escaping (Result<RegistryPackageMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
@@ -107,7 +108,7 @@ public final class RegistryClient: Cancellable {
 
                     let alternateLocations = try response.headers.parseAlternativeLocationLinks()
 
-                    return PackageMetadata(
+                    return RegistryPackageMetadata(
                         versions: versions,
                         alternateLocations: alternateLocations?.map{ $0.url }
                     )
@@ -654,13 +655,6 @@ fileprivate extension RegistryClient {
         guard contentType?.hasPrefix(expectedContentType.rawValue) == true else {
             throw RegistryError.invalidContentType(expected: expectedContentType.rawValue, actual: contentType)
         }
-    }
-}
-
-extension RegistryClient {
-    public struct PackageMetadata {
-        public let versions: [Version]
-        public let alternateLocations: [URL]?
     }
 }
 

@@ -30,7 +30,7 @@ public final class MockWorkspace {
     let customToolsVersion: ToolsVersion?
     let fingerprints: MockPackageFingerprintStorage
     let mirrors: DependencyMirrors
-    public var registryClient: RegistryClient
+    public var registryClient: RegistryClientInterface
     let registry: MockRegistry
     let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
     public var checksumAlgorithm: MockHashAlgorithm

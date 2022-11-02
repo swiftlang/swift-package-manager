@@ -6,6 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_compile_definitions(BOOTSTRAP)
 add_library(Workspace
   CheckoutState.swift
   DefaultPluginScriptRunner.swift
@@ -32,7 +33,6 @@ target_link_libraries(Workspace PUBLIC
   PackageGraph
   PackageLoading
   PackageModel
-  PackageRegistry
   SourceControl)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)

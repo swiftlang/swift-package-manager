@@ -13,17 +13,18 @@
 import Basics
 import Dispatch
 import Foundation
+import PackageGraph
 import PackageModel
 import TSCBasic
 import PackageLoading
 
-public class RegistryDownloadsManager: Cancellable {
+public class RegistryDownloadsManager: RegistryDownloadsManagerInterface, Cancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
     private let fileSystem: FileSystem
     private let path: AbsolutePath
     private let cachePath: AbsolutePath?
-    private let registryClient: RegistryClient
+    private let registryClient: RegistryClientInterface
     private let checksumAlgorithm: HashAlgorithm
     private let delegate: Delegate?
 
@@ -34,7 +35,7 @@ public class RegistryDownloadsManager: Cancellable {
         fileSystem: FileSystem,
         path: AbsolutePath,
         cachePath: AbsolutePath?,
-        registryClient: RegistryClient,
+        registryClient: RegistryClientInterface,
         checksumAlgorithm: HashAlgorithm,
         delegate: Delegate?
     ) {
@@ -101,7 +102,7 @@ public class RegistryDownloadsManager: Cancellable {
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
             let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
             delegateQueue.async {
-                let details = FetchDetails(fromCache: isCached, updatedCache: false)
+                let details = RegistryDownloads.FetchDetails(fromCache: isCached, updatedCache: false)
                 self.delegate?.willFetch(package: package, version: version, fetchDetails: details)
             }
 
@@ -145,7 +146,7 @@ public class RegistryDownloadsManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping  (Result<FetchDetails, Error>) -> Void
+        completion: @escaping  (Result<RegistryDownloads.FetchDetails, Error>) -> Void
     ) {
         if let cachePath = self.cachePath {
             do {
@@ -186,7 +187,7 @@ public class RegistryDownloadsManager: Cancellable {
                                 // copy the package from the cache into the package path.
                                 try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
                                 try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
-                                return FetchDetails(fromCache: true, updatedCache: true)
+                                return RegistryDownloads.FetchDetails(fromCache: true, updatedCache: true)
                             })
                         }
                     }
@@ -206,7 +207,7 @@ public class RegistryDownloadsManager: Cancellable {
                     observabilityScope: observabilityScope,
                     callbackQueue: callbackQueue
                 ) { result in
-                    completion(result.map{ FetchDetails(fromCache: false, updatedCache: false) })
+                    completion(result.map{ RegistryDownloads.FetchDetails(fromCache: false, updatedCache: false) })
                 }
             }
         } else {
@@ -223,7 +224,7 @@ public class RegistryDownloadsManager: Cancellable {
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue
             ) { result in
-                completion(result.map{ FetchDetails(fromCache: false, updatedCache: false) })
+                completion(result.map{ RegistryDownloads.FetchDetails(fromCache: false, updatedCache: false) })
             }
         }
 
@@ -269,29 +270,6 @@ public class RegistryDownloadsManager: Cancellable {
         }
     }
 }
-
-/// Delegate to notify clients about actions being performed by RegistryManager.
-public protocol RegistryDownloadsManagerDelegate {
-    /// Called when a package is about to be fetched.
-    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails)
-
-    /// Called when a package has finished fetching.
-    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval)
-
-    /// Called every time the progress of a repository fetch operation updates.
-    func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
-}
-
-extension RegistryDownloadsManager {
-    /// Additional information about a fetch
-    public struct FetchDetails: Equatable {
-        /// Indicates if the repository was fetched from the cache or from the remote.
-        public let fromCache: Bool
-        /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
-        public let updatedCache: Bool
-    }
-}
-
 
 extension FileSystem {
     func validPackageDirectory(_ path: AbsolutePath) throws -> Bool {

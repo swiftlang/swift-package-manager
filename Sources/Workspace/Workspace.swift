@@ -18,9 +18,12 @@ import PackageLoading
 import PackageModel
 import PackageFingerprint
 import PackageGraph
-import PackageRegistry
 import SourceControl
 import TSCBasic
+
+#if !BOOTSTRAP
+import PackageRegistry
+#endif
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
@@ -141,18 +144,18 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
     }
 }
 
-private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
+private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
     private unowned let workspaceDelegate: Workspace.Delegate
 
     init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
+    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloads.FetchDetails) {
         self.workspaceDelegate.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
     }
 
-    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloads.FetchDetails, Error>, duration: DispatchTimeInterval) {
         self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
@@ -259,8 +262,7 @@ public class Workspace {
     fileprivate let currentToolsVersion: ToolsVersion
 
     /// Utility to resolve package identifiers
-    // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var identityResolver: IdentityResolver
+    fileprivate let identityResolver: IdentityResolver
 
     /// The custom package container provider used by this workspace, if any.
     fileprivate let customPackageContainerProvider: PackageContainerProvider?
@@ -271,15 +273,13 @@ public class Workspace {
     }
 
     /// Source control repository manager used for interacting with source control based dependencies
-    // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var repositoryManager: RepositoryManager
+    fileprivate let repositoryManager: RepositoryManager
 
     /// The registry manager.
-    // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var registryClient: RegistryClient
+    fileprivate let registryClient: RegistryClientInterface?
 
     /// Registry based dependencies downloads manager used for interacting with registry based dependencies
-    fileprivate var registryDownloadsManager: RegistryDownloadsManager
+    fileprivate var registryDownloadsManager: RegistryDownloadsManagerInterface?
 
     /// Binary artifacts manager used for downloading and extracting binary artifacts
     fileprivate let binaryArtifactsManager: BinaryArtifactsManager
@@ -476,7 +476,7 @@ public class Workspace {
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryManager: RepositoryManager? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
-        customRegistryClient: RegistryClient? = .none,
+        customRegistryClient: RegistryClientInterface? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
@@ -525,7 +525,7 @@ public class Workspace {
         customPackageContainerProvider: PackageContainerProvider?,
         customRepositoryManager: RepositoryManager?,
         customRepositoryProvider: RepositoryProvider?,
-        customRegistryClient: RegistryClient?,
+        customRegistryClient: RegistryClientInterface?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
         customIdentityResolver: IdentityResolver?,
         customChecksumAlgorithm: HashAlgorithm?,
@@ -582,6 +582,7 @@ public class Workspace {
             sharedRegistriesFile: location.sharedRegistriesConfigurationFile
         ).configuration
 
+        #if !BOOTSTRAP
         let registryClient = customRegistryClient ?? RegistryClient(
             configuration: registriesConfiguration,
             fingerprintStorage: fingerprints,
@@ -608,6 +609,14 @@ public class Workspace {
             )
         }
 
+        self.registryClient = registryClient
+        self.registryDownloadsManager = registryDownloadsManager
+        #else
+        // Do not include support for the package registry during bootstrapping.
+        self.registryClient = nil
+        self.registryDownloadsManager = nil
+        #endif
+
         let binaryArtifactsManager = BinaryArtifactsManager(
             fileSystem: fileSystem,
             authorizationProvider: authorizationProvider,
@@ -633,8 +642,6 @@ public class Workspace {
 
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryManager = repositoryManager
-        self.registryClient = registryClient
-        self.registryDownloadsManager = registryDownloadsManager
         self.binaryArtifactsManager = binaryArtifactsManager
 
         self.identityResolver = identityResolver
@@ -818,7 +825,7 @@ extension Workspace {
     public func purgeCache(observabilityScope: ObservabilityScope) {
         observabilityScope.trap {
             try self.repositoryManager.purgeCache()
-            try self.registryDownloadsManager.purgeCache()
+            try self.registryDownloadsManager?.purgeCache()
             try self.manifestLoader.purgeCache()
         }
     }
@@ -837,7 +844,7 @@ extension Workspace {
 
         guard (removed ?? false) else { return }
         try? self.repositoryManager.reset()
-        try? self.registryDownloadsManager.reset()
+        try? self.registryDownloadsManager?.reset()
         try? self.manifestLoader.resetCache()
         try? self.fileSystem.removeFileTree(self.location.scratchDirectory)
     }
@@ -2979,10 +2986,16 @@ extension Workspace: PackageContainerProvider {
                 }
             // Resolve the container using the registry
             case .registry:
+                guard let registryClient = self.registryClient else {
+                    return queue.async {
+                        completion(.failure(StringError("no registry client configured")))
+                    }
+                }
+
                 let container = RegistryPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
-                    registryClient: self.registryClient,
+                    registryClient: registryClient,
                     manifestLoader: self.manifestLoader,
                     currentToolsVersion: self.currentToolsVersion,
                     observabilityScope: observabilityScope
@@ -3231,7 +3244,7 @@ extension Workspace {
      ) throws -> AbsolutePath {
          // FIXME: this should not block
          let downloadPath = try temp_await {
-             self.registryDownloadsManager.lookup(
+             self.registryDownloadsManager?.lookup(
                 package: package.identity,
                 version: version,
                 observabilityScope: observabilityScope,
@@ -3281,7 +3294,7 @@ extension Workspace {
          try self.fileSystem.removeFileTree(downloadPath)
 
          // remove the local copy
-         try registryDownloadsManager.remove(package: dependency.packageRef.identity)
+         try registryDownloadsManager?.remove(package: dependency.packageRef.identity)
      }
  }
 
@@ -3633,13 +3646,13 @@ extension Workspace {
     // 2. handle registry returning multiple identifiers, how do we choose the right one?
     fileprivate struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
         private let underlying: ManifestLoaderProtocol
-        private let registryClient: RegistryClient
+        private let registryClient: RegistryClientInterface
         private let transformationMode: TransformationMode
 
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
         private let identitiesCache = ThreadSafeKeyValueStore<URL, (identity: PackageIdentity, expirationTime: DispatchTime)>()
 
-        init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
+        init(underlying: ManifestLoaderProtocol, registryClient: RegistryClientInterface, transformationMode: TransformationMode) {
             self.underlying = underlying
             self.registryClient = registryClient
             self.transformationMode = transformationMode

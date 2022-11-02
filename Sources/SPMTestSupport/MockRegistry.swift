@@ -25,7 +25,7 @@ public class MockRegistry {
     private let fileSystem: FileSystem
     private let identityResolver: IdentityResolver
     private let checksumAlgorithm: HashAlgorithm
-    public var registryClient: RegistryClient!
+    public var registryClient: RegistryClientInterface!
     private let jsonEncoder: JSONEncoder
 
     private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()

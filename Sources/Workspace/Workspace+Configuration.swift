@@ -16,7 +16,6 @@ import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageRegistry
 import TSCBasic
 
 import class TSCUtility.SimplePersistence
