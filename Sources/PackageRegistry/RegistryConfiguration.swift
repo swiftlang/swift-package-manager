@@ -40,11 +40,11 @@ public struct RegistryConfiguration: Hashable {
             self.defaultRegistry = defaultRegistry
         }
 
-        other.scopedRegistries.forEach { scope, registry in
+        for (scope, registry) in other.scopedRegistries {
             self.scopedRegistries[scope] = registry
         }
 
-        other.registryAuthentication.forEach { registry, authentication in
+        for (registry, authentication) in other.registryAuthentication {
             self.registryAuthentication[registry] = authentication
         }
     }
@@ -145,7 +145,7 @@ extension RegistryConfiguration: Codable {
 
         try registriesContainer.encodeIfPresent(self.defaultRegistry, forKey: .default)
 
-        try self.scopedRegistries.forEach { scope, registry in
+        for (scope, registry) in scopedRegistries {
             let key = ScopeCodingKey(stringValue: scope.description)
             try registriesContainer.encode(registry, forKey: key)
         }

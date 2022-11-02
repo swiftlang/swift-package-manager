@@ -336,6 +336,10 @@ public final class SwiftTool {
         if options.caching.shouldDisableManifestCaching {
             observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
+
+        if let _ = options.security.netrcFilePath, options.security.netrc == false {
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
+        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -363,6 +367,7 @@ public final class SwiftTool {
                 emitDeprecatedConfigurationWarning: emitDeprecatedConfigurationWarning
             ),
             authorizationProvider: self.getAuthorizationProvider(),
+            registryAuthorizationProvider: self.getRegistryAuthorizationProvider(),
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
@@ -419,6 +424,23 @@ public final class SwiftTool {
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
+        if !options.security.netrc {
+            authorization.netrc = .disabled
+        } else if let configuredPath = options.security.netrcFilePath {
+            authorization.netrc = .custom(configuredPath)
+        } else {
+            authorization.netrc = .user
+        }
+
+        #if canImport(Security)
+        authorization.keychain = self.options.security.keychain ? .enabled : .disabled
+        #endif
+
+        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+    }
+
+    public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
+        var authorization = Workspace.Configuration.Authorization.default
         if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
@@ -429,7 +451,7 @@ public final class SwiftTool {
         authorization.keychain = .enabled
         #endif
 
-        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeRegistryAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Resolve the dependencies.

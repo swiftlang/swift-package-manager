@@ -172,7 +172,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             }
             
             // We need to be able to read/write credentials
-            guard let authorizationProvider = try swiftTool.getAuthorizationProvider() else {
+            guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
                 throw StringError("No credential store available")
             }
 
@@ -331,7 +331,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             }
             
             // We need to be able to read/write credentials
-            guard let authorizationProvider = try swiftTool.getAuthorizationProvider() else {
+            guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
                 throw StringError("No credential store available")
             }
             

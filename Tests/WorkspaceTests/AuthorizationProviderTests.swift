@@ -22,6 +22,67 @@ final class AuthorizationProviderTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         // custom .netrc file
+        do {
+            let fileSystem = InMemoryFileSystem()
+
+            let customPath = try fileSystem.homeDirectory.appending(components: UUID().uuidString, "custom-netrc-file")
+            try fileSystem.createDirectory(customPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(customPath) {
+                "machine mymachine.labkey.org login custom@labkey.org password custom"
+            }
+
+            let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
+            let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
+            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+
+            XCTAssertEqual(netrcProviders?.count, 1)
+            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+
+            let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+            XCTAssertEqual(auth?.user, "custom@labkey.org")
+            XCTAssertEqual(auth?.password, "custom")
+
+            // delete it
+            try fileSystem.removeFileTree(customPath)
+            XCTAssertThrowsError(try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
+            }
+        }
+
+        // user .netrc file
+        do {
+            let fileSystem = InMemoryFileSystem()
+
+            let userPath = try fileSystem.homeDirectory.appending(component: ".netrc")
+            try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(userPath) {
+                "machine mymachine.labkey.org login user@labkey.org password user"
+            }
+
+            let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
+            let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
+            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+
+            XCTAssertEqual(netrcProviders?.count, 1)
+            XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
+
+            let auth = authorizationProvider?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+            XCTAssertEqual(auth?.user, "user@labkey.org")
+            XCTAssertEqual(auth?.password, "user")
+
+            // delete it
+            do {
+                try fileSystem.removeFileTree(userPath)
+                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope)  as? CompositeAuthorizationProvider
+                XCTAssertNil(authorizationProvider)
+            }
+        }
+    }
+    
+    func testRegistryNetrcAuthorizationProviders() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        // custom .netrc file
 
         do {
             let fileSystem = InMemoryFileSystem()
@@ -33,7 +94,7 @@ final class AuthorizationProviderTests: XCTestCase {
             }
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
-            let netrcProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
+            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
 
             XCTAssertNotNil(netrcProvider)
             XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
@@ -44,8 +105,8 @@ final class AuthorizationProviderTests: XCTestCase {
 
             // delete it
             try fileSystem.removeFileTree(customPath)
-            XCTAssertThrowsError(try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope), "error expected") { error in
-                XCTAssertEqual(error as? StringError, StringError("Did not find .netrc file at \(customPath)."))
+            XCTAssertThrowsError(try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
             }
         }
 
@@ -61,7 +122,7 @@ final class AuthorizationProviderTests: XCTestCase {
             }
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
-            let netrcProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
+            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
 
             XCTAssertNotNil(netrcProvider)
             XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
@@ -73,7 +134,7 @@ final class AuthorizationProviderTests: XCTestCase {
             // delete it
             do {
                 try fileSystem.removeFileTree(userPath)
-                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
+                let authorizationProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
                 // Even if user .netrc file doesn't exist, the provider will be non-nil but contain no data.
                 XCTAssertNotNil(authorizationProvider)
                 XCTAssertEqual(try authorizationProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))

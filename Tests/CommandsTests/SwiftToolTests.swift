@@ -154,8 +154,42 @@ final class SwiftToolTests: CommandsTestCase {
             }
         }
     }
-
+    
     func testAuthorizationProviders() throws {
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
+            let fs = localFileSystem
+
+            // custom .netrc file
+            do {
+                let customPath = try fs.homeDirectory.appending(component: UUID().uuidString)
+                try fs.writeFileContents(customPath) {
+                    "machine mymachine.labkey.org login custom@labkey.org password custom"
+                }
+
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
+                let tool = try SwiftTool.createSwiftToolForTest(options: options)
+
+                let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
+                let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
+                XCTAssertEqual(netrcProviders.count, 1)
+                XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+
+                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                XCTAssertEqual(auth?.user, "custom@labkey.org")
+                XCTAssertEqual(auth?.password, "custom")
+
+                // delete it
+                try localFileSystem.removeFileTree(customPath)
+                XCTAssertThrowsError(try tool.getAuthorizationProvider(), "error expected") { error in
+                    XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
+                }
+            }
+
+            // Tests should not modify user's home dir .netrc so leaving that out intentionally
+        }
+    }
+
+    func testRegistryAuthorizationProviders() throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
@@ -171,21 +205,21 @@ final class SwiftToolTests: CommandsTestCase {
 
                 // There is only one AuthorizationProvider depending on platform
                 #if canImport(Security)
-                let keychainProvider = try tool.getAuthorizationProvider() as? KeychainAuthorizationProvider
+                let keychainProvider = try tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider
                 XCTAssertNotNil(keychainProvider)
                 #else
-                let netrcProvider = try tool.getAuthorizationProvider() as? NetrcAuthorizationProvider
+                let netrcProvider = try tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider
                 XCTAssertNotNil(netrcProvider)
                 XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
                 XCTAssertEqual(auth?.password, "custom")
 
                 // delete it
                 try localFileSystem.removeFileTree(customPath)
-                XCTAssertThrowsError(try tool.getAuthorizationProvider(), "error expected") { error in
-                    XCTAssertEqual(error as? StringError, StringError("Did not find .netrc file at \(customPath)."))
+                XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
+                    XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
                 }
                 #endif
             }

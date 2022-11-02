@@ -41,7 +41,7 @@ public final class RegistryClient: Cancellable {
     ) {
         self.configuration = configuration
         
-        if let authorizationProvider = authorizationProvider {
+        if let authorizationProvider {
             self.authorizationProvider = { url in
                 guard let registryAuthentication = configuration.authentication(for: url) else {
                     return .none

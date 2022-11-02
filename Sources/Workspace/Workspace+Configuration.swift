@@ -260,8 +260,45 @@ extension Workspace.Configuration {
             self.netrc = netrc
             self.keychain = keychain
         }
-
+        
         public func makeAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
+            var providers = [AuthorizationProvider]()
+
+            switch self.netrc {
+            case .custom(let path):
+                guard fileSystem.exists(path) else {
+                    throw StringError("Did not find netrc file at \(path).")
+                }
+                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+            case .user:
+                // user .netrc file (most typical)
+                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
+
+                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
+                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
+                    providers.append(userHomeProvider)
+                }
+            case .disabled:
+                // noop
+                break
+            }
+
+            switch self.keychain {
+            case .enabled:
+                #if canImport(Security)
+                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
+                #else
+                throw InternalError("Keychain not supported on this platform")
+                #endif
+            case .disabled:
+                // noop
+                break
+            }
+
+            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: observabilityScope)
+        }
+
+        public func makeRegistryAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
             
             // OS-specific AuthorizationProvider has higher precedence
@@ -280,17 +317,17 @@ extension Workspace.Configuration {
             switch self.netrc {
             case .custom(let path):
                 guard fileSystem.exists(path) else {
-                    throw StringError("Did not find .netrc file at \(path).")
+                    throw StringError("Did not find netrc file at \(path).")
                 }
                 providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
-                // user .netrc file (most typical)
                 let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
-
-                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
+                // Add user .netrc file unless we don't have access
                 if let userHomeProvider = try? NetrcAuthorizationProvider(path: userHomePath, fileSystem: fileSystem) {
                     providers.append(userHomeProvider)
                 }
+            case .disabled:
+                throw InternalError("netrc file should not have been disabled")
             }
 
             // Use at-most one AuthorizationProvider (i.e., no CompositeAuthorizationProvider)
@@ -309,12 +346,13 @@ extension Workspace.Configuration {
             do {
                 return try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
             } catch {
-                observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
+                observabilityScope.emit(warning: "Failed to load netrc file at \(path). Error: \(error)")
                 return .none
             }
         }
 
         public enum Netrc {
+            case disabled
             case custom(AbsolutePath)
             case user
         }
