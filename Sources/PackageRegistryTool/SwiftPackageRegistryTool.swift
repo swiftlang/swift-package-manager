@@ -160,7 +160,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @Option(help: "Access token")
         var token: String?
         
-        @Flag(help: "Allow writing to .netrc file without confirmation")
+        @Flag(help: "Allow writing to netrc file without confirmation")
         var noConfirm: Bool = false
         
         private static let PLACEHOLDER_TOKEN_USER = "token"
@@ -272,15 +272,15 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
             
-            // Prompt if writing to .netrc and --no-confirm is not set
+            // Prompt if writing to netrc file and --no-confirm is not set
             if !osStore, !self.noConfirm {
                 print("""
 
                 WARNING: Secure credential store is not supported on this platform.
-                Your credentials will be written out to .netrc.
+                Your credentials will be written out to netrc file.
                 """)
-                print("Continue? (Y/N): ")
-                guard readLine()?.lowercased() == "y" else {
+                print("Continue? (Yes/No): ")
+                guard readLine(strippingNewline: true)?.lowercased() == "yes" else {
                     print("Credentials not saved. Exiting...")
                     return
                 }
@@ -300,7 +300,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 if osStore {
                     print("\nCredentials have been saved to the operating system's secure credential store.")
                 } else {
-                    print("\nCredentials have been saved to .netrc.")
+                    print("\nCredentials have been saved to netrc file.")
                 }
             }
             
@@ -343,7 +343,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 try tsc_await { callback in authorizationWriter?.remove(for: url, callback: callback) }
                 print("Credentials have been removed from operating system's secure credential store.")
             } else {
-                print("Credentials have not been removed from .netrc. Please remove credentials from the file manually.")
+                print("netrc file not updated. Please remove credentials from the file manually.")
             }
             
             let configuration = try getRegistriesConfig(swiftTool)
