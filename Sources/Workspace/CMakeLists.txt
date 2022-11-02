@@ -32,6 +32,7 @@ target_link_libraries(Workspace PUBLIC
   PackageGraph
   PackageLoading
   PackageModel
+  PackageRegistry
   SourceControl)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)

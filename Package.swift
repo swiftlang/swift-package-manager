@@ -386,6 +386,12 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
+            name: "swift-bootstrap",
+            dependencies: ["CoreCommands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"],
