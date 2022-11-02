@@ -13,7 +13,8 @@
 
 set -eu
 
-export PATH="/bin:/usr/bin:$(brew --prefix)/bin"
+PATH="/bin:/usr/bin:$(brew --prefix)/bin"
+export PATH
 VERSION=${VERSION:-5.7-RELEASE}
 if [[ -z "${VERSION##*RELEASE*}" ]]; then
   branch=swift-${VERSION%%RELEASE}release
