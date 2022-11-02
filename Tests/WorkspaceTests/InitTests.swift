@@ -266,6 +266,8 @@ class InitTests: XCTestCase {
     }
     
     func testNonC99NameExecutablePackage() throws {
+        throw XCTSkip("This test fails to find XCTAssertEqual; rdar://101868275")
+
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
