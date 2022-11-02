@@ -166,13 +166,14 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
+            // Require HTTPS
             guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
             
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getAuthorizationProvider() else {
-                throw StringError("No credential storage available")
+                throw StringError("No credential store available")
             }
 
             let authenticationType: RegistryConfiguration.AuthenticationType
@@ -188,7 +189,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     // User provided password
                     storePassword = password
                 } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
-                    // Password found in credential storage
+                    // Password found in credential store
                     storePassword = stored.password
                     saveChanges = false
                 } else {
@@ -204,7 +205,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     // User provided token
                     storePassword = token
                 } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
-                    // Token found in credential storage
+                    // Token found in credential store
                     storePassword = stored.password
                     saveChanges = false
                 } else {
@@ -215,7 +216,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
             if saveChanges, authorizationWriter == nil {
-                throw StringError("Credential storage must be writable")
+                throw StringError("Credential store must be writable")
             }
 
             // Save in cache so we can try the credentials and persist to storage only if login succeeds
@@ -236,6 +237,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 loginAPIPath = url.path
             }
             
+            // Require HTTPS
             guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
@@ -274,7 +276,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             if !osStore, !self.noConfirm {
                 print("""
 
-                WARNING: Secure credential storage is not supported on this platform.
+                WARNING: Secure credential store is not supported on this platform.
                 Your credentials will be written out to .netrc.
                 """)
                 print("Continue? (Y/N): ")
@@ -302,7 +304,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
             
-            // Update global registry configuration file
+            // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 configuration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
             }
@@ -323,13 +325,14 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         var url: String
 
         func run(_ swiftTool: SwiftTool) throws {
+            // Require HTTPS
             guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
             
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getAuthorizationProvider() else {
-                throw StringError("No credential storage available")
+                throw StringError("No credential store available")
             }
             
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
@@ -340,12 +343,12 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 try tsc_await { callback in authorizationWriter?.remove(for: url, callback: callback) }
                 print("Credentials have been removed from operating system's secure credential store.")
             } else {
-                print("NOTE: Please remove credentials from .netrc manually.")
+                print("Credentials have not been removed from .netrc. Please remove credentials from the file manually.")
             }
             
             let configuration = try getRegistriesConfig(swiftTool)
 
-            // Update global registry configuration file
+            // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 configuration.registryAuthentication.removeValue(forKey: host)
             }
