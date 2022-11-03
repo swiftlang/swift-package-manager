@@ -12,7 +12,6 @@
 
 import Basics
 import Foundation
-import SystemPackage
 import TSCBasic
 
 import struct TSCUtility.Triple
@@ -285,11 +284,11 @@ extension Destination {
             try self.init(
                 hostTriple: Triple(destination.hostTriple),
                 destinationTriple: Triple(destination.destinationTriple),
-                sdkRootDir: AbsolutePath(validating: destination.sdkDir, relativeTo: destinationDirectory),
+                sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
                 toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
                 extraFlags: .init(
                     cCompilerFlags: destination.extraCCFlags,
-                    cxxCompilerFlags: destination.extraCPPFlags,
+                    cxxCompilerFlags: destination.extraCXXFlags,
                     swiftCompilerFlags: destination.extraSwiftCFlags,
                     linkerFlags: destination.extraLinkerFlags
                 )
@@ -323,12 +322,12 @@ fileprivate struct DestinationInfoV1: Codable {
 }
 
 fileprivate struct DestinationInfoV2: Codable {
-    let sdkDir: String
+    let sdkRootDir: String
     let toolchainBinDir: String
     let hostTriple: String
     let destinationTriple: String
     let extraCCFlags: [String]
     let extraSwiftCFlags: [String]
-    let extraCPPFlags: [String]
+    let extraCXXFlags: [String]
     let extraLinkerFlags: [String]
 }

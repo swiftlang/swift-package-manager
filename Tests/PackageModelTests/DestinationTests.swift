@@ -17,8 +17,9 @@ import TSCUtility
 import XCTest
 
 private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")
-private let toolchainBinDir = bundleRootPath.appending(.init("swift.xctoolchain/usr/bin"))
-private let sdkRootDir = bundleRootPath.appending(.init("ubuntu-jammy.sdk"))
+private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
+private let sdkRootDir = RelativePath("ubuntu-jammy.sdk")
+private let hostTriple = "arm64-apple-darwin22.1.0"
 private let destinationTriple = "x86_64-unknown-linux-gnu"
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
@@ -31,8 +32,8 @@ private let destinationV1JSON =
     #"""
     {
         "version": 1,
-        "sdk": "\#(sdkRootDir)",
-        "toolchain-bin-dir": "\#(toolchainBinDir)",
+        "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
+        "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
         "target": "\#(destinationTriple)",
         "extra-cc-flags": \#(extraFlags.cCompilerFlags),
         "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
@@ -40,22 +41,56 @@ private let destinationV1JSON =
     }
     """#
 
-class DestinationTests: XCTestCase {
-    func testDestinationCodable() throws {
-        let fs = InMemoryFileSystem(files: ["/sdk/destination.json": ByteString(encodingAsUTF8: destinationV1JSON)])
+private let destinationV2JSON =
+    #"""
+    {
+        "version": 2,
+        "sdkRootDir": "\#(sdkRootDir)",
+        "toolchainBinDir": "\#(toolchainBinDir)",
+        "hostTriple": "\#(hostTriple)",
+        "destinationTriple": "\#(destinationTriple)",
+        "extraCCFlags": \#(extraFlags.cCompilerFlags),
+        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
+        "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
+        "extraLinkerFlags": \#(extraFlags.linkerFlags)
+    }
+    """#
 
-        let destinationV1 = try Destination(fromFile: AbsolutePath(validating: "/sdk/destination.json"), fileSystem: fs)
+final class DestinationTests: XCTestCase {
+    func testDestinationCodable() throws {
+        let fs = InMemoryFileSystem(files: [
+            "\(bundleRootPath)/destinationV1.json": ByteString(encodingAsUTF8: destinationV1JSON),
+            "\(bundleRootPath)/destinationV2.json": ByteString(encodingAsUTF8: destinationV2JSON),
+        ])
+
+        let destinationV1 = try Destination(fromFile: bundleRootPath.appending(.init("destinationV1.json")), fileSystem: fs)
 
         var flagsWithoutLinkerFlags = extraFlags
         flagsWithoutLinkerFlags.linkerFlags = []
+
+        let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
+        let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
 
         XCTAssertEqual(
             destinationV1,
             Destination(
                 destinationTriple: try Triple(destinationTriple),
-                sdkRootDir: sdkRootDir,
-                toolchainBinDir: toolchainBinDir,
+                sdkRootDir: sdkRootAbsolutePath,
+                toolchainBinDir: toolchainBinAbsolutePath,
                 extraFlags: flagsWithoutLinkerFlags
+            )
+        )
+
+        let destinationV2 = try Destination(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs)
+
+        XCTAssertEqual(
+            destinationV2,
+            Destination(
+                hostTriple: try Triple(hostTriple),
+                destinationTriple: try Triple(destinationTriple),
+                sdkRootDir: sdkRootAbsolutePath,
+                toolchainBinDir: toolchainBinAbsolutePath,
+                extraFlags: extraFlags
             )
         )
     }
