@@ -379,8 +379,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                   config: buildParameters.configuration.dirname,
-                   observabilityScope: self.observabilityScope
+                specialization: buildParameters.specialization,
+                observabilityScope: self.observabilityScope
             ) {
                 return result
             }
@@ -646,7 +646,7 @@ extension BuildDescription {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
+    func llbuildTargetName(for graph: PackageGraph, specialization: BuildParameters.Specialization, observabilityScope: ObservabilityScope)
         -> String?
     {
         switch self {
@@ -669,14 +669,14 @@ extension BuildSubset {
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return observabilityScope.trap {
-                try product.getLLBuildTargetName(config: config)
+                try product.getLLBuildTargetName(specialization: specialization)
             }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
-            return target.getLLBuildTargetName(config: config)
+            return target.getLLBuildTargetName(specialization: specialization)
         }
     }
 }

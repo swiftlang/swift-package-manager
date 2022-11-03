@@ -337,7 +337,7 @@ public struct BuildDescription: Codable {
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
         var generatedSourceTargets: [TargetName] = []
         for (target, description) in plan.targetMap {
-            guard case .swift(let desc) = description else {
+            guard case .swift(let desc) = description.dynamic else {
                 continue
             }
             targetCommandLines[target.c99name] =

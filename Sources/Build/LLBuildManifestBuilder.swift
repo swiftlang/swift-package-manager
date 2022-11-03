@@ -50,6 +50,10 @@ public class LLBuildManifestBuilder {
     var buildParameters: BuildParameters { plan.buildParameters }
     var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
+    var linkageTypeForMainTargets: BuildParameters.Specialization.Linkage? {
+        return .dynamic
+    }
+
     /// Create a new builder with a build plan.
     public init(_ plan: BuildPlan, disableSandboxForPluginCommands: Bool = false, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.plan = plan
@@ -77,7 +81,7 @@ public class LLBuildManifestBuilder {
             try addTargetsToExplicitBuildManifest()
         } else {
             // Create commands for all target descriptions in the plan.
-            for (_, description) in plan.targetMap {
+            for description in plan.targetMap.flatMap({ $0.value.all }) {
                 switch description {
                     case .swift(let desc):
                         try self.createSwiftCompileCommand(desc)
@@ -149,7 +153,7 @@ extension LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     // Creates commands for copying all binary artifacts depended on in the plan.
     fileprivate func addBinaryDependencyCommands() {
-        let binaryPaths = Set(plan.targetMap.values.flatMap({ $0.libraryBinaryPaths }))
+        let binaryPaths = Set(plan.targetMap.values.flatMap { $0.all }.flatMap({ $0.libraryBinaryPaths }))
         for binaryPath in binaryPaths {
             let destination = destinationPath(forBinaryAt: binaryPath)
             addCopyCommand(from: binaryPath, to: destination)
@@ -186,7 +190,7 @@ extension LLBuildManifestBuilder {
             outputs.append(output)
         }
 
-        let cmdName = target.target.getLLBuildResourcesCmdName(config: buildConfig)
+        let cmdName = target.llbuildResourcesCmdName
         manifest.addPhonyCmd(name: cmdName, inputs: outputs, outputs: [.virtual(cmdName)])
 
         return .virtual(cmdName)
@@ -369,16 +373,18 @@ extension LLBuildManifestBuilder {
                 // be able to detect such targets' modules.
                 continue
             }
-            guard let description = plan.targetMap[target] else {
+            guard let descriptions = plan.targetMap[target] else {
                 throw InternalError("Expected description for target \(target)")
             }
-            switch description {
-                case .swift(let desc):
-                    try self.createExplicitSwiftTargetCompileCommand(description: desc,
-                                                                     dependencyOracle: dependencyOracle,
-                                                                     explicitDependencyJobTracker: explicitDependencyJobTracker)
-                case .clang(let desc):
-                    try self.createClangCompileCommand(desc)
+            try descriptions.all.forEach { description in
+                switch description {
+                    case .swift(let desc):
+                        try self.createExplicitSwiftTargetCompileCommand(description: desc,
+                                                                         dependencyOracle: dependencyOracle,
+                                                                         explicitDependencyJobTracker: explicitDependencyJobTracker)
+                    case .clang(let desc):
+                        try self.createClangCompileCommand(desc)
+                }
             }
         }
     }
@@ -414,7 +420,7 @@ extension LLBuildManifestBuilder {
         // Pass the driver its external dependencies (target dependencies)
         var dependencyModuleDetailsMap: SwiftDriver.ExternalTargetModuleDetailsMap = [:]
         // Collect paths for target dependencies of this target (direct and transitive)
-        try self.collectTargetDependencyModuleDetails(for: targetDescription.target, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
+        try self.collectTargetDependencyModuleDetails(for: targetDescription.target, buildParameters: targetDescription.buildParameters, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
 
         // Compute the set of frontend
         // jobs needed to build this Swift target.
@@ -442,6 +448,7 @@ extension LLBuildManifestBuilder {
     /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
     private func collectTargetDependencyModuleDetails(
         for target: ResolvedTarget,
+        buildParameters: BuildParameters,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
         for dependency in target.dependencies(satisfying: self.buildEnvironment) {
@@ -452,7 +459,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown dependency product for \(dependency)")
                     }
                     for dependencyProductTarget in dependencyProduct.targets {
-                        try self.addTargetDependencyInfo(for: dependencyProductTarget, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
+                        try self.addTargetDependencyInfo(for: dependencyProductTarget, buildParameters: buildParameters, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
 
                     }
                 case .target:
@@ -460,21 +467,22 @@ extension LLBuildManifestBuilder {
                     guard let dependencyTarget = dependency.target else {
                         throw InternalError("unknown dependency target for \(dependency)")
                     }
-                    try self.addTargetDependencyInfo(for: dependencyTarget, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
+                    try self.addTargetDependencyInfo(for: dependencyTarget, buildParameters: buildParameters, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
             }
         }
     }
 
     private func addTargetDependencyInfo(
         for target: ResolvedTarget,
+        buildParameters: BuildParameters,
         dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
     ) throws {
-        guard case .swift(let dependencySwiftTargetDescription) = plan.targetMap[target] else {
+        guard case .swift(let dependencySwiftTargetDescription) = plan.targetMap[target]?.description(for: buildParameters) else {
             return
         }
         dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
             SwiftDriver.ExternalTargetModuleDetails(path: dependencySwiftTargetDescription.moduleOutputPath, isFramework: false)
-        try self.collectTargetDependencyModuleDetails(for: target, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
+        try self.collectTargetDependencyModuleDetails(for: target, buildParameters: buildParameters, dependencyModuleDetailsMap: &dependencyModuleDetailsMap)
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
@@ -493,9 +501,8 @@ extension LLBuildManifestBuilder {
             arguments: try target.emitModuleCommandLine()
         )
 
-        let cmdName = target.target.getCommandName(config: buildConfig)
         manifest.addShellCmd(
-            name: cmdName,
+            name: target.commandName,
             description: "Compiling module \(target.target.name)",
             inputs: inputs,
             outputs: objectNodes,
@@ -509,40 +516,39 @@ extension LLBuildManifestBuilder {
         cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
-        let cmdName = target.target.getCommandName(config: buildConfig)
 
         manifest.addSwiftCmd(
-            name: cmdName,
+            name: target.commandName,
             inputs: inputs,
             outputs: cmdOutputs,
-            executable: buildParameters.toolchain.swiftCompilerPath,
+            executable: target.buildParameters.toolchain.swiftCompilerPath,
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
-            importPath: buildParameters.buildPath,
+            importPath: target.buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
             otherArguments: try target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
-            wholeModuleOptimization: buildParameters.configuration == .release
+            wholeModuleOptimization: target.buildParameters.configuration == .release
         )
     }
 
     private func computeSwiftCompileCmdInputs(
-        _ target: SwiftTargetBuildDescription
+        _ targetDescription: SwiftTargetBuildDescription
     ) throws -> [Node] {
-        var inputs = target.sources.map(Node.file)
+        var inputs = targetDescription.sources.map(Node.file)
 
         // Add resources node as the input to the target. This isn't great because we
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .swift(target)) {
+        if let resourcesNode = createResourcesBundle(for: .swift(targetDescription)) {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) throws {
+        func addStaticTargetInputs(_ target: ResolvedTarget, buildParameters: BuildParameters) throws {
             // Ignore C Modules.
             if target.underlyingTarget is SystemLibraryTarget { return }
             // Ignore Binary Modules.
@@ -565,10 +571,10 @@ extension LLBuildManifestBuilder {
                 return
             }
 
-            switch plan.targetMap[target] {
-            case .swift(let target)?:
+            switch plan.targetMap[target]?.description(for: buildParameters) {
+            case .swift(let target):
                 inputs.append(file: target.moduleOutputPath)
-            case .clang(let target)?:
+            case .clang(let target):
                 for object in try target.objects {
                     inputs.append(file: object)
                 }
@@ -577,10 +583,10 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: buildEnvironment) {
+        for dependency in targetDescription.target.dependencies(satisfying: buildEnvironment) {
             switch dependency {
             case .target(let target, _):
-                try addStaticTargetInputs(target)
+                try addStaticTargetInputs(target, buildParameters: targetDescription.buildParameters)
 
             case .product(let product, _):
                 switch product.type {
@@ -594,7 +600,7 @@ extension LLBuildManifestBuilder {
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
                     for target in product.targets {
-                        try addStaticTargetInputs(target)
+                        try addStaticTargetInputs(target, buildParameters: targetDescription.buildParameters)
                     }
 
                 case .test:
@@ -603,7 +609,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for binaryPath in target.libraryBinaryPaths {
+        for binaryPath in targetDescription.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
@@ -613,7 +619,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Add any regular build commands created by plugins for the target.
-        for result in target.buildToolPluginInvocationResults {
+        for result in targetDescription.buildToolPluginInvocationResults {
             // Only go through the regular build commands — prebuild commands are handled separately.
             for command in result.buildCommands {
                 // Create a shell command to invoke the executable. We include the path of the executable as a dependency, and make sure the name is unique.
@@ -641,7 +647,7 @@ extension LLBuildManifestBuilder {
     /// Adds a top-level phony command that builds the entire target.
     private func addTargetCmd(_ target: SwiftTargetBuildDescription, cmdOutputs: [Node]) {
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: buildConfig)
+        let targetName = target.llbuildTargetName
         let targetOutput: Node = .virtual(targetName)
 
         manifest.addNode(targetOutput, toTarget: targetName)
@@ -650,7 +656,7 @@ extension LLBuildManifestBuilder {
             inputs: cmdOutputs,
             outputs: [targetOutput]
         )
-        if plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
+        if plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment), target.buildParameters.linkage == self.linkageTypeForMainTargets {
             if !target.isTestTarget {
                 addNode(targetOutput, toTarget: .main)
             }
@@ -708,11 +714,11 @@ fileprivate class UniqueExplicitDependencyJobTracker {
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
     private func createClangCompileCommand(
-        _ target: ClangTargetBuildDescription
+        _ targetDescription: ClangTargetBuildDescription
     ) throws {
         let standards = [
-            (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
-            (target.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
+            (targetDescription.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
+            (targetDescription.clangTarget.cLanguageStandard, SupportedLanguageExtension.cExtensions),
         ]
 
         var inputs: [Node] = []
@@ -721,20 +727,20 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .clang(target)) {
+        if let resourcesNode = createResourcesBundle(for: .clang(targetDescription)) {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = plan.targetMap[target], target.type == .library {
+        func addStaticTargetInputs(_ target: ResolvedTarget, buildParameters: BuildParameters) {
+            if case .swift(let desc) = plan.targetMap[target]?.description(for: buildParameters), target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: buildEnvironment) {
+        for dependency in targetDescription.target.dependencies(satisfying: buildEnvironment) {
             switch dependency {
             case .target(let target, _):
-                addStaticTargetInputs(target)
+                addStaticTargetInputs(target, buildParameters: targetDescription.buildParameters)
 
             case .product(let product, _):
                 switch product.type {
@@ -748,7 +754,7 @@ extension LLBuildManifestBuilder {
 
                 case .library(.automatic), .library(.static), .plugin:
                     for target in product.targets {
-                        addStaticTargetInputs(target)
+                        addStaticTargetInputs(target, buildParameters: targetDescription.buildParameters)
                     }
                 case .test:
                     break
@@ -756,7 +762,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for binaryPath in target.libraryBinaryPaths {
+        for binaryPath in targetDescription.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
@@ -767,9 +773,9 @@ extension LLBuildManifestBuilder {
 
         var objectFileNodes: [Node] = []
 
-        for path in try target.compilePaths() {
+        for path in try targetDescription.compilePaths() {
             let isCXX = path.source.extension.map{ SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
-            var args = try target.basicArguments(isCXX: isCXX)
+            var args = try targetDescription.basicArguments(isCXX: isCXX)
 
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
@@ -784,7 +790,7 @@ extension LLBuildManifestBuilder {
 
             args += ["-c", path.source.pathString, "-o", path.object.pathString]
 
-            let clangCompiler = try buildParameters.toolchain.getClangCompiler().pathString
+            let clangCompiler = try targetDescription.buildParameters.toolchain.getClangCompiler().pathString
             args.insert(clangCompiler, at: 0)
 
             let objectFileNode: Node = .file(path.object)
@@ -792,7 +798,7 @@ extension LLBuildManifestBuilder {
 
             manifest.addClangCmd(
                 name: path.object.pathString,
-                description: "Compiling \(target.target.name) \(path.filename)",
+                description: "Compiling \(targetDescription.target.name) \(path.filename)",
                 inputs: inputs + [.file(path.source)],
                 outputs: [objectFileNode],
                 arguments: args,
@@ -801,7 +807,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: buildConfig)
+        let targetName = targetDescription.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         manifest.addNode(output, toTarget: targetName)
@@ -811,8 +817,8 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if plan.graph.isInRootPackages(target.target, satisfying: self.buildEnvironment) {
-            if !target.isTestTarget {
+        if plan.graph.isInRootPackages(targetDescription.target, satisfying: self.buildEnvironment), targetDescription.buildParameters.linkage == self.linkageTypeForMainTargets {
+            if !targetDescription.isTestTarget {
                 addNode(output, toTarget: .main)
             }
             addNode(output, toTarget: .test)
@@ -826,7 +832,7 @@ extension LLBuildManifestBuilder {
     fileprivate func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }
+                .compactMap{ $0.target }.compactMap{ plan.targetMap[$0] }.flatMap { $0.all }
             let objectFiles = try testTargets.flatMap{ try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -853,7 +859,7 @@ extension LLBuildManifestBuilder {
             // Get the Swift target build descriptions of all discovery targets this synthesized entry point target depends on.
             let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
                 .compactMap(\.target)
-                .compactMap { plan.targetMap[$0] }
+                .compactMap { plan.targetMap[$0]?.description(for: testEntryPointTarget.buildParameters) }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
             // The module outputs of the discovery targets this synthesized entry point target depends on are
@@ -889,7 +895,7 @@ private extension TargetBuildDescription {
 
 extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = try buildProduct.product.getCommandName(config: buildConfig)
+        let cmdName = try buildProduct.commandName
 
         switch buildProduct.product.type {
         case .library(.static):
@@ -914,7 +920,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = try buildProduct.product.getLLBuildTargetName(config: buildConfig)
+        let targetName = try buildProduct.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         manifest.addNode(output, toTarget: targetName)
@@ -933,40 +939,103 @@ extension LLBuildManifestBuilder {
     }
 }
 
+extension ProductBuildDescription {
+    var commandName: String {
+        get throws {
+            return try "C." + self.llbuildTargetName
+        }
+    }
+
+    var llbuildTargetName: String {
+        get throws {
+            return try self.product.getLLBuildTargetName(specialization: self.buildParameters.specialization)
+        }
+    }
+}
+
+extension ClangTargetBuildDescription {
+    var commandName: String {
+        return "C." + self.llbuildTargetName
+    }
+
+    var llbuildResourcesCmdName: String {
+        return self.target.getLLBuildResourcesCmdName(specialization: self.buildParameters.specialization)
+    }
+
+    var llbuildTargetName: String {
+        return self.target.getLLBuildTargetName(specialization: self.buildParameters.specialization)
+    }
+}
+
+extension SwiftTargetBuildDescription {
+    var commandName: String {
+        return "C." + self.llbuildTargetName
+    }
+
+    var llbuildResourcesCmdName: String {
+        return self.target.getLLBuildResourcesCmdName(specialization: self.buildParameters.specialization)
+    }
+
+    var llbuildTargetName: String {
+        return self.target.getLLBuildTargetName(specialization: self.buildParameters.specialization)
+    }
+}
+
+extension TargetBuildDescription {
+    var commandName: String {
+        switch self {
+        case .clang(let desc):
+            return desc.commandName
+        case .swift(let desc):
+            return desc.commandName
+        }
+    }
+
+    var llbuildResourcesCmdName: String {
+        switch self {
+        case .clang(let desc):
+            return desc.llbuildResourcesCmdName
+        case .swift(let desc):
+            return desc.llbuildResourcesCmdName
+        }
+    }
+
+    var llbuildTargetName: String {
+        switch self {
+        case .clang(let desc):
+            return desc.llbuildTargetName
+        case .swift(let desc):
+            return desc.llbuildTargetName
+        }
+    }
+}
+
 extension ResolvedTarget {
-    public func getCommandName(config: String) -> String {
-       return "C." + getLLBuildTargetName(config: config)
+    func getLLBuildResourcesCmdName(specialization: BuildParameters.Specialization) -> String {
+        return "\(name)-\(specialization.name).module-resources"
     }
 
-    public func getLLBuildTargetName(config: String) -> String {
-        return "\(name)-\(config).module"
-    }
-
-    public func getLLBuildResourcesCmdName(config: String) -> String {
-        return "\(name)-\(config).module-resources"
+    public func getLLBuildTargetName(specialization: BuildParameters.Specialization) -> String {
+        return "\(name)-\(specialization.name).module"
     }
 }
 
 extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) throws -> String {
+    public func getLLBuildTargetName(specialization: BuildParameters.Specialization) throws -> String {
         switch type {
         case .library(.dynamic):
-            return "\(name)-\(config).dylib"
+            return "\(name)-\(specialization.name).dylib"
         case .test:
-            return "\(name)-\(config).test"
+            return "\(name)-\(specialization.name).test"
         case .library(.static):
-            return "\(name)-\(config).a"
+            return "\(name)-\(specialization.name).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
-            return "\(name)-\(config).exe"
+            return "\(name)-\(specialization.name).exe"
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
         }
-    }
-
-    public func getCommandName(config: String) throws -> String {
-        return try "C." + self.getLLBuildTargetName(config: config)
     }
 }
 

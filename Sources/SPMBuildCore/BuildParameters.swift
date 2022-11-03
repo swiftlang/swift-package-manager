@@ -115,11 +115,41 @@ public struct BuildParameters: Encodable {
         case error
     }
 
+    public struct Specialization: Codable {
+        public enum Linkage: String, Codable, CaseIterable {
+            case dynamic
+            case `static`
+        }
+
+        let configurationName: String
+        let linkage: Linkage?
+
+        var components: [String] {
+            var components = [String]()
+            if let linkage = linkage {
+                components.append(linkage.rawValue)
+            }
+            components.append(configurationName)
+            return components
+        }
+
+        public var name: String {
+            return components.joined(separator: "-")
+        }
+    }
+
+    public var specialization: Specialization {
+        return Specialization(configurationName: configuration.dirname, linkage: linkage)
+    }
+
     /// The path to the data directory.
     public var dataPath: AbsolutePath
 
     /// The build configuration.
     public var configuration: BuildConfiguration
+
+    /// The linkage type for the build, if any.
+    public var linkage: Specialization.Linkage?
 
     /// The toolchain.
     public var toolchain: Toolchain { _toolchain.toolchain }
@@ -225,6 +255,7 @@ public struct BuildParameters: Encodable {
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
+        linkage: Specialization.Linkage? = nil,
         toolchain: Toolchain,
         hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
@@ -254,8 +285,13 @@ public struct BuildParameters: Encodable {
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
+        guard !isXcodeBuildSystemEnabled || linkage == nil else {
+            fatalError("The Xcode build system integration does not support customizing linkage")
+        }
+
         self.dataPath = dataPath
         self.configuration = configuration
+        self.linkage = linkage
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
@@ -298,7 +334,7 @@ public struct BuildParameters: Encodable {
         if isXcodeBuildSystemEnabled {
             return dataPath.appending(components: "Products", configuration.dirname.capitalized)
         } else {
-            return dataPath.appending(component: configuration.dirname)
+            return dataPath.appending(components: specialization.components)
         }
     }
 
