@@ -842,13 +842,13 @@ public class SwiftTool {
         }
         // Apply any manual overrides.
         if let triple = self.options.build.customCompileTriple {
-            destination.target = triple
+            destination.destinationTriple = triple
         }
         if let binDir = self.options.build.customCompileToolchain {
-            destination.binDir = binDir.appending(components: "usr", "bin")
+            destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
         }
         if let sdk = self.options.build.customCompileSDK {
-            destination.sdk = sdk
+            destination.sdkRootDir = sdk
         }
         destination.archs = options.build.archs
 

@@ -3372,8 +3372,8 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let userDestination = Destination(
-            sdk: AbsolutePath(path: "/fake/sdk"),
-            binDir: try UserToolchain.default.destination.binDir,
+            sdkRootDir: AbsolutePath(path: "/fake/sdk"),
+            toolchainBinDir: try UserToolchain.default.destination.toolchainBinDir,
             extraFlags: BuildFlags(
                 cCompilerFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
                 swiftCompilerFlags: ["-swift-flag-from-json"]
@@ -3400,7 +3400,7 @@ final class BuildPlanTests: XCTestCase {
       #else
         args += ["--sysroot"]
       #endif
-        args += ["\(userDestination.sdk!)", "-I/fake/sdk/sysroot", "-clang-flag-from-json", .anySequence, "-clang-command-line-flag"]
+        args += ["\(userDestination.sdkRootDir!)", "-I/fake/sdk/sysroot", "-clang-flag-from-json", .anySequence, "-clang-command-line-flag"]
         XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()

@@ -201,7 +201,7 @@ public final class UserToolchain: Toolchain {
 
         // Then, check the toolchain.
         do {
-            if let toolPath = try? UserToolchain.getTool("clang", binDir: self.destination.binDir) {
+            if let toolPath = try? UserToolchain.getTool("clang", binDir: self.destination.toolchainBinDir) {
                 self._clangCompiler = toolPath
                 return toolPath
             }
@@ -258,7 +258,7 @@ public final class UserToolchain: Toolchain {
     }
 
     internal static func deriveSwiftCFlags(triple: Triple, destination: Destination, environment: EnvironmentVariables) throws -> [String] {
-        guard let sdk = destination.sdk else {
+        guard let sdk = destination.sdkRootDir else {
             if triple.isWindows() {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
@@ -366,14 +366,14 @@ public final class UserToolchain: Toolchain {
         }
 
         // Get the binDir from destination.
-        let binDir = destination.binDir
+        let binDir = destination.toolchainBinDir
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
         self.swiftCompilerPath = swiftCompilers.compile
         self.archs = destination.archs
 
         // Use the triple from destination or compute the host triple using swiftc.
-        var triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = destination.destinationTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         self.librarianPath = try UserToolchain.determineLibrarian(triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
 
@@ -389,7 +389,7 @@ public final class UserToolchain: Toolchain {
 
         self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
 
-        if let sdk = destination.sdk {
+        if let sdk = destination.sdkRootDir {
             self.extraFlags.cCompilerFlags = [
                 triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
             ] + destination.extraFlags.cCompilerFlags
@@ -444,7 +444,7 @@ public final class UserToolchain: Toolchain {
             swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
-            sdkRootPath: self.destination.sdk,
+            sdkRootPath: self.destination.sdkRootDir,
             xctestPath: xctestPath
         )
     }
@@ -482,7 +482,7 @@ public final class UserToolchain: Toolchain {
         // an alternative cloud be to force explicit locations to always be set explicitly when running in XCode/SwiftPM
         // debug and assert if not set but we detect that we are in this mode
 
-        let applicationPath = destination.binDir
+        let applicationPath = destination.toolchainBinDir
 
         // this is the normal case when using the toolchain
         let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
@@ -523,7 +523,7 @@ public final class UserToolchain: Toolchain {
         } else if triple.isWindows() {
             let sdkroot: AbsolutePath
 
-            if let sdk = destination.sdk {
+            if let sdk = destination.sdkRootDir {
                 sdkroot = sdk
             } else if let SDKROOT = environment["SDKROOT"], let sdk = try? AbsolutePath(validating: SDKROOT) {
                 sdkroot = sdk
