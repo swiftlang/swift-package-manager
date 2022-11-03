@@ -238,6 +238,7 @@ public struct Destination: Encodable, Equatable {
         }
         return _sdkPlatformFrameworkPath
     }
+
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
@@ -299,10 +300,12 @@ extension Destination {
     }
 }
 
+/// Version of the schema of `destination.json` files used for cross-compilation.
 fileprivate struct VersionInfo: Codable {
     let version: Int
 }
 
+/// Represents v1 schema of `destination.json` files used for cross-compilation.
 fileprivate struct DestinationInfoV1: Codable {
     let target: String?
     let sdk: AbsolutePath?
@@ -321,6 +324,7 @@ fileprivate struct DestinationInfoV1: Codable {
     }
 }
 
+/// Represents v2 schema of `destination.json` files used for cross-compilation.
 fileprivate struct DestinationInfoV2: Codable {
     let sdkRootDir: String
     let toolchainBinDir: String
