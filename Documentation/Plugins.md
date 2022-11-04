@@ -376,3 +376,8 @@ The `XcodePluginContext` input structure is similar to the regular `PluginContex
 If any targets are chosen in the Xcode user interface, Xcode passes their names as `--target` arguments to the plugin.
 
 It is expected that other IDEs or custom environments that use SwiftPM could similarly provide modules that define new entry points and extend the functionality of the core `PackagePlugin` APIs.
+
+### References
+
+- "Meet Swift Package plugins" [WWDC22 session](https://developer.apple.com/videos/play/wwdc2022-110359)
+- "Create Swift Package plugins" [WWDC22 session](https://developer.apple.com/videos/play/wwdc2022-110401)
