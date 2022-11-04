@@ -66,7 +66,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
     private let parent: ObservabilityScope?
     private let metadata: ObservabilityMetadata?
 
-    private var diagnosticsHandler: DiagnosticsHanderWrapper
+    private var diagnosticsHandler: DiagnosticsHandlerWrapper
 
     fileprivate init(
         description: String,
@@ -77,7 +77,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
         self.description = description
         self.parent = parent
         self.metadata = metadata
-        self.diagnosticsHandler = DiagnosticsHanderWrapper(diagnosticsHandler)
+        self.diagnosticsHandler = DiagnosticsHandlerWrapper(diagnosticsHandler)
     }
 
     public func makeChildScope(description: String, metadata: ObservabilityMetadata? = .none) -> Self {
@@ -127,7 +127,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
         self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: diagnostic)
     }
 
-    private struct DiagnosticsHanderWrapper: DiagnosticsHandler {
+    private struct DiagnosticsHandlerWrapper: DiagnosticsHandler {
         private let underlying: DiagnosticsHandler
         private var _errorsReported = ThreadSafeBox<Bool>(false)
 
