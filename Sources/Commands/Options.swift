@@ -318,8 +318,8 @@ struct BuildOptions: ParsableArguments {
     var indexStoreMode: StoreMode = .autoIndexStore
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
-    @Flag(name: .customLong("enable-parseable-module-interfaces"))
-    var shouldEnableParseableModuleInterfaces: Bool = false
+    @Flag(name: .customLong("parseable-module-interfaces"), inversion: .prefixedEnableDisable)
+    var shouldEnableParseableModuleInterfaces: Bool = true
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
