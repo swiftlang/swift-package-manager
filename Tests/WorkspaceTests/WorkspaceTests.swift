@@ -215,7 +215,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(rootManifests.count == 0, "\(rootManifests)")
 
             testDiagnostics(observability.diagnostics) { result in
-                let diagnostic = result.check(diagnostic: .prefix("invalid manifest\n\(path.appending(components: "MyPkg", "Package.swift")):3:8: error: An error in MyPkg"), severity: .error)
+                let diagnostic = result.check(diagnostic: .prefix("invalid manifest\n\(path.appending(components: "MyPkg", "Package.swift")):4:8: error: An error in MyPkg"), severity: .error)
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .init(path: pkgDir))
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, .root(pkgDir))
             }

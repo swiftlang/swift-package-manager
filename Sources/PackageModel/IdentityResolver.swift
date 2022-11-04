@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import PackageModel
 import TSCBasic
 
 // TODO: refactor this when adding registry support

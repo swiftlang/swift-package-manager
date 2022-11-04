@@ -9,7 +9,6 @@
 add_library(PackageLoading
   ContextModel.swift
   Diagnostics.swift
-  IdentityResolver.swift
   ManifestLoader.swift
   ManifestLoader+Validation.swift
   ModuleMapGenerator.swift

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SPMTestSupport
 import XCTest
@@ -18,5 +19,24 @@ import XCTest
 class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .vNext
+    }
+
+    func testImplicitFoundationImportFails() throws {
+        let content = """
+            import PackageDescription
+
+            _ = FileManager.default
+
+            let package = Package(name: "MyPackage")
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") {
+            if case ManifestParseError.invalidManifestFormat(let error, _) = $0 {
+                XCTAssertMatch(error, .contains("cannot find 'FileManager' in scope"))
+            } else {
+                XCTFail("unexpected error: \($0)")
+            }
+        }
     }
 }

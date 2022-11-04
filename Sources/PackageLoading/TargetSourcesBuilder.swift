@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
+@_implementationOnly import Foundation
 import PackageModel
 import TSCBasic
 

@@ -13,6 +13,7 @@ add_library(PackageModel
   BuildSettings.swift
   Destination.swift
   Diagnostics.swift
+  IdentityResolver.swift
   Manifest.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
