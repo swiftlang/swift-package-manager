@@ -56,17 +56,17 @@ class PackageModelTests: XCTestCase {
     }
 
     func testAndroidCompilerFlags() throws {
-        let target = try Triple("x86_64-unknown-linux-android")
+        let triple = try Triple("x86_64-unknown-linux-android")
         let sdk = AbsolutePath(path: "/some/path/to/an/SDK.sdk")
         let toolchainPath = AbsolutePath(path: "/some/path/to/a/toolchain.xctoolchain")
 
         let destination = Destination(
-            target: target,
-            sdk: sdk,
-            binDir: toolchainPath.appending(components: "usr", "bin")
+            destinationTriple: triple,
+            sdkRootDir: sdk,
+            toolchainBinDir: toolchainPath.appending(components: "usr", "bin")
         )
 
-        XCTAssertEqual(try UserToolchain.deriveSwiftCFlags(triple: target, destination: destination, environment: .process()), [
+        XCTAssertEqual(try UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination, environment: .process()), [
             // Needed when cross‐compiling for Android. 2020‐03‐01
             "-sdk", sdk.pathString,
         ])

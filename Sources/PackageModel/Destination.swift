@@ -38,7 +38,7 @@ extension DestinationError: CustomStringConvertible {
 /// The compilation destination, has information about everything that's required for a certain destination.
 public struct Destination: Encodable, Equatable {
 
-    /// The clang/LLVM triple describing the target OS and architecture.
+    /// The clang/LLVM triple describing the destination's target OS and architecture.
     ///
     /// The triple has the general format <arch><sub>-<vendor>-<sys>-<abi>, where:
     ///  - arch = x86_64, i386, arm, thumb, mips, etc.
@@ -48,16 +48,41 @@ public struct Destination: Encodable, Equatable {
     ///  - abi = eabi, gnu, android, macho, elf, etc.
     ///
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
-    public var target: Triple?
+    public var destinationTriple: Triple?
+
+    /// The clang/LLVM triple describing the host platform that supports this destination.
+    public let hostTriple: Triple?
 
     /// The architectures to build for. We build for host architecture if this is empty.
     public var archs: [String] = []
 
-    /// The SDK used to compile for the destination.
-    public var sdk: AbsolutePath?
+    /// Root directory path of the SDK used to compile for the destination.
+    @available(*, deprecated, message: "use `sdkRootDir` instead")
+    public var sdk: AbsolutePath? {
+        get {
+            sdkRootDir
+        }
+        set {
+            sdkRootDir = newValue
+        }
+    }
 
-    /// The binDir in the containing the compilers/linker to be used for the compilation.
-    public var binDir: AbsolutePath
+    /// Root directory path of the SDK used to compile for the destination.
+    public var sdkRootDir: AbsolutePath?
+
+    /// Path to a directory containing the toolchain (compilers/linker) to be used for the compilation.
+    @available(*, deprecated, message: "use `toolchainBinDir` instead")
+    public var binDir: AbsolutePath {
+        get {
+            toolchainBinDir
+        }
+        set {
+            toolchainBinDir = newValue
+        }
+    }
+
+    /// Path to a directory containing the toolchain (compilers/linker) to be used for the compilation.
+    public var toolchainBinDir: AbsolutePath
 
     /// Additional flags to be passed to the C compiler.
     @available(*, deprecated, message: "use `extraFlags.cCompilerFlags` instead")
@@ -81,7 +106,7 @@ public struct Destination: Encodable, Equatable {
     public let extraFlags: BuildFlags
 
     /// Creates a compilation destination with the specified properties.
-    @available(*, deprecated, message: "use `init(target:sdk:binDir:extraFlags)` instead")
+    @available(*, deprecated, message: "use `init(destinationTriple:sdkRootDir:toolchainBinDir:extraFlags)` instead")
     public init(
         target: Triple? = nil,
         sdk: AbsolutePath?,
@@ -90,9 +115,10 @@ public struct Destination: Encodable, Equatable {
         extraSwiftCFlags: [String] = [],
         extraCPPFlags: [String]
     ) {
-        self.target = target
-        self.sdk = sdk
-        self.binDir = binDir
+        self.hostTriple = nil
+        self.destinationTriple = target
+        self.sdkRootDir = sdk
+        self.toolchainBinDir = binDir
         self.extraFlags = BuildFlags(
             cCompilerFlags: extraCCFlags,
             cxxCompilerFlags: extraCPPFlags,
@@ -102,14 +128,16 @@ public struct Destination: Encodable, Equatable {
     
     /// Creates a compilation destination with the specified properties.
     public init(
-        target: Triple? = nil,
-        sdk: AbsolutePath?,
-        binDir: AbsolutePath,
+        hostTriple: Triple? = nil,
+        destinationTriple: Triple? = nil,
+        sdkRootDir: AbsolutePath?,
+        toolchainBinDir: AbsolutePath,
         extraFlags: BuildFlags = BuildFlags()
     ) {
-        self.target = target
-        self.sdk = sdk
-        self.binDir = binDir
+        self.hostTriple = hostTriple
+        self.destinationTriple = destinationTriple
+        self.sdkRootDir = sdkRootDir
+        self.toolchainBinDir = toolchainBinDir
         self.extraFlags = extraFlags
     }
 
@@ -180,9 +208,8 @@ public struct Destination: Encodable, Equatable {
 #endif
 
         return Destination(
-            target: nil,
-            sdk: sdkPath,
-            binDir: binDir,
+            sdkRootDir: sdkPath,
+            toolchainBinDir: binDir,
             extraFlags: BuildFlags(cCompilerFlags: extraCCFlags, swiftCompilerFlags: extraSwiftCFlags)
         )
     }
@@ -217,13 +244,13 @@ public struct Destination: Encodable, Equatable {
     /// Returns a default destination of a given target environment
     public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
         if triple.isWASI() {
-            let wasiSysroot = host.binDir
+            let wasiSysroot = host.toolchainBinDir
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")
             return Destination(
-                target: triple,
-                sdk: wasiSysroot,
-                binDir: host.binDir
+                destinationTriple: triple,
+                sdkRootDir: wasiSysroot,
+                toolchainBinDir: host.toolchainBinDir
             )
         }
         return nil
@@ -241,9 +268,9 @@ extension Destination {
         }
         let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfo.self)
         try self.init(
-            target: destination.target.map{ try Triple($0) },
-            sdk: destination.sdk,
-            binDir: destination.binDir,
+            destinationTriple: destination.target.map{ try Triple($0) },
+            sdkRootDir: destination.sdk,
+            toolchainBinDir: destination.binDir,
             extraFlags: BuildFlags(
                 cCompilerFlags: destination.extraCCFlags,
                 // maintaining `destination.extraCPPFlags` naming inconsistency for compatibility.
