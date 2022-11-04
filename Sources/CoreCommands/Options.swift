@@ -84,7 +84,7 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     public var customCompileDestination: AbsolutePath?
 
-    @Option(name: .customLong("experimental-cc-sdks-path"), help: .hidden, completion: .directory)
+    @Option(name: .customLong("experimental-cross-compilation-sdks-path"), help: .hidden, completion: .directory)
     var ccSDKsDirectory: AbsolutePath?
 }
 
