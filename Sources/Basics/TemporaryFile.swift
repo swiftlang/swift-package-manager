@@ -39,7 +39,7 @@ public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
-    _ body: @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
+    _ body: @Sendable @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) throws -> Task<Result, Error> {
     let temporaryDirectory = try createTemporaryDirectory(fileSystem: fileSystem, dir: dir, prefix: prefix)
     
