@@ -375,7 +375,7 @@ public struct Diagnostic: CustomStringConvertible {
 /// Note that specific baggage and context types MAY (and usually do), offer also a way to set baggage values,
 /// however in the most general case it is not required, as some frameworks may only be able to offer reading.
 
-// FIXME: we currently requires that Value conforms to CustomStringConvertible which sucks
+// FIXME: we currently require that Value conforms to CustomStringConvertible which sucks
 // ideally Value would conform to Equatable but that has generic requirement
 // luckily, this is about to change so we can clean this up soon
 public struct ObservabilityMetadata: CustomDebugStringConvertible {
