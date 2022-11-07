@@ -28,6 +28,7 @@ add_library(Commands
   Utilities/DOTManifestSerializer.swift
   Utilities/GenerateLinuxMain.swift
   Utilities/MultiRootSupport.swift
+  Utilities/PluginDelegate.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift)
 target_link_libraries(Commands PUBLIC
