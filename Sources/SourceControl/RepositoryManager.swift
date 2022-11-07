@@ -50,6 +50,8 @@ public class RepositoryManager: Cancellable {
     // tracks outstanding lookups for cancellation
     private var outstandingLookups = ThreadSafeKeyValueStore<UUID, (repository: RepositorySpecifier, completion: (Result<RepositoryHandle, Error>) -> Void, queue: DispatchQueue)>()
 
+    private var emitNoConnectivityWarning = ThreadSafeBox<Bool>(true)
+
     /// Create a new empty manager.
     ///
     /// - Parameters:
@@ -325,12 +327,27 @@ public class RepositoryManager: Cancellable {
                     }
                 }
             } catch {
-                cacheUsed = false
-                // Fetch without populating the cache in the case of an error.
-                observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
-                // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
-                try? self.fileSystem.removeFileTree(repositoryPath)
-                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+                // If we are offline and have a valid cached repository, use the cache anyway.
+                if isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath) {
+                    // For the first offline use in the lifetime of this repository manager, emit a warning.
+                    if self.emitNoConnectivityWarning.get(default: false) {
+                        self.emitNoConnectivityWarning.put(false)
+                        observabilityScope.emit(warning: "no connectivity, using previously cached repository state")
+                    }
+                    observabilityScope.emit(info: "using previously cached repository state for \(package)")
+
+                    cacheUsed = true
+                    // Copy the repository from the cache into the repository path.
+                    try self.fileSystem.createDirectory(repositoryPath.parentDirectory, recursive: true)
+                    try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
+                } else {
+                    cacheUsed = false
+                    // Fetch without populating the cache in the case of an error.
+                    observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
+                    // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
+                    try? self.fileSystem.removeFileTree(repositoryPath)
+                    try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+                }
             }
         } else {
             // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
@@ -512,4 +529,46 @@ extension RepositorySpecifier {
         }
     }
 }
+
+#if canImport(SystemConfiguration)
+import SystemConfiguration
+
+private struct Reachability {
+    let reachability: SCNetworkReachability
+
+    init?() {
+        var emptyAddress = sockaddr()
+        emptyAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
+        emptyAddress.sa_family = sa_family_t(AF_INET)
+
+        guard let reachability = withUnsafePointer(to: &emptyAddress, {
+            SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
+        }) else {
+            return nil
+        }
+        self.reachability = reachability
+    }
+
+    var connectionRequired: Bool {
+        var flags = SCNetworkReachabilityFlags()
+        let hasFlags = withUnsafeMutablePointer(to: &flags) {
+            SCNetworkReachabilityGetFlags(reachability, UnsafeMutablePointer($0))
+        }
+        guard hasFlags else { return false }
+        guard flags.contains(.reachable) else {
+            return true
+        }
+        return flags.contains(.connectionRequired) || flags.contains(.transientConnection)
+    }
+}
+
+fileprivate func isOffline(_ error: Swift.Error) -> Bool {
+    return Reachability()?.connectionRequired == true
+}
+#else
+fileprivate func isOffline(_ error: Swift.Error) -> Bool {
+    // TODO: Find a better way to determine reachability on non-Darwin platforms.
+    return "\(error)".contains("Could not resolve host")
+}
+#endif
 
