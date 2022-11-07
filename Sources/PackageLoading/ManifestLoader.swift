@@ -333,14 +333,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             )
         }
 
-        var closeAfterRead = DelayableAction(target: cache) { cache in
+        let closingCompletion = { (result: Result<ManifestJSONParser.Result, Error>) in
             do {
-                try cache.close()
+                try cache?.close()
             } catch {
                 observabilityScope.emit(warning: "failed closing cache: \(error)")
             }
+
+            callbackQueue.async {
+                completion(result)
+            }
         }
-        defer { closeAfterRead.perform() }
 
         let key : CacheKey
         do {
@@ -353,9 +356,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 fileSystem: fileSystem
             )
         } catch {
-            return callbackQueue.async {
-                completion(.failure(error))
-            }
+            return closingCompletion(.failure(error))
         }
 
         do {
@@ -371,16 +372,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
-                return callbackQueue.async {
-                    completion(.success(parsedManifest))
-                }
+                return closingCompletion(.success(parsedManifest))
             }
         } catch {
             observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
         }
-
-        // delay closing cache until after write.
-        let closeAfterWrite = closeAfterRead.delay()
 
         // shells out and compiles the manifest, finally output a JSON
         observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown")")
@@ -396,8 +392,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 dispatchPrecondition(condition: .onQueue(callbackQueue))
 
                 do {
-                    defer { closeAfterWrite.perform() }
-
                     let evaluationResult = try result.get()
                     // only cache successfully parsed manifests
                     let parseManifest = try self.parseManifest(
@@ -417,17 +411,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
                     }
 
-                    completion(.success(parseManifest))
+                    return closingCompletion(.success(parseManifest))
                 } catch {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
+                    return closingCompletion(.failure(error))
                 }
             }
         } catch {
-            callbackQueue.async {
-                completion(.failure(error))
-            }
+            return closingCompletion(.failure(error))
         }
     }
 
