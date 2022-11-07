@@ -2502,6 +2502,19 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }
+            case let underlyingTarget as MixedTarget where underlyingTarget.type == .library:
+                guard case let .mixed(target)? = targetMap[dependency] else {
+                    throw InternalError("unexpected mixed target \(underlyingTarget)")
+                }
+                // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
+                // modulemap but we may want to remove that requirement since it is valid for a target to exist without
+                // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning
+                // in that case from here.
+                guard let moduleMap = target.clangTargetBuildDescription.moduleMap else { break }
+                swiftTarget.additionalFlags += [
+                    "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
+                    "-Xcc", "-I", "-Xcc", target.clangTargetBuildDescription.clangTarget.includeDir.pathString
+                ]
             default:
                 break
             }
@@ -2510,8 +2523,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Plan a Mixed target.
     private func plan(mixedTarget: MixedTargetBuildDescription) throws {
-        try plan(clangTarget: mixedTarget.clangTargetBuildDescription)
         try plan(swiftTarget: mixedTarget.swiftTargetBuildDescription)
+        try plan(clangTarget: mixedTarget.clangTargetBuildDescription)
     }
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
