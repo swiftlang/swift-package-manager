@@ -63,7 +63,7 @@ final class PackageToolTests: CommandsTestCase {
 	
 	func testInitUsage() throws {
 		let stdout = try execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init <options>"))
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] [--name <name>]"))
 	}
 	
 	func testInitOptionsHelp() throws {
