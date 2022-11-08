@@ -412,14 +412,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(delegate.compiledResult, result)
                 XCTAssertNil(delegate.cachedResult)
 
-                if try UserToolchain.default.supportsSerializedDiagnostics() {
-                    // Check the serialized diagnostics. We should no longer have an error but now have a warning.
-                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
-                    let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
-                    XCTAssertEqual(diagnosticsSet.diagnostics.count, 1, "unexpected diagnostics count in \(diagnosticsSet.diagnostics) from \(result.diagnosticsFile.pathString)")
-                    let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
-                    XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
-                }
+                // Check the serialized diagnostics. We should no longer have an error but now have a warning.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1, "unexpected diagnostics count in \(diagnosticsSet.diagnostics) from \(result.diagnosticsFile.pathString)")
+                let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
 
                 // Check that the executable file exists.
                 XCTAssertTrue(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
@@ -457,14 +455,12 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertNil(delegate.compiledResult)
                 XCTAssertEqual(delegate.cachedResult, result)
 
-                if try UserToolchain.default.supportsSerializedDiagnostics() {
-                    // Check that the diagnostics still have the same warning as before.
-                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
-                    let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
-                    XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
-                    let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
-                    XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
-                }
+                // Check that the diagnostics still have the same warning as before.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
+                let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
 
                 // Check that the executable file exists.
                 XCTAssertTrue(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")

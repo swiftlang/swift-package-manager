@@ -649,6 +649,9 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swift"))
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swift-autolink-extract"))
 
+    # Symlink swift-driver built by CMake into the "fake" toolchain
+    symlink_force(os.path.join(args.bootstrap_dir, "..", "swift-driver", "bin", "swift-driver"), os.path.join(args.target_dir, args.conf, "swift-driver"))
+
     lib_dir = os.path.join(args.target_dir, "lib", "swift")
 
     # Remove old cruft.
