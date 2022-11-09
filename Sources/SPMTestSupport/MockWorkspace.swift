@@ -266,7 +266,8 @@ public final class MockWorkspace {
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
                 sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
                 fingerprintCheckingMode: .strict,
-                sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation
+                sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
+                restrictImports: .none
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,

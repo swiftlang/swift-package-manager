@@ -20,6 +20,7 @@ add_library(Basics
   FileSystem+Extensions.swift
   HTTPClient+URLSession.swift
   HTTPClient.swift
+  ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
   Netrc.swift

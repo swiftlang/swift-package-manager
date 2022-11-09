@@ -378,7 +378,8 @@ public final class SwiftTool {
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
-                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
+                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                restrictImports: .none
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -704,7 +705,8 @@ public final class SwiftTool {
                 toolchain: self.getHostToolchain(),
                 isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
                 cacheDir: cachePath,
-                extraManifestFlags: extraManifestFlags
+                extraManifestFlags: extraManifestFlags,
+                restrictImports: nil
             )
         })
     }()
