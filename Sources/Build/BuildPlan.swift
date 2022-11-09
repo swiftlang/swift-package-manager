@@ -25,8 +25,6 @@ import func TSCBasic.topologicalSort
 
 import enum TSCUtility.Diagnostics
 import var TSCUtility.verbosity
-import PackageCollections
-import CloudKit
 
 extension String {
     var asSwiftStringLiteralConstant: String {
@@ -182,7 +180,7 @@ public enum TargetBuildDescription {
             case .clang(let target):
                 return try target.objects
             case .mixed(let target):
-                return target.swiftTargetBuildDescription.objects + target.clangTargetBuildDescription.objects
+                return try target.swiftTargetBuildDescription.objects +  target.clangTargetBuildDescription.objects
             }
         }
     }
@@ -775,6 +773,7 @@ public final class SwiftTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
+        isTestTarget: Bool? = nil,
         testTargetRole: TestTargetRole? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1323,7 +1322,6 @@ public final class MixedTargetBuildDescription {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
-        isTestDiscoveryTarget: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -1362,7 +1360,6 @@ public final class MixedTargetBuildDescription {
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             isTestTarget: isTestTarget,
-            isTestDiscoveryTarget: isTestDiscoveryTarget,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             moduleMapPath: self.clangTargetBuildDescription.moduleMap
