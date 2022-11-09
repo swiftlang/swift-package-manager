@@ -47,7 +47,7 @@ import struct TSCUtility.PolymorphicCodableArray
 /// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
-public final class Package: Encodable {
+public final class Package: Encodable, Sendable {
     /// The identity of the package.
     public let identity: PackageIdentity
 

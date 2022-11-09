@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 /// The description of an individual target.
-public struct TargetDescription: Equatable, Encodable {
+public struct TargetDescription: Equatable, Encodable, Sendable {
 
     /// The target type.
-    public enum TargetType: String, Equatable, Encodable {
+    public enum TargetType: String, Equatable, Encodable, Sendable {
         case regular
         case executable
         case test
@@ -24,7 +24,7 @@ public struct TargetDescription: Equatable, Encodable {
     }
 
     /// Represents a target's dependency on another entity.
-    public enum Dependency: Equatable {
+    public enum Dependency: Equatable, Sendable {
         case target(name: String, condition: PackageConditionDescription?)
         case product(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
@@ -38,13 +38,13 @@ public struct TargetDescription: Equatable, Encodable {
         }
     }
 
-    public struct Resource: Encodable, Equatable {
-        public enum Rule: Encodable, Equatable {
+    public struct Resource: Encodable, Equatable, Sendable {
+        public enum Rule: Encodable, Equatable, Sendable {
             case process(localization: Localization?)
             case copy
         }
 
-        public enum Localization: String, Encodable {
+        public enum Localization: String, Encodable, Sendable {
             case `default`
             case base
         }
@@ -105,18 +105,18 @@ public struct TargetDescription: Equatable, Encodable {
     public let pluginCapability: PluginCapability?
     
     /// Represents the declared capability of a package plugin.
-    public enum PluginCapability: Equatable {
+    public enum PluginCapability: Equatable, Sendable {
         case buildTool
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
     
-    public enum PluginCommandIntent: Equatable, Codable {
+    public enum PluginCommandIntent: Equatable, Codable, Sendable {
         case documentationGeneration
         case sourceCodeFormatting
         case custom(verb: String, description: String)
     }
 
-    public enum PluginPermission: Equatable, Codable {
+    public enum PluginPermission: Equatable, Codable, Sendable {
         case writeToPackageDirectory(reason: String)
     }
 
@@ -130,7 +130,7 @@ public struct TargetDescription: Equatable, Encodable {
     public let pluginUsages: [PluginUsage]?
 
     /// Represents a target's usage of a plugin target or product.
-    public enum PluginUsage: Equatable {
+    public enum PluginUsage: Equatable, Sendable {
         case plugin(name: String, package: String?)
     }
 

@@ -19,7 +19,7 @@ import TSCBasic
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference {
     /// The kind of package reference.
-    public enum Kind: Equatable, CustomStringConvertible {
+    public enum Kind: Equatable, CustomStringConvertible, Sendable {
         /// A root package.
         case root(AbsolutePath)
 

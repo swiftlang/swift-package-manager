@@ -15,7 +15,7 @@ import Foundation
 import TSCBasic
 
 /// Tools version represents version of the Swift toolchain.
-public struct ToolsVersion: Equatable, Hashable, Codable {
+public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
 
     public static let v3 = ToolsVersion(version: "3.1.0")
     public static let v4 = ToolsVersion(version: "4.0.0")
