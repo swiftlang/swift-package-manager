@@ -2452,6 +2452,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
                 }
+            case let target as MixedTarget where target.type == .library:
+                // Add the modulemap of the dependency if it has one.
+                if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
+                    if let moduleMap = dependencyTargetDescription.clangTargetBuildDescription.moduleMap {
+                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                    }
+                }
             case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += try pkgConfig(for: target).cFlags

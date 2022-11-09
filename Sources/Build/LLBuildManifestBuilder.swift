@@ -603,6 +603,22 @@ extension LLBuildManifestBuilder {
         let cmdName = target.target.getCommandName(config: self.buildConfig)
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
+        
+        var otherArguments = try target.compileArguments()
+        if mixedTarget {
+            otherArguments += [
+                "-import-underlying-module",
+                "-Xcc",
+                "-ivfsoverlay",
+                "-Xcc",
+                "\(target.tempsPath)/all-product-headers.yaml",
+                "-Xcc",
+                "-ivfsoverlay",
+                "-Xcc",
+                "\(target.tempsPath)/unextended-module-overlay.yaml"
+            ]
+        }
+
         self.manifest.addSwiftCmd(
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
@@ -613,38 +629,14 @@ extension LLBuildManifestBuilder {
             moduleOutputPath: target.moduleOutputPath,
             importPath: target.buildParameters.buildPath,
             tempsPath: target.tempsPath,
-            objects: try target.objects,
-            otherArguments: try target.compileArguments(),
+            objects: target.objects,
+            otherArguments: otherArguments,
             sources: target.sources,
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
             wholeModuleOptimization: target.buildParameters.configuration == .release,
             outputFileMapPath: try target.writeOutputFileMap() // FIXME: Eliminate side effect.
         )
-
-        if mixedTarget {
-            // Add a successive command to built the underlying Objective-C
-            // module. I'm breaking it into a successive compile command because
-            //when I mix the `-emit-object-header` flag with the
-            // `-import-underlying-module`, the $(ModuleName)-Swift.h does not
-            // get created.
-            manifest.addSwiftCmd(
-                name: "\(cmdName)-2",
-                inputs: inputs,
-                outputs: [cmdOutputs.last!],
-                executable: buildParameters.toolchain.swiftCompilerPath,
-                moduleName: target.target.c99name,
-                moduleAliases: target.target.moduleAliases,
-                moduleOutputPath: target.moduleOutputPath,
-                importPath: buildParameters.buildPath,
-                tempsPath: target.tempsPath,
-                objects: target.objects,
-                otherArguments: try target.compileArguments() + ["-import-underlying-module"],
-                sources: target.sources,
-                isLibrary: isLibrary,
-                wholeModuleOptimization: buildParameters.configuration == .release
-            )
-        }
     }
 
     private func computeSwiftCompileCmdInputs(
@@ -823,7 +815,8 @@ extension LLBuildManifestBuilder {
     @discardableResult
     private func createClangCompileCommand(
         _ target: ClangTargetBuildDescription,
-        addTargetCmd: Bool = true
+        addTargetCmd: Bool = true,
+        mixedTarget: Bool = false
     ) throws -> [Node] {
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
@@ -843,6 +836,8 @@ extension LLBuildManifestBuilder {
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
+            } else if case .mixed(let desc)? = plan.targetMap[target], target.type == .library {
+                inputs.append(file: desc.swiftTargetBuildDescription.moduleOutputPath)
             }
         }
 
@@ -887,6 +882,10 @@ extension LLBuildManifestBuilder {
             let isC = path.source.extension.map { $0 == SupportedLanguageExtension.c.rawValue } ?? false
 
             var args = try target.basicArguments(isCXX: isCXX, isC: isC)
+
+            if mixedTarget {
+                args += ["-I\(target.tempsPath)"]
+            }
 
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
@@ -936,7 +935,7 @@ extension LLBuildManifestBuilder {
     private func createMixedCompileCommand(
         _ target: MixedTargetBuildDescription
     ) throws {
-        let clangOutputs = try createClangCompileCommand(target.clangTargetBuildDescription, addTargetCmd: false)
+        let clangOutputs = try createClangCompileCommand(target.clangTargetBuildDescription, addTargetCmd: false, mixedTarget: true)
         let swiftOutputs = try createSwiftCompileCommand(target.swiftTargetBuildDescription, addTargetCmd: false, mixedTarget: true)
         self.addTargetCmd(target: target.target, isTestTarget: target.isTestTarget, inputs: clangOutputs + swiftOutputs)
     }
