@@ -281,10 +281,11 @@ extension Destination {
         case 2:
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV2.self)
             let destinationDirectory = path.parentDirectory
-            
+
+            // TODO support multiple host and destination triple.
             try self.init(
-                hostTriple: Triple(destination.hostTriple),
-                destinationTriple: Triple(destination.destinationTriple),
+                hostTriple: destination.hostTriples.map(Triple.init).first,
+                destinationTriple: destination.destinationTriples.map(Triple.init).first,
                 sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
                 toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
                 extraFlags: .init(
@@ -328,8 +329,8 @@ fileprivate struct DestinationInfoV1: Codable {
 fileprivate struct DestinationInfoV2: Codable {
     let sdkRootDir: String
     let toolchainBinDir: String
-    let hostTriple: String
-    let destinationTriple: String
+    let hostTriples: [String]
+    let destinationTriples: [String]
     let extraCCFlags: [String]
     let extraSwiftCFlags: [String]
     let extraCXXFlags: [String]
