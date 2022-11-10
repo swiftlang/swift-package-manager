@@ -792,7 +792,6 @@ private func getSharedCCSDKsDirectory(
         }
         return explicitCCSDKsDirectory
     } else {
-        // further validation is done in workspace
         return try fileSystem.swiftPMCrossCompilationSDKsDirectory
     }
 }
