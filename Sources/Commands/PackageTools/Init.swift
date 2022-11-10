@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import CoreCommands
 import Workspace
 
 extension SwiftPackageTool {

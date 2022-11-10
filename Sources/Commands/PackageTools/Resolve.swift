@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import CoreCommands
 import TSCUtility
 
 extension SwiftPackageTool {

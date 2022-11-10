@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import CoreCommands
 
 extension SwiftPackageTool {
     struct Clean: SwiftCommand {

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import CoreCommands
 import Foundation
 import PackageModel
 import TSCBasic

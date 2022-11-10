@@ -12,6 +12,7 @@
 
 
 import ArgumentParser
+import CoreCommands
 import PackageGraph
 import TSCBasic
 
