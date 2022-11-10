@@ -35,8 +35,6 @@ add_library(Commands
   Snippets/Card.swift
   Snippets/Colorful.swift
   SwiftBuildTool.swift
-  SwiftPackageCollectionsTool.swift
-  SwiftPackageRegistryTool.swift
   SwiftRunTool.swift
   SwiftTestTool.swift
   ToolWorkspaceDelegate.swift
