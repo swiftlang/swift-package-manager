@@ -161,6 +161,9 @@ public final class SwiftTool {
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath?
 
+    /// Path to the cross-compilation SDK directory.
+    let sharedCCSDKDirectory: AbsolutePath?
+
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
 
@@ -304,9 +307,10 @@ public final class SwiftTool {
             (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedCCSDKDirectory = try getSharedCCSDKsDirectory(options: self.options, fileSystem: fileSystem)
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -738,7 +742,7 @@ private func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
 }
 
 
-private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
         if !fileSystem.exists(explicitSecurityDirectory) {
@@ -751,7 +755,7 @@ private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: File
     }
 }
 
-private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitConfigurationDirectory = options.locations.configurationDirectory {
         // Create the explicit config path if necessary
         if !fileSystem.exists(explicitConfigurationDirectory) {
@@ -764,7 +768,7 @@ private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem:
     }
 }
 
-private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitCacheDirectory = options.locations.cacheDirectory {
         // Create the explicit cache path if necessary
         if !fileSystem.exists(explicitCacheDirectory) {
@@ -774,6 +778,21 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
     } else {
         // further validation is done in workspace
         return try fileSystem.swiftPMCacheDirectory
+    }
+}
+
+private func getSharedCCSDKsDirectory(
+    options: GlobalOptions,
+    fileSystem: FileSystem
+) throws -> AbsolutePath? {
+    if let explicitCCSDKsDirectory = options.locations.ccSDKsDirectory {
+        // Create the explicit SDKs path if necessary
+        if !fileSystem.exists(explicitCCSDKsDirectory) {
+            try fileSystem.createDirectory(explicitCCSDKsDirectory, recursive: true)
+        }
+        return explicitCCSDKsDirectory
+    } else {
+        return try fileSystem.swiftPMCrossCompilationSDKsDirectory
     }
 }
 

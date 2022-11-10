@@ -83,6 +83,9 @@ public struct LocationOptions: ParsableArguments {
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     public var customCompileDestination: AbsolutePath?
+
+    @Option(name: .customLong("experimental-cross-compilation-sdks-path"), help: .hidden, completion: .directory)
+    var ccSDKsDirectory: AbsolutePath?
 }
 
 public struct CachingOptions: ParsableArguments {

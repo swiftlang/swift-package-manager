@@ -224,6 +224,29 @@ extension FileSystem {
     }
 }
 
+// MARK: - cross-compilation SDKs
+
+private let sdksDirectoryName = "sdks"
+
+extension FileSystem {
+    /// SwiftPM cross-compilation SDKs directory (if exists)
+    public var swiftPMCrossCompilationSDKsDirectory: AbsolutePath {
+        get throws {
+            if let path = try self.idiomaticSwiftPMDirectory {
+                return path.appending(component: sdksDirectoryName)
+            } else {
+                return try self.dotSwiftPMCrossCompilationSDKsDirectory
+            }
+        }
+    }
+
+    fileprivate var dotSwiftPMCrossCompilationSDKsDirectory: AbsolutePath {
+        get throws {
+            return try self.dotSwiftPM.appending(component: sdksDirectoryName)
+        }
+    }
+}
+
 // MARK: - Utilities
 
 extension FileSystem {
