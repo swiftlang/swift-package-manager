@@ -78,6 +78,10 @@ public struct VFSOverlay: Encodable {
         self.roots = roots
     }
 
+    public init(roots: [Directory]) {
+        self.roots = roots
+    }
+
     public func write(to path: AbsolutePath, fileSystem: FileSystem) throws {
         // VFS overlay files are YAML, but ours is simple enough that it works when being written using `JSONEncoder`.
         try JSONEncoder.makeWithDefaults(prettified: false).encode(path: path, fileSystem: fileSystem, self)

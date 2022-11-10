@@ -1372,24 +1372,82 @@ public final class MixedTargetBuildDescription {
         // We need to generate some auxiliary files for the Clang and Swift
         // sources to later be compiled successfully.
 
-        // unextended-module-overlay.yaml
         let buildArtifactDirectory = self.swiftTargetBuildDescription.tempsPath
+
+        // unextended-module-overlay.yaml
         let unextendedModuleOverlayPath = buildArtifactDirectory
             .appending(component: "unextended-module-overlay.yaml")
 
         try VFSOverlay(roots: [
             VFSOverlay.Directory(
-                name: buildArtifactDirectory.pathString,
+                name: buildArtifactDirectory.nativePathString(escaped: false),
                 contents: [
                     VFSOverlay.File(
                         name: "module.modulemap",
                         externalContents:
-                            buildArtifactDirectory.appending(component: "module.modulemap").pathString
+                            buildArtifactDirectory.appending(component: "unextended-module.modulemap").nativePathString(escaped: false)
                     )
                 ]
             )
         ]).write(to: unextendedModuleOverlayPath, fileSystem: fileSystem)
 
+        // all-product-headers.yaml
+        let allProductHeadersPath = buildArtifactDirectory
+            .appending(component: "all-product-headers.yaml")
+
+        try VFSOverlay(roots: [
+            VFSOverlay.Directory(
+                name: clangTargetBuildDescription.clangTarget.includeDir.pathString,
+                contents:
+                    // TODO(ncooke3): Why is clangTargetBuildDescription.clangTarget.headers empty?
+                    try Set(fileSystem.getDirectoryContents(clangTargetBuildDescription.clangTarget.includeDir)
+                    .map(clangTargetBuildDescription.clangTarget.includeDir.appending(component:)))
+                        .filter { headerPath in
+                            headerPath.pathString.hasPrefix(clangTargetBuildDescription.clangTarget.includeDir.pathString)
+                        }.map { headerPath in
+                            VFSOverlay.File(
+                                name: headerPath.basename,
+                                externalContents: headerPath.nativePathString(escaped: false)
+                            )
+                        }
+            ),
+            VFSOverlay.Directory(
+                name: buildArtifactDirectory.nativePathString(escaped: false),
+                contents: [
+                    VFSOverlay.File(
+                        name: "module.modulemap",
+                        externalContents:
+                            buildArtifactDirectory.appending(component: "module.modulemap").nativePathString(escaped: false)
+                    )
+                ]
+            ),
+            VFSOverlay.Directory(
+                name: buildArtifactDirectory.nativePathString(escaped: false),
+                contents: [
+                    VFSOverlay.File(
+                        name: "\(target.c99name)-Swift.h",
+                        externalContents: buildArtifactDirectory.appending(component: "\(target.c99name)-Swift.h").nativePathString(escaped: false)
+                    )
+                ]
+            ),
+        ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
+
+        /// unextended-module.modulemap
+        // TODO(ncooke3): The umbrella header is hardcoded. The below block needs
+        // to probabaly move into the module map generation phase.
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        module \(target.c99name) {
+            umbrella header "\(clangTargetBuildDescription.clangTarget.includeDir)/MixedPackage.h"
+
+            export *
+        }
+
+        module \(target.c99name).__Swift {
+            exclude header "\(buildArtifactDirectory)/\(target.c99name)-Swift.h"
+        }
+        """
+        try fileSystem.writeFileContents(buildArtifactDirectory.appending(component: "unextended-module.modulemap"), bytes: stream.bytes)
     }
 }
 
