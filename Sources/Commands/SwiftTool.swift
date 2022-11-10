@@ -295,7 +295,7 @@ func exec(path: String, args: [String]) throws -> Never {
     try TSCBasic.exec(path: path, args: args)
 }
 
-public class SwiftTool {
+public final class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler
     static var cancellator: Cancellator?
