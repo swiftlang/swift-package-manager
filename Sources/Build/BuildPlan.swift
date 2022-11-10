@@ -327,10 +327,14 @@ public final class ClangTargetBuildDescription {
 
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
+        // TODO(ncooke3): Will non-library mixed language targets be supported?
+        // If so, they may need a module map if the Objc implementation uses Swift.
         if target.type == .library {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
+                // TODO(ncooke3): We need to ensure that custom modulemaps
+                // expose the generated Swift header.
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
@@ -1364,6 +1368,28 @@ public final class MixedTargetBuildDescription {
             observabilityScope: observabilityScope,
             moduleMapPath: self.clangTargetBuildDescription.moduleMap
         )
+
+        // We need to generate some auxiliary files for the Clang and Swift
+        // sources to later be compiled successfully.
+
+        // unextended-module-overlay.yaml
+        let buildArtifactDirectory = self.swiftTargetBuildDescription.tempsPath
+        let unextendedModuleOverlayPath = buildArtifactDirectory
+            .appending(component: "unextended-module-overlay.yaml")
+
+        try VFSOverlay(roots: [
+            VFSOverlay.Directory(
+                name: buildArtifactDirectory.pathString,
+                contents: [
+                    VFSOverlay.File(
+                        name: "module.modulemap",
+                        externalContents:
+                            buildArtifactDirectory.appending(component: "module.modulemap").pathString
+                    )
+                ]
+            )
+        ]).write(to: unextendedModuleOverlayPath, fileSystem: fileSystem)
+
     }
 }
 
