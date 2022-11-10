@@ -16,16 +16,10 @@ import Dispatch
 @_implementationOnly import DriverSupport
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
-import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
-import SourceControl
 import SPMBuildCore
-import TSCBasic
-import class TSCUtility.MultiLineNinjaProgressAnimation
-import class TSCUtility.NinjaProgressAnimation
-import protocol TSCUtility.ProgressAnimationProtocol
 import Workspace
 
 #if canImport(WinSDK)
@@ -36,188 +30,44 @@ import Darwin
 import Glibc
 #endif
 
-import protocol TSCUtility.ProgressAnimationProtocol
+import struct TSCBasic.AbsolutePath
+import func TSCBasic.exec
+import protocol TSCBasic.FileSystem
+import var TSCBasic.localFileSystem
+import protocol TSCBasic.OutputByteStream
+import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import var TSCBasic.stderrStream
+import class TSCBasic.TerminalController
+import class TSCBasic.ThreadSafeOutputByteStream
+
+import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
 
-// TODO: Refactor in upcoming PRs
-import Build
-import XCBuildSupport
-
-private class ToolWorkspaceDelegate: WorkspaceDelegate {
-    private struct DownloadProgress {
-        let bytesDownloaded: Int64
-        let totalBytesToDownload: Int64
-    }
-
-    private struct FetchProgress {
-        let progress: Int64
-        let total: Int64
-    }
-
-    /// The progress of binary downloads.
-    private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
-    private let binaryDownloadProgressLock = NSLock()
-
-    /// The progress of package  fetch operations.
-    private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
-    private let fetchProgressLock = NSLock()
-
-    private let observabilityScope: ObservabilityScope
-
-    private let outputHandler: (String, Bool) -> Void
-    private let progressHandler: (Int64, Int64, String?) -> Void
-
-    init(
-        observabilityScope: ObservabilityScope,
-        outputHandler: @escaping (String, Bool) -> Void,
-        progressHandler: @escaping (Int64, Int64, String?) -> Void
-    ) {
-        self.observabilityScope = observabilityScope
-        self.outputHandler = outputHandler
-        self.progressHandler = progressHandler
-    }
-
-    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
-        self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", false)
-    }
-
-    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
-        guard case .success = result, !self.observabilityScope.errorsReported else {
-            return
-        }
-
-        self.fetchProgressLock.withLock {
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
-
-            if progress == total && !self.fetchProgress.isEmpty {
-                self.fetchProgress.removeAll()
-            } else {
-                self.fetchProgress[package] = nil
-            }
-        }
-
-        self.outputHandler("Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))", false)
-    }
-
-    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-        let (step, total, packages) = self.fetchProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.fetchProgress[package] = FetchProgress(
-                progress: progress,
-                total: total ?? progress
-            )
-
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
-            let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
-            return (progress, total, packages)
-        }
-        self.progressHandler(step, total, "Fetching \(packages)")
-    }
-
-    func willUpdateRepository(package: PackageIdentity, repository url: String) {
-        self.outputHandler("Updating \(url)", false)
-    }
-
-    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
-    }
-
-    func dependenciesUpToDate() {
-        self.outputHandler("Everything is already up-to-date", false)
-    }
-
-    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
-        self.outputHandler("Creating working copy for \(url)", false)
-    }
-
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
-        self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
-    }
-
-    func removing(package: PackageIdentity, packageLocation: String?) {
-        self.outputHandler("Removing \(packageLocation ?? package.description)", false)
-    }
-
-    func willResolveDependencies(reason: WorkspaceResolveReason) {
-        self.outputHandler(Workspace.format(workspaceResolveReason: reason), true)
-    }
-
-    func willComputeVersion(package: PackageIdentity, location: String) {
-        self.outputHandler("Computing version for \(location)", false)
-    }
-
-    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
-    }
-
-    func willDownloadBinaryArtifact(from url: String) {
-        self.outputHandler("Downloading binary artifact \(url)", false)
-    }
-
-    func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
-        guard case .success = result, !self.observabilityScope.errorsReported else {
-            return
-        }
-
-        self.binaryDownloadProgressLock.withLock {
-            let progress = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
-            let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
-
-            if progress == total && !self.binaryDownloadProgress.isEmpty {
-                self.binaryDownloadProgress.removeAll()
-            } else {
-                self.binaryDownloadProgress[url] = nil
-            }
-        }
-
-        self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
-    }
-
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.binaryDownloadProgress[url] = DownloadProgress(
-                bytesDownloaded: bytesDownloaded,
-                totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
-            )
-
-            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
-            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
-            let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
-            return (step, total, artifacts)
-        }
-
-        self.progressHandler(step, total, "Downloading \(artifacts)")
-    }
-
-    // noop
-
-    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
-    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
-    func resolvedFileChanged() {}
-    func didDownloadAllBinaryArtifacts() {}
-}
-
-struct ToolWorkspaceConfiguration {
+public struct ToolWorkspaceConfiguration {
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
 
-    init(wantsMultipleTestProducts: Bool = false,
+    public init(wantsMultipleTestProducts: Bool = false,
          wantsREPLProduct: Bool = false) {
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
 }
 
-protocol SwiftCommand: ParsableCommand {
+public typealias WorkspaceDelegateProvider = (_ observabilityScope: ObservabilityScope, _ outputHandler: @escaping (String, Bool) -> Void, _ progressHandler: @escaping (Int64, Int64, String?) -> Void) -> WorkspaceDelegate
+public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope) -> WorkspaceLoader
+
+public protocol SwiftCommand: ParsableCommand {
     var globalOptions: GlobalOptions { get }
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
+    var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
+    var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
 
     func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider
     func run(_ swiftTool: SwiftTool) throws
@@ -225,7 +75,7 @@ protocol SwiftCommand: ParsableCommand {
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration)
+        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration, workspaceDelegateProvider: self.workspaceDelegateProvider, workspaceLoaderProvider: self.workspaceLoaderProvider)
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -250,38 +100,6 @@ extension SwiftCommand {
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init()
     }
-
-    public func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
-        return .init(providers: [
-            .native: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                let testEntryPointPath = customBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
-                let graphLoader = { try swiftTool.loadPackageGraph(explicitProduct: explicitProduct, testEntryPointPath: testEntryPointPath) }
-                return try BuildOperation(
-                    buildParameters: customBuildParameters ?? swiftTool.buildParameters(),
-                    cacheBuildManifest: cacheBuildManifest && swiftTool.canUseCachedBuildManifest(),
-                    packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                    additionalFileRules: FileRuleDescription.swiftpmFileTypes,
-                    pluginScriptRunner: swiftTool.getPluginScriptRunner(),
-                    pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-                    disableSandboxForPluginCommands: swiftTool.options.security.shouldDisableSandbox,
-                    outputStream: customOutputStream ?? swiftTool.outputStream,
-                    logLevel: customLogLevel ?? swiftTool.logLevel,
-                    fileSystem: swiftTool.fileSystem,
-                    observabilityScope: customObservabilityScope ?? swiftTool.observabilityScope) },
-            .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                let graphLoader = { try swiftTool.loadPackageGraph(explicitProduct: explicitProduct) }
-                // FIXME: Implement the custom build command provider also.
-                return try XcodeBuildSystem(
-                    buildParameters: customBuildParameters ?? swiftTool.buildParameters(),
-                    packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                    outputStream: customOutputStream ?? swiftTool.outputStream,
-                    logLevel: customLogLevel ?? swiftTool.logLevel,
-                    fileSystem: swiftTool.fileSystem,
-                    observabilityScope: customObservabilityScope ?? swiftTool.observabilityScope
-                )
-            }
-        ])
-    }
 }
 
 /// A safe wrapper of TSCBasic.exec.
@@ -302,16 +120,16 @@ public final class SwiftTool {
     #endif
 
     /// The original working directory.
-    let originalWorkingDirectory: AbsolutePath
+    public let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    let options: GlobalOptions
+    public let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
-    let packageRoot: AbsolutePath?
+    private let packageRoot: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
-    func getPackageRoot() throws -> AbsolutePath {
+    public func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot = packageRoot else {
             throw StringError("Could not find \(Manifest.filename) in this directory or any of its parent directories.")
         }
@@ -319,11 +137,11 @@ public final class SwiftTool {
     }
 
     /// Get the current workspace root object.
-    func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -332,22 +150,22 @@ public final class SwiftTool {
     }
 
     /// Scratch space (.build) directory.
-    let scratchDirectory: AbsolutePath
+    public let scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
-    let sharedSecurityDirectory: AbsolutePath?
+    public let sharedSecurityDirectory: AbsolutePath?
 
     /// Path to the shared cache directory
-    let sharedCacheDirectory: AbsolutePath?
+    public let sharedCacheDirectory: AbsolutePath?
 
     /// Path to the shared configuration directory
-    let sharedConfigurationDirectory: AbsolutePath?
+    public let sharedConfigurationDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
-    let cancellator: Cancellator
+    public let cancellator: Cancellator
 
     /// The execution status of the tool.
-    var executionStatus: ExecutionStatus = .success
+    public var executionStatus: ExecutionStatus = .success
 
     /// Holds the currently active workspace.
     ///
@@ -355,18 +173,24 @@ public final class SwiftTool {
     /// workspace is not needed, in-fact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
     private var _workspace: Workspace?
-    private var _workspaceDelegate: ToolWorkspaceDelegate?
+    private var _workspaceDelegate: WorkspaceDelegate?
 
     private let observabilityHandler: SwiftToolObservabilityHandler
 
     /// The observability scope to emit diagnostics event on
-    let observabilityScope: ObservabilityScope
+    public let observabilityScope: ObservabilityScope
 
     /// The min severity at which to log diagnostics
-    let logLevel: Diagnostic.Severity
+    public let logLevel: Basics.Diagnostic.Severity
 
     /// The file system in use
-    let fileSystem: FileSystem
+    public let fileSystem: FileSystem
+
+    /// Provider which can create a `WorkspaceDelegate` if needed.
+    private let workspaceDelegateProvider: WorkspaceDelegateProvider
+
+    /// Provider which can create a `WorkspaceLoader` if needed.
+    private let workspaceLoaderProvider: WorkspaceLoaderProvider
 
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
@@ -375,17 +199,17 @@ public final class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    convenience init(options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init()) throws {
+    public convenience init(options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(), workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
         // CLI commands that have user facing output, use stdout directly to emit the final result
         // this means that the build output from "swift build" goes to stdout
         // but the build output from "swift test" goes to stderr, while the tests output go to stdout
-        try self.init(outputStream: TSCBasic.stderrStream, options: options, toolWorkspaceConfiguration: toolWorkspaceConfiguration)
+        try self.init(outputStream: TSCBasic.stderrStream, options: options, toolWorkspaceConfiguration: toolWorkspaceConfiguration, workspaceDelegateProvider: workspaceDelegateProvider, workspaceLoaderProvider: workspaceLoaderProvider)
     }
 
     // marked internal for testing
-    internal init(outputStream: OutputByteStream, options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init()) throws {
+    internal init(outputStream: OutputByteStream, options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration, workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
         self.fileSystem = localFileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
@@ -393,6 +217,8 @@ public final class SwiftTool {
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
         self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
+        self.workspaceDelegateProvider = workspaceDelegateProvider
+        self.workspaceLoaderProvider = workspaceLoaderProvider
 
         let cancellator = Cancellator(observabilityScope: self.observabilityScope)
 
@@ -487,14 +313,6 @@ public final class SwiftTool {
     }
 
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
-        if options.locations._deprecated_buildPath != nil {
-            observabilityScope.emit(warning: "'--build-path' option is deprecated; use '--scratch-path' instead")
-        }
-
-        if options.locations._deprecated_chdir != nil {
-            observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
-        }
-
         if options.locations.multirootPackageDataFile != nil {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
@@ -521,22 +339,6 @@ public final class SwiftTool {
         if let _ = options.security.netrcFilePath, options.security.netrc == false {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
         }
-
-        if options.security._deprecated_netrc {
-            observabilityScope.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
-        }
-
-        if options.security._deprecated_netrcOptional {
-            observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
-        }
-
-        if options.resolver._deprecated_enableResolverTrace {
-            observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
-        }
-
-        if options.caching._deprecated_useRepositoriesCache != nil {
-            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
-        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -544,16 +346,12 @@ public final class SwiftTool {
     }
 
     /// Returns the currently active workspace.
-    func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false) throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
 
-        let delegate = ToolWorkspaceDelegate(
-            observabilityScope: self.observabilityScope,
-            outputHandler: self.observabilityHandler.print,
-            progressHandler: self.observabilityHandler.progress
-        )
+        let delegate = self.workspaceDelegateProvider(self.observabilityScope, self.observabilityHandler.print, self.observabilityHandler.progress)
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
@@ -621,7 +419,7 @@ public final class SwiftTool {
         }
     }
 
-    func getAuthorizationProvider() throws -> AuthorizationProvider? {
+    public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if !options.security.netrc {
             authorization.netrc = .disabled
@@ -640,7 +438,7 @@ public final class SwiftTool {
     }
 
     /// Resolve the dependencies.
-    func resolve() throws {
+    public func resolve() throws {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
@@ -662,7 +460,7 @@ public final class SwiftTool {
     /// - Parameters:
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
-    func loadPackageGraph(
+    public func loadPackageGraph(
         explicitProduct: String? = nil,
         testEntryPointPath: AbsolutePath? = nil
     ) throws -> PackageGraph {
@@ -689,7 +487,7 @@ public final class SwiftTool {
         }
     }
 
-    func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
+    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
@@ -705,11 +503,11 @@ public final class SwiftTool {
     }
 
     /// Returns the user toolchain to compile the actual product.
-    func getDestinationToolchain() throws -> UserToolchain {
+    public func getDestinationToolchain() throws -> UserToolchain {
         return try _destinationToolchain.get()
     }
 
-    func getHostToolchain() throws -> UserToolchain {
+    public func getHostToolchain() throws -> UserToolchain {
         return try _hostToolchain.get()
     }
 
@@ -717,7 +515,7 @@ public final class SwiftTool {
         return try _manifestLoader.get()
     }
 
-    fileprivate func canUseCachedBuildManifest() throws -> Bool {
+    public func canUseCachedBuildManifest() throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -746,14 +544,14 @@ public final class SwiftTool {
     // "customOutputStream" is designed to support build output redirection
     // but it is only expected to be used when invoking builds from "swift build" command.
     // in all other cases, the build output should go to the default which is stderr
-    func createBuildSystem(
+    public func createBuildSystem(
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
         cacheBuildManifest: Bool = true,
         customBuildParameters: BuildParameters? = .none,
         customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
         customOutputStream: OutputByteStream? = .none,
-        customLogLevel: Diagnostic.Severity? = .none,
+        customLogLevel: Basics.Diagnostic.Severity? = .none,
         customObservabilityScope: ObservabilityScope? = .none
     ) throws -> BuildSystem {
         guard let buildSystemProvider = buildSystemProvider else {
@@ -777,7 +575,7 @@ public final class SwiftTool {
     }
 
     /// Return the build parameters.
-    func buildParameters() throws -> BuildParameters {
+    public func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
 
@@ -908,7 +706,7 @@ public final class SwiftTool {
     }()
 
     /// An enum indicating the execution status of run commands.
-    enum ExecutionStatus {
+    public enum ExecutionStatus {
         case success
         case failure
     }
@@ -983,6 +781,12 @@ extension Basics.Diagnostic {
     static func unsupportedFlag(_ flag: String) -> Self {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
     }
+}
+
+// MARK: - Support for loading external workspaces
+
+public protocol WorkspaceLoader {
+    func load(workspace: AbsolutePath) throws -> [AbsolutePath]
 }
 
 // MARK: - Diagnostics
@@ -1109,7 +913,7 @@ private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
 extension SwiftTool {
     // FIXME: deprecate these one we are further along refactoring the call sites that use it
     /// The stream to print standard output on.
-    var outputStream: OutputByteStream {
+    public var outputStream: OutputByteStream {
         self.observabilityHandler.outputStream
     }
 }
@@ -1136,7 +940,7 @@ private struct InteractiveWriter {
         if let term = self.term {
             term.write(string, inColor: color, bold: bold)
         } else {
-            stream <<< string
+            string.write(to: stream)
             stream.flush()
         }
     }
@@ -1223,5 +1027,11 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
 extension Basics.Diagnostic.Severity {
     fileprivate var isVerbose: Bool {
         return self <= .info
+    }
+}
+
+public extension Basics.Diagnostic {
+    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

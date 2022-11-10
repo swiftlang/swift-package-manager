@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import CoreCommands
 import PackageGraph
 import PackageModel
 import TSCBasic
@@ -96,12 +97,12 @@ public struct SwiftRunTool: SwiftCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    var globalOptions: GlobalOptions
+    public var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: RunToolOptions
 
-    var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init(wantsREPLProduct: options.mode == .repl)
     }
 

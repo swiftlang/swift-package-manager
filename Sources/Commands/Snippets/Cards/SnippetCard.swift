@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CoreCommands
 import PackageModel
 import TSCBasic
 
