@@ -313,7 +313,7 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, generateSwiftHeaderInModuleMap: Bool = false) throws {
+    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, includesInteropHeaderInModuleMap: Bool = false) throws {
         guard target.underlyingTarget is ClangTarget || target.underlyingTarget is MixedTarget else {
             throw InternalError("underlying target type mismatch \(target)")
         }
@@ -337,18 +337,35 @@ public final class ClangTargetBuildDescription {
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
-                let path = tempsPath.appending(component: moduleMapFilename)
-                let moduleMapGenerator = ModuleMapGenerator(targetName: clangTarget.name, moduleName: clangTarget.c99name, publicHeadersDir: clangTarget.includeDir, fileSystem: fileSystem)
-                let swiftHeaderPath = generateSwiftHeaderInModuleMap
-                    ? tempsPath.appending(component: "\(target.name)-Swift.h") : nil
+                let moduleMapGenerator = ModuleMapGenerator(
+                    targetName: clangTarget.name,
+                    moduleName: clangTarget.c99name,
+                    publicHeadersDir: clangTarget.includeDir,
+                    fileSystem: fileSystem
+                )
+
+                let generatedInteropHeaderPath = includesInteropHeaderInModuleMap
+                    ? tempsPath.appending(component: "\(target.c99name)-Swift.h") : nil
+
+                let moduleMapPath = tempsPath.appending(component: moduleMapFilename)
                 try moduleMapGenerator.generateModuleMap(
                     type: generatedModuleMapType,
-                    at: path,
-                    swiftHeaderPath:swiftHeaderPath
+                    at: moduleMapPath,
+                    interopHeaderPath: generatedInteropHeaderPath
                 )
-                self.moduleMap = path
+
+                if includesInteropHeaderInModuleMap {
+                    let unextendedModuleMapPath = tempsPath.appending(component: "unextended-module.modulemap")
+                    try moduleMapGenerator.generateModuleMap(
+                        type: generatedModuleMapType,
+                        at: unextendedModuleMapPath
+                    )
+                }
+
+                self.moduleMap = moduleMapPath
             }
             // Otherwise there is no module map, and we leave `moduleMap` unset.
+            // TODO(ncooke3): Investigate implications here for mixed targets.
         }
 
         // Do nothing if we're not generating a bundle.
@@ -1345,7 +1362,7 @@ public final class MixedTargetBuildDescription {
             toolsVersion: toolsVersion,
             buildParameters: buildParameters,
             fileSystem: fileSystem,
-            generateSwiftHeaderInModuleMap: true
+            includesInteropHeaderInModuleMap: true
         )
 
         let swiftResolvedTarget = ResolvedTarget(
@@ -1430,23 +1447,6 @@ public final class MixedTargetBuildDescription {
                 ]
             ),
         ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
-
-        /// unextended-module.modulemap
-        // TODO(ncooke3): The umbrella header is hardcoded. The below block needs
-        // to probabaly move into the module map generation phase.
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-        module \(target.c99name) {
-            umbrella header "\(clangTargetBuildDescription.clangTarget.includeDir)/MixedPackage.h"
-
-            export *
-        }
-
-        module \(target.c99name).__Swift {
-            exclude header "\(buildArtifactDirectory)/\(target.c99name)-Swift.h"
-        }
-        """
-        try fileSystem.writeFileContents(buildArtifactDirectory.appending(component: "unextended-module.modulemap"), bytes: stream.bytes)
     }
 }
 
