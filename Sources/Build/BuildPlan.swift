@@ -355,6 +355,14 @@ public final class ClangTargetBuildDescription {
                 )
 
                 if includesInteropHeaderInModuleMap {
+                    // The underlying Clang target is building within a Mixed
+                    // language target and needs an auxiliary module map that
+                    // doesn't include the generated interop header from the
+                    // Swift half of the mixed target. This will later allow the
+                    // Clang half of the module to be built when compiling the
+                    // Swift part without the generated header being considered
+                    // an input (because it won't exist yet and is an output of
+                    // that compilation command).
                     let unextendedModuleMapPath = tempsPath.appending(component: "unextended-module.modulemap")
                     try moduleMapGenerator.generateModuleMap(
                         type: generatedModuleMapType,
