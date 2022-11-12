@@ -325,7 +325,6 @@ public final class ClangTargetBuildDescription {
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
-
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         // TODO(ncooke3): Will non-library mixed language targets be supported?
         // If so, they may need a module map if the Objc implementation uses Swift.
