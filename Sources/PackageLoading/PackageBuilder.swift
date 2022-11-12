@@ -955,19 +955,10 @@ public final class PackageBuilder {
         }
 
         // Create and return the right kind of target depending on what kind of sources we found.
+        // TODO(ncooke3): Figure out if we should restrict Swift + Cxx.
         if sources.hasSwiftSources && sources.hasClangSources {
-            // First determine the type of module map that will be appropriate for the target based on its header layout.
-            let moduleMapType: ModuleMapType
 
-            if fileSystem.exists(publicHeadersPath) {
-                let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
-                moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
-            } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
-                // If this clang target is a library, it must contain "include" directory.
-                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-            } else {
-                moduleMapType = .none
-            }
+            let moduleMapType = findModuleMapType(for: potentialModule, publicHeadersPath: publicHeadersPath)
 
             return try MixedTarget(
                 name: potentialModule.name,
@@ -1004,25 +995,9 @@ public final class PackageBuilder {
                 usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         } else {
-            // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
+            // It's not a Mixed or Swift target, so it's a Clang target.
 
-            // First determine the type of module map that will be appropriate for the target based on its header layout.
-            let moduleMapType: ModuleMapType
-
-            if self.fileSystem.exists(publicHeadersPath) {
-                let moduleMapGenerator = ModuleMapGenerator(
-                    targetName: potentialModule.name,
-                    moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(),
-                    publicHeadersDir: publicHeadersPath,
-                    fileSystem: self.fileSystem
-                )
-                moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
-            } else if targetType == .library, self.manifest.toolsVersion >= .v5_5 {
-                // If this clang target is a library, it must contain "include" directory.
-                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-            } else {
-                moduleMapType = .none
-            }
+            let moduleMapType = findModuleMapType(for: potentialModule, publicHeadersPath: publicHeadersPath)
 
             if resources.contains(where: { $0.rule == .embedInCode }) {
                 throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
@@ -1239,6 +1214,24 @@ public final class PackageBuilder {
         // Throw if we found any overlapping sources.
         if !overlappingSources.isEmpty {
             throw ModuleError.overlappingSources(target: target, sources: Array(overlappingSources))
+        }
+    }
+
+    /// Determines the type of module map that will be appropriate for a potential target based on its header layout.
+    private func findModuleMapType(for potentialModule: PotentialModule, publicHeadersPath: AbsolutePath) -> ModuleMapType {
+        if fileSystem.exists(publicHeadersPath) {
+            let moduleMapGenerator = ModuleMapGenerator(
+                targetName: potentialModule.name,
+                moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(),
+                publicHeadersDir: publicHeadersPath,
+                fileSystem: self.fileSystem
+            )
+            return moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
+        } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
+            // If this clang target is a library, it must contain "include" directory.
+            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+        } else {
+            return .none
         }
     }
 
