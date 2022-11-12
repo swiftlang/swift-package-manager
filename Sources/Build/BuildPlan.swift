@@ -1404,12 +1404,12 @@ public final class MixedTargetBuildDescription {
 
         try VFSOverlay(roots: [
             VFSOverlay.Directory(
-                name: buildArtifactDirectory.nativePathString(escaped: false),
+                name: buildArtifactDirectory.pathString,
                 contents: [
                     VFSOverlay.File(
                         name: "module.modulemap",
                         externalContents:
-                            buildArtifactDirectory.appending(component: "unextended-module.modulemap").nativePathString(escaped: false)
+                            buildArtifactDirectory.appending(component: "unextended-module.modulemap").pathString
                     )
                 ]
             )
@@ -1423,7 +1423,6 @@ public final class MixedTargetBuildDescription {
             VFSOverlay.Directory(
                 name: clangTargetBuildDescription.clangTarget.includeDir.pathString,
                 contents:
-                    // TODO(ncooke3): Why is clangTargetBuildDescription.clangTarget.headers empty?
                     try Set(fileSystem.getDirectoryContents(clangTargetBuildDescription.clangTarget.includeDir)
                     .map(clangTargetBuildDescription.clangTarget.includeDir.appending(component:)))
                         .filter { headerPath in
@@ -1431,26 +1430,26 @@ public final class MixedTargetBuildDescription {
                         }.map { headerPath in
                             VFSOverlay.File(
                                 name: headerPath.basename,
-                                externalContents: headerPath.nativePathString(escaped: false)
+                                externalContents: headerPath.pathString
                             )
                         }
             ),
             VFSOverlay.Directory(
-                name: buildArtifactDirectory.nativePathString(escaped: false),
+                name: buildArtifactDirectory.pathString,
                 contents: [
                     VFSOverlay.File(
                         name: "module.modulemap",
                         externalContents:
-                            buildArtifactDirectory.appending(component: "module.modulemap").nativePathString(escaped: false)
+                            buildArtifactDirectory.appending(component: "module.modulemap").pathString
                     )
                 ]
             ),
             VFSOverlay.Directory(
-                name: buildArtifactDirectory.nativePathString(escaped: false),
+                name: buildArtifactDirectory.pathString,
                 contents: [
                     VFSOverlay.File(
                         name: "\(target.c99name)-Swift.h",
-                        externalContents: buildArtifactDirectory.appending(component: "\(target.c99name)-Swift.h").nativePathString(escaped: false)
+                        externalContents: buildArtifactDirectory.appending(component: "\(target.c99name)-Swift.h").pathString
                     )
                 ]
             ),
