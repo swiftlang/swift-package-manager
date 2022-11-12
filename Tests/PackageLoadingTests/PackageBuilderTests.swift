@@ -45,8 +45,11 @@ class PackageBuilderTests: XCTestCase {
         let foo: AbsolutePath = "/Sources/foo"
 
         let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "main.swift").pathString,
-            foo.appending(components: "main.c").pathString
+            foo.appending(components: "Foo.swift").pathString,
+            foo.appending(components: "include", "Bar.h").pathString,
+            foo.appending(components: "Bar.m").pathString,
+            foo.appending(components: "include", "baz.h").pathString,
+            foo.appending(components: "baz.c").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -56,8 +59,13 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported", severity: .error)
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: foo.pathString, paths: "Foo.swift", "Bar.m", "baz.c")
+                module.check(includeDir: foo.appending(component: "include").pathString)
+                module.check(moduleMapType: .umbrellaDirectory(foo.appending(component: "include")))
+            }
         }
     }
 
@@ -3135,17 +3143,23 @@ final class PackageBuilderTester {
         }
 
         func check(includeDir: String, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as ClangTarget = target else {
-                return XCTFail("Include directory is being checked on a non clang target", file: file, line: line)
+            if case let target as ClangTarget = target {
+                XCTAssertEqual(target.includeDir.pathString, includeDir, file: file, line: line)
+            } else if case let target as MixedTarget = target {
+                XCTAssertEqual(target.clangTarget.includeDir.pathString, includeDir, file: file, line: line)
+            } else {
+                return XCTFail("Include directory is being checked on a non-clang or mixed target", file: file, line: line)
             }
-            XCTAssertEqual(target.includeDir.pathString, includeDir, file: file, line: line)
         }
 
         func check(moduleMapType: ModuleMapType, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as ClangTarget = target else {
-                return XCTFail("Module map type is being checked on a non-Clang target", file: file, line: line)
+            if case let target as ClangTarget = target {
+                XCTAssertEqual(target.moduleMapType, moduleMapType, file: file, line: line)
+            } else if case let target as MixedTarget = target {
+                XCTAssertEqual(target.clangTarget.moduleMapType, moduleMapType, file: file, line: line)
+            } else {
+                return XCTFail("Module map type is being checked on a non-clang or mixed target", file: file, line: line)
             }
-            XCTAssertEqual(target.moduleMapType, moduleMapType, file: file, line: line)
         }
 
         func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {

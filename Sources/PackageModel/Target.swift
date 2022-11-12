@@ -666,6 +666,7 @@ public final class MixedTarget: Target {
             cxxLanguageStandard: cxxLanguageStandard,
             includeDir: includeDir,
             moduleMapType: moduleMapType,
+            headers: headers,
             type: type,
             path: path,
             sources: clangSources
