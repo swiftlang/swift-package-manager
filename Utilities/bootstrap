@@ -500,6 +500,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
+            "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
         ] + cmake_args + [source_path]
 
         if args.verbose:
