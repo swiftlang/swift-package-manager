@@ -530,8 +530,8 @@ def build_llbuild(args):
     call(["touch", "codemodel-v2"], cwd=api_dir, verbose=args.verbose)
 
     flags = [
-        "-DCMAKE_C_COMPILER:=clang",
-        "-DCMAKE_CXX_COMPILER:=clang++",
+        "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
+        "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
 
