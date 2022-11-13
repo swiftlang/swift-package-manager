@@ -17,9 +17,11 @@ import TSCBasic
 import enum TSCUtility.Diagnostics
 
 public enum ManifestParseError: Swift.Error, Equatable {
+    /// The manifest is empty, or at least from SwiftPM's perspective it is.
+    case emptyManifest(path: AbsolutePath)
     /// The manifest contains invalid format.
     case invalidManifestFormat(String, diagnosticFile: AbsolutePath?)
-
+    // TODO: Test this error.
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
 }
@@ -28,10 +30,12 @@ public enum ManifestParseError: Swift.Error, Equatable {
 extension ManifestParseError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .emptyManifest(let manifestPath):
+            return "'\(manifestPath)' is empty"
         case .invalidManifestFormat(let error, _):
-            return "Invalid manifest\n\(error)"
+            return "invalid manifest\n\(error)"
         case .runtimeManifestErrors(let errors):
-            return "Invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
+            return "invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
         }
     }
 }
