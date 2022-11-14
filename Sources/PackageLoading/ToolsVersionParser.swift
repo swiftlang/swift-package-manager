@@ -21,7 +21,17 @@ public struct ToolsVersionParser {
     private init() {}
 
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
-        // FIXME: We don't need the entire file, just the first line.
+        // FIXME: We should diagnose errors not specific to the tools version specification outside of this function.
+        // In order to that, maybe we can restructure the parsing to somthing like this:
+        //     parse(_ manifestContent: String) throws -> Manifest {
+        //         ...
+        //         guard !manifestContent.isEmpty else { throw appropariteError }
+        //         let (toolsVersion, remainingContent) = parseAndConsumeToolsVersionSpecification(manifestConent)
+        //         let packageDetails = parsePackageDetails(remainingContent)
+        //         ...
+        //         return Manifest(toolsVersion, ...)
+        //     }
+
         let manifestContents: ByteString
         do {
             manifestContents = try fileSystem.readFileContents(manifestPath)
@@ -37,6 +47,10 @@ public struct ToolsVersionParser {
             throw Error.nonUTF8EncodedManifest(path: manifestPath)
         }
 
+        guard !manifestContentsDecodedWithUTF8.isEmpty else {
+            throw ManifestParseError.emptyManifest(path: manifestPath)
+        }
+
         do {
           return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
         } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
@@ -45,6 +59,7 @@ public struct ToolsVersionParser {
     }
 
     public static func parse(utf8String: String) throws -> ToolsVersion {
+        assert(!utf8String.isEmpty, "empty manifest should've been diagnosed before parsing the tools version specification")
         /// The manifest represented in its constituent parts.
         let manifestComponents = Self.split(utf8String)
         /// The Swift tools version specification represented in its constituent parts.
@@ -427,7 +442,7 @@ extension ToolsVersionParser {
         public enum ToolsVersionSpecificationMalformationLocation {
             /// The nature of malformation at the location in Swift tools version specification.
             public enum MalformationDetails {
-                /// The Swift tools version specification component is missing.
+                /// The Swift tools version specification component is missing in the non-empty manifest.
                 case isMissing
                 /// The Swift tools version specification component is misspelt.
                 case isMisspelt(_ misspelling: String)

@@ -24,8 +24,9 @@ class ToolsVersionParserTests: XCTestCase {
         body?(toolsVersion)
     }
 
+    /// Verifies correct parsing for valid version specifications, and that the parser isn't confused by contents following the version specification.
     func testValidVersions() throws {
-        let validVersions = [
+        let manifestsSnippetWithValidVersionSpecification = [
             // No spacing surrounding the label for Swift ≥ 5.4:
             "//swift-tools-version:5.4.0"              : (5, 4, 0, "5.4.0"),
             "//swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
@@ -105,8 +106,8 @@ class ToolsVersionParserTests: XCTestCase {
             "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}//\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n"   : (5, 5, 2, "5.5.2"),
         ]
 
-        for (version, result) in validVersions {
-            try self.parse(version) { toolsVersion in
+        for (snippet, result) in manifestsSnippetWithValidVersionSpecification {
+            try self.parse(snippet) { toolsVersion in
                 XCTAssertEqual(toolsVersion.major, result.0)
                 XCTAssertEqual(toolsVersion.minor, result.1)
                 XCTAssertEqual(toolsVersion.patch, result.2)
@@ -135,11 +136,37 @@ class ToolsVersionParserTests: XCTestCase {
         }
     }
 
-    /// Verifies that the correct error is thrown for each manifest missing its Swift tools version specification.
+    /// Verifies that if a manifest appears empty to SwiftPM, a distinct error is thrown.
+    func testEmptyManifest() throws {
+        let fs = InMemoryFileSystem()
+
+		let packageRoot = AbsolutePath(path: "/lorem/ipsum/dolor")
+		try fs.createDirectory(packageRoot, recursive: true)
+
+		let manifestPath = packageRoot.appending(component: "Package.swift")
+        try fs.writeFileContents(manifestPath, bytes: "")
+
+        XCTAssertThrowsError(
+            try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs),
+            "empty manifest '/lorem/ipsum/dolor/Package.swift'") { error in
+                guard let error = error as? ManifestParseError, case .emptyManifest(let errorPath) = error else {
+                    XCTFail("'ManifestParseError.emptyManifest' should've been thrown, but a different error is thrown")
+                    return
+                }
+
+                guard errorPath == manifestPath else {
+                    XCTFail("error is in '\(manifestPath)', but '\(errorPath)' is given for the error message")
+                    return
+                }
+
+                XCTAssertEqual(error.description, "'/lorem/ipsum/dolor/Package.swift' is empty")
+            }
+    }
+
+    /// Verifies that the correct error is thrown for each non-empty manifest missing its Swift tools version specification.
     func testMissingSpecifications() throws {
         /// Leading snippets of manifest files that don't have Swift tools version specifications.
         let manifestSnippetsWithoutSpecification = [
-            "",
             "\n",
             "\n\r\r\n",
             "ni",
@@ -185,7 +212,6 @@ class ToolsVersionParserTests: XCTestCase {
             "\n\n\nswift-tools-version:3.1\r",
             "\r\n\r\ncontrafibularity",
             "\n\r\t3.14",
-            "",
         ]
 
         for manifestSnippet in manifestSnippetsWithoutSpecificationCommentMarker {
