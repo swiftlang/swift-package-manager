@@ -97,7 +97,7 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2"], packagePath: packageRoot)) { error in
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
@@ -122,7 +122,7 @@ final class APIDiffTests: CommandsTestCase {
                 $0 <<< "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
             }
             XCTAssertThrowsCommandExecutionError(
-                try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2", "--breakage-allowlist-path", customAllowlistPath.pathString],
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
                             packagePath: packageRoot)
             ) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Qux"))
@@ -154,7 +154,8 @@ final class APIDiffTests: CommandsTestCase {
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: import Baz has been removed"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
@@ -188,7 +189,8 @@ final class APIDiffTests: CommandsTestCase {
             ) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: import Baz has been removed"))
                 XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
 
                 XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Baz"))
