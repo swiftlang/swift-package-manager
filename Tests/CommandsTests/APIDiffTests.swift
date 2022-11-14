@@ -412,4 +412,14 @@ final class APIDiffTests: CommandsTestCase {
             XCTAssertMatch(error.stdout, .contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
         }
     }
+
+    func testBrokenAPIDiff() throws {
+        try skipIfApiDigesterUnsupportedOrUnset()
+        try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "BrokenPkg")
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stderr, .contains("baseline for Swift2 contains no symbols, swift-api-digester output"))
+            }
+        }
+    }
 }
