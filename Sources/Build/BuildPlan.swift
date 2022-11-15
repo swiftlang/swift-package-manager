@@ -180,7 +180,7 @@ public enum TargetBuildDescription {
             case .clang(let target):
                 return try target.objects
             case .mixed(let target):
-                return try target.swiftTargetBuildDescription.objects +  target.clangTargetBuildDescription.objects
+                return try target.objects
             }
         }
     }
@@ -206,7 +206,7 @@ public enum TargetBuildDescription {
         case .clang(let target):
             return target.bundlePath
         case .mixed(let target):
-            return target.swiftTargetBuildDescription.bundlePath
+            return target.bundlePath
         }
     }
 
@@ -229,7 +229,7 @@ public enum TargetBuildDescription {
         case .clang(let target):
             return target.libraryBinaryPaths
         case .mixed(let target):
-            return target.swiftTargetBuildDescription.libraryBinaryPaths
+            return target.libraryBinaryPaths
         }
     }
 
@@ -240,7 +240,7 @@ public enum TargetBuildDescription {
         case .clang(let target):
             return target.resourceBundleInfoPlistPath
         case .mixed(let target):
-            return target.swiftTargetBuildDescription.resourceBundleInfoPlistPath
+            return target.resourceBundleInfoPlistPath
         }
     }
 }
@@ -643,7 +643,7 @@ public final class SwiftTargetBuildDescription {
     private var pluginDerivedSources: Sources
 
     /// These are the resource files derived from plugins.
-    internal var pluginDerivedResources: [Resource]
+    fileprivate var pluginDerivedResources: [Resource]
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -1334,24 +1334,47 @@ public final class SwiftTargetBuildDescription {
 public final class MixedTargetBuildDescription {
 
     /// The target described by this target.
-    public let target: ResolvedTarget
+    let target: ResolvedTarget
 
-    /// The list of all resource files in the target, including the derived ones.
-    public var resources: [Resource] {
-        target.underlyingTarget.resources + swiftTargetBuildDescription.pluginDerivedResources
-    }
+    /// The list of all resource files in the target.
+    var resources: [Resource] { target.underlyingTarget.resources }
 
     /// If this target is a test target.
-    public var isTestTarget: Bool {
+    var isTestTarget: Bool {
         clangTargetBuildDescription.isTestTarget &&
             swiftTargetBuildDescription.isTestTarget
     }
 
+    /// The objects in this target. This includes both the Swift and Clang object files.
+    var objects: [AbsolutePath] {
+        get throws {
+            try swiftTargetBuildDescription.objects +
+                clangTargetBuildDescription.objects
+        }
+    }
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? { swiftTargetBuildDescription.bundlePath }
+
+    /// Path to the resource Info.plist file, if generated.
+    var resourceBundleInfoPlistPath: AbsolutePath? {
+        swiftTargetBuildDescription.resourceBundleInfoPlistPath
+    }
+
+    /// The modulemap file for this target, if any
+    var moduleMap: AbsolutePath? { clangTargetBuildDescription.moduleMap }
+
+    /// Paths to the binary libraries the target depends on.
+    var libraryBinaryPaths: Set<AbsolutePath> {
+        swiftTargetBuildDescription.libraryBinaryPaths
+            .union(clangTargetBuildDescription.libraryBinaryPaths)
+    }
+
     /// The build description for the Clang sources.
-    public let clangTargetBuildDescription: ClangTargetBuildDescription
+    let clangTargetBuildDescription: ClangTargetBuildDescription
 
     /// The build description for the Swift sources.
-    public let swiftTargetBuildDescription: SwiftTargetBuildDescription
+    let swiftTargetBuildDescription: SwiftTargetBuildDescription
 
     private let fileSystem: FileSystem
 
@@ -2584,7 +2607,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             case let target as MixedTarget where target.type == .library:
                 // Add the modulemap of the dependency if it has one.
                 if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
-                    if let moduleMap = dependencyTargetDescription.clangTargetBuildDescription.moduleMap {
+                    if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
                 }
@@ -2642,11 +2665,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 guard case let .mixed(target)? = targetMap[dependency] else {
                     throw InternalError("unexpected mixed target \(underlyingTarget)")
                 }
-                // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
-                // modulemap but we may want to remove that requirement since it is valid for a target to exist without
-                // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning
-                // in that case from here.
-                guard let moduleMap = target.clangTargetBuildDescription.moduleMap else { break }
+                // Add the path to modulemap of the dependency. Currently we
+                // require that all Mixed targets have a modulemap as it is
+                // required for interoperability.
+                guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.additionalFlags += [
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTargetBuildDescription.clangTarget.includeDir.pathString
@@ -2693,7 +2715,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     arguments += ["-I", includeDir.pathString]
                 }
             case .mixed(let targetDescription):
-                if let includeDir = targetDescription.clangTargetBuildDescription.moduleMap?.parentDirectory {
+                if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
                 }
             }
@@ -2733,7 +2755,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     arguments += ["-I\(includeDir.pathString)"]
                 }
             case .mixed(let targetDescription):
-                if let includeDir = targetDescription.clangTargetBuildDescription.moduleMap?.parentDirectory {
+                if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I\(includeDir.pathString)"]
                 }
             }
