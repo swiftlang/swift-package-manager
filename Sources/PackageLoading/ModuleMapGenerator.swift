@@ -17,6 +17,9 @@ import PackageModel
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
 
+/// Name of the auxilliary module map file used in the Clang VFS overlay sytem.
+public let unextendedModuleMapFilename = "unextended-module.modulemap"
+
 extension AbsolutePath {
   fileprivate var moduleEscapedPathString: String {
     return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")

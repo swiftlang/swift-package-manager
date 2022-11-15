@@ -369,29 +369,11 @@ public final class ClangTargetBuildDescription {
                     // Swift part without the generated header being considered
                     // an input (because it won't exist yet and is an output of
                     // that compilation command).
-                    let unextendedModuleMapFilename = "unextended-module.modulemap"
                     let unextendedModuleMapPath = tempsPath.appending(component: unextendedModuleMapFilename)
                     try moduleMapGenerator.generateModuleMap(
                         type: generatedModuleMapType,
                         at: unextendedModuleMapPath
                     )
-
-                    // The auxilliary module map is passed to the Clang compiler
-                    // via a VFS overlay, represented by the below YAML file.
-                    let unextendedModuleMapOverlayPath = tempsPath
-                        .appending(component: "unextended-module-overlay.yaml")
-                    try VFSOverlay(roots: [
-                        VFSOverlay.Directory(
-                            name: tempsPath.pathString,
-                            contents: [
-                                VFSOverlay.File(
-                                    name: moduleMapFilename,
-                                    externalContents:
-                                        tempsPath.appending(component: unextendedModuleMapFilename).pathString
-                                )
-                            ]
-                        )
-                    ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
                 }
 
                 self.moduleMap = moduleMapPath
@@ -1434,6 +1416,23 @@ public final class MixedTargetBuildDescription {
             let allProductHeadersPath = buildArtifactDirectory
                 .appending(component: "all-product-headers.yaml")
 
+            // The auxilliary module map is passed to the Clang compiler
+            // via a VFS overlay, represented by the below YAML file.
+            let unextendedModuleMapOverlayPath = buildArtifactDirectory
+                .appending(component: "unextended-module-overlay.yaml")
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(
+                    name: buildArtifactDirectory.pathString,
+                    contents: [
+                        VFSOverlay.File(
+                            name: moduleMapFilename,
+                            externalContents:
+                                buildArtifactDirectory.appending(component: unextendedModuleMapFilename).pathString
+                        )
+                    ]
+                )
+            ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
+
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
                     name: publicHeadersPath.pathString,
@@ -1472,15 +1471,6 @@ public final class MixedTargetBuildDescription {
                 ),
             ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
 
-            clangTargetBuildDescription.additionalFlags += [
-                // For mixed targets, the Swift half of the target will generate
-                // an Objective-C compatibility header in the build folder.
-                // Compiling the Objective-C half of the target may require this
-                // generated header if the Objective-C half uses any APIs from
-                // the Swift half. For successful compilation, the directory
-                // with the generated header is added as a header search path.
-                "-I\(buildArtifactDirectory)"
-            ]
 
             swiftTargetBuildDescription.additionalFlags += [
                 // Builds Objective-C portion of module.
@@ -1495,6 +1485,16 @@ public final class MixedTargetBuildDescription {
                 "-ivfsoverlay",
                 "-Xcc",
                 "\(buildArtifactDirectory)/unextended-module-overlay.yaml",
+            ]
+
+            clangTargetBuildDescription.additionalFlags += [
+                // For mixed targets, the Swift half of the target will generate
+                // an Objective-C compatibility header in the build folder.
+                // Compiling the Objective-C half of the target may require this
+                // generated header if the Objective-C half uses any APIs from
+                // the Swift half. For successful compilation, the directory
+                // with the generated header is added as a header search path.
+                "-I\(buildArtifactDirectory)"
             ]
         }
     }
