@@ -483,7 +483,7 @@ def install_binary(args, binary, dest_dir, ignored_patterns=[]):
 # Build functions
 # -----------------------------------------------------------
 
-def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
+def build_with_cmake(args, cmake_args, source_path, build_dir):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
     if args.reconfigure or not os.path.isfile(cache_path) or not args.swiftc_path in open(cache_path).read():
@@ -514,8 +514,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
     if args.verbose:
         ninja_cmd.append("-v")
 
-
-    call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
+    call(ninja_cmd, cwd=build_dir, verbose=args.verbose)
 
 def build_llbuild(args):
     """Builds LLBuild using CMake."""
@@ -542,7 +541,7 @@ def build_llbuild(args):
         flags.append("-DSQLite3_INCLUDE_DIR=%s/usr/include" % args.sysroot)
 
     args.source_dirs["llbuild"] = get_llbuild_source_path(args)
-    build_with_cmake(args, flags, [], args.source_dirs["llbuild"], args.build_dirs["llbuild"])
+    build_with_cmake(args, flags, args.source_dirs["llbuild"], args.build_dirs["llbuild"])
 
 def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmake_flags = []):
     note("Building " + target_name)
@@ -555,11 +554,11 @@ def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmak
     else:
         cmake_flags += non_darwin_cmake_flags
 
-    build_with_cmake(args, cmake_flags, [], args.source_dirs[target_name], args.build_dirs[target_name])
+    build_with_cmake(args, cmake_flags, args.source_dirs[target_name], args.build_dirs[target_name])
 
 def add_rpath_for_cmake_build(args, rpath):
-    "Adds the given rpath to the CMake-built swift-bootstrap"
-    swift_build = os.path.join(args.bootstrap_dir, "bin/swift-bootstrap")
+    "Adds the given rpath to the CMake-built swift-build"
+    swift_build = os.path.join(args.bootstrap_dir, "bin/swift-build")
     add_rpath_cmd = ["install_name_tool", "-add_rpath", rpath, swift_build]
     note(' '.join(add_rpath_cmd))
     subprocess.call(add_rpath_cmd, stderr=subprocess.PIPE)
@@ -595,7 +594,7 @@ def build_swiftpm_with_cmake(args):
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
-    build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin"], args.project_root, args.bootstrap_dir)
+    build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)
 
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.build_dirs["llbuild"])
@@ -621,9 +620,9 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     ]
 
     if args.bootstrap:
-        note("Building SwiftPM (with a freshly built swift-bootstrap)")
+        note("Building SwiftPM (with a freshly built swift-build)")
         swiftpm_args.append("SWIFTPM_CUSTOM_LIBS_DIR=" + os.path.join(args.bootstrap_dir, "pm"))
-        swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-bootstrap"))
+        swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-build"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
         swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
