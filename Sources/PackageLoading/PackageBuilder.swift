@@ -955,7 +955,6 @@ public final class PackageBuilder {
         }
 
         // Create and return the right kind of target depending on what kind of sources we found.
-        // TODO(ncooke3): Figure out if we should restrict Swift + Cxx.
         if sources.hasSwiftSources && sources.hasClangSources {
 
             let moduleMapType = try findModuleMapType(
