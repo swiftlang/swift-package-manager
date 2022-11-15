@@ -252,8 +252,7 @@ extension LLBuildManifestBuilder {
     @discardableResult
     private func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription,
-        addTargetCmd: Bool = true,
-        mixedTarget: Bool = false
+        addTargetCmd: Bool = true
     ) throws -> [Node] {
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(target)
@@ -263,7 +262,7 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         var cmdOutputs = objectNodes + [moduleNode]
 
-        if mixedTarget {
+        if target.isWithinMixedTarget {
             cmdOutputs += [Node.file(target.objCompatibilityHeaderPath)]
         }
 
@@ -275,7 +274,7 @@ extension LLBuildManifestBuilder {
                 moduleNode: moduleNode
             )
         } else {
-            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs, mixedTarget: mixedTarget)
+            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
 
         if addTargetCmd {
@@ -600,12 +599,12 @@ extension LLBuildManifestBuilder {
     private func addCmdWithBuiltinSwiftTool(
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
-        cmdOutputs: [Node],
-        mixedTarget: Bool = false
+        cmdOutputs: [Node]
     ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: self.buildConfig)
 
+<<<<<<< HEAD
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
         
         var otherArguments = try target.compileArguments()
@@ -624,6 +623,9 @@ extension LLBuildManifestBuilder {
         }
 
         self.manifest.addSwiftCmd(
+=======
+        manifest.addSwiftCmd(
+>>>>>>> 136a03bc1 (Refactor approach)
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: mixedTarget ? cmdOutputs.dropLast() : cmdOutputs,
@@ -634,7 +636,7 @@ extension LLBuildManifestBuilder {
             importPath: target.buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: try target.objects,
-            otherArguments: otherArguments,
+            otherArguments: try target.compileArguments(),
             sources: target.sources,
             fileList: target.sourcesFileListPath,
             isLibrary: isLibrary,
@@ -819,8 +821,7 @@ extension LLBuildManifestBuilder {
     @discardableResult
     private func createClangCompileCommand(
         _ target: ClangTargetBuildDescription,
-        addTargetCmd: Bool = true,
-        mixedTarget: Bool = false
+        addTargetCmd: Bool = true
     ) throws -> [Node] {
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
@@ -841,8 +842,7 @@ extension LLBuildManifestBuilder {
         // the Swift half of the mixed target generates. This header acts as an
         // input to the Clang compile command, which therefore forces the
         // Swift half of the mixed target to be built first.
-        if mixedTarget {
-            // TODO(ncooke3): Maybe the header should be passed into this API?
+        if target.isWithinMixedTarget {
             inputs.append(Node.file(target.tempsPath.appending(component: "\(target.target.name)-Swift.h")))
         }
 
@@ -896,7 +896,7 @@ extension LLBuildManifestBuilder {
 
             var args = try target.basicArguments(isCXX: isCXX, isC: isC)
 
-            if mixedTarget {
+            if target.isWithinMixedTarget {
                 // For mixed targets, the Swift half of the target will generate
                 // an Objective-C compatibility header in the build folder.
                 // Compiling the Objective-C half of the target may require this
@@ -954,8 +954,8 @@ extension LLBuildManifestBuilder {
     private func createMixedCompileCommand(
         _ target: MixedTargetBuildDescription
     ) throws {
-        let swiftOutputs = try createSwiftCompileCommand(target.swiftTargetBuildDescription, addTargetCmd: false, mixedTarget: true)
-        let clangOutputs = try createClangCompileCommand(target.clangTargetBuildDescription, addTargetCmd: false, mixedTarget: true)
+        let swiftOutputs = try createSwiftCompileCommand(target.swiftTargetBuildDescription, addTargetCmd: false)
+        let clangOutputs = try createClangCompileCommand(target.clangTargetBuildDescription, addTargetCmd: false)
         self.addTargetCmd(target: target.target, isTestTarget: target.isTestTarget, inputs: swiftOutputs + clangOutputs)
     }
 }
