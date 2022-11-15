@@ -1014,20 +1014,6 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-objc-header", "-emit-objc-header-path", objCompatibilityHeaderPath.pathString]
         }
 
-        if isWithinMixedTarget {
-            args += [
-                "-import-underlying-module",
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                "\(tempsPath)/all-product-headers.yaml",
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                "\(tempsPath)/unextended-module-overlay.yaml"
-            ]
-        }
-
         // Add arguments needed for code coverage if it is enabled.
         if buildParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
@@ -1437,51 +1423,80 @@ public final class MixedTargetBuildDescription {
             isWithinMixedTarget: true
         )
 
-        // Compiling the mixed target will require a Clang VFS overlay file
-        // with mappings to the target's module map and public headers.
-        let publicHeadersPath = clangTargetBuildDescription.clangTarget.includeDir
-        let buildArtifactDirectory = swiftTargetBuildDescription.tempsPath
-        let generatedInteropHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
-        let allProductHeadersPath = buildArtifactDirectory
-            .appending(component: "all-product-headers.yaml")
+        // TODO(ncooke3): Can the below conditional be refined? The Clang build
+        // description only builds a module map for `.library` targets.
+        if target.type != .test {
+            // Compiling the mixed target will require a Clang VFS overlay file
+            // with mappings to the target's module map and public headers.
+            let publicHeadersPath = clangTargetBuildDescription.clangTarget.includeDir
+            let buildArtifactDirectory = swiftTargetBuildDescription.tempsPath
+            let generatedInteropHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
+            let allProductHeadersPath = buildArtifactDirectory
+                .appending(component: "all-product-headers.yaml")
 
-        try VFSOverlay(roots: [
-            VFSOverlay.Directory(
-                name: publicHeadersPath.pathString,
-                contents:
-                    // Public headers
-                    try Set(fileSystem.getDirectoryContents(publicHeadersPath)
-                        .map(publicHeadersPath.appending(component:)))
-                        .filter(publicHeadersPath.isAncestor(of:))
-                        .map { headerPath in
-                            VFSOverlay.File(
-                                name: headerPath.basename,
-                                externalContents: headerPath.pathString
-                            )
-                        }
-            ),
-            VFSOverlay.Directory(
-                name: buildArtifactDirectory.pathString,
-                contents: [
-                    // Module map
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents:
-                            buildArtifactDirectory.appending(component: moduleMapFilename).pathString
-                    )
-                ]
-            ),
-            VFSOverlay.Directory(
-                name: buildArtifactDirectory.pathString,
-                contents: [
-                    // Generated $(ModuleName)-Swift.h header
-                    VFSOverlay.File(
-                        name: generatedInteropHeaderPath.basename,
-                        externalContents: generatedInteropHeaderPath.pathString
-                    )
-                ]
-            ),
-        ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(
+                    name: publicHeadersPath.pathString,
+                    contents:
+                        // Public headers
+                        try Set(fileSystem.getDirectoryContents(publicHeadersPath)
+                                .map(publicHeadersPath.appending(component:)))
+                                .filter(publicHeadersPath.isAncestor(of:))
+                                .map { headerPath in
+                                    VFSOverlay.File(
+                                        name: headerPath.basename,
+                                        externalContents: headerPath.pathString
+                                    )
+                                }
+                ),
+                VFSOverlay.Directory(
+                    name: buildArtifactDirectory.pathString,
+                    contents: [
+                        // Module map
+                        VFSOverlay.File(
+                            name: moduleMapFilename,
+                            externalContents:
+                                buildArtifactDirectory.appending(component: moduleMapFilename).pathString
+                        )
+                    ]
+                ),
+                VFSOverlay.Directory(
+                    name: buildArtifactDirectory.pathString,
+                    contents: [
+                        // Generated $(ModuleName)-Swift.h header
+                        VFSOverlay.File(
+                            name: generatedInteropHeaderPath.basename,
+                            externalContents: generatedInteropHeaderPath.pathString
+                        )
+                    ]
+                ),
+            ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
+
+            clangTargetBuildDescription.additionalFlags += [
+                // For mixed targets, the Swift half of the target will generate
+                // an Objective-C compatibility header in the build folder.
+                // Compiling the Objective-C half of the target may require this
+                // generated header if the Objective-C half uses any APIs from
+                // the Swift half. For successful compilation, the directory
+                // with the generated header is added as a header search path.
+                "-I\(buildArtifactDirectory)"
+            ]
+
+            swiftTargetBuildDescription.additionalFlags += [
+                // Builds Objective-C portion of module.
+                "-import-underlying-module",
+                // Pass VFS overlay to the underlying Clang compiler.
+                "-Xcc",
+                "-ivfsoverlay",
+                "-Xcc",
+                allProductHeadersPath.pathString,
+                // Pass VFS overlay to the underlying Clang compiler.
+                "-Xcc",
+                "-ivfsoverlay",
+                "-Xcc",
+                "\(buildArtifactDirectory)/unextended-module-overlay.yaml",
+            ]
+        }
     }
 }
 

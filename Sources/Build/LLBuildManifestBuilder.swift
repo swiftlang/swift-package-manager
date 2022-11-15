@@ -896,16 +896,6 @@ extension LLBuildManifestBuilder {
 
             var args = try target.basicArguments(isCXX: isCXX, isC: isC)
 
-            if target.isWithinMixedTarget {
-                // For mixed targets, the Swift half of the target will generate
-                // an Objective-C compatibility header in the build folder.
-                // Compiling the Objective-C half of the target may require this
-                // generated header if the Objective-C half uses any APIs from
-                // the Swift half. For successful compilation, the directory
-                // with the generated header is added as a header search path.
-                args += ["-I\(target.tempsPath)"]
-            }
-
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
             // Add language standard flag if needed.
