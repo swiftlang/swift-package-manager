@@ -1426,6 +1426,34 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+    func testMissingPin() throws {
+        // This checks that we can drop pins that are no longer available but still keep the ones
+        // which fit the constraints.
+        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v1Range), .specific(["b"]))]])
+        try builder.serve("a", at: v1_1)
+        try builder.serve("b", at: v1)
+        try builder.serve("b", at: v1_1)
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(v1Range), .specific(["a"])),
+        ])
+
+        // Here c is pinned to v1.1, but it is no longer available, so the resolver should fall back
+        // to v1.
+        let pinsStore = try builder.create(pinsStore: [
+            "a": (.version(v1), .specific(["a"])),
+            "b": (.version("1.2.0"), .specific(["b"])),
+        ])
+
+        let resolver = builder.create(pinsMap: pinsStore.pinsMap)
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("a", .version(v1)),
+            ("b", .version(v1_1)),
+        ])
+    }
+
     func testBranchedBasedPin() throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
