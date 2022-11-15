@@ -636,7 +636,10 @@ public final class MixedTarget: Target {
     ) throws {
 
         let swiftSources = Sources(
-            paths: sources.paths.filter { $0.extension == "swift" },
+            paths: sources.paths.filter { path in
+                guard let ext = path.extension else { return false }
+                return SupportedLanguageExtension.swiftExtensions.contains(ext)
+            },
             root: sources.root
         )
 
@@ -656,7 +659,10 @@ public final class MixedTarget: Target {
         )
 
         let clangSources = Sources(
-            paths: sources.paths.filter { $0.extension != "swift" },
+            paths: sources.paths.filter { path in
+                guard let ext = path.extension else { return false }
+                return SupportedLanguageExtension.clangTargetExtensions(toolsVersion: .current).contains(ext)
+            },
             root: sources.root
         )
 

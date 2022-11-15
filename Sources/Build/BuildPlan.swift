@@ -1341,6 +1341,7 @@ public final class MixedTargetBuildDescription {
         target.underlyingTarget.resources + swiftTargetBuildDescription.pluginDerivedResources
     }
 
+    /// If this target is a test target.
     public var isTestTarget: Bool {
         clangTargetBuildDescription.isTestTarget &&
             swiftTargetBuildDescription.isTestTarget
