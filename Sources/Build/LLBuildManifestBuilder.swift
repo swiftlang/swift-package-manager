@@ -260,13 +260,18 @@ extension LLBuildManifestBuilder {
         // Outputs.
         let objectNodes = try target.objects.map(Node.file)
         let moduleNode = Node.file(target.moduleOutputPath)
-        var cmdOutputs = objectNodes + [moduleNode]
+        let cmdOutputs = objectNodes + [moduleNode]
 
+        // TODO(ncooke3): Do we need to support building mixed targets with the
+        // `--use-integrated-swiftdriver` or `--emit-swift-module-separately`
+        // flags?
         if target.isWithinMixedTarget {
-            cmdOutputs += [Node.file(target.objCompatibilityHeaderPath)]
-        }
-
-        if self.buildParameters.useIntegratedSwiftDriver {
+            try self.addCmdWithBuiltinSwiftTool(
+                target,
+                inputs: inputs,
+                cmdOutputs: cmdOutputs + [.file(target.objCompatibilityHeaderPath)]
+            )
+        } else if buildParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
                 target,
                 inputs: inputs,
@@ -604,9 +609,8 @@ extension LLBuildManifestBuilder {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: self.buildConfig)
 
-<<<<<<< HEAD
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
-        
+
         var otherArguments = try target.compileArguments()
         if mixedTarget {
             otherArguments += [
@@ -622,10 +626,7 @@ extension LLBuildManifestBuilder {
             ]
         }
 
-        self.manifest.addSwiftCmd(
-=======
         manifest.addSwiftCmd(
->>>>>>> 136a03bc1 (Refactor approach)
             name: cmdName,
             inputs: inputs + [Node.file(target.sourcesFileListPath)],
             outputs: mixedTarget ? cmdOutputs.dropLast() : cmdOutputs,
