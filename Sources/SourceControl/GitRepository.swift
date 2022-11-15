@@ -23,15 +23,18 @@ import protocol TSCUtility.DiagnosticLocationProviding
 /// Helper for shelling out to `git`
 private struct GitShellHelper {
     private let cancellator: Cancellator
+    private let environment: EnvironmentVariables
 
-    init(cancellator: Cancellator) {
+    init(cancellator: Cancellator, environment: EnvironmentVariables = Git.environment) {
         self.cancellator = cancellator
+        self.environment = environment
     }
 
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+    func run(_ args: [String], environment: EnvironmentVariables? = nil, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+        let environment = environment ?? self.environment
         let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
@@ -66,16 +69,16 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
     private let git: GitShellHelper
 
-    public init() {
+    public init(environment: EnvironmentVariables = Git.environment) {
         // helper to cancel outstanding processes
         self.cancellator = Cancellator(observabilityScope: .none)
         // helper to abstract shelling out to git
-        self.git = GitShellHelper(cancellator: cancellator)
+        self.git = GitShellHelper(cancellator: cancellator, environment: environment)
     }
 
     @discardableResult
     private func callGit(_ args: String...,
-                         environment: EnvironmentVariables = Git.environment,
+                         environment: EnvironmentVariables? = nil,
                          repository: RepositorySpecifier,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
@@ -343,10 +346,10 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
 
-    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
+    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none, environment: EnvironmentVariables = Git.environment) {
         // used in one-off operations on git repo, as such the terminator is not ver important
         let cancellator = cancellator ?? Cancellator(observabilityScope: .none)
-        let git = GitShellHelper(cancellator: cancellator)
+        let git = GitShellHelper(cancellator: cancellator, environment: environment)
         self.init(git: git, path: path, isWorkingRepo: isWorkingRepo)
     }
 
@@ -365,7 +368,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// This function waits for the invocation to finish and returns the output as a string.
     @discardableResult
     private func callGit(_ args: String...,
-                         environment: EnvironmentVariables = Git.environment,
+                         environment: EnvironmentVariables? = nil,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
         if let progress = progress {

@@ -184,7 +184,8 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(repoPath)
 
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString)
+                args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
+                environment: ["GIT_ALLOW_PROTOCOL": "file"])
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
             try repo.commit()
@@ -534,7 +535,10 @@ class GitRepositoryTests: XCTestCase {
 
     func testSubmodules() throws {
         try testWithTemporaryDirectory { path in
-            let provider = GitRepositoryProvider()
+            var testEnvironment = Git.environment
+            testEnvironment["GIT_ALLOW_PROTOCOL"] = "file"
+
+            let provider = GitRepositoryProvider(environment: testEnvironment)
 
             // Create repos: foo and bar, foo will have bar as submodule and then later
             // the submodule ref will be updated in foo.
@@ -563,7 +567,7 @@ class GitRepositoryTests: XCTestCase {
             _ = try provider.createWorkingCopy(repository: fooSpecifier, sourcePath: fooRepoPath, at: fooWorkingPath, editable: false)
 
             let fooRepo = GitRepository(path: fooRepoPath, isWorkingRepo: false)
-            let fooWorkingRepo = GitRepository(path: fooWorkingPath)
+            let fooWorkingRepo = GitRepository(path: fooWorkingPath, environment: testEnvironment)
 
             // Checkout the first tag which doesn't has submodule.
             try fooWorkingRepo.checkout(tag: "1.0.0")
@@ -571,7 +575,10 @@ class GitRepositoryTests: XCTestCase {
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
-            try systemQuietly([Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar"])
+
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
+                environment: ["GIT_ALLOW_PROTOCOL": "file"])
             try foo.stageEverything()
             try foo.commit()
             try foo.tag(name: "1.0.1")
@@ -589,7 +596,9 @@ class GitRepositoryTests: XCTestCase {
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
-            try systemQuietly([Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz"])
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
+                environment: ["GIT_ALLOW_PROTOCOL": "file"])
             try bar.stageEverything()
             try bar.commit()
 
