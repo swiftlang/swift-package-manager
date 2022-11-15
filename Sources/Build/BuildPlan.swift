@@ -830,7 +830,6 @@ public final class SwiftTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        isTestTarget: Bool? = nil,
         testTargetRole: TestTargetRole? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1395,7 +1394,6 @@ public final class MixedTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
-        isTestTarget: Bool? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
@@ -1434,7 +1432,6 @@ public final class MixedTargetBuildDescription {
             buildParameters: buildParameters,
             buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
-            isTestTarget: isTestTarget,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             isWithinMixedTarget: true
