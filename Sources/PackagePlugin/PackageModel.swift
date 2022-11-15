@@ -219,7 +219,7 @@ public enum ModuleKind {
     /// A module that contains code for an executable's main module.
     case executable
     /// A module that contains code for a snippet.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.8)
     case snippet
     /// A module that contains unit tests.
     case test
