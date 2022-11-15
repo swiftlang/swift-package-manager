@@ -238,6 +238,7 @@ public struct Destination: Encodable, Equatable {
         }
         return _sdkPlatformFrameworkPath
     }
+
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
@@ -258,34 +259,55 @@ public struct Destination: Encodable, Equatable {
 }
 
 extension Destination {
-    /// Load a Destination description from a JSON representation from disk.
+    /// Load a ``Destination`` description from a JSON representation from disk.
     public init(fromFile path: AbsolutePath, fileSystem: FileSystem) throws {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
+        
         // Check schema version.
-        guard version.version == 1 else {
+        switch version.version {
+        case 1:
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV1.self)
+            try self.init(
+                destinationTriple: destination.target.map{ try Triple($0) },
+                sdkRootDir: destination.sdk,
+                toolchainBinDir: destination.binDir,
+                extraFlags: .init(
+                    cCompilerFlags: destination.extraCCFlags,
+                    cxxCompilerFlags: destination.extraCPPFlags,
+                    swiftCompilerFlags: destination.extraSwiftCFlags
+                )
+            )
+        case 2:
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV2.self)
+            let destinationDirectory = path.parentDirectory
+
+            // TODO support multiple host and destination triple.
+            try self.init(
+                hostTriple: destination.hostTriples.map(Triple.init).first,
+                destinationTriple: destination.destinationTriples.map(Triple.init).first,
+                sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
+                toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
+                extraFlags: .init(
+                    cCompilerFlags: destination.extraCCFlags,
+                    cxxCompilerFlags: destination.extraCXXFlags,
+                    swiftCompilerFlags: destination.extraSwiftCFlags,
+                    linkerFlags: destination.extraLinkerFlags
+                )
+            )
+        default:
             throw DestinationError.invalidSchemaVersion
         }
-        let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfo.self)
-        try self.init(
-            destinationTriple: destination.target.map{ try Triple($0) },
-            sdkRootDir: destination.sdk,
-            toolchainBinDir: destination.binDir,
-            extraFlags: BuildFlags(
-                cCompilerFlags: destination.extraCCFlags,
-                // maintaining `destination.extraCPPFlags` naming inconsistency for compatibility.
-                cxxCompilerFlags: destination.extraCPPFlags,
-                swiftCompilerFlags: destination.extraSwiftCFlags
-            )
-        )
     }
 }
 
+/// Version of the schema of `destination.json` files used for cross-compilation.
 fileprivate struct VersionInfo: Codable {
     let version: Int
 }
 
-fileprivate struct DestinationInfo: Codable {
+/// Represents v1 schema of `destination.json` files used for cross-compilation.
+fileprivate struct DestinationInfoV1: Codable {
     let target: String?
     let sdk: AbsolutePath?
     let binDir: AbsolutePath
@@ -301,4 +323,16 @@ fileprivate struct DestinationInfo: Codable {
         case extraSwiftCFlags = "extra-swiftc-flags"
         case extraCPPFlags = "extra-cpp-flags"
     }
+}
+
+/// Represents v2 schema of `destination.json` files used for cross-compilation.
+fileprivate struct DestinationInfoV2: Codable {
+    let sdkRootDir: String
+    let toolchainBinDir: String
+    let hostTriples: [String]
+    let destinationTriples: [String]
+    let extraCCFlags: [String]
+    let extraSwiftCFlags: [String]
+    let extraCXXFlags: [String]
+    let extraLinkerFlags: [String]
 }
