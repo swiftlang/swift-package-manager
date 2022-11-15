@@ -352,6 +352,7 @@ let package = Package(
                 "PackageFingerprint",
                 "PackageModel",
                 "Workspace",
+                "XCBuildSupport",
             ],
             exclude: ["CMakeLists.txt"]
         ),

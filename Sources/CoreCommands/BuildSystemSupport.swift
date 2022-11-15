@@ -12,6 +12,7 @@
 
 import Build
 import SPMBuildCore
+import XCBuildSupport
 
 import class Basics.ObservabilityScope
 import struct PackageGraph.PackageGraph
@@ -36,7 +37,19 @@ extension SwiftTool {
                         outputStream: customOutputStream ?? self.outputStream,
                         logLevel: customLogLevel ?? self.logLevel,
                         fileSystem: self.fileSystem,
-                        observabilityScope: customObservabilityScope ?? self.observabilityScope) },
+                        observabilityScope: customObservabilityScope ?? self.observabilityScope)
+                },
+                .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
+                    let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+                    return try XcodeBuildSystem(
+                        buildParameters: customBuildParameters ?? self.buildParameters(),
+                        packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+                        outputStream: customOutputStream ?? self.outputStream,
+                        logLevel: customLogLevel ?? self.logLevel,
+                        fileSystem: self.fileSystem,
+                        observabilityScope: customObservabilityScope ?? self.observabilityScope
+                    )
+                },
             ])
         }
     }
