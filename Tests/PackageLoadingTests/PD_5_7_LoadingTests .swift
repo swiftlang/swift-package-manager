@@ -184,7 +184,7 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
         let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, restrictImports: (.v5_7, []))
         XCTAssertThrowsError(try loadAndValidateManifest(ByteString(encodingAsUTF8: content), customManifestLoader: manifestLoader, observabilityScope: observability.topScope)) { error in
             if case ManifestParseError.importsRestrictedModules(let modules) = error {
-                XCTAssertEqual(modules, ["BestModule"])
+                XCTAssertEqual(modules.sorted(), ["BestModule", "Foundation"])
             } else {
                 XCTFail("unexpected error: \(error)")
             }
