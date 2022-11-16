@@ -634,6 +634,12 @@ public final class MixedTarget: Target {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         pluginUsages: [PluginUsage] = []
     ) throws {
+        guard type == .library || type == .test else {
+            throw StringError(
+                "Mixed target \(name) is a \(type) target, but mixed targets" +
+                "can only be either a library or test target. "
+            )
+        }
 
         let swiftSources = Sources(
             paths: sources.paths.filter { path in
