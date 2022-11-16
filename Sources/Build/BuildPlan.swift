@@ -332,14 +332,14 @@ public final class ClangTargetBuildDescription {
         self.isWithinMixedTarget = isWithinMixedTarget
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
-        // TODO(ncooke3): Will non-library mixed language targets be supported?
-        // If so, they may need a module map if the Objc implementation uses Swift.
         if target.type == .library {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
-                // TODO(ncooke3): We need to ensure that custom modulemaps
-                // expose the generated Swift header.
+
+                if isWithinMixedTarget {
+                    throw InternalError("Custom module maps do not work with mixed language target \(target.name)")
+                }
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
@@ -377,9 +377,12 @@ public final class ClangTargetBuildDescription {
                 }
 
                 self.moduleMap = moduleMapPath
+            } else {
+                // Otherwise there is no module map, and we leave `moduleMap` unset.
+                if isWithinMixedTarget {
+                    throw InternalError("Mixed language library target \(target.name) requires a module map.")
+                }
             }
-            // Otherwise there is no module map, and we leave `moduleMap` unset.
-            // TODO(ncooke3): Mixed targets need a module map.
         }
 
         // Do nothing if we're not generating a bundle.
