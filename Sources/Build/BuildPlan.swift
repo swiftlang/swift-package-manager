@@ -336,10 +336,6 @@ public final class ClangTargetBuildDescription {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
-
-                if isWithinMixedTarget {
-                    throw InternalError("Custom module maps do not work with mixed language target \(target.name)")
-                }
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
@@ -377,12 +373,8 @@ public final class ClangTargetBuildDescription {
                 }
 
                 self.moduleMap = moduleMapPath
-            } else {
-                // Otherwise there is no module map, and we leave `moduleMap` unset.
-                if isWithinMixedTarget {
-                    throw InternalError("Mixed language library target \(target.name) requires a module map.")
-                }
             }
+            // Otherwise there is no module map, and we leave `moduleMap` unset.
         }
 
         // Do nothing if we're not generating a bundle.
