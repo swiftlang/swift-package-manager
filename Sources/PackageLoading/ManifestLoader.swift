@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
+import Dispatch
+@_implementationOnly import Foundation
 import PackageModel
 import TSCBasic
 import enum TSCUtility.Diagnostics
@@ -435,10 +436,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) throws {
+        let manifestPreamble: ByteString
+        switch toolsVersion {
+        case .vNext:
+            manifestPreamble = ByteString()
+        default:
+            manifestPreamble = ByteString("import Foundation\n")
+        }
+
         do {
             try withTemporaryDirectory { tempDir, cleanupTempDir in
                 let manifestTempFilePath = tempDir.appending(component: "manifest.swift")
-                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestContents))
+                try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestPreamble.contents + manifestContents))
 
                 let vfsOverlayTempFilePath = tempDir.appending(component: "vfs.yaml")
                 try VFSOverlay(roots: [

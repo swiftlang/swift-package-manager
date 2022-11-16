@@ -22,6 +22,22 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
         .v5_7
     }
 
+    func testImplicitFoundationImportWorks() throws {
+        let content = """
+            import PackageDescription
+
+            _ = FileManager.default
+
+            let package = Package(name: "MyPackage")
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        XCTAssertEqual(manifest.displayName, "MyPackage")
+    }
+
     func testRegistryDependencies() throws {
         let content = """
             import PackageDescription

@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.8
 -----------
 
+* [#5874]
+
+  In packages using tools version 5.8 or later, Foundation is no longer implicitly imported into package manifests. If Foundation APIs are used, the module needs to be imported explicitly.
+
 * [#5728]
 
   In packages that specify resources using tools version 5.8 or later, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.

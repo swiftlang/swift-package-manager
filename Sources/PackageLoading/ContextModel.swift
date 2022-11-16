@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@_implementationOnly import Foundation
 
 struct ContextModel {
     let packageDirectory : String

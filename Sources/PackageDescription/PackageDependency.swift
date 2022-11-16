@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@_implementationOnly import Foundation
 
 // MARK: - file system
 
