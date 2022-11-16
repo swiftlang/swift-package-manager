@@ -636,8 +636,9 @@ public final class MixedTarget: Target {
     ) throws {
         guard type == .library || type == .test else {
             throw StringError(
-                "Mixed target \(name) is a \(type) target, but mixed targets" +
-                "can only be either a library or test target. "
+                "Target with mixed sources at \(path) is a \(type) target; " +
+                "targets with mixed language sources are only supported for " +
+                "library and test targets."
             )
         }
 
