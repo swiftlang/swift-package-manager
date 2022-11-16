@@ -352,6 +352,7 @@ let package = Package(
                 "PackageFingerprint",
                 "PackageModel",
                 "Workspace",
+                "XCBuildSupport",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -383,6 +384,12 @@ let package = Package(
             /** Builds packages */
             name: "swift-build",
             dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
+            name: "swift-bootstrap",
+            dependencies: ["CoreCommands"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(

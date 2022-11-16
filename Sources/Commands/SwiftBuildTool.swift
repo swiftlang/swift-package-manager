@@ -161,20 +161,6 @@ public struct SwiftBuildTool: SwiftCommand {
 
 extension SwiftCommand {
     public func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
-        return .init(providers: try swiftTool.defaultBuildSystemProvider.providers.merging([
-            .xcode: { (explicitProduct: String?, cacheBuildManifest: Bool, customBuildParameters: BuildParameters?, customPackageGraphLoader: (() throws -> PackageGraph)?, customOutputStream: OutputByteStream?, customLogLevel: Basics.Diagnostic.Severity?, customObservabilityScope: ObservabilityScope?) throws -> BuildSystem in
-                let graphLoader = { try swiftTool.loadPackageGraph(explicitProduct: explicitProduct) }
-                return try XcodeBuildSystem(
-                    buildParameters: customBuildParameters ?? swiftTool.buildParameters(),
-                    packageGraphLoader: customPackageGraphLoader ?? graphLoader,
-                    outputStream: customOutputStream ?? swiftTool.outputStream,
-                    logLevel: customLogLevel ?? swiftTool.logLevel,
-                    fileSystem: swiftTool.fileSystem,
-                    observabilityScope: customObservabilityScope ?? swiftTool.observabilityScope
-                )
-            },
-        ], uniquingKeysWith: { a, b in
-            return b
-        }))
+        return try swiftTool.defaultBuildSystemProvider
     }
 }
