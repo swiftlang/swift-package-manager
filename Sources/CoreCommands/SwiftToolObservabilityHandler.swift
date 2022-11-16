@@ -23,6 +23,11 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler
     }
 
+    /// Initializes a new observability handler provider.
+    /// - Parameters:
+    ///   - outputStream: an instance of a stream used for output.
+    ///   - logLevel: the lowest severity of diagnostics that this handler will forward to `outputStream`. Diagnostics
+    ///   emitted below this level will be ignored.
     public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity) {
         let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
