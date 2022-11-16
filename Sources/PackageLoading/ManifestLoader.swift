@@ -425,9 +425,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         do {
-            // Ran into an issue where my cache became invalidated. Adding this
-            // for development.
-            try? cache?.remove(key: key.sha256Checksum)
             // try to get it from the cache
             if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
                 observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(packageVersion?.description ?? "unknown") from cache")
