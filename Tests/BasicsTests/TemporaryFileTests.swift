@@ -9,11 +9,7 @@
  */
 
 import XCTest
-#if swift(>=5.7)
-@preconcurrency import TSCBasic
-#else
 import TSCBasic
-#endif
 
 import Basics
 
