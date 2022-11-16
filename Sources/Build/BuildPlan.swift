@@ -1397,7 +1397,8 @@ public final class MixedTargetBuildDescription {
         }
 
         guard buildParameters.triple.isDarwin() else {
-            throw StringError("Mixed language targets are only supported on Apple platforms.")
+            throw StringError("Targets with mixed language sources are only " +
+                              "supported on Apple platforms.")
         }
 
         self.target = target
