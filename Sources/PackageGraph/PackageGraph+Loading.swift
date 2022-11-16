@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import OrderedCollections
 import PackageLoading
 import PackageModel
@@ -624,13 +625,18 @@ private func computePlatforms(
             minimumSupportedVersion = platform.oldestSupportedVersion
         }
 
-        let oldestSupportedVersion: PlatformVersion
+        var oldestSupportedVersion = minimumSupportedVersion
         if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
             // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
             oldestSupportedVersion = max(minimumSupportedVersion, iOS.version)
-        } else {
-            oldestSupportedVersion = minimumSupportedVersion
         }
+
+        #if os(macOS)
+        if platform == .macOS {
+            let version = ProcessInfo.processInfo.operatingSystemVersion
+            oldestSupportedVersion = PlatformVersion("\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)")
+        }
+        #endif
 
         let supportedPlatform = SupportedPlatform(
             platform: platform,
