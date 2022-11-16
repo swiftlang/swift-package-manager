@@ -663,6 +663,9 @@ public struct WorkspaceConfiguration {
     /// Whether to create a product for use in the Swift REPL
     public var createREPLProduct: Bool
 
+    /// Whether or not there should be import restrictions applied when loading manifests
+    public var restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -671,7 +674,8 @@ public struct WorkspaceConfiguration {
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -681,6 +685,7 @@ public struct WorkspaceConfiguration {
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
+        self.restrictImports = restrictImports
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -693,7 +698,8 @@ public struct WorkspaceConfiguration {
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
-            sourceControlToRegistryDependencyTransformation: .disabled
+            sourceControlToRegistryDependencyTransformation: .disabled,
+            restrictImports: .none
         )
     }
 

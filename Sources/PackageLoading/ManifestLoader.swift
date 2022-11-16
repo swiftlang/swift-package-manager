@@ -25,6 +25,9 @@ public enum ManifestParseError: Swift.Error, Equatable {
     // TODO: Test this error.
     /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
     case runtimeManifestErrors([String])
+
+    /// The manifest loader specified import restrictions that the given manifest violated.
+    case importsRestrictedModules([String])
 }
 
 // used to output the errors via the observability system
@@ -37,6 +40,8 @@ extension ManifestParseError: CustomStringConvertible {
             return "invalid manifest\n\(error)"
         case .runtimeManifestErrors(let errors):
             return "invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
+        case .importsRestrictedModules(let modules):
+            return "invalid manifest, imports restricted modules: \(modules.joined(separator: ", "))"
         }
     }
 }
@@ -149,6 +154,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let isManifestSandboxEnabled: Bool
     private let delegate: ManifestLoaderDelegate?
     private let extraManifestFlags: [String]
+    private let restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
     private let databaseCacheDir: AbsolutePath?
 
@@ -165,13 +171,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil,
-        extraManifestFlags: [String] = []
+        extraManifestFlags: [String] = [],
+        restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])? = .none
     ) {
         self.toolchain = toolchain
         self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
+        self.restrictImports = restrictImports
 
         self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
 
@@ -426,6 +434,53 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    private func validateImports(
+        manifestPath: AbsolutePath,
+        toolsVersion: ToolsVersion,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void) {
+            // If there are no import restrictions, we do not need to validate.
+            guard let restrictImports = restrictImports, toolsVersion >= restrictImports.startingToolsVersion else {
+                return callbackQueue.async {
+                    completion(.success(()))
+                }
+            }
+
+            // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
+            let allowedImports = ["PackageDescription", "Swift", "SwiftOnoneSupport"] + restrictImports.allowedImports
+
+            // wrap the completion to free concurrency control semaphore
+            let completion: (Result<Void, Error>) -> Void = { result in
+                self.concurrencySemaphore.signal()
+                callbackQueue.async {
+                    completion(result)
+                }
+            }
+
+            // we must not block the calling thread (for concurrency control) so nesting this in a queue
+            self.evaluationQueue.addOperation {
+                do {
+                    // park the evaluation thread based on the max concurrency allowed
+                    self.concurrencySemaphore.wait()
+
+                    let importScanner = SwiftcImportScanner(swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
+                                                            swiftCompilerFlags: self.extraManifestFlags,
+                                                            swiftCompilerPath: self.toolchain.swiftCompilerPathForManifests)
+
+                    importScanner.scanImports(manifestPath, callbackQueue: callbackQueue) { result in
+                        do {
+                            let imports = try result.get().filter { !allowedImports.contains($0) }
+                            guard imports.isEmpty else {
+                                throw ManifestParseError.importsRestrictedModules(imports)
+                            }
+                        } catch {
+                            completion(.failure(error))
+                        }
+                    }
+                }
+            }
+        }
+
     /// Compiler the manifest at the given path and retrieve the JSON.
     fileprivate func evaluateManifest(
         packageIdentity: PackageIdentity,
@@ -454,17 +509,30 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     VFSOverlay.File(name: manifestPath.pathString, externalContents: manifestTempFilePath.pathString)
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
 
-                try self.evaluateManifest(
-                    at: manifestPath,
-                    vfsOverlayPath: vfsOverlayTempFilePath,
-                    packageIdentity: packageIdentity,
-                    toolsVersion: toolsVersion,
-                    delegateQueue: delegateQueue,
-                    callbackQueue: callbackQueue
-                ) { result in
+                validateImports(manifestPath: manifestTempFilePath, toolsVersion: toolsVersion, callbackQueue: callbackQueue) { result in
                     dispatchPrecondition(condition: .onQueue(callbackQueue))
-                    cleanupTempDir(tempDir)
-                    completion(result)
+
+                    do {
+                        try result.get()
+
+                        try self.evaluateManifest(
+                            at: manifestPath,
+                            vfsOverlayPath: vfsOverlayTempFilePath,
+                            packageIdentity: packageIdentity,
+                            toolsVersion: toolsVersion,
+                            delegateQueue: delegateQueue,
+                            callbackQueue: callbackQueue
+                        ) { result in
+                            dispatchPrecondition(condition: .onQueue(callbackQueue))
+                            cleanupTempDir(tempDir)
+                            completion(result)
+                        }
+                    } catch {
+                        cleanupTempDir(tempDir)
+                        callbackQueue.async {
+                            completion(.failure(error))
+                        }
+                    }
                 }
             }
         } catch {
