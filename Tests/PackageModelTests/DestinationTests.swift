@@ -20,7 +20,7 @@ private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain
 private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
 private let sdkRootDir = RelativePath("ubuntu-jammy.sdk")
 private let hostTriple = "arm64-apple-darwin22.1.0"
-private let destinationTriple = "x86_64-unknown-linux-gnu"
+private let targetTriple = "x86_64-unknown-linux-gnu"
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
     cxxCompilerFlags: ["-fno-exceptions"],
@@ -34,7 +34,7 @@ private let destinationV1JSON =
         "version": 1,
         "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
         "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
-        "target": "\#(destinationTriple)",
+        "target": "\#(targetTriple)",
         "extra-cc-flags": \#(extraFlags.cCompilerFlags),
         "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
         "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
@@ -48,7 +48,7 @@ private let destinationV2JSON =
         "sdkRootDir": "\#(sdkRootDir)",
         "toolchainBinDir": "\#(toolchainBinDir)",
         "hostTriples": ["\#(hostTriple)"],
-        "destinationTriples": ["\#(destinationTriple)"],
+        "targetTriples": ["\#(targetTriple)"],
         "extraCCFlags": \#(extraFlags.cCompilerFlags),
         "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
         "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
@@ -74,7 +74,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(
             destinationV1,
             Destination(
-                destinationTriple: try Triple(destinationTriple),
+                targetTriple: try Triple(targetTriple),
                 sdkRootDir: sdkRootAbsolutePath,
                 toolchainBinDir: toolchainBinAbsolutePath,
                 extraFlags: flagsWithoutLinkerFlags
@@ -87,7 +87,7 @@ final class DestinationTests: XCTestCase {
             destinationV2,
             Destination(
                 hostTriple: try Triple(hostTriple),
-                destinationTriple: try Triple(destinationTriple),
+                targetTriple: try Triple(targetTriple),
                 sdkRootDir: sdkRootAbsolutePath,
                 toolchainBinDir: toolchainBinAbsolutePath,
                 extraFlags: extraFlags

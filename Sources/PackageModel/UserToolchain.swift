@@ -373,7 +373,7 @@ public final class UserToolchain: Toolchain {
         self.archs = destination.archs
 
         // Use the triple from destination or compute the host triple using swiftc.
-        var triple = destination.destinationTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         self.librarianPath = try UserToolchain.determineLibrarian(triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
 
