@@ -1500,7 +1500,6 @@ public final class MixedTargetBuildDescription {
                 ),
             ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
 
-
             swiftTargetBuildDescription.additionalFlags += [
                 // Builds Objective-C portion of module.
                 "-import-underlying-module",
