@@ -150,7 +150,7 @@ public final class SwiftTool {
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath?
 
-    /// Path to the cross-compilation SDK directory.
+    /// Path to the cross-compilation destinations directory.
     public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
@@ -299,7 +299,9 @@ public final class SwiftTool {
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
         self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
+            explicitDirectory: self.options.locations.crossCompilationDestinationsDirectory
+        )
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -769,21 +771,6 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
     } else {
         // further validation is done in workspace
         return try fileSystem.swiftPMCacheDirectory
-    }
-}
-
-private func getSharedCrossCompilationDestinationsDirectory(
-    options: GlobalOptions,
-    fileSystem: FileSystem
-) throws -> AbsolutePath? {
-    if let explicitDestinationsDirectory = options.locations.crossCompilationDestinationsDirectory {
-        // Create the explicit destinations path if necessary
-        if !fileSystem.exists(explicitDestinationsDirectory) {
-            try fileSystem.createDirectory(explicitDestinationsDirectory, recursive: true)
-        }
-        return explicitDestinationsDirectory
-    } else {
-        return try fileSystem.swiftPMCrossCompilationDestinationsDirectory
     }
 }
 

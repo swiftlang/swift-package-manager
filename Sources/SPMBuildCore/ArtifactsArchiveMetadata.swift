@@ -15,6 +15,7 @@ import PackageModel
 import TSCBasic
 
 import struct TSCUtility.Triple
+import struct TSCUtility.Version
 
 public struct ArtifactsArchiveMetadata: Equatable {
     public let schemaVersion: String
@@ -26,9 +27,9 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Artifact: Equatable {
-        let type: ArtifactType
+        public let type: ArtifactType
         let version: String
-        let variants: [Variant]
+        public let variants: [Variant]
 
         public init(type: ArtifactsArchiveMetadata.ArtifactType, version: String, variants: [Variant]) {
             self.type = type
@@ -42,10 +43,11 @@ public struct ArtifactsArchiveMetadata: Equatable {
     // This can also support resource-only artifacts as well. For example, 3d models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
+        case crossCompilationDestination
     }
 
     public struct Variant: Equatable {
-        let path: String
+        public let path: String
         let supportedTriples: [Triple]
 
         public init(path: String, supportedTriples: [Triple]) {
@@ -65,7 +67,17 @@ extension ArtifactsArchiveMetadata {
         do {
             let data: Data = try fileSystem.readFileContents(path)
             let decoder = JSONDecoder.makeWithDefaults()
-            return try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
+            let decodedMetadata = try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
+            let version = try Version(
+                versionString: decodedMetadata.schemaVersion,
+                usesLenientParsing: true
+            )
+
+            guard version <= Version(1, 1, 0) else {
+                throw StringError("invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)")
+            }
+
+            return decodedMetadata
         } catch {
             throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
         }
