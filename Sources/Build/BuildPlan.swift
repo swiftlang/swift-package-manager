@@ -386,7 +386,7 @@ public final class ClangTargetBuildDescription {
 
         // Enable Clang module flags, if appropriate.
         let enableModules: Bool
-        if toolsVersion < .vNext {
+        if toolsVersion < .v5_8 {
           // For version < 5.8, we enable them except in these cases:
           // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
           // 2. on Windows when compiling for any language, because of issues with the Windows SDK
@@ -822,7 +822,7 @@ public final class SwiftTargetBuildDescription {
 
         let stream = BufferedOutputByteStream()
         stream <<< """
-        \(toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+        \(toolsVersion < .v5_8 ? "import" : "@_implementationOnly import") class Foundation.Bundle
 
         extension Foundation.Bundle {
             static let module: Bundle = {

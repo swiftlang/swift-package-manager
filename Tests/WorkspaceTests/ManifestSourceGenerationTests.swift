@@ -503,6 +503,6 @@ class ManifestSourceGenerationTests: XCTestCase {
         let isContained = trimmedParts.allSatisfy(trimmedContents.contains(_:))
         XCTAssertTrue(isContained)
 
-        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .vNext)
+        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_8)
     }
 }

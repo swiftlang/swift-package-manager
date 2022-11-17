@@ -63,7 +63,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init(path: "/thisPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
@@ -426,7 +426,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init(path: "/fooPkg"),
-                    toolsVersion: .vNext,
+                    toolsVersion: .v5_8,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
                     ],
