@@ -85,7 +85,7 @@ public struct LocationOptions: ParsableArguments {
     public var customCompileDestination: AbsolutePath?
 
     @Option(name: .customLong("experimental-destinations-path"), help: .hidden, completion: .directory)
-    var destinationsDirectory: AbsolutePath?
+    var crossCompilationDestinationsDirectory: AbsolutePath?
 }
 
 public struct CachingOptions: ParsableArguments {
