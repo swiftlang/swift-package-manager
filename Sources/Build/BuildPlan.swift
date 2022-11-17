@@ -638,7 +638,7 @@ public final class SwiftTargetBuildDescription {
     private var pluginDerivedSources: Sources
 
     /// These are the resource files derived from plugins.
-    fileprivate var pluginDerivedResources: [Resource]
+    private var pluginDerivedResources: [Resource]
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
