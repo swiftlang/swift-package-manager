@@ -122,7 +122,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init(path: "/thisPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
@@ -188,7 +188,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init(path: "/fooPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -227,7 +227,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init(path: "/thisPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/xPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/yPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -298,7 +298,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init(path: "/fooPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -360,7 +360,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     name: "fooPkg",
                     path: .init(path: "/fooPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -503,7 +503,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "thisPkg",
                     path: .init(path: "/thisPkg"),
-                    toolsVersion: .v5_8,
+                    toolsVersion: .vNext,
                     dependencies: [
                         .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                         .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
