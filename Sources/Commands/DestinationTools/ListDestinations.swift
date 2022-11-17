@@ -65,42 +65,11 @@ extension DestinationCommand {
                         rootPath: bundlePath
                     )
 
-                    for (artifactID, artifactMetadata) in parsedManifest.artifacts
-                    where artifactMetadata.type == .crossCompilationDestination {
-                        for variant in artifactMetadata.variants {
-                            let destinationJSONPath = try bundlePath
-                                .appending(RelativePath(validating: variant.path))
-                                .appending(component: "destination.json")
-
-                            guard fileSystem.exists(destinationJSONPath) else {
-                                observabilityScope.emit(
-                                    .warning(
-                                        """
-                                        Destination metadata file not found at \(
-                                            destinationJSONPath
-                                        ) for a variant of artifact \(artifactID)
-                                        """
-                                    )
-                                )
-
-                                continue
-                            }
-
-                            do {
-                                _ = try Destination(
-                                    fromFile: destinationJSONPath, fileSystem: fileSystem
-                                )
-                            } catch {
-                                observabilityScope.emit(
-                                    .warning(
-                                        "Couldn't parse destination metadata at \(destinationJSONPath): \(error)"
-                                    )
-                                )
-                            }
-                        }
-
-                        print(artifactID)
-                    }
+                    try parsedManifest.printValidatedArtifactIDs(
+                        bundlePath: bundlePath,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
                 } catch {
                     observabilityScope.emit(
                         .warning(
@@ -109,6 +78,51 @@ extension DestinationCommand {
                     )
                 }
             }
+        }
+    }
+}
+
+private extension ArtifactsArchiveMetadata {
+    func printValidatedArtifactIDs(
+        bundlePath: AbsolutePath,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        for (artifactID, artifactMetadata) in artifacts
+        where artifactMetadata.type == .crossCompilationDestination {
+            for variant in artifactMetadata.variants {
+                let destinationJSONPath = try bundlePath
+                    .appending(RelativePath(validating: variant.path))
+                    .appending(component: "destination.json")
+
+                guard fileSystem.exists(destinationJSONPath) else {
+                    observabilityScope.emit(
+                        .warning(
+                            """
+                            Destination metadata file not found at \(
+                                destinationJSONPath
+                            ) for a variant of artifact \(artifactID)
+                            """
+                        )
+                    )
+
+                    continue
+                }
+
+                do {
+                    _ = try Destination(
+                        fromFile: destinationJSONPath, fileSystem: fileSystem
+                    )
+                } catch {
+                    observabilityScope.emit(
+                        .warning(
+                            "Couldn't parse destination metadata at \(destinationJSONPath): \(error)"
+                        )
+                    )
+                }
+            }
+
+            print(artifactID)
         }
     }
 }
