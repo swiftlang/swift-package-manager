@@ -52,6 +52,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         _ bytes: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind? = nil,
+        customManifestLoader: ManifestLoader? = nil,
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
@@ -73,7 +74,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let fileSystem = InMemoryFileSystem()
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, bytes: bytes)
-        let manifest = try manifestLoader.load(
+        let manifest = try (customManifestLoader ?? manifestLoader).load(
             manifestPath: manifestPath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,

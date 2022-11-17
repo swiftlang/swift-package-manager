@@ -22,6 +22,22 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
         .v5_7
     }
 
+    func testImplicitFoundationImportWorks() throws {
+        let content = """
+            import PackageDescription
+
+            _ = FileManager.default
+
+            let package = Package(name: "MyPackage")
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        XCTAssertEqual(manifest.displayName, "MyPackage")
+    }
+
     func testRegistryDependencies() throws {
         let content = """
             import PackageDescription
@@ -155,5 +171,23 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             PlatformDescription(name: "maccatalyst", version: "16.0"),
             PlatformDescription(name: "driverkit", version: "22.0"),
         ])
+    }
+
+    func testImportRestrictions() throws {
+        let content =  """
+            import PackageDescription
+            import BestModule
+            let package = Package(name: "Foo")
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, restrictImports: (.v5_7, []))
+        XCTAssertThrowsError(try loadAndValidateManifest(ByteString(encodingAsUTF8: content), customManifestLoader: manifestLoader, observabilityScope: observability.topScope)) { error in
+            if case ManifestParseError.importsRestrictedModules(let modules) = error {
+                XCTAssertEqual(modules.sorted(), ["BestModule", "Foundation"])
+            } else {
+                XCTFail("unexpected error: \(error)")
+            }
+        }
     }
 }

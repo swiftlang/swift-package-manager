@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
+@_implementationOnly import Foundation
 import TSCBasic
 
 /// Information on an individual `pkg-config` supported package.

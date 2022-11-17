@@ -437,7 +437,8 @@ public class Workspace {
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
             toolchain: customHostToolchain,
-            cacheDir: location.sharedManifestsCacheDirectory
+            cacheDir: location.sharedManifestsCacheDirectory,
+            restrictImports: configuration?.restrictImports
         )
         try self.init(
             fileSystem: fileSystem,
@@ -541,7 +542,8 @@ public class Workspace {
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
-            cacheDir: location.sharedManifestsCacheDirectory
+            cacheDir: location.sharedManifestsCacheDirectory,
+            restrictImports: configuration?.restrictImports
         )
 
         let configuration = configuration ?? .default

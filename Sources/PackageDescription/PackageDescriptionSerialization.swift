@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@_implementationOnly import Foundation
 #if canImport(Glibc)
 @_implementationOnly import Glibc
 #elseif canImport(Darwin)
