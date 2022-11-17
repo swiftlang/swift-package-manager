@@ -61,7 +61,7 @@ class PackageModelTests: XCTestCase {
         let toolchainPath = AbsolutePath(path: "/some/path/to/a/toolchain.xctoolchain")
 
         let destination = Destination(
-            destinationTriple: triple,
+            targetTriple: triple,
             sdkRootDir: sdkDir,
             toolchainBinDir: toolchainPath.appending(components: "usr", "bin")
         )

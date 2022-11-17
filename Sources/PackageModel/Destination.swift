@@ -38,7 +38,7 @@ extension DestinationError: CustomStringConvertible {
 /// The compilation destination, has information about everything that's required for a certain destination.
 public struct Destination: Encodable, Equatable {
 
-    /// The clang/LLVM triple describing the destination's target OS and architecture.
+    /// The clang/LLVM triple describing the target OS and architecture.
     ///
     /// The triple has the general format <arch><sub>-<vendor>-<sys>-<abi>, where:
     ///  - arch = x86_64, i386, arm, thumb, mips, etc.
@@ -48,7 +48,7 @@ public struct Destination: Encodable, Equatable {
     ///  - abi = eabi, gnu, android, macho, elf, etc.
     ///
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
-    public var destinationTriple: Triple?
+    public var targetTriple: Triple?
 
     /// The clang/LLVM triple describing the host platform that supports this destination.
     public let hostTriple: Triple?
@@ -106,7 +106,7 @@ public struct Destination: Encodable, Equatable {
     public let extraFlags: BuildFlags
 
     /// Creates a compilation destination with the specified properties.
-    @available(*, deprecated, message: "use `init(destinationTriple:sdkRootDir:toolchainBinDir:extraFlags)` instead")
+    @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolchainBinDir:extraFlags)` instead")
     public init(
         target: Triple? = nil,
         sdk: AbsolutePath?,
@@ -116,7 +116,7 @@ public struct Destination: Encodable, Equatable {
         extraCPPFlags: [String]
     ) {
         self.hostTriple = nil
-        self.destinationTriple = target
+        self.targetTriple = target
         self.sdkRootDir = sdk
         self.toolchainBinDir = binDir
         self.extraFlags = BuildFlags(
@@ -129,13 +129,13 @@ public struct Destination: Encodable, Equatable {
     /// Creates a compilation destination with the specified properties.
     public init(
         hostTriple: Triple? = nil,
-        destinationTriple: Triple? = nil,
+        targetTriple: Triple? = nil,
         sdkRootDir: AbsolutePath?,
         toolchainBinDir: AbsolutePath,
         extraFlags: BuildFlags = BuildFlags()
     ) {
         self.hostTriple = hostTriple
-        self.destinationTriple = destinationTriple
+        self.targetTriple = targetTriple
         self.sdkRootDir = sdkRootDir
         self.toolchainBinDir = toolchainBinDir
         self.extraFlags = extraFlags
@@ -249,7 +249,7 @@ public struct Destination: Encodable, Equatable {
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")
             return Destination(
-                destinationTriple: triple,
+                targetTriple: triple,
                 sdkRootDir: wasiSysroot,
                 toolchainBinDir: host.toolchainBinDir
             )
@@ -269,7 +269,7 @@ extension Destination {
         case 1:
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV1.self)
             try self.init(
-                destinationTriple: destination.target.map{ try Triple($0) },
+                targetTriple: destination.target.map{ try Triple($0) },
                 sdkRootDir: destination.sdk,
                 toolchainBinDir: destination.binDir,
                 extraFlags: .init(
@@ -285,7 +285,7 @@ extension Destination {
             // TODO support multiple host and destination triple.
             try self.init(
                 hostTriple: destination.hostTriples.map(Triple.init).first,
-                destinationTriple: destination.destinationTriples.map(Triple.init).first,
+                targetTriple: destination.targetTriples.map(Triple.init).first,
                 sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
                 toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
                 extraFlags: .init(
@@ -330,7 +330,7 @@ fileprivate struct DestinationInfoV2: Codable {
     let sdkRootDir: String
     let toolchainBinDir: String
     let hostTriples: [String]
-    let destinationTriples: [String]
+    let targetTriples: [String]
     let extraCCFlags: [String]
     let extraSwiftCFlags: [String]
     let extraCXXFlags: [String]

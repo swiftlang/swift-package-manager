@@ -162,7 +162,7 @@ public final class SwiftTool {
     public let sharedConfigurationDirectory: AbsolutePath?
 
     /// Path to the cross-compilation SDK directory.
-    let sharedCCSDKDirectory: AbsolutePath?
+    public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
@@ -310,7 +310,7 @@ public final class SwiftTool {
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
         self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCCSDKDirectory = try getSharedCCSDKsDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: self.options, fileSystem: fileSystem)
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -645,7 +645,7 @@ public final class SwiftTool {
         }
         // Apply any manual overrides.
         if let triple = self.options.build.customCompileTriple {
-            destination.destinationTriple = triple
+            destination.targetTriple = triple
         }
         if let binDir = self.options.build.customCompileToolchain {
             destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
@@ -783,18 +783,18 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
     }
 }
 
-private func getSharedCCSDKsDirectory(
+private func getSharedCrossCompilationDestinationsDirectory(
     options: GlobalOptions,
     fileSystem: FileSystem
 ) throws -> AbsolutePath? {
-    if let explicitCCSDKsDirectory = options.locations.ccSDKsDirectory {
-        // Create the explicit SDKs path if necessary
-        if !fileSystem.exists(explicitCCSDKsDirectory) {
-            try fileSystem.createDirectory(explicitCCSDKsDirectory, recursive: true)
+    if let explicitDestinationsDirectory = options.locations.crossCompilationDestinationsDirectory {
+        // Create the explicit destinations path if necessary
+        if !fileSystem.exists(explicitDestinationsDirectory) {
+            try fileSystem.createDirectory(explicitDestinationsDirectory, recursive: true)
         }
-        return explicitCCSDKsDirectory
+        return explicitDestinationsDirectory
     } else {
-        return try fileSystem.swiftPMCrossCompilationSDKsDirectory
+        return try fileSystem.swiftPMCrossCompilationDestinationsDirectory
     }
 }
 
