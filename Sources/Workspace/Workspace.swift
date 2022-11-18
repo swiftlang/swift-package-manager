@@ -45,6 +45,9 @@ public enum WorkspaceResolveReason: Equatable {
 
     /// An unknown reason.
     case other(String)
+
+    /// Errors previously reported, e.g. during cloning. This will skip emitting additional unhelpful diagnostics.
+    case errorsPreviouslyReported
 }
 
 public struct PackageFetchDetails {
@@ -2302,7 +2305,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        if case let .required(reason) = precomputationResult {
+        if case let .required(reason) = precomputationResult, reason != .errorsPreviouslyReported {
             let reasonString = Self.format(workspaceResolveReason: reason)
 
             if !fileSystem.exists(self.location.resolvedVersionsFile) {
@@ -2606,6 +2609,10 @@ extension Workspace {
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
         let result = resolver.solve(constraints: computedConstraints)
+
+        guard !observabilityScope.errorsReported else {
+            return .required(reason: .errorsPreviouslyReported)
+        }
 
         switch result {
         case .success:
@@ -3368,6 +3375,10 @@ fileprivate extension PackageDependency {
 
 extension Workspace {
     public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {
+        guard reason != .errorsPreviouslyReported else {
+            return ""
+        }
+
         var result = "Running resolver because "
 
         switch reason {
@@ -3415,7 +3426,7 @@ extension Workspace {
 
             result.append(" requirement.")
         default:
-            result.append(" requirements have changed.")
+            result.append("requirements have changed.")
         }
 
         return result
