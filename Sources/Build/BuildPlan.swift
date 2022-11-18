@@ -1512,15 +1512,13 @@ public final class MixedTargetBuildDescription {
                 "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString
             )
 
-            clangTargetBuildDescription.additionalFlags += [
-                // For mixed targets, the Swift half of the target will generate
-                // an Objective-C compatibility header in the build folder.
-                // Compiling the Objective-C half of the target may require this
-                // generated header if the Objective-C half uses any APIs from
-                // the Swift half. For successful compilation, the directory
-                // with the generated header is added as a header search path.
-                "-I\(buildArtifactDirectory)"
-            ]
+            // For mixed targets, the Swift half of the target will generate
+            // an Objective-C compatibility header in the build folder.
+            // Compiling the Objective-C half of the target may require this
+            // generated header if the Objective-C half uses any APIs from
+            // the Swift half. For successful compilation, the directory
+            // with the generated header is added as a header search path.
+            clangTargetBuildDescription.additionalFlags.append("-I\(buildArtifactDirectory)")
         }
     }
 }
