@@ -4107,7 +4107,7 @@ final class WorkspaceTests: XCTestCase {
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: "an out-of-date resolved file was detected at \(sandbox.appending(components: "Package.resolved")), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. Running resolver because  requirements have changed.", severity: .error)
+                result.check(diagnostic: "an out-of-date resolved file was detected at \(sandbox.appending(components: "Package.resolved")), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. Running resolver because requirements have changed.", severity: .error)
             }
         }
         workspace.checkManagedDependencies { result in
