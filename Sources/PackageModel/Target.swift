@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
+import Dispatch
 
 import protocol TSCUtility.PolymorphicCodableProtocol
 import Basics
