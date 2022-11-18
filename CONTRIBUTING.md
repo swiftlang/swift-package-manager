@@ -183,21 +183,14 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-driver
    ```
 
-6. [swift-crypto] and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
-
-   For example, if the latest tag is 1.1.6:
-   ```sh
-   $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
-   ```
-
-7. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+6. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
-8. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
     For example, if the latest tag is 1.0.1:
     ```sh
@@ -205,7 +198,6 @@ Clone the following repositories beside the SwiftPM directory:
 
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
-[swift-crypto]: https://github.com/apple/swift-crypto
 [swift-driver]: https://github.com/apple/swift-driver
 [swift-llbuild]: https://github.com/apple/swift-llbuild
 [swift-system]: https://github.com/apple/swift-system

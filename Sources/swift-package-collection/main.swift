@@ -11,5 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Commands
+import PackageCollectionsTool
 
 SwiftPackageCollectionsTool.main()

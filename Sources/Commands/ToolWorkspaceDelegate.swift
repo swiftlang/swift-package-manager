@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Build
 import CoreCommands
 import Dispatch
 import class Foundation.NSLock
@@ -181,14 +180,14 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     func didDownloadAllBinaryArtifacts() {}
 }
 
-extension SwiftCommand {
-    public var workspaceDelegateProvider: WorkspaceDelegateProvider {
+public extension SwiftCommand {
+    var workspaceDelegateProvider: WorkspaceDelegateProvider {
         return {
             ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)
         }
     }
 
-    public var workspaceLoaderProvider: WorkspaceLoaderProvider {
+    var workspaceLoaderProvider: WorkspaceLoaderProvider {
         return {
             XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
         }

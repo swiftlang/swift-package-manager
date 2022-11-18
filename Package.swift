@@ -76,7 +76,6 @@ packageCollectionsSigningTargets.append(
         dependencies: [
             .product(name: "Crypto", package: "swift-crypto"), // for CCryptoBoringSSL
         ],
-        exclude: ["CMakeLists.txt"],
         cSettings: [
             .define("WIN32_LEAN_AND_MEAN"),
         ]
@@ -90,7 +89,6 @@ packageCollectionsSigningTargets.append(
          /** Package collections signing */
          name: "PackageCollectionsSigning",
          dependencies: packageCollectionsSigningDeps,
-         exclude: ["CMakeLists.txt"],
          swiftSettings: swiftSettings
     )
 )
@@ -260,7 +258,6 @@ let package = Package(
             name: "PackageCollectionsModel",
             dependencies: [],
             exclude: [
-                "CMakeLists.txt",
                 "Formats/v1.md"
             ]
         ),
@@ -274,8 +271,7 @@ let package = Package(
                 "PackageCollectionsSigning",
                 "PackageModel",
                 "SourceControl",
-            ],
-            exclude: ["CMakeLists.txt"]
+            ]
         ),
 
         .target(
@@ -365,8 +361,6 @@ let package = Package(
                 "Basics",
                 "Build",
                 "CoreCommands",
-                "PackageCollections",
-                "PackageFingerprint",
                 "PackageGraph",
                 "SourceControl",
                 "Workspace",
@@ -374,6 +368,38 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
+
+        .target(
+            /** Interacts with package collections */
+            name: "PackageCollectionsTool",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Commands",
+                "CoreCommands",
+                "PackageCollections",
+                "PackageModel",
+            ]
+        ),
+
+        .target(
+            /** Interact with package registry */
+            name: "PackageRegistryTool",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Commands",
+                "CoreCommands",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "PackageRegistry",
+                "SourceControl",
+                "SPMBuildCore",
+                "Workspace",
+            ]
+        ),
+
         .executableTarget(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -407,20 +433,22 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
+            dependencies: ["Commands", "PackageCollectionsTool"]
+        ),
+        .executableTarget(
+            /** Multi-tool entry point for SwiftPM. */
+            name: "swift-package-manager",
+            dependencies: ["Commands", "Basics", "PackageCollectionsTool", "PackageRegistryTool"]
         ),
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands"],
-            exclude: ["CMakeLists.txt"]
+            dependencies: ["Commands", "PackageRegistryTool"]
         ),
         .executableTarget(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: [],
-            exclude: ["CMakeLists.txt"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
             ]),
