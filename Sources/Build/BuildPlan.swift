@@ -1160,6 +1160,13 @@ public final class SwiftTargetBuildDescription {
         return result
     }
 
+    func appendClangFlags(_ flags: String...) {
+        flags.forEach { flag in
+            additionalFlags.append("-Xcc")
+            additionalFlags.append(flag)
+        }
+    }
+
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
         return buildParameters.triple.isDarwin() && target.type == .library
@@ -1493,20 +1500,17 @@ public final class MixedTargetBuildDescription {
                 ),
             ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
 
-            swiftTargetBuildDescription.additionalFlags += [
+            swiftTargetBuildDescription.additionalFlags.append(
                 // Builds Objective-C portion of module.
-                "-import-underlying-module",
+                "-import-underlying-module"
+            )
+
+            swiftTargetBuildDescription.appendClangFlags(
                 // Pass VFS overlay to the underlying Clang compiler.
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                allProductHeadersPath.pathString,
+                "-ivfsoverlay", allProductHeadersPath.pathString,
                 // Pass VFS overlay to the underlying Clang compiler.
-                "-Xcc",
-                "-ivfsoverlay",
-                "-Xcc",
-                unextendedModuleMapOverlayPath.pathString
-            ]
+                "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString
+            )
 
             clangTargetBuildDescription.additionalFlags += [
                 // For mixed targets, the Swift half of the target will generate
@@ -2643,10 +2647,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 // one. However, in that case it will not be importable in Swift targets. We may want to emit a warning
                 // in that case from here.
                 guard let moduleMap = target.moduleMap else { break }
-                swiftTarget.additionalFlags += [
-                    "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
-                ]
+                swiftTarget.appendClangFlags(
+                    "-fmodule-map-file=\(moduleMap.pathString)",
+                    "-I",
+                    target.clangTarget.includeDir.pathString
+                )
             case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
@@ -2668,10 +2673,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 // require that all Mixed targets have a modulemap as it is
                 // required for interoperability.
                 guard let moduleMap = target.moduleMap else { break }
-                swiftTarget.additionalFlags += [
-                    "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-Xcc", "-I", "-Xcc", target.clangTargetBuildDescription.clangTarget.includeDir.pathString
-                ]
+                swiftTarget.appendClangFlags(
+                    "-fmodule-map-file=\(moduleMap.pathString)",
+                    "-I",
+                    target.clangTargetBuildDescription.clangTarget.includeDir.pathString
+                )
             default:
                 break
             }
