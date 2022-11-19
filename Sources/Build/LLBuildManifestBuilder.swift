@@ -822,7 +822,8 @@ extension LLBuildManifestBuilder {
     @discardableResult
     private func createClangCompileCommand(
         _ target: ClangTargetBuildDescription,
-        addTargetCmd: Bool = true
+        addTargetCmd: Bool = true,
+        createResourceBundle: Bool = true
     ) throws -> [Node] {
         let standards = [
             (target.clangTarget.cxxLanguageStandard, SupportedLanguageExtension.cppExtensions),
@@ -831,12 +832,14 @@ extension LLBuildManifestBuilder {
 
         var inputs: [Node] = []
 
-        // Add resources node as the input to the target. This isn't great because we
-        // don't need to block building of a module until its resources are assembled but
-        // we don't currently have a good way to express that resources should be built
-        // whenever a module is being built.
-        if let resourcesNode = try createResourcesBundle(for: .clang(target)) {
-            inputs.append(resourcesNode)
+        if createResourceBundle {
+            // Add resources node as the input to the target. This isn't great because we
+            // don't need to block building of a module until its resources are assembled but
+            // we don't currently have a good way to express that resources should be built
+            // whenever a module is being built.
+            if let resourcesNode = createResourcesBundle(for: .clang(target)) {
+                inputs.append(resourcesNode)
+            }
         }
 
         // If it's a mixed target, add the Objective-C compatibility header that
@@ -946,7 +949,12 @@ extension LLBuildManifestBuilder {
         _ target: MixedTargetBuildDescription
     ) throws {
         let swiftOutputs = try createSwiftCompileCommand(target.swiftTargetBuildDescription, addTargetCmd: false)
-        let clangOutputs = try createClangCompileCommand(target.clangTargetBuildDescription, addTargetCmd: false)
+        let clangOutputs = try createClangCompileCommand(
+            target.clangTargetBuildDescription,
+            addTargetCmd: false,
+            // The Swift compile command already created the resource bundle.
+            createResourceBundle: false
+        )
         self.addTargetCmd(target: target.target, isTestTarget: target.isTestTarget, inputs: swiftOutputs + clangOutputs)
     }
 }
