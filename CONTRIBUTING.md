@@ -307,7 +307,7 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 4. Make your code changes
 5. Try to keep your changes (when possible) below 200 lines of code.
 6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR.
-7. Commit (include the Radar link or Github issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
 8. Push the commit / branch to your fork
 9. Make a PR from your fork / branch to `apple: main`
 10. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
