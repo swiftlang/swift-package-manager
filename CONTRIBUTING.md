@@ -10,7 +10,7 @@ For more information about making contributions to the Swift project in general 
 
 ## Reporting issues
 
-Issues are tracked using [SwiftPM Github Bug Tracker](https://github.com/apple/swift-package-manager/issues).
+Issues are tracked using [SwiftPM GitHub Issue Tracker](https://github.com/apple/swift-package-manager/issues).
 
 Fill the following fields:
 
