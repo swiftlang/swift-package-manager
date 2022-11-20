@@ -15,7 +15,7 @@ Issues are tracked using [SwiftPM GitHub Issue Tracker](https://github.com/apple
 Fill the following fields:
 
 * `Title`: A one line summary of the problem you're facing.
-* `Description`: The complete description of the problem. Be specific
+* `Description`: The complete description of the problem. Be specific.
 * `Expected behavior`: How you expect SwiftPM to behave. 
 * `Actual behavior` : What actually happens.
 * `Steps to reproduce`: Be specific, provide steps to reproduce the bug.
