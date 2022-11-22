@@ -60,12 +60,7 @@ extension DestinationCommand {
             // Enumerate available bundles and parse manifests for each of them, then validate supplied destinations.
             for bundlePath in destinationBundles {
                 do {
-                    let parsedManifest = try ArtifactsArchiveMetadata.parse(
-                        fileSystem: fileSystem,
-                        rootPath: bundlePath
-                    )
-
-                    let destinationsBundle = try parsedManifest.validateDestinationsBundle(
+                    let destinationsBundle = try DestinationsBundle.parseAndValidate(
                         bundlePath: bundlePath,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope
