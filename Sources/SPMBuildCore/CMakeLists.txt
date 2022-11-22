@@ -14,6 +14,7 @@ add_library(SPMBuildCore
   BuildSystemCommand.swift
   BuildSystemDelegate.swift
   BuiltTestProduct.swift
+  CrossCompilationDestinations.swift
   PluginContextSerializer.swift
   PluginInvocation.swift
   PluginMessages.swift

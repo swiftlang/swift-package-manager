@@ -27,9 +27,9 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Artifact: Equatable {
-        public let type: ArtifactType
+        let type: ArtifactType
         let version: String
-        public let variants: [Variant]
+        let variants: [Variant]
 
         public init(type: ArtifactsArchiveMetadata.ArtifactType, version: String, variants: [Variant]) {
             self.type = type
@@ -47,7 +47,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Variant: Equatable {
-        public let path: String
+        let path: String
         let supportedTriples: [Triple]
 
         public init(path: String, supportedTriples: [Triple]) {
@@ -73,11 +73,13 @@ extension ArtifactsArchiveMetadata {
                 usesLenientParsing: true
             )
 
-            guard version <= Version(1, 1, 0) else {
+            switch (version.major, version.minor) {
+            case (1, 1), (1, 0):
+                return decodedMetadata
+            default:
                 throw StringError("invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)")
             }
 
-            return decodedMetadata
         } catch {
             throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
         }
