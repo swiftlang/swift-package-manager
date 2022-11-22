@@ -481,6 +481,7 @@ let package = Package(
             dependencies: ["Workspace", "SPMTestSupport"]
         ),
         // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+        // TODO: When enabling the below tests. Address the TODO in TestToolTests.swift.
         /*.testTarget(
             name: "FunctionalTests",
             dependencies: [
