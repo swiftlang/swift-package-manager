@@ -48,7 +48,7 @@ public struct TestingObservability {
         self.collector.hasWarnings
     }
 
-    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
+    final class Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
         var diagnosticsHandler: DiagnosticsHandler { return self }
 
         let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>

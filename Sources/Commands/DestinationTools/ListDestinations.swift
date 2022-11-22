@@ -50,30 +50,14 @@ extension DestinationCommand {
                 destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
             }
 
-            // Get absolute paths to available destination bundles.
-            let destinationBundles = try fileSystem.getDirectoryContents(destinationsDirectory).filter {
-                $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
-            }.map {
-                destinationsDirectory.appending(components: [$0])
-            }
+            let validBundles = try DestinationsBundle.getAllValidBundles(
+                destinationsDirectory: destinationsDirectory,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
 
-            // Enumerate available bundles and parse manifests for each of them, then validate supplied destinations.
-            for bundlePath in destinationBundles {
-                do {
-                    let destinationsBundle = try DestinationsBundle.parseAndValidate(
-                        bundlePath: bundlePath,
-                        fileSystem: fileSystem,
-                        observabilityScope: observabilityScope
-                    )
-
-                    destinationsBundle.artifacts.keys.forEach { print($0) }
-                } catch {
-                    observabilityScope.emit(
-                        .warning(
-                            "Couldn't parse `info.json` manifest of a destination bundle at \(bundlePath): \(error)"
-                        )
-                    )
-                }
+            for bundle in validBundles {
+                bundle.artifacts.keys.forEach { print($0) }
             }
         }
     }

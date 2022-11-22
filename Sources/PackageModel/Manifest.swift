@@ -180,14 +180,14 @@ public final class Manifest {
         }
 
         var requiredDependencies: Set<PackageIdentity> = []
-        for targetTriple in self.targetsRequired(for: products) {
-            for targetDependency in targetTriple.dependencies {
+        for linuxGNUTargetTriple in self.targetsRequired(for: products) {
+            for targetDependency in linuxGNUTargetTriple.dependencies {
                 if let dependency = self.packageDependency(referencedBy: targetDependency) {
                     requiredDependencies.insert(dependency.identity)
                 }
             }
 
-            targetTriple.pluginUsages?.forEach {
+            linuxGNUTargetTriple.pluginUsages?.forEach {
                 if let dependency = self.packageDependency(referencedBy: $0) {
                     requiredDependencies.insert(dependency.identity)
                 }

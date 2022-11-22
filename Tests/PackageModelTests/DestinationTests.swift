@@ -12,6 +12,7 @@
 
 import Basics
 @testable import PackageModel
+@testable import SPMBuildCore
 import TSCBasic
 import TSCUtility
 import XCTest
@@ -19,8 +20,9 @@ import XCTest
 private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")
 private let toolchainBinDir = RelativePath("swift.xctoolchain/usr/bin")
 private let sdkRootDir = RelativePath("ubuntu-jammy.sdk")
-private let hostTriple = "arm64-apple-darwin22.1.0"
-private let targetTriple = "x86_64-unknown-linux-gnu"
+private let hostTriple = try! Triple("arm64-apple-darwin22.1.0")
+private let linuxGNUTargetTriple = try! Triple("x86_64-unknown-linux-gnu")
+private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
     cxxCompilerFlags: ["-fno-exceptions"],
@@ -34,7 +36,7 @@ private let destinationV1JSON =
         "version": 1,
         "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
         "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
-        "target": "\#(targetTriple)",
+        "target": "\#(linuxGNUTargetTriple)",
         "extra-cc-flags": \#(extraFlags.cCompilerFlags),
         "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
         "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
@@ -48,13 +50,32 @@ private let destinationV2JSON =
         "sdkRootDir": "\#(sdkRootDir)",
         "toolchainBinDir": "\#(toolchainBinDir)",
         "hostTriples": ["\#(hostTriple)"],
-        "targetTriples": ["\#(targetTriple)"],
+        "targetTriples": ["\#(linuxGNUTargetTriple)"],
         "extraCCFlags": \#(extraFlags.cCompilerFlags),
         "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
         "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
         "extraLinkerFlags": \#(extraFlags.linkerFlags)
     }
     """#
+
+private let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
+private let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
+
+private let parsedDestinationV2GNU = Destination(
+    hostTriple: hostTriple,
+    targetTriple: linuxGNUTargetTriple,
+    sdkRootDir: sdkRootAbsolutePath,
+    toolchainBinDir: toolchainBinAbsolutePath,
+    extraFlags: extraFlags
+)
+
+private let parsedDestinationV2Musl = Destination(
+    hostTriple: hostTriple,
+    targetTriple: linuxMuslTargetTriple,
+    sdkRootDir: sdkRootAbsolutePath,
+    toolchainBinDir: toolchainBinAbsolutePath,
+    extraFlags: extraFlags
+)
 
 final class DestinationTests: XCTestCase {
     func testDestinationCodable() throws {
@@ -68,13 +89,10 @@ final class DestinationTests: XCTestCase {
         var flagsWithoutLinkerFlags = extraFlags
         flagsWithoutLinkerFlags.linkerFlags = []
 
-        let sdkRootAbsolutePath = bundleRootPath.appending(sdkRootDir)
-        let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
-
         XCTAssertEqual(
             destinationV1,
             Destination(
-                targetTriple: try Triple(targetTriple),
+                targetTriple: linuxGNUTargetTriple,
                 sdkRootDir: sdkRootAbsolutePath,
                 toolchainBinDir: toolchainBinAbsolutePath,
                 extraFlags: flagsWithoutLinkerFlags
@@ -83,15 +101,73 @@ final class DestinationTests: XCTestCase {
 
         let destinationV2 = try Destination(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs)
 
-        XCTAssertEqual(
-            destinationV2,
-            Destination(
-                hostTriple: try Triple(hostTriple),
-                targetTriple: try Triple(targetTriple),
-                sdkRootDir: sdkRootAbsolutePath,
-                toolchainBinDir: toolchainBinAbsolutePath,
-                extraFlags: extraFlags
+        XCTAssertEqual(destinationV2, parsedDestinationV2GNU)
+    }
+
+    func testSelectDestination() throws {
+        let bundles = [
+            DestinationsBundle(
+                path: try AbsolutePath(validating: "/destination.artifactsbundle"),
+                artifacts: [
+                    "id1": [
+                        .init(
+                            metadata: .init(
+                                path: "id1",
+                                supportedTriples: [hostTriple]
+                            ),
+                            destination: parsedDestinationV2GNU
+                        )
+                    ],
+                    "id2": [
+                        .init(
+                            metadata: .init(
+                                path: "id2",
+                                supportedTriples: []
+                            ),
+                            destination: parsedDestinationV2GNU
+                        )
+                    ],
+                    "id3": [
+                        .init(
+                            metadata: .init(
+                                path: "id3",
+                                supportedTriples: [hostTriple]
+                            ),
+                            destination: parsedDestinationV2Musl
+                        )
+                    ]
+                ]
             )
+        ]
+
+        let system = ObservabilitySystem.makeForTesting()
+
+        XCTAssertEqual(
+            bundles.selectDestination(
+                matching: "id1",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            ),
+            parsedDestinationV2GNU
+        )
+
+        // Expecting `nil` because no host triple is specified for this destination
+        // in the fake destination bundle.
+        XCTAssertNil(
+            bundles.selectDestination(
+                matching: "id2",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            )
+        )
+
+        XCTAssertEqual(
+            bundles.selectDestination(
+                matching: "id3",
+                hostTriple: hostTriple,
+                observabilityScope: system.topScope
+            ),
+            parsedDestinationV2Musl
         )
     }
 }

@@ -13,10 +13,11 @@
 import Basics
 import PackageModel
 import TSCBasic
+import TSCUtility
 
 /// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
 public struct DestinationsBundle {
-    public struct Variant {
+    public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
         let destination: Destination
     }
@@ -25,6 +26,41 @@ public struct DestinationsBundle {
 
     /// Mapping of artifact IDs to variants available for a corresponding artifact.
     public fileprivate(set) var artifacts = [String: [Variant]]()
+
+    /// Lists all valid cross-compilation destination bundles in a given directory.
+    /// - Parameters:
+    ///   - destinationsDirectory: the directory to scan for destination bundles.
+    ///   - fileSystem: the filesystem the directory is located on.
+    ///   - observabilityScope: observability scope to report bundle validation errors.
+    /// - Returns: an array of valid destination bundles.
+    public static func getAllValidBundles(
+        destinationsDirectory: AbsolutePath,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> [Self] {
+        // Get absolute paths to available destination bundles.
+        try fileSystem.getDirectoryContents(destinationsDirectory).filter {
+            $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
+        }.map {
+            destinationsDirectory.appending(components: [$0])
+        }.compactMap {
+            do {
+                // Enumerate available bundles and parse manifests for each of them, then validate supplied destinations.
+                return try Self.parseAndValidate(
+                    bundlePath: $0,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
+                )
+            } catch {
+                observabilityScope.emit(
+                    .warning(
+                        "Couldn't parse `info.json` manifest of a destination bundle at \($0): \(error)"
+                    )
+                )
+                return nil
+            }
+        }
+    }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
     /// cross-compilation destinations.
@@ -102,5 +138,72 @@ private extension ArtifactsArchiveMetadata {
         }
 
         return result
+    }
+}
+
+extension Array where Element == DestinationsBundle {
+    /// Select destinations in an array matching a given query and host triple.
+    /// - Parameters:
+    ///   - query: either an artifact ID or target triple to filter with.
+    ///   - hostTriple: triple of the host building with these destinations.
+    ///   - observabilityScope: observability scope to log warnings about multiple matches.
+    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple.
+    public func selectDestination(
+        matching query: String,
+        hostTriple: Triple,
+        observabilityScope: ObservabilityScope
+    ) -> Destination? {
+        var matchedByID: (path: AbsolutePath, variant: DestinationsBundle.Variant)?
+        var matchedByTriple: (path: AbsolutePath, variant: DestinationsBundle.Variant)?
+
+        for bundle in self {
+            for (artifactID, variants) in bundle.artifacts {
+                for variant in variants {
+                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                        continue
+                    }
+
+                    if artifactID == query {
+                        if let matchedByID = matchedByID {
+                            observabilityScope.emit(warning:
+                                """
+                                multiple destinations match ID `\(artifactID)` and host triple \(
+                                    hostTriple
+                                ), selected one at \(matchedByID.path.appending(component: matchedByID.variant.metadata.path))
+                                """
+                            )
+                        } else {
+                            matchedByID = (bundle.path, variant)
+                        }
+                    }
+
+                    if variant.destination.targetTriple?.tripleString == query {
+                        if let matchedByTriple = matchedByTriple {
+                            observabilityScope.emit(warning:
+                                """
+                                multiple destinations match target triple `\(query)` and host triple \(
+                                    hostTriple
+                                ), selected one at \(matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path))
+                                """
+                            )
+                        } else {
+                            matchedByTriple = (bundle.path, variant)
+                        }
+                    }
+                }
+            }
+        }
+
+        if let matchedByID = matchedByID, let matchedByTriple = matchedByTriple, matchedByID != matchedByTriple {
+            observabilityScope.emit(warning:
+                """
+                multiple destinations match the query `\(query)` and host triple \(
+                    hostTriple
+                ), selected one at \(matchedByID.path.appending(component: matchedByID.variant.metadata.path))
+                """
+            )
+        }
+
+        return matchedByID?.variant.destination ?? matchedByTriple?.variant.destination
     }
 }
