@@ -25,10 +25,35 @@ public struct DestinationsBundle {
 
     /// Mapping of artifact IDs to variants available for a corresponding artifact.
     public fileprivate(set) var artifacts = [String: [Variant]]()
+
+    /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
+    /// cross-compilation destinations.
+    /// - Parameters:
+    ///   - bundlePath: path to the bundle root directory.
+    ///   - fileSystem: filesystem containing the bundle.
+    ///   - observabilityScope: observability scope to log validation warnings.
+    /// - Returns: Validated `DestinationsBundle` containing validated `Destination` values for
+    /// each artifact and its variants.
+    public static func parseAndValidate(
+        bundlePath: AbsolutePath,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> Self {
+        let parsedManifest = try ArtifactsArchiveMetadata.parse(
+            fileSystem: fileSystem,
+            rootPath: bundlePath
+        )
+
+        return try parsedManifest.validateDestinationsBundle(
+            bundlePath: bundlePath,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+    }
 }
 
-extension ArtifactsArchiveMetadata {
-    public func validateDestinationsBundle(
+private extension ArtifactsArchiveMetadata {
+    func validateDestinationsBundle(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
