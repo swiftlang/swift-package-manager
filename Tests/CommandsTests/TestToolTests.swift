@@ -266,6 +266,19 @@ final class TestToolTests: CommandsTestCase {
         }
     }
 
+    // TODO: This test should be moved into `ResourceTests.swift` in the
+    // `FunctionalTests` scheme when the `FunctionalTests` scheme is re-enabled.
+    func testResourcesInMixedClangPackage() throws {
+        #if !os(macOS)
+        // Running swift-test fixtures on linux is not yet possible.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        try fixture(name: "Resources/Simple") { fixturePath in
+            XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
+        }
+    }
+
     func testList() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["list"], packagePath: fixturePath)
