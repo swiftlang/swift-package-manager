@@ -45,6 +45,7 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
+import struct TSCUtility.Triple
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
@@ -631,13 +632,28 @@ public final class SwiftTool {
         var destination: Destination
         let hostDestination: Destination
         do {
-            hostDestination = try self._hostToolchain.get().destination
+            let hostToolchain = try _hostToolchain.get()
+            hostDestination = hostToolchain.destination
+            let hostTriple = Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+
             // Create custom toolchain if present.
-            if let customDestination = self.options.locations.customCompileDestination {
-                destination = try Destination(fromFile: customDestination, fileSystem: self.fileSystem)
-            } else if let target = self.options.build.customCompileTriple,
+            if let customDestination = options.locations.customCompileDestination {
+                destination = try Destination(fromFile: customDestination, fileSystem: fileSystem)
+            } else if let target = options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
+            } else if let destinationSelector = options.build.crossCompilationDestinationSelector,
+                      let destinationsDirectory = sharedCrossCompilationDestinationsDirectory,
+                      let selectedDestination = try DestinationsBundle.getAllValidBundles(
+                        destinationsDirectory: destinationsDirectory,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                      ).selectDestination(
+                        matching: destinationSelector,
+                        hostTriple: hostTriple,
+                        observabilityScope: observabilityScope
+                      ) {
+                destination = selectedDestination
             } else {
                 // Otherwise use the host toolchain.
                 destination = hostDestination
@@ -646,13 +662,13 @@ public final class SwiftTool {
             return .failure(error)
         }
         // Apply any manual overrides.
-        if let triple = self.options.build.customCompileTriple {
+        if let triple = options.build.customCompileTriple {
             destination.targetTriple = triple
         }
-        if let binDir = self.options.build.customCompileToolchain {
+        if let binDir = options.build.customCompileToolchain {
             destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
         }
-        if let sdk = self.options.build.customCompileSDK {
+        if let sdk = options.build.customCompileSDK {
             destination.sdkRootDir = sdk
         }
         destination.archs = options.build.archs

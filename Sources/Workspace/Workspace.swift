@@ -3559,62 +3559,68 @@ extension Workspace.Location {
     ) throws -> Self {
         var location = self
 
-        // check that shared configuration directory is accessible, or warn + reset if not
-        if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
-            // It may not always be possible to create default location (for example de to restricted sandbox),
-            // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
-            if defaultDirectory != nil, sharedConfigurationDirectory != defaultDirectory {
-                // custom location _must_ be writable, throw if we cannot access it
-                guard fileSystem.isWritable(sharedConfigurationDirectory) else {
-                    throw StringError("\(sharedConfigurationDirectory) is not accessible or not writable")
-                }
-            } else {
-                // default location _may_ not be writable, in which case we disable the relevant features that depend on it
-                if !fileSystem.isWritable(sharedConfigurationDirectory) {
-                    location.sharedConfigurationDirectory = .none
-                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features.")
-                }
-            }
-        }
+        try location.validate(
+            keyPath: \.sharedConfigurationDirectory,
+            fileSystem: fileSystem,
+            getOrCreateHandler: {
+                try $0.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
+            },
+            warningHandler: warningHandler
+        )
 
-        // check that shared configuration directory is accessible, or warn + reset if not
-        if let sharedSecurityDirectory = self.sharedSecurityDirectory {
-            // It may not always be possible to create default location (for example de to restricted sandbox),
-            // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMSecurityDirectory()
-            if defaultDirectory != nil, sharedSecurityDirectory != defaultDirectory {
-                // custom location _must_ be writable, throw if we cannot access it
-                guard fileSystem.isWritable(sharedSecurityDirectory) else {
-                    throw StringError("\(sharedSecurityDirectory) is not accessible or not writable")
-                }
-            } else {
-                // default location _may_ not be writable, in which case we disable the relevant features that depend on it
-                if !fileSystem.isWritable(sharedSecurityDirectory) {
-                    location.sharedSecurityDirectory = .none
-                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features.")
-                }
-            }
-        }
+        try location.validate(
+            keyPath: \.sharedSecurityDirectory,
+            fileSystem: fileSystem,
+            getOrCreateHandler: {
+                try $0.getOrCreateSwiftPMSecurityDirectory()
+            },
+            warningHandler: warningHandler
+        )
 
-        // check that shared configuration directory is accessible, or warn + reset if not
-        if let sharedCacheDirectory = self.sharedCacheDirectory {
-            // It may not always be possible to create default location (for example de to restricted sandbox),
-            // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMCacheDirectory()
-            if defaultDirectory != nil, sharedCacheDirectory != defaultDirectory {
-                // custom location _must_ be writable, throw if we cannot access it
-                guard fileSystem.isWritable(sharedCacheDirectory) else {
-                    throw StringError("\(sharedCacheDirectory) is not accessible or not writable")
-                }
-            } else {
-                if !fileSystem.isWritable(sharedCacheDirectory) {
-                    location.sharedCacheDirectory = .none
-                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features.")
-                }
-            }
-        }
+        try location.validate(
+            keyPath: \.sharedCacheDirectory,
+            fileSystem: fileSystem,
+            getOrCreateHandler: {
+                try $0.getOrCreateSwiftPMCacheDirectory()
+            },
+            warningHandler: warningHandler
+        )
+
+        try location.validate(
+            keyPath: \.sharedCrossCompilationDestinationsDirectory,
+            fileSystem: fileSystem,
+            getOrCreateHandler: {
+                try $0.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
+            },
+            warningHandler: warningHandler
+        )
+
         return location
+    }
+
+    mutating func validate(
+        keyPath: WritableKeyPath<Workspace.Location, AbsolutePath?>,
+        fileSystem: FileSystem,
+        getOrCreateHandler: (FileSystem) throws -> AbsolutePath,
+        warningHandler: @escaping (String) -> Void
+    ) throws {
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedDirectory = self[keyPath: keyPath] {
+            // It may not always be possible to create default location (for example de to restricted sandbox),
+            // in which case defaultDirectory would be nil.
+            let defaultDirectory = try? getOrCreateHandler(fileSystem)
+            if defaultDirectory != nil, sharedDirectory != defaultDirectory {
+                // custom location _must_ be writable, throw if we cannot access it
+                guard fileSystem.isWritable(sharedDirectory) else {
+                    throw StringError("\(sharedDirectory) is not accessible or not writable")
+                }
+            } else {
+                if !fileSystem.isWritable(sharedDirectory) {
+                    self[keyPath: keyPath] = nil
+                    warningHandler("\(sharedDirectory) is not accessible or not writable, disabling user-level cache features.")
+                }
+            }
+        }
     }
 }
 
