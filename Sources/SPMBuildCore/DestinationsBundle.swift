@@ -64,9 +64,9 @@ private extension ArtifactsArchiveMetadata {
         where artifactMetadata.type == .crossCompilationDestination {
             var variants = [DestinationsBundle.Variant]()
 
-            for variant in artifactMetadata.variants {
+            for variantMetadata in artifactMetadata.variants {
                 let destinationJSONPath = try bundlePath
-                    .appending(RelativePath(validating: variant.path))
+                    .appending(RelativePath(validating: variantMetadata.path))
                     .appending(component: "destination.json")
 
                 guard fileSystem.exists(destinationJSONPath) else {
@@ -88,7 +88,7 @@ private extension ArtifactsArchiveMetadata {
                         fromFile: destinationJSONPath, fileSystem: fileSystem
                     )
 
-                    variants.append(.init(metadata: variant, destination: destination))
+                    variants.append(.init(metadata: variantMetadata, destination: destination))
                 } catch {
                     observabilityScope.emit(
                         .warning(
