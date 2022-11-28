@@ -62,6 +62,14 @@ public struct DestinationsBundle {
         }
     }
 
+    /// Select destinations matching a given query and host triple from all destinations available in a directory.
+    /// - Parameters:
+    ///   - destinationsDirectory: the directory to scan for destination bundles.
+    ///   - fileSystem: the filesystem the directory is located on.
+    ///   - query: either an artifact ID or target triple to filter with.
+    ///   - hostTriple: triple of the host building with these destinations.
+    ///   - observabilityScope: observability scope to log warnings about multiple matches.
+    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public static func selectDestination(
         fromBundlesAt destinationsDirectory: AbsolutePath?,
         fileSystem: FileSystem,
@@ -196,7 +204,7 @@ private extension ArtifactsArchiveMetadata {
 }
 
 extension Array where Element == DestinationsBundle {
-    /// Select destinations in an array matching a given query and host triple.
+    /// Select destinations matching a given query and host triple from a `self` array of available destinations.
     /// - Parameters:
     ///   - query: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these destinations.
