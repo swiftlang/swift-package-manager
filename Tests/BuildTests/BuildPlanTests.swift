@@ -4000,9 +4000,9 @@ final class BuildPlanTests: XCTestCase {
 
         let fooTarget = try result.target(for: "Foo").clangTarget()
         XCTAssertEqual(try fooTarget.objects.map(\.pathString), [
-            buildPath.appending(components: "Foo.build", "resource_bundle_accessor.m.o").pathString,
             buildPath.appending(components: "Foo.build", "Foo.m.o").pathString,
-            buildPath.appending(components: "Foo.build", "bar.c.o").pathString
+            buildPath.appending(components: "Foo.build", "bar.c.o").pathString,
+            buildPath.appending(components: "Foo.build", "resource_bundle_accessor.m.o").pathString
         ])
 
         let resourceAccessorDirectory = buildPath.appending(components:
