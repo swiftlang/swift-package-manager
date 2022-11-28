@@ -3563,7 +3563,7 @@ extension Workspace.Location {
             keyPath: \.sharedConfigurationDirectory,
             fileSystem: fileSystem,
             getOrCreateHandler: {
-                try $0.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
+                try fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: self.emitDeprecatedConfigurationWarning ? warningHandler : { _ in })
             },
             warningHandler: warningHandler
         )
@@ -3571,44 +3571,38 @@ extension Workspace.Location {
         try location.validate(
             keyPath: \.sharedSecurityDirectory,
             fileSystem: fileSystem,
-            getOrCreateHandler: {
-                try $0.getOrCreateSwiftPMSecurityDirectory()
-            },
+            getOrCreateHandler: fileSystem.getOrCreateSwiftPMSecurityDirectory,
             warningHandler: warningHandler
         )
 
         try location.validate(
             keyPath: \.sharedCacheDirectory,
             fileSystem: fileSystem,
-            getOrCreateHandler: {
-                try $0.getOrCreateSwiftPMCacheDirectory()
-            },
+            getOrCreateHandler: fileSystem.getOrCreateSwiftPMCacheDirectory,
             warningHandler: warningHandler
         )
 
         try location.validate(
             keyPath: \.sharedCrossCompilationDestinationsDirectory,
             fileSystem: fileSystem,
-            getOrCreateHandler: {
-                try $0.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
-            },
+            getOrCreateHandler: fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory,
             warningHandler: warningHandler
         )
 
         return location
     }
 
-    mutating func validate(
+    mutating func validate<FS: FileSystem>(
         keyPath: WritableKeyPath<Workspace.Location, AbsolutePath?>,
-        fileSystem: FileSystem,
-        getOrCreateHandler: (FileSystem) throws -> AbsolutePath,
+        fileSystem: FS,
+        getOrCreateHandler: () throws -> AbsolutePath,
         warningHandler: @escaping (String) -> Void
     ) throws {
         // check that shared configuration directory is accessible, or warn + reset if not
         if let sharedDirectory = self[keyPath: keyPath] {
             // It may not always be possible to create default location (for example de to restricted sandbox),
             // in which case defaultDirectory would be nil.
-            let defaultDirectory = try? getOrCreateHandler(fileSystem)
+            let defaultDirectory = try? getOrCreateHandler()
             if defaultDirectory != nil, sharedDirectory != defaultDirectory {
                 // custom location _must_ be writable, throw if we cannot access it
                 guard fileSystem.isWritable(sharedDirectory) else {
