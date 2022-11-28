@@ -102,4 +102,15 @@ class ResourcesTests: XCTestCase {
             #endif
         }
     }
+
+    func testResourceBundleInClangPackageWhenRunningSwiftTest() throws {
+        #if !os(macOS)
+        // Running swift-test fixtures on linux is not yet possible.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        try fixture(name: "Resources/Simple") { fixturePath in
+            XCTAssertSwiftTest(fixturePath, extraArgs: ["--filter", "ClangResourceTests"])
+        }
+    }
 }
