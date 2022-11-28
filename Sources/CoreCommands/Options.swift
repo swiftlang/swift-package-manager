@@ -287,7 +287,7 @@ public struct BuildOptions: ParsableArguments {
     public var archs: [String] = []
 
     /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("experimental-destination-selector"), help: .hidden, completion: .directory)
+    @Option(name: .customLong("experimental-destination-selector"), help: .hidden)
     public var crossCompilationDestinationSelector: String?
 
     /// Which compile-time sanitizers should be enabled.

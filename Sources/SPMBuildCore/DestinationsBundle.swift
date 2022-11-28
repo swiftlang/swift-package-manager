@@ -62,6 +62,60 @@ public struct DestinationsBundle {
         }
     }
 
+    public static func selectDestination(
+        fromBundlesAt destinationsDirectory: AbsolutePath?,
+        fileSystem: FileSystem,
+        matching selector: String,
+        hostTriple: Triple,
+        observabilityScope: ObservabilityScope
+    ) throws -> Destination {
+        guard let destinationsDirectory else {
+            throw StringError(
+                """
+                No cross-compilation destinations directory found, specify one
+                with `experimental-destinations-path` option.
+                """)
+        }
+
+        let validBundles = try DestinationsBundle.getAllValidBundles(
+            destinationsDirectory: destinationsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        guard !validBundles.isEmpty else {
+            throw StringError(
+                "No valid cross-compilation destination bundles found at \(destinationsDirectory)."
+            )
+        }
+
+        guard var selectedDestination = validBundles.selectDestination(
+            matching: selector,
+            hostTriple: hostTriple,
+            observabilityScope: observabilityScope
+        ) else {
+            throw StringError(
+                """
+                No cross-compilation destination found matching query `\(selector)` and host triple
+                `\(hostTriple.tripleString)`. Use `swift package experimental-destination list` command to see
+                available destinations.
+                """
+            )
+        }
+
+        selectedDestination.extraFlags.swiftCompilerFlags += [
+            "-tools-directory", selectedDestination.toolchainBinDir.pathString,
+        ]
+
+        if let sdkDirPath = selectedDestination.sdkRootDir?.pathString {
+            selectedDestination.extraFlags.swiftCompilerFlags += [
+                "-sdk", sdkDirPath,
+            ]
+        }
+
+        return selectedDestination
+    }
+
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
     /// cross-compilation destinations.
     /// - Parameters:
@@ -70,7 +124,7 @@ public struct DestinationsBundle {
     ///   - observabilityScope: observability scope to log validation warnings.
     /// - Returns: Validated `DestinationsBundle` containing validated `Destination` values for
     /// each artifact and its variants.
-    public static func parseAndValidate(
+    private static func parseAndValidate(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -147,9 +201,9 @@ extension Array where Element == DestinationsBundle {
     ///   - query: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these destinations.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
-    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple.
+    /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public func selectDestination(
-        matching query: String,
+        matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) -> Destination? {
@@ -163,13 +217,15 @@ extension Array where Element == DestinationsBundle {
                         continue
                     }
 
-                    if artifactID == query {
+                    if artifactID == selector {
                         if let matchedByID = matchedByID {
                             observabilityScope.emit(warning:
                                 """
                                 multiple destinations match ID `\(artifactID)` and host triple \(
-                                    hostTriple
-                                ), selected one at \(matchedByID.path.appending(component: matchedByID.variant.metadata.path))
+                                    hostTriple.tripleString
+                                ), selected one at \(
+                                    matchedByID.path.appending(component: matchedByID.variant.metadata.path)
+                                )
                                 """
                             )
                         } else {
@@ -177,13 +233,15 @@ extension Array where Element == DestinationsBundle {
                         }
                     }
 
-                    if variant.destination.targetTriple?.tripleString == query {
+                    if variant.destination.targetTriple?.tripleString == selector {
                         if let matchedByTriple = matchedByTriple {
                             observabilityScope.emit(warning:
                                 """
-                                multiple destinations match target triple `\(query)` and host triple \(
-                                    hostTriple
-                                ), selected one at \(matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path))
+                                multiple destinations match target triple `\(selector)` and host triple \(
+                                    hostTriple.tripleString
+                                ), selected one at \(
+                                    matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path)
+                                )
                                 """
                             )
                         } else {
@@ -197,8 +255,8 @@ extension Array where Element == DestinationsBundle {
         if let matchedByID = matchedByID, let matchedByTriple = matchedByTriple, matchedByID != matchedByTriple {
             observabilityScope.emit(warning:
                 """
-                multiple destinations match the query `\(query)` and host triple \(
-                    hostTriple
+                multiple destinations match the query `\(selector)` and host triple \(
+                    hostTriple.tripleString
                 ), selected one at \(matchedByID.path.appending(component: matchedByID.variant.metadata.path))
                 """
             )

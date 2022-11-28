@@ -642,18 +642,14 @@ public final class SwiftTool {
             } else if let target = options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
-            } else if let destinationSelector = options.build.crossCompilationDestinationSelector,
-                      let destinationsDirectory = sharedCrossCompilationDestinationsDirectory,
-                      let selectedDestination = try DestinationsBundle.getAllValidBundles(
-                        destinationsDirectory: destinationsDirectory,
-                        fileSystem: fileSystem,
-                        observabilityScope: observabilityScope
-                      ).selectDestination(
-                        matching: destinationSelector,
-                        hostTriple: hostTriple,
-                        observabilityScope: observabilityScope
-                      ) {
-                destination = selectedDestination
+            } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
+                destination = try DestinationsBundle.selectDestination(
+                    fromBundlesAt: sharedCrossCompilationDestinationsDirectory,
+                    fileSystem: fileSystem,
+                    matching: destinationSelector,
+                    hostTriple: hostTriple,
+                    observabilityScope: observabilityScope
+                )
             } else {
                 // Otherwise use the host toolchain.
                 destination = hostDestination
