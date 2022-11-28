@@ -3592,9 +3592,9 @@ extension Workspace.Location {
         return location
     }
 
-    mutating func validate<FS: FileSystem>(
+    mutating func validate(
         keyPath: WritableKeyPath<Workspace.Location, AbsolutePath?>,
-        fileSystem: FS,
+        fileSystem: FileSystem,
         getOrCreateHandler: () throws -> AbsolutePath,
         warningHandler: @escaping (String) -> Void
     ) throws {
