@@ -899,4 +899,160 @@ class PluginInvocationTests: XCTestCase {
             }
         }
     }
+
+    func testScanImportsInPluginTargets() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                      .package(path: "../OtherPackage"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            dependencies: [.product(name: "OtherPlugin", package: "OtherPackage")]
+                        ),
+                        .plugin(
+                            name: "XPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "YPlugin",
+                            capability: .command(
+                               intent: .custom(verb: "YPlugin", description: "Plugin example"),
+                               permissions: []
+                            )
+                        )
+                    ]
+                )
+                """)
+
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                    public func hello() { }
+                    """)
+            let xPluginTargetDir = packageDir.appending(components: "Plugins", "XPlugin")
+            try localFileSystem.createDirectory(xPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(xPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import XcodeProjectPlugin
+                  @main struct XBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+            let yPluginTargetDir = packageDir.appending(components: "Plugins", "YPlugin")
+            try localFileSystem.createDirectory(yPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(yPluginTargetDir.appending(component: "plugin.swift"), string: """
+                     import PackagePlugin
+                     import Foundation
+                     @main struct YPlugin: BuildToolPlugin {
+                         func createBuildCommands(
+                             context: PluginContext,
+                             target: Target
+                         ) throws -> [Command] { }
+                     }
+                     """)
+
+
+            //////
+
+            let otherPackageDir = tmpPath.appending(components: "OtherPackage")
+            try localFileSystem.createDirectory(otherPackageDir, recursive: true)
+            try localFileSystem.writeFileContents(otherPackageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "OtherPackage",
+                    products: [
+                        .plugin(
+                            name: "OtherPlugin",
+                            targets: ["QPlugin"])
+                    ],
+                    targets: [
+                        .plugin(
+                            name: "QPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "RPlugin",
+                            capability: .command(
+                               intent: .custom(verb: "RPlugin", description: "Plugin example"),
+                               permissions: []
+                            )
+                        )
+                    ]
+                )
+                """)
+
+            let qPluginTargetDir = otherPackageDir.appending(components: "Plugins", "QPlugin")
+            try localFileSystem.createDirectory(qPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(qPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import XcodeProjectPlugin
+                  @main struct QBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+            /////////
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            workspace.loadPluginImports(packageGraph: graph) { (result: Result<[PackageIdentity : [String : [String]]], Error>) in
+
+                var count = 0
+                if let dict = try? result.get() {
+                    for (pkg, entry) in dict {
+                        if pkg.description == "mypackage" {
+                            XCTAssertNotNil(entry["XPlugin"])
+                            XCTAssertEqual(entry["XPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
+                            XCTAssertEqual(entry["YPlugin"], ["PackagePlugin", "Foundation"])
+                            count += 1
+                        } else if pkg.description == "otherpackage" {
+                            XCTAssertNotNil(dict[pkg]?["QPlugin"])
+                            XCTAssertEqual(entry["QPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
+                            count += 1
+                        }
+                    }
+                } else {
+                    XCTFail("Scanned import list should not be empty")
+                }
+
+                XCTAssertEqual(count, 2)
+            }
+        }
+    }
 }
