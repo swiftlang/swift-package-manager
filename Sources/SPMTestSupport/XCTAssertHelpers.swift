@@ -56,12 +56,25 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
     env: EnvironmentVariables? = nil,
     file: StaticString = #file,
     line: UInt = #line
 ) {
     XCTAssertNoThrow(
-        try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env),
+        try executeSwiftTest(
+            path,
+            configuration: configuration,
+            extraArgs: extraArgs,
+            Xcc: Xcc,
+            Xld: Xld,
+            Xswiftc: Xswiftc,
+            env: env
+        ),
         file: file,
         line: line
     )

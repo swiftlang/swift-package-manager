@@ -503,7 +503,13 @@ public final class ClangTargetBuildDescription {
 
         NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
             NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
-            return [NSBundle bundleWithURL:bundleURL];
+
+            NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
+            if (preferredBundle == nil) {
+              return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+            }
+
+            return preferredBundle;
         }
         """
 

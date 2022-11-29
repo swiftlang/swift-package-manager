@@ -19,6 +19,18 @@ let package = Package(
         ),
 
         .target(
+            name: "ClangResource",
+            resources: [
+                .copy("foo.txt"),
+            ]
+        ),
+
+        .testTarget(
+            name: "ClangResourceTests",
+            dependencies: ["ClangResource"]
+        ),
+
+        .target(
             name: "CPPResource",
             resources: [
                 .copy("foo.txt"),
