@@ -3999,11 +3999,11 @@ final class BuildPlanTests: XCTestCase {
         let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(component: "debug")
 
         let fooTarget = try result.target(for: "Foo").clangTarget()
-        XCTAssertEqual(try fooTarget.objects.map(\.pathString), [
+        XCTAssertEqual(try fooTarget.objects.map(\.pathString).sorted(), [
             buildPath.appending(components: "Foo.build", "Foo.m.o").pathString,
             buildPath.appending(components: "Foo.build", "bar.c.o").pathString,
             buildPath.appending(components: "Foo.build", "resource_bundle_accessor.m.o").pathString
-        ])
+        ].sorted())
 
         let resourceAccessorDirectory = buildPath.appending(components:
             "Foo.build",
