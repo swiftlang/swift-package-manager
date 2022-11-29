@@ -358,7 +358,7 @@ public final class ClangTargetBuildDescription {
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock avoidance with clients. Callers should always specify what they want based either the user's indication or on a default value (possibly based on the filename suffix).
     public func basicArguments(
         isCXX isCXXOverride: Bool? = .none,
-        isC isCOverride: Bool = false
+        isC: Bool = false
     ) throws -> [String] {
         // For now fall back on the hold semantics if the C++ nature isn't specified. This is temporary until clients have been updated.
         let isCXX = isCXXOverride ?? clangTarget.isCXX
@@ -425,7 +425,7 @@ public final class ClangTargetBuildDescription {
         // Include the path to the resource header unless the arguments are
         // being evaluated for a C file. A C file cannot depend on the resource
         // accessor header due to it exporting a Foundation type (`NSBundle`).
-        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile, !isCOverride {
+        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile, !isC {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
