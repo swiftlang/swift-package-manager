@@ -55,6 +55,7 @@ extension PluginTarget {
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
+        toolNamesToTriples: [String: [String]],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -78,6 +79,7 @@ extension PluginTarget {
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
             let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serializer.serialize(path: $0) }
+            let toolNamesToTriplesDict = toolNamesToTriples
             let actionMessage: HostToPluginMessage
             switch action {
                 
@@ -93,12 +95,12 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds)
+                    toolNamesToPathIds: toolNamesToPathIds,
+                    toolNamesToTriples: toolNamesToTriplesDict)
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
                     rootPackageId: rootPackageId,
                     targetId: targetId)
-            
             case .performCommand(let package, let arguments):
                 let rootPackageId = try serializer.serialize(package: package)
                 let wireInput = WireInput(
@@ -108,7 +110,8 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds)
+                    toolNamesToPathIds: toolNamesToPathIds,
+                    toolNamesToTriples: toolNamesToTriples)
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -320,7 +323,6 @@ extension PackageGraph {
         fileSystem: FileSystem
     ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
-
         for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
@@ -360,13 +362,21 @@ extension PackageGraph {
                     switch tool {
                     case .builtTool(let name, let path):
                         dict[name] = builtToolsDir.appending(path)
-                    case .vendedTool(let name, let path):
+                    case .vendedTool(let name, let path, _):
                         dict[name] = path
                     }
                 })
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
                 let toolPaths = toolNamesToPaths.values.sorted()
+
+                let toolNamesToTriples = accessibleTools.reduce(into: [String: [String]](), { dict, tool in
+                    switch tool {
+                    case .vendedTool(let name, _, let triple):
+                        dict[name] = triple
+                    default: break
+                    }
+                })
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -430,7 +440,7 @@ extension PackageGraph {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         // executable must exist before running prebuild command
                         if !fileSystem.exists(executable) {
-                            diagnostics.append(.error("exectuable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
+                            diagnostics.append(.error("executable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
                             return
                         }
                         prebuildCommands.append(.init(
@@ -455,6 +465,7 @@ extension PackageGraph {
                     outputDirectory: pluginOutputDir,
                     toolSearchDirectories: toolSearchDirectories,
                     toolNamesToPaths: toolNamesToPaths,
+                    toolNamesToTriples: toolNamesToTriples,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
                     fileSystem: fileSystem,
@@ -492,7 +503,7 @@ public enum PluginAccessibleTool: Hashable {
     case builtTool(name: String, path: RelativePath)
 
     /// A tool that is vended by a BinaryTarget (the path is absolute and refers to an unpackaged binary target).
-    case vendedTool(name: String, path: AbsolutePath)
+    case vendedTool(name: String, path: AbsolutePath, supportedTriples: [String])
 }
 
 public extension PluginTarget {
@@ -522,7 +533,7 @@ public extension PluginTarget {
             if let target = executableOrBinaryTarget as? BinaryTarget {
                 // TODO: Memoize this result for the host triple
                 let execInfos = try target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
-                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: $0.supportedTriples.map{$0.tripleString}) }
             }
             // For an executable target we create a `builtTool`.
             else if executableOrBinaryTarget.type == .executable {

@@ -161,6 +161,8 @@ struct PluginCommand: SwiftCommand {
 
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         var toolNamesToPaths: [String: AbsolutePath] = [:]
+        // Add supported triples info per tool so they can be looked up when running the tool
+        var toolNamesToTriples: [String: [String]] = [:]
         for dep in try plugin.accessibleTools(packageGraph: packageGraph, fileSystem: swiftTool.fileSystem, environment: try swiftTool.buildParameters().buildEnvironment, for: try pluginScriptRunner.hostTriple) {
             let buildSystem = try swiftTool.createBuildSystem(explicitBuildSystem: .native, cacheBuildManifest: false)
             switch dep {
@@ -170,8 +172,10 @@ struct PluginCommand: SwiftCommand {
                 if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
                     toolNamesToPaths[name] = builtTool.binaryPath
                 }
-            case .vendedTool(let name, let path):
+            case .vendedTool(let name, let path, let triples):
                 toolNamesToPaths[name] = path
+                // Need triples info for .vendedTool
+                toolNamesToTriples[name] = triples
             }
         }
 
@@ -189,6 +193,7 @@ struct PluginCommand: SwiftCommand {
             outputDirectory: outputDir,
             toolSearchDirectories: toolSearchDirs,
             toolNamesToPaths: toolNamesToPaths,
+            toolNamesToTriples: toolNamesToTriples,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
             fileSystem: swiftTool.fileSystem,

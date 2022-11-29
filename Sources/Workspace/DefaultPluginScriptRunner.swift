@@ -211,7 +211,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         if (verboseOutput) {
             commandLine.append("-v")
         }
-        
+
         // Pass through the compilation environment.
         let environment = toolchain.swiftCompilerEnvironment
 

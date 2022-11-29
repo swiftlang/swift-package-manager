@@ -15,6 +15,8 @@ public enum PluginContextError: Error {
     /// it doesn't exist, or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String)
 
+    case toolNotSupportedOnTargetPlatform(name: String)
+
     /// Could not find a target with the given name.
     case targetNotFound(name: String, package: Package)
 
@@ -27,6 +29,8 @@ extension PluginContextError: CustomStringConvertible {
         switch self {
         case .toolNotFound(let name):
             return "Plugin does not have access to a tool named ‘\(name)’"
+        case .toolNotSupportedOnTargetPlatform(let name):
+            return "Tool ‘\(name)’ is not supported on the target platform"
         case .targetNotFound(let name, let package):
             return "Package ‘\(package.displayName)’ has no target named ‘\(name)’"
         case .productNotFound(let name, let package):
