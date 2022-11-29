@@ -543,8 +543,9 @@ public final class PackageBuilder {
         if self.manifest.packageKind.isRoot {
             // Snippets: depend on all available library targets in the package.
             // TODO: Do we need to filter out targets that aren't available on the host platform?
+            let productTargets = Set(manifest.products.flatMap { $0.targets })
             let snippetDependencies = targets
-                .filter { $0.type == .library }
+                .filter { $0.type == .library && productTargets.contains($0.name) }
                 .map { Target.Dependency.target($0, conditions: []) }
             snippetTargets = try createSnippetTargets(dependencies: snippetDependencies)
         } else {
