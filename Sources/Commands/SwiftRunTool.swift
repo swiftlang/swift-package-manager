@@ -13,7 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import Dispatch
+import Foundation
 import PackageGraph
 import PackageModel
 import TSCBasic
