@@ -46,7 +46,7 @@ struct PluginCommand: SwiftCommand {
     @Argument(help: "Verb of the command plugin to invoke")
     var command: String = ""
 
-    @Argument(parsing: .captureForPassthrough,
+    @Argument(parsing: .unconditionalRemaining,
               help: "Arguments to pass to the command plugin")
     var arguments: [String] = []
 

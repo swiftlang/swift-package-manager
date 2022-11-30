@@ -24,7 +24,7 @@ struct DeprecatedAPIDiff: ParsableCommand {
                                                     abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
                                                     shouldDisplay: false)
 
-    @Argument(parsing: .captureForPassthrough)
+    @Argument(parsing: .unconditionalRemaining)
     var args: [String] = []
 
     func run() throws {

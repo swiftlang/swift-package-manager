@@ -24,7 +24,7 @@ extension SwiftPackageTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(parsing: .captureForPassthrough,
+        @Argument(parsing: .unconditionalRemaining,
                   help: "Pass flag through to the swift-format tool")
         var swiftFormatFlags: [String] = []
 
