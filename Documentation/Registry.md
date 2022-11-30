@@ -66,6 +66,9 @@ The following terms, as used in this document, have the meanings indicated.
 - _Version Number_:
   An identifier for a package release
   in accordance with the [Semantic Versioning Specification (SemVer)][SemVer].
+- _Precedence_:
+  The ordering of version numbers relative to each other
+  as defined by the [Semantic Versioning Specification (SemVer)][SemVer].
 
 ## 3. Conventions
 
@@ -375,11 +378,11 @@ A client SHOULD consider any releases with an associated `problem`
 to be unavailable for the purposes of package resolution.
 
 A server SHOULD respond with
-a link to the latest published release of the package if one exists,
+a link to the highest precedence published release of the package if one exists,
 using a `Link` header field with a `latest-version` relation.
 
 A server SHOULD list releases in order of precedence,
-starting with the latest version.
+starting with the highest precedence version.
 However, a client SHOULD NOT assume
 any specific ordering of versions in a response.
 
@@ -469,11 +472,11 @@ The response body MUST contain a JSON object containing the following fields:
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
-| Relation              | Description                                                    |
-| --------------------- | -------------------------------------------------------------- |
-| `latest-version`      | The latest published release of the package                    |
-| `successor-version`   | The next published release of the package, if one exists       |
-| `predecessor-version` | The previously published release of the package, if one exists |
+| Relation              | Description                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `latest-version`      | The highest precedence published release of the package                              |
+| `successor-version`   | The next published release of the package ordered by precedence, if one exists       |
+| `predecessor-version` | The previously published release of the package ordered by precedence, if one exists |
 
 A link with the `latest-version` relation
 MAY correspond to the requested release.
