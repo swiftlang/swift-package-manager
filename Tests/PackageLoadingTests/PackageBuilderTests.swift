@@ -707,7 +707,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnotics in
-            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: \(bar.appending(components: "Tests", "barTests.swift"))", severity: .error)
+            diagnotics.check(diagnostic: "target 'barTests' has overlapping sources: \(bar.appending(components: "Tests", "barTests.swift"))", severity: .error)
         }
 
         manifest = Manifest.createRootManifest(
