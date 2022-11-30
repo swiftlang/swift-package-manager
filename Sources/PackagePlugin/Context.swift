@@ -65,6 +65,8 @@ public struct PluginContext {
     /// A mapping from tool names to their definitions. Not directly available
     /// to the plugin, but used by the `tool(named:)` API.
     let toolNamesToPaths: [String: Path]
+
+    /// Supported triples per tool name; looked up in `tool(named:)`
     let toolNamesToTriples: [String: [String]]
 
     /// The paths of directories of in which to search for tools that aren't in

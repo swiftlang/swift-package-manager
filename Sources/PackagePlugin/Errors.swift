@@ -15,6 +15,7 @@ public enum PluginContextError: Error {
     /// it doesn't exist, or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String)
 
+    /// Tool is not supported on the target platform
     case toolNotSupportedOnTargetPlatform(name: String)
 
     /// Could not find a target with the given name.
