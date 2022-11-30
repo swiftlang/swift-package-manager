@@ -46,8 +46,8 @@ final class PackageToolTests: CommandsTestCase {
             let stdout = try execute(["-help"]).stdout
         } catch let error as SwiftPMProductError {
             switch error {
-            case let .executionFailure(_, output, _):
-                XCTAssertMatch(output, .contains("Usage: swift package"))
+            case let .executionFailure(_, _, stderr):
+                XCTAssertMatch(stderr, .contains("Usage: swift package"))
             default:
                 throw error
             }
