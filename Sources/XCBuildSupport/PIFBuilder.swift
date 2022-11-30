@@ -848,6 +848,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             resourcesTarget.addResourceFile(resourceFile)
         }
 
+        let targetGroup = groupTree.addGroup(path: "/", sourceTree: .group)
+        pifTarget.addResourceFile(targetGroup.addFileReference(path: "\(bundleName).bundle", sourceTree: .builtProductsDir))
+
         return bundleName
     }
 
