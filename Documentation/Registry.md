@@ -769,7 +769,7 @@ Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 ### 4.5. Lookup package identifiers registered for a URL
 
 A client MAY send a `GET` request
-for a URI matching the expression `/identifiers{?url}`
+for a URI matching the expression `/identifiers?url={url}`
 to retrieve package identifiers associated with a particular URL.
 A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
@@ -779,6 +779,10 @@ GET /identifiers?url=https://github.com/mona/LinkedList HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1
 ```
+
+A client MUST provide a URL for the `url` query parameter.
+When no `url` parameter is specified,
+a server SHOULD respond with a status code of `400` (Bad Request).
 
 If one or more package identifiers are associated with the specified URL,
 a server SHOULD respond with a status code of `200` (OK)
