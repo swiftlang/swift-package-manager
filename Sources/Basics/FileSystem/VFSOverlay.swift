@@ -48,9 +48,9 @@ public struct VFSOverlay: Encodable {
             case contents
         }
 
-        private let contents: [File]
+        private let contents: [Resource]
 
-        public init(name: String, contents: [File]) {
+        public init(name: String, contents: [Resource]) {
             self.contents = contents
             super.init(name: name, type: "directory")
         }
@@ -85,5 +85,46 @@ public struct VFSOverlay: Encodable {
     public func write(to path: AbsolutePath, fileSystem: FileSystem) throws {
         // VFS overlay files are YAML, but ours is simple enough that it works when being written using `JSONEncoder`.
         try JSONEncoder.makeWithDefaults(prettified: false).encode(path: path, fileSystem: fileSystem, self)
+    }
+}
+
+public extension VFSOverlay {
+    /// Returns a tree of `VFSOverlay` resources for a given directory in the form of an array. Each item
+    /// in this array will be a resource (either file or directory) from the top most level of the given directory.
+    /// - Parameters:
+    ///   - directoryPath: The directory to recursively search for resources in.
+    ///   - fileSystem: The file system to search.
+    /// - Returns: An array of `VFSOverlay.Resource`s from the given directory.
+    /// - Throws: An error if the given path is a not a directory.
+    /// - Note: This API will recursively scan all subpaths of the given path.
+    static func overlayResources(
+        directoryPath: AbsolutePath,
+        fileSystem: FileSystem
+    ) throws -> [VFSOverlay.Resource] {
+        return
+            // Absolute path to each resource in the directory.
+            try fileSystem.getDirectoryContents(directoryPath).map(directoryPath.appending(component:))
+            // Map each path to a corresponding VFSOverlay, recursing for directories.
+            .compactMap { resourcePath in
+                if fileSystem.isDirectory(resourcePath) {
+                    return VFSOverlay.Directory(
+                        name: resourcePath.basename,
+                        contents:
+                            try overlayResources(
+                                directoryPath: resourcePath,
+                                fileSystem: fileSystem
+                            )
+                    )
+                } else if fileSystem.isFile(resourcePath) {
+                    return VFSOverlay.File(
+                        name: resourcePath.basename,
+                        externalContents: resourcePath.pathString
+                    )
+                } else {
+                    // This case is not expected to be reached as a resource
+                    // should be either a file or directory.
+                    return nil
+                }
+            }
     }
 }

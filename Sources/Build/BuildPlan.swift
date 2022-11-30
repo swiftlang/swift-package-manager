@@ -1467,15 +1467,10 @@ public final class MixedTargetBuildDescription {
                     name: publicHeadersPath.pathString,
                     contents:
                         // Public headers
-                        try Set(fileSystem.getDirectoryContents(publicHeadersPath)
-                                .map(publicHeadersPath.appending(component:)))
-                                .filter(publicHeadersPath.isAncestor(of:))
-                                .map { headerPath in
-                                    VFSOverlay.File(
-                                        name: headerPath.basename,
-                                        externalContents: headerPath.pathString
-                                    )
-                                }
+                    	try VFSOverlay.overlayResources(
+                            directoryPath: publicHeadersPath,
+                            fileSystem: fileSystem
+                        )
                 ),
                 VFSOverlay.Directory(
                     name: buildArtifactDirectory.pathString,
