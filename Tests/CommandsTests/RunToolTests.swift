@@ -142,7 +142,7 @@ final class RunToolTests: CommandsTestCase {
 #if os(Windows)
             XCTAssertEqual(result.exitStatus, .abnormal(exception: 2))
 #else
-            XCTAssertEqual(result.exitStatus, .signalled(signal: 2))
+            XCTAssertEqual(result.exitStatus, .signalled(signal: SIGINT))
 #endif
         }
 

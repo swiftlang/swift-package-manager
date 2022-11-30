@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Dispatch
 import PackageGraph
 import PackageModel
 import TSCBasic
@@ -257,7 +258,7 @@ public struct SwiftRunTool: SwiftCommand {
         }
 
         let pathRelativeToWorkingDirectory = executablePath.relative(to: originalWorkingDirectory)
-        try exec(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        try execute(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
     }
 
     /// Determines if a path points to a valid swift file.
@@ -280,6 +281,17 @@ public struct SwiftRunTool: SwiftCommand {
         return fileSystem.isFile(absolutePath)
     }
 
+    /// A safe wrapper of TSCBasic.exec.
+    private func execute(path: String, args: [String]) throws -> Never {
+        #if !os(Windows)
+        // On platforms other than Windows, signal(SIGINT, SIG_IGN) is used for handling SIGINT by DispatchSourceSignal,
+        // but this process is about to be replaced by exec, so SIG_IGN must be returned to default.
+        signal(SIGINT, SIG_DFL)
+        #endif
+
+        try TSCBasic.exec(path: path, args: args)
+    }
+
     public init() {}
 }
 
@@ -288,3 +300,4 @@ private extension Basics.Diagnostic {
         .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
 }
+
