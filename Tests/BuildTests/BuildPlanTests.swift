@@ -4251,6 +4251,57 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
+    func testSnippets() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/Lib/Lib.swift",
+            "/Pkg/Snippets/ASnippet.swift",
+            "/Pkg/.build/release.yaml"
+        )
+        let buildPath = AbsolutePath(path: "/Pkg/.build")
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Lib",
+                    path: .init(path: "/Pkg"),
+                    toolsVersion: .vNext,
+                    dependencies: [],
+                    products: [
+                        ProductDescription(name: "Lib", type: .library(.automatic), targets: ["Lib"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib", dependencies: [], type: .regular),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(buildPath: buildPath),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ASnippet" && $0.target.type == .snippet })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" })
+
+        let yaml = buildPath.appending(component: "release.yaml")
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+
+        let yamlContents: String = try fs.readFileContents(yaml)
+        print(yamlContents)
+        XCTAssertMatch(yamlContents, .contains("""
+            inputs: ["/Pkg/Snippets/ASnippet.swift","/Pkg/.build/debug/Lib.swiftmodule"
+        """))
+
+    }
+
     private func sanitizerTest(_ sanitizer: PackageModel.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
