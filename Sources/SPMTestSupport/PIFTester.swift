@@ -164,18 +164,18 @@ public class PIFBaseTargetTester {
     }
 
     public func checkImpartedBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
-        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.impartedBuildProperties.buildSettings)
+        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.buildConfigurations.first!.impartedBuildProperties.buildSettings)
         body(buildSettingsTester)
     }
 
     public func checkAllImpartedBuildSettings(file: StaticString = #file, line: UInt = #line, _ body: (PIFBuildSettingsTester) -> Void) {
-        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.impartedBuildProperties.buildSettings)
+        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.buildConfigurations.first!.impartedBuildProperties.buildSettings)
         body(buildSettingsTester)
         buildSettingsTester.checkUncheckedSettings(file: file, line: line)
     }
 
     public func checkNoImpartedBuildSettings(file: StaticString = #file, line: UInt = #line) {
-        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.impartedBuildProperties.buildSettings)
+        let buildSettingsTester = PIFBuildSettingsTester(buildSettings: baseTarget.buildConfigurations.first!.impartedBuildProperties.buildSettings)
         buildSettingsTester.checkUncheckedSettings(file: file, line: line)
     }
 }

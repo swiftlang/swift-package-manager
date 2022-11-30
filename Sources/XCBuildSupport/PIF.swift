@@ -862,14 +862,16 @@ public enum PIF {
         public let guid: GUID
         public var name: String
         public var buildSettings: BuildSettings
+        public let impartedBuildProperties: ImpartedBuildProperties
 
-        public init(guid: GUID, name: String, buildSettings: BuildSettings) {
+        public init(guid: GUID, name: String, buildSettings: BuildSettings, impartedBuildProperties: ImpartedBuildProperties = ImpartedBuildProperties(settings: BuildSettings())) {
             precondition(!guid.isEmpty)
             precondition(!name.isEmpty)
 
             self.guid = guid
             self.name = name
             self.buildSettings = buildSettings
+            self.impartedBuildProperties = impartedBuildProperties
         }
     }
 
