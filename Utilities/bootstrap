@@ -619,6 +619,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     swiftpm_args = [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
+        "CC=" + args.clang_path
     ]
 
     if args.bootstrap:
