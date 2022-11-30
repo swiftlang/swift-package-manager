@@ -49,6 +49,17 @@ class ResourcesTests: XCTestCase {
         }
     }
 
+    func testResourcesInMixedClangPackage() throws {
+        #if !os(macOS)
+        // Running swift-test fixtures on linux is not yet possible.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        try fixture(name: "Resources/Simple") { fixturePath in
+            XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
+        }
+    }
+
     func testMovedBinaryResources() throws {
         try fixture(name: "Resources/Moved") { fixturePath in
             var executables = ["SwiftyResource"]
