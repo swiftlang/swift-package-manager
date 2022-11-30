@@ -23,7 +23,7 @@ struct PluginCommand: SwiftCommand {
         abstract: "Invoke a command plugin or perform other actions on command plugins"
     )
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Flag(name: .customLong("list"),
@@ -46,7 +46,7 @@ struct PluginCommand: SwiftCommand {
     @Argument(help: "Verb of the command plugin to invoke")
     var command: String = ""
 
-    @Argument(parsing: .unconditionalRemaining,
+    @Argument(parsing: .captureForPassthrough,
               help: "Arguments to pass to the command plugin")
     var arguments: [String] = []
 

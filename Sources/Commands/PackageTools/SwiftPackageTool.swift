@@ -84,13 +84,13 @@ extension SwiftPackageTool {
             commandName: nil,
             shouldDisplay: false)
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @OptionGroup()
         var pluginOptions: PluginCommand.PluginOptions
 
-        @Argument(parsing: .unconditionalRemaining)
+        @Argument(parsing: .captureForPassthrough)
         var remaining: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {

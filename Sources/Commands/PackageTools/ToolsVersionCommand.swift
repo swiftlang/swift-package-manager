@@ -23,7 +23,7 @@ struct ToolsVersionCommand: SwiftCommand {
         commandName: "tools-version",
         abstract: "Manipulate tools version of the current package")
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Flag(help: "Set tools version of package to the current tools version in use")

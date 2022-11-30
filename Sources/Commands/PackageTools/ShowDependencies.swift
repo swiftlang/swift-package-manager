@@ -21,7 +21,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Print the resolved dependency graph")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(help: "text | dot | json | flatlist")

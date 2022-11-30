@@ -18,7 +18,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Delete build artifacts")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -30,7 +30,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Purge the global repository cache.")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -42,7 +42,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Reset the complete cache/build directory")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
