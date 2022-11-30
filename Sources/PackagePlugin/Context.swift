@@ -39,9 +39,11 @@ public struct PluginContext {
     /// an error if the tool cannot be found. The lookup is case sensitive.
     public func tool(named name: String) throws -> Tool {
         if let path = self.toolNamesToPaths[name] {
-            // For PluginAccessibleTool.builtTool the triples value is always nil
-            // For PluginAccessibleTool.vendedTool, empty triples means the tool
-            // is not supported on the target platform.
+            // For PluginAccessibleTool.builtTool, the triples value is not saved, thus
+            // the value is always nil; this is intentional since if we are able to
+            // build the tool, it is by definition supporting the target platform.
+            // For PluginAccessibleTool.vendedTool, only supported triples are saved,
+            // so empty triples means the tool is not supported on the target platform.
             if let triples = toolNamesToTriples[name], triples.isEmpty {
                 throw PluginContextError.toolNotSupportedOnTargetPlatform(name: name)
             }

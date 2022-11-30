@@ -893,7 +893,7 @@ class PluginInvocationTests: XCTestCase {
 
                 let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
                 testDiagnostics(diags) { result in
-                    let msg = "exectuable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build 'Y' first and then run the plugin"
+                    let msg = "executable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build 'Y' first and then run the plugin"
                     result.check(diagnostic: .contains(msg), severity: .error)
                 }
             }

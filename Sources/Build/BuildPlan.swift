@@ -2442,7 +2442,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            return try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            return execInfos.filter{!$0.supportedTriples.isEmpty}
         }
     }
 }
