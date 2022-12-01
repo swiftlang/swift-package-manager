@@ -497,6 +497,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
         swift_flags += ' -module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache'))
 
         cmd = [
+            "env", "MACOSX_DEPLOYMENT_TARGET=%s" % (g_macos_deployment_target),
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
             "-DCMAKE_BUILD_TYPE:=Debug",
@@ -516,6 +517,8 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
     if args.verbose:
         ninja_cmd.append("-v")
 
+    if platform.system() == 'Darwin':
+        call(["sed", "-i", "", "s/macosx10.10/macosx%s/" % (g_macos_deployment_target), "build.ninja"], cwd=build_dir)
 
     call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
 
