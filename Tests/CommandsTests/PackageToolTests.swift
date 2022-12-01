@@ -43,14 +43,10 @@ final class PackageToolTests: CommandsTestCase {
 
     func testUsage() throws {
         do {
-            let stdout = try execute(["-help"]).stdout
-        } catch let error as SwiftPMProductError {
-            switch error {
-            case let .executionFailure(_, _, stderr):
-                XCTAssertMatch(stderr, .contains("Usage: swift package"))
-            default:
-                throw error
-            }
+            _ = try execute(["-help"])
+            XCTFail("expecting `execute` to fail")
+        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertMatch(stderr, .contains("Usage: swift package"))
         } catch {
             throw error
         }
