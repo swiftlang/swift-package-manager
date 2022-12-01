@@ -627,20 +627,20 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")
         swiftpm_args.append(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
+        swiftpm_args.append("--disable-sandbox")
 
-    swiftpm_args.append("--disable-sandbox")
+        # Enforce resolved versions to avoid stray dependencies that aren't local.
+        swiftpm_args.append("--force-resolved-versions")
 
-    # Enforce resolved versions to avoid stray dependencies that aren't local.
-    swiftpm_args.append("--force-resolved-versions")
-    # Any leftover resolved file from a run without `SWIFTCI_USE_LOCAL_DEPS` needs to be deleted.
-    if os.path.exists("Package.resolved"):
-        os.remove("Package.resolved")
+        # Any leftover resolved file from a run without `SWIFTCI_USE_LOCAL_DEPS` needs to be deleted.
+        if os.path.exists("Package.resolved"):
+            os.remove("Package.resolved")
+
+        swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-concurrency-module-import"]
+        swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-string-processing-module-import"]
 
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
-
-    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-concurrency-module-import"]
-    swiftpm_args += ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-disable-implicit-string-processing-module-import"]
 
     # Build SwiftPM, including libSwiftPM, all the command line tools, and the current variant of PackageDescription.
     call_swiftpm(args, swiftpm_args)

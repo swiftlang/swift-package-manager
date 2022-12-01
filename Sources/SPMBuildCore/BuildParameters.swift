@@ -229,8 +229,8 @@ public struct BuildParameters: Encodable {
         hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
         archs: [String] = [],
-        flags: BuildFlags,
-        xcbuildFlags: [String] = [],
+        flags: BuildFlags = .init(),
+        xcbuildFlags: [String] = [], // FIXME: this seems out of place
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
