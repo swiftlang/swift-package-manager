@@ -185,7 +185,6 @@ def parse_global_args(args):
     args.source_dirs["yams"]                  = os.path.join(args.project_root, "..", "yams")
     args.source_dirs["swift-argument-parser"] = os.path.join(args.project_root, "..", "swift-argument-parser")
     args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
-    args.source_dirs["swift-crypto"]          = os.path.join(args.project_root, "..", "swift-crypto")
     args.source_dirs["swift-system"]          = os.path.join(args.project_root, "..", "swift-system")
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
     args.source_root                          = os.path.join(args.project_root, "Sources")
@@ -351,7 +350,6 @@ def build(args):
             "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
-        build_dependency(args, "swift-crypto")
         build_dependency(args, "swift-collections")
         build_swiftpm_with_cmake(args)
 
@@ -425,9 +423,9 @@ def install(args):
 
 # Installs the SwiftPM tools and runtime support libraries.
 def install_swiftpm(prefix, args):
-    # Install the swift-package tool and create symlinks to it.
+    # Install the swift-package-manager tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
-    install_binary(args, "swift-package", cli_tool_dest)
+    install_binary(args, "swift-package-manager", os.path.join(cli_tool_dest, "swift-package"), destination_is_directory=False)
     for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
@@ -468,12 +466,16 @@ def install_dylib(args, library_name, install_dir, module_names):
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, dest_dir, ignored_patterns=[]):
+def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[]):
     src = os.path.join(args.bin_dir, binary)
-    dest = os.path.join(dest_dir, binary)
+
+    if destination_is_directory:
+        dest = os.path.join(destination, binary)
+        mkdir_p(os.path.dirname(dest))
+    else:
+        dest = destination
 
     note("Installing %s to %s" % (src, dest))
-    mkdir_p(os.path.dirname(dest))
     if os.path.isdir(src):
         shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
     else:
@@ -586,7 +588,6 @@ def build_swiftpm_with_cmake(args):
         "-DTSC_DIR="              + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
         "-DArgumentParser_DIR="   + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         "-DSwiftDriver_DIR="      + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
-        "-DSwiftCrypto_DIR="      + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftSystem_DIR="      + os.path.join(args.build_dirs["swift-system"],          "cmake/modules"),
         "-DSwiftCollections_DIR=" + os.path.join(args.build_dirs["swift-collections"],     "cmake/modules"),
     ]
@@ -604,7 +605,6 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["yams"],                  "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-argument-parser"], "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
 
@@ -717,7 +717,6 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["yams"],                  "lib"),
             os.path.join(args.build_dirs["swift-argument-parser"], "lib"),
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
-            os.path.join(args.build_dirs["swift-crypto"],          "lib"),
             os.path.join(args.build_dirs["swift-system"],          "lib"),
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
         ] + args.target_info["paths"]["runtimeLibraryPaths"])

@@ -159,8 +159,8 @@ public struct SwiftBuildTool: SwiftCommand {
     public init() {}
 }
 
-extension SwiftCommand {
-    public func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
+public extension SwiftCommand {
+    func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
         return try swiftTool.defaultBuildSystemProvider
     }
 }

@@ -11,5 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Commands
+import PackageRegistryTool
 
 SwiftPackageRegistryTool.main()
