@@ -320,7 +320,7 @@ let package = Package(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt", "CODEOWNERS"]
         ),
         .target(
             /** High level functionality */
