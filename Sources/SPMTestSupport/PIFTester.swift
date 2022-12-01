@@ -55,7 +55,7 @@ public final class PIFProjectTester {
     fileprivate init(project: PIF.Project, targetMap: [PIF.GUID: PIF.BaseTarget]) throws {
         self.project = project
         self.targetMap = targetMap
-        self.fileMap = try collectFiles(from: project.groupTree, parentPath: project.path, projectPath: project.path)
+        self.fileMap = try collectFiles(from: project.groupTree, parentPath: project.path, projectPath: project.path, builtProductsPath: project.path)
     }
 
     public func checkTarget(_ guid: PIF.GUID, file: StaticString = #file, line: UInt = #line, body: ((PIFTargetTester) -> Void)? = nil) {
@@ -291,7 +291,8 @@ public final class PIFBuildSettingsTester {
 private func collectFiles(
     from reference: PIF.Reference,
     parentPath: AbsolutePath,
-    projectPath: AbsolutePath
+    projectPath: AbsolutePath,
+    builtProductsPath: AbsolutePath
 ) throws -> [PIF.GUID: String] {
     let referencePath: AbsolutePath
     switch reference.sourceTree {
@@ -302,7 +303,7 @@ private func collectFiles(
     case .sourceRoot:
         referencePath = try AbsolutePath(validating: reference.path, relativeTo: projectPath)
     case .builtProductsDir:
-        return [:]
+        referencePath = try AbsolutePath(validating: reference.path, relativeTo: builtProductsPath)
     }
 
     var files: [PIF.GUID: String] = [:]
@@ -312,7 +313,7 @@ private func collectFiles(
         files[reference.guid] = referencePath.pathString
     } else if let group = reference as? PIF.Group {
         for child in group.children {
-            let childFiles = try collectFiles(from: child, parentPath: referencePath, projectPath: projectPath)
+            let childFiles = try collectFiles(from: child, parentPath: referencePath, projectPath: projectPath, builtProductsPath: builtProductsPath)
             files.merge(childFiles, uniquingKeysWith: { _, _ in fatalError("non-unique GUID") })
         }
     }

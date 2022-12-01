@@ -89,6 +89,20 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                 self.outputStream <<< "\n"
                 self.outputStream.flush()
             }
+        case .taskDiagnostic(let info):
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< info.message
+                self.outputStream <<< "\n"
+                self.outputStream.flush()
+            }
+        case .targetDiagnostic(let info):
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< info.message
+                self.outputStream <<< "\n"
+                self.outputStream.flush()
+            }
         case .buildOutput(let info):
             queue.async {
                 self.progressAnimation.clear()
@@ -116,7 +130,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)
                 }
             }
-        default:
+        case .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
             break
         }
     }
