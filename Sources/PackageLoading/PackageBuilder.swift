@@ -978,7 +978,7 @@ public final class PackageBuilder {
                     decl = .OTHER_LDFLAGS
                 }
 
-            case .futureFeatures(let _values):
+            case .upcomingFeatures(let _values):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError("only Swift supports future features")

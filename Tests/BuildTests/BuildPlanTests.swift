@@ -3219,8 +3219,8 @@ final class BuildPlanTests: XCTestCase {
                         .init(tool: .swift, kind: .define("RLINUX"), condition: .init(platformNames: ["linux"], config: "release")),
                         .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["macos"], config: "debug")),
                         .init(tool: .swift, kind: .unsafeFlags(["-Isfoo", "-L", "sbar"])),
-                        .init(tool: .swift, kind: .futureFeatures(["BestFeature"])),
-                        .init(tool: .swift, kind: .futureFeatures(["WorstFeature"]), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .upcomingFeatures(["BestFeature"])),
+                        .init(tool: .swift, kind: .upcomingFeatures(["WorstFeature"]), condition: .init(platformNames: ["macos"], config: "debug"))
                     ]
                 ),
                 try TargetDescription(

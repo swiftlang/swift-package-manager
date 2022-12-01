@@ -29,7 +29,7 @@ public enum TargetBuildSettingDescription {
         case linkedFramework(String)
 
         case unsafeFlags([String])
-        case futureFeatures([String])
+        case upcomingFeatures([String])
         case experimentalFeatures([String])
     }
 
