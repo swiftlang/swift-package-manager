@@ -35,6 +35,9 @@ public struct ExecutableInfo: Equatable {
 
     /// The path to the executable.
     public let executablePath: AbsolutePath
+
+    /// Supported triples, e.g. `x86_64-apple-macosx`
+    public let supportedTriples: [Triple]
 }
 
 
@@ -68,11 +71,10 @@ extension BinaryTarget {
         let executables = metadata.artifacts.filter { $0.value.type == .executable }
         // Construct an ExecutableInfo for each matching variant.
         return try executables.flatMap { entry in
-            // FIXME: this filter needs to become more sophisticated
-            try entry.value.variants.filter {
-                return $0.supportedTriples.contains(versionLessTriple)
-            }.map{
-                ExecutableInfo(name: entry.key, executablePath: try AbsolutePath(validating: $0.path, relativeTo: self.artifactPath))
+            // Filter supported triples with versionLessTriple and pass into
+            // ExecutableInfo; empty if non matching triples found.
+            try entry.value.variants.map{
+                ExecutableInfo(name: entry.key, executablePath: try AbsolutePath(validating: $0.path, relativeTo: self.artifactPath), supportedTriples: $0.supportedTriples.filter({$0 == versionLessTriple}))
             }
         }
     }
