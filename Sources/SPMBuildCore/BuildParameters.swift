@@ -233,7 +233,7 @@ public struct BuildParameters: Encodable {
         destinationTriple: Triple? = nil,
         archs: [String] = [],
         flags: BuildFlags,
-        xcbuildFlags: [String] = [],
+        xcbuildFlags: [String] = [], // FIXME: this seems out of place
         pkgConfigDirectories: [AbsolutePath] = [],
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,

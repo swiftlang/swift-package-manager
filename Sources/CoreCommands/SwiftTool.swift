@@ -76,7 +76,12 @@ public protocol SwiftCommand: ParsableCommand {
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration, workspaceDelegateProvider: self.workspaceDelegateProvider, workspaceLoaderProvider: self.workspaceLoaderProvider)
+        let swiftTool = try SwiftTool(
+            options: globalOptions,
+            toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
+            workspaceDelegateProvider: self.workspaceDelegateProvider,
+            workspaceLoaderProvider: self.workspaceLoaderProvider
+        )
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {

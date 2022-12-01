@@ -29,7 +29,6 @@ import protocol TSCUtility.ProgressAnimationProtocol
 @_implementationOnly import SwiftDriver
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
-
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
@@ -39,14 +38,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
 
-    /// Entity responsible for compiling and running plugin scripts.
-    let pluginScriptRunner: PluginScriptRunner
-
-    /// Directory where plugin intermediate files are stored.
-    let pluginWorkDirectory: AbsolutePath
-
-    /// Whether to sandbox commands from build tool plugins.
-    public let disableSandboxForPluginCommands: Bool
+    /// the plugin configuration for build plugins
+    let pluginConfiguration: PluginConfiguration?
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -102,10 +95,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
+        pluginConfiguration: PluginConfiguration? = .none,
         additionalFileRules: [FileRuleDescription],
-        pluginScriptRunner: PluginScriptRunner,
-        pluginWorkDirectory: AbsolutePath,
-        disableSandboxForPluginCommands: Bool,
         pkgConfigDirectories: [AbsolutePath],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
@@ -120,10 +111,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.additionalFileRules = additionalFileRules
-        self.pluginScriptRunner = pluginScriptRunner
-        self.pluginWorkDirectory = pluginWorkDirectory
+        self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
-        self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -328,6 +317,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
     func compilePlugin(_ plugin: PluginDescription) throws {
+        guard let pluginConfiguration = self.pluginConfiguration else {
+            throw InternalError("unknown plugin script runner")
+        }
         // Compile the plugin, getting back a PluginCompilationResult.
         class Delegate: PluginScriptCompilerDelegate {
             let preparationStepName: String
@@ -356,7 +348,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
         let delegate = Delegate(preparationStepName: "Compiling plugin \(plugin.targetName)", buildSystemDelegate: self.buildSystemDelegate)
         let result = try tsc_await {
-            self.pluginScriptRunner.compilePluginScript(
+            pluginConfiguration.scriptRunner.compilePluginScript(
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.targetName,
                 toolsVersion: plugin.toolsVersion,
@@ -398,47 +390,55 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Load the package graph.
         let graph = try getPackageGraph()
 
+        let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
+        let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        let buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
-            outputDir: self.pluginWorkDirectory.appending(component: "outputs"),
-            builtToolsDir: self.buildParameters.buildPath,
-            buildEnvironment: self.buildParameters.buildEnvironment,
-            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
-            pkgConfigDirectories: self.pkgConfigDirectories,
-            pluginScriptRunner: self.pluginScriptRunner,
-            observabilityScope: self.observabilityScope,
-            fileSystem: self.fileSystem
-        )
+        if let pluginConfiguration = self.pluginConfiguration  {
+            buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+                outputDir: pluginConfiguration.workDirectory.appending(component: "outputs"),
+                builtToolsDir: self.buildParameters.buildPath,
+                buildEnvironment: self.buildParameters.buildEnvironment,
+                toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                pkgConfigDirectories: self.pkgConfigDirectories,
+                pluginScriptRunner: pluginConfiguration.scriptRunner,
+                observabilityScope: self.observabilityScope,
+                fileSystem: self.fileSystem
+            )
 
-        // Surface any diagnostics from build tool plugins.
-        var succeeded = true
-        for (target, results) in buildToolPluginInvocationResults {
-            // There is one result for each plugin that gets applied to a target.
-            for result in results {
-                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
-                    var metadata = ObservabilityMetadata()
-                    metadata.targetName = target.name
-                    metadata.pluginName = result.plugin.name
-                    return metadata
+
+            // Surface any diagnostics from build tool plugins.
+            var succeeded = true
+            for (target, results) in buildToolPluginInvocationResults {
+                // There is one result for each plugin that gets applied to a target.
+                for result in results {
+                    let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                        var metadata = ObservabilityMetadata()
+                        metadata.targetName = target.name
+                        metadata.pluginName = result.plugin.name
+                        return metadata
+                    }
+                    for line in result.textOutput.split(separator: "\n") {
+                        diagnosticsEmitter.emit(info: line)
+                    }
+                    for diag in result.diagnostics {
+                        diagnosticsEmitter.emit(diag)
+                    }
+                    succeeded = succeeded && result.succeeded
                 }
-                for line in result.textOutput.split(separator: "\n") {
-                    diagnosticsEmitter.emit(info: line)
+
+                if !succeeded {
+                    throw StringError("build stopped due to build-tool plugin failures")
                 }
-                for diag in result.diagnostics {
-                    diagnosticsEmitter.emit(diag)
-                }
-                succeeded = succeeded && result.succeeded
             }
-        }
 
-        if !succeeded {
-            throw StringError("build stopped due to build-tool plugin failures")
+            // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
+            prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+                partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
+            })
+        } else {
+            buildToolPluginInvocationResults = [:]
+            prebuildCommandResults = [:]
         }
-
-        // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
-        let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
-            partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
-        })
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         for package in graph.rootPackages where package.manifest.toolsVersion >= .v5_3 {
@@ -484,7 +484,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
-            disableSandboxForPluginCommands: self.disableSandboxForPluginCommands,
+            disableSandboxForPluginCommands: self.pluginConfiguration?.disableSandbox ?? false,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -553,6 +553,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
     /// results of running those prebuild commands.
     private func runPrebuildCommands(for pluginResults: [BuildToolPluginInvocationResult]) throws -> [PrebuildCommandResult] {
+        guard let pluginConfiguration = self.pluginConfiguration else {
+            throw InternalError("unknown plugin script runner")
+
+        }
         // Run through all the commands from all the plugin usages in the target.
         return try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the build,
@@ -565,7 +569,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
-                if !self.disableSandboxForPluginCommands {
+                if !pluginConfiguration.disableSandbox {
                     commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
                 }
                 let processResult = try TSCBasic.Process.popen(arguments: commandLine, environment: command.configuration.environment)
@@ -622,6 +626,25 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return false
         }
         return true
+    }
+}
+
+extension BuildOperation {
+    public struct PluginConfiguration {
+        /// Entity responsible for compiling and running plugin scripts.
+        let scriptRunner: PluginScriptRunner
+
+        /// Directory where plugin intermediate files are stored.
+        let workDirectory: AbsolutePath
+
+        /// Whether to sandbox commands from build tool plugins.
+        let disableSandbox: Bool
+
+        public init(scriptRunner: PluginScriptRunner, workDirectory: AbsolutePath, disableSandbox: Bool) {
+            self.scriptRunner = scriptRunner
+            self.workDirectory = workDirectory
+            self.disableSandbox = disableSandbox
+        }
     }
 }
 
