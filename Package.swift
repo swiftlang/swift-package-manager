@@ -28,6 +28,7 @@ let swiftPMDataModelProduct = (
         "PackageCollectionsModel",
         "PackageGraph",
         "PackageLoading",
+        "PackageMetadata",
         "PackageModel",
         "SourceControl",
         "Workspace",
@@ -334,6 +335,16 @@ let package = Package(
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"]
+        ),
+        .target(
+            // ** High level interface for package discovery */
+            name: "PackageMetadata",
+            dependencies: [
+                "Basics",
+                "PackageCollections",
+                "PackageModel",
+                "PackageRegistry",
+            ]
         ),
 
         // MARK: Commands
