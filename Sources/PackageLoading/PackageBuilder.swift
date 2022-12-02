@@ -977,6 +977,30 @@ public final class PackageBuilder {
                 case .linker:
                     decl = .OTHER_LDFLAGS
                 }
+
+            case .upcomingFeatures(let _values):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports future features")
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                values = _values.precedeElements(with: "-enable-future-feature")
+
+            case .experimentalFeatures(let _values):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError(
+                        "only Swift supports experimental features")
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                values = _values.precedeElements(
+                    with: "-enable-experimental-feature")
             }
 
             // Create an assignment for this setting.
@@ -1453,5 +1477,25 @@ extension PackageBuilder {
                     buildSettings: buildSettings
                 )
             }
+    }
+}
+
+fileprivate extension Sequence {
+    /// Construct a new array where each of the elements in the \c self
+    /// sequence is preceded by the \c prefixElement.
+    ///
+    /// For example:
+    /// ```
+    /// ["Alice", "Bob", "Charlie"].precedeElements(with: "Hi")
+    /// ```
+    ///
+    /// produces `["Hi", "Alice", "Hi", "Bob", "Hi", "Charlie"]`.
+    func precedeElements(with prefixElement: Element) -> [Element] {
+        var results: [Element] = []
+        for element in self {
+            results.append(prefixElement)
+            results.append(element)
+        }
+        return results
     }
 }
