@@ -20,8 +20,23 @@ import protocol TSCUtility.DiagnosticLocationProviding
 
 // MARK: - GitShellHelper
 
+/// Abstracts `GitShellHelper` so that a stub can be injected in the tests. Marked internal for the same purpose.
+internal protocol ShellHelper {
+    func run(_ args: [String], environment: EnvironmentVariables, outputRedirection: TSCBasic.Process.OutputRedirection) throws -> String
+}
+
+private extension ShellHelper {
+    func run(_ args: [String]) throws -> String {
+        try run(args, environment: Git.environment)
+    }
+
+    func run(_ args: [String], environment: EnvironmentVariables) throws -> String {
+        try run(args, environment: environment, outputRedirection: .collect)
+    }
+}
+
 /// Helper for shelling out to `git`
-private struct GitShellHelper {
+private struct GitShellHelper: ShellHelper {
     private let cancellator: Cancellator
 
     init(cancellator: Cancellator) {
@@ -31,7 +46,7 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+    func run(_ args: [String], environment: EnvironmentVariables, outputRedirection: TSCBasic.Process.OutputRedirection) throws -> String {
         let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
@@ -64,13 +79,20 @@ private struct GitShellHelper {
 /// A `git` repository provider.
 public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
-    private let git: GitShellHelper
+    private let git: ShellHelper
 
     public init() {
         // helper to cancel outstanding processes
-        self.cancellator = Cancellator(observabilityScope: .none)
+        let cancellator = Cancellator(observabilityScope: .none)
         // helper to abstract shelling out to git
-        self.git = GitShellHelper(cancellator: cancellator)
+        let git = GitShellHelper(cancellator: cancellator)
+        self.init(cancellator: cancellator, git: git)
+    }
+
+    // Marked internal for testing.
+    internal init(cancellator: Cancellator, git: ShellHelper) {
+        self.cancellator = cancellator
+        self.git = git
     }
 
     @discardableResult
@@ -329,7 +351,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public let path: AbsolutePath
 
     /// Concurrent queue to execute git cli on.
-    private let git: GitShellHelper
+    private let git: ShellHelper
 
     // lock top protect concurrent modifications to the repository
     private let lock = NSLock()
@@ -350,7 +372,8 @@ public final class GitRepository: Repository, WorkingCheckout {
         self.init(git: git, path: path, isWorkingRepo: isWorkingRepo)
     }
 
-    fileprivate init(git: GitShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
+    // Marked internal for testing.
+    internal init(git: ShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
         self.git = git
         self.path = path
         self.isWorkingRepo = isWorkingRepo
@@ -960,7 +983,8 @@ private class GitFileSystemView: FileSystem {
 
 // MARK: - Errors
 
-private struct GitShellError: Error {
+// Marked internal for testing.
+internal struct GitShellError: Error {
     let result: ProcessResult
 }
 
@@ -972,7 +996,12 @@ private enum GitInterfaceError: Swift.Error {
     case fatalError
 }
 
-public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLocationProviding {
+private protocol GitStringConvertibleError: Error, CustomStringConvertible {
+    var message: String { get }
+    var result: ProcessResult { get }
+}
+
+public struct GitRepositoryError: Error, CustomStringConvertible, GitStringConvertibleError, DiagnosticLocationProviding {
     public let path: AbsolutePath
     public let message: String
     public let result: ProcessResult
@@ -987,16 +1016,9 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
     public var diagnosticLocation: DiagnosticLocation? {
         return Location(path: self.path)
     }
-
-    public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
-        return "\(self.message):\n\(output)"
-    }
 }
 
-public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationProviding {
+public struct GitCloneError: Error, CustomStringConvertible, GitStringConvertibleError, DiagnosticLocationProviding {
     public let repository: RepositorySpecifier
     public let message: String
     public let result: ProcessResult
@@ -1011,12 +1033,29 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     public var diagnosticLocation: DiagnosticLocation? {
         return Location(repository: self.repository)
     }
+}
 
+extension GitStringConvertibleError {
     public var description: String {
         let stdout = (try? self.result.utf8Output()) ?? ""
         let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
-        return "\(self.message):\n\(output)"
+        let output: String
+        if !stdout.isEmpty || !stderr.isEmpty {
+            output = stdout + stderr
+        } else {
+            switch result.exitStatus {
+            case .terminated(let code):
+                output = "Git process terminated with status \(code)"
+            #if os(Windows)
+            case .abnormal(let exception):
+                output = "Git process abnormally terminated with exception \(exception)"
+            #else
+            case .signalled(let signal):
+                output = "Git process terminated due to signal \(signal)"
+            #endif
+            }
+        }
+        return "\(self.message):\n\(output.spm_chomp().spm_multilineIndent(count: 4))"
     }
 }
 
