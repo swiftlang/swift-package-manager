@@ -580,19 +580,19 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let toolchain = try self.getDestinationToolchain()
-            let triple = toolchain.triple
+            let destinationToolchain = try self.getDestinationToolchain()
+            let destinationTriple = destinationToolchain.triple
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: options.build.buildSystem == .xcode ? "apple" : destinationTriple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
-                toolchain: toolchain,
-                destinationTriple: triple,
+                toolchain: destinationToolchain,
+                destinationTriple: destinationTriple,
                 archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,

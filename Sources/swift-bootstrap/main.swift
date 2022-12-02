@@ -143,15 +143,14 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 throw StringError("unknown package path")
             }
             let scratchDirectory = self.scratchDirectory ?? packagePath.appending(component: ".build")
-            let builder = try Builder(fileSystem: localFileSystem)
+            let builder = try Builder(fileSystem: localFileSystem, logLevel: self.logLevel)
             try builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
                 buildSystem: self.buildSystem,
                 configuration: self.configuration,
                 buildFlags: self.buildFlags,
-                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
-                logLevel: self.logLevel
+                useIntegratedSwiftDriver: self.useIntegratedSwiftDriver
             )
         } catch _ as Diagnostics {
             throw ExitCode.failure
@@ -160,29 +159,34 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     struct Builder {
         let identityResolver: IdentityResolver
-        let toolchain: UserToolchain
+        let hostToolchain: UserToolchain
+        let destinationToolchain: UserToolchain
         let fileSystem: FileSystem
         let manifestLoader: ManifestLoader
         let observabilityScope: ObservabilityScope
+        let logLevel: Basics.Diagnostic.Severity
 
         let additionalSwiftBuildFlags = [
             "-Xfrontend", "-disable-implicit-concurrency-module-import",
             "-Xfrontend",  "-disable-implicit-string-processing-module-import"
         ]
 
-        init(fileSystem: FileSystem) throws {
+        init(fileSystem: FileSystem, logLevel: Basics.Diagnostic.Severity) throws {
             self.identityResolver = DefaultIdentityResolver()
-            self.toolchain = try UserToolchain(destination: Destination.hostDestination())
+            self.hostToolchain = try UserToolchain(destination: Destination.hostDestination())
+            self.destinationToolchain = hostToolchain // FIXME
             self.manifestLoader = ManifestLoader(
-                toolchain: toolchain,
+                toolchain: self.hostToolchain,
                 isManifestSandboxEnabled: false,
                 extraManifestFlags: self.additionalSwiftBuildFlags
             )
             self.fileSystem = fileSystem
             self.observabilityScope = ObservabilitySystem { _, diagnostics in
-                // FIXME
-                print(diagnostics)
+                if diagnostics.severity >= logLevel {
+                    print(diagnostics)
+                }
             }.topScope
+            self.logLevel = logLevel
         }
 
         func build(
@@ -191,8 +195,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
             buildFlags: BuildFlags,
-            useIntegratedSwiftDriver: Bool,
-            logLevel: Basics.Diagnostic.Severity
+            useIntegratedSwiftDriver: Bool
         ) throws {
             let buildSystem = try createBuildSystem(
                 packagePath: packagePath,
@@ -219,18 +222,30 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             var buildFlags = buildFlags
             buildFlags.swiftCompilerFlags += self.additionalSwiftBuildFlags
 
+            // FIXME: move somewhere more generic
+            let dataPath = scratchDirectory.appending(
+                component: buildSystem == .xcode ? "apple" : self.destinationToolchain.triple.platformBuildPathComponent()
+            )
+
+            let buildParameters = BuildParameters(
+                dataPath: dataPath,
+                configuration: configuration,
+                toolchain: self.destinationToolchain,
+                hostTriple: self.hostToolchain.triple,
+                destinationTriple: self.destinationToolchain.triple,
+                flags: buildFlags,
+                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                verboseOutput: logLevel <= .info
+            )
+
+            let packageGraphLoader = { try self.loadPackageGraph(packagePath: packagePath) }
+
             switch buildSystem {
             case .native:
                 return BuildOperation(
-                    buildParameters: BuildParameters(
-                        dataPath: scratchDirectory,
-                        configuration: configuration,
-                        toolchain: self.toolchain,
-                        flags: buildFlags,
-                        useIntegratedSwiftDriver: useIntegratedSwiftDriver
-                    ),
+                    buildParameters: buildParameters,
                     cacheBuildManifest: false,
-                    packageGraphLoader: { try self.loadPackageGraph(packagePath: packagePath) },
+                    packageGraphLoader: packageGraphLoader,
                     additionalFileRules: [],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
@@ -239,14 +254,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 )
             case .xcode:
                 return try XcodeBuildSystem(
-                    buildParameters: BuildParameters(
-                        dataPath: scratchDirectory,
-                        configuration: configuration,
-                        toolchain: self.toolchain,
-                        flags: buildFlags,
-                        useIntegratedSwiftDriver: useIntegratedSwiftDriver
-                    ),
-                    packageGraphLoader: { try self.loadPackageGraph(packagePath: packagePath) },
+                    buildParameters: buildParameters,
+                    packageGraphLoader: packageGraphLoader,
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
@@ -332,7 +341,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                     manifestPath: manifestPath,
                     manifestToolsVersion: manifestToolsVersion,
                     packageIdentity: package.identity,
-                    packageKind: .fileSystem(packagePath),
+                    packageKind: package.kind,
                     packageLocation: package.locationString,
                     packageVersion: .none,
                     identityResolver: identityResolver,
