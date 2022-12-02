@@ -503,6 +503,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
+            "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
         ] + cmake_args + [source_path]
 
         if args.verbose:
@@ -534,8 +535,8 @@ def build_llbuild(args):
     call(["touch", "codemodel-v2"], cwd=api_dir, verbose=args.verbose)
 
     flags = [
-        "-DCMAKE_C_COMPILER:=clang",
-        "-DCMAKE_CXX_COMPILER:=clang++",
+        "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
+        "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
 
@@ -621,6 +622,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     swiftpm_args = [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
+        "CC=" + args.clang_path
     ]
 
     if args.bootstrap:
