@@ -252,7 +252,7 @@ public class RegistryDownloadsManager: Cancellable {
     }
 
     public func purgeCache() throws {
-        guard let cachePath = self.cachePath else {
+        guard let cachePath = self.cachePath, fileSystem.exists(cachePath) else {
             return
         }
         try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
