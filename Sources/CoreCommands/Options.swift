@@ -294,7 +294,7 @@ public struct BuildOptions: ParsableArguments {
       help: ArgumentHelp(
         "Build the package for the these architectures",
         shouldDisplay: false))
-    public var archs: [String] = []
+    public var architectures: [String] = []
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("experimental-destination-selector"), help: .hidden)
@@ -346,7 +346,7 @@ public struct BuildOptions: ParsableArguments {
     public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return archs.count > 1 ? .xcode : self._buildSystem
+        return self.architectures.count > 1 ? .xcode : self._buildSystem
         #else
         // Force building with the native build system on other platforms than macOS.
         return .native

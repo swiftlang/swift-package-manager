@@ -49,7 +49,7 @@ public final class UserToolchain: Toolchain {
     public let triple: Triple
 
     /// The list of archs to build for.
-    public let archs: [String]
+    public let architectures: [String]?
 
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
@@ -370,7 +370,7 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
         self.swiftCompilerPath = swiftCompilers.compile
-        self.archs = destination.archs
+        self.architectures = destination.architectures
 
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
@@ -379,7 +379,7 @@ public final class UserToolchain: Toolchain {
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
-        if archs.count == 1 {
+        if let archs = self.architectures, archs.count == 1 {
             let components = triple.tripleString.drop(while: { $0 != "-" })
             triple = try Triple(archs[0] + components)
         }
