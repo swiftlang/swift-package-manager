@@ -244,9 +244,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageLoading",
-                "PackageModel",
-                "PackageRegistry",
-                "SourceControl"
+                "PackageModel"
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -330,6 +328,7 @@ let package = Package(
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageModel",
+                "PackageRegistry",
                 "SourceControl",
                 "SPMBuildCore",
             ],
