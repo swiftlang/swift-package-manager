@@ -36,5 +36,12 @@ let package = Package(
                 .copy("foo.txt"),
             ]
         ),
+
+        .target(
+            name: "MixedClangResource",
+            resources: [
+                .copy("foo.txt"),
+            ]
+        ),
     ]
 )
