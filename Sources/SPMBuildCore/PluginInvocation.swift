@@ -372,8 +372,8 @@ extension PackageGraph {
 
                 let toolNamesToTriples = accessibleTools.reduce(into: [String: [String]](), { dict, tool in
                     switch tool {
-                    case .vendedTool(let name, _, let triple):
-                        dict[name] = triple
+                    case .vendedTool(let name, _, let triples):
+                        dict[name, default: []].append(contentsOf: triples)
                     default: break
                     }
                 })
@@ -533,7 +533,7 @@ public extension PluginTarget {
             if let target = executableOrBinaryTarget as? BinaryTarget {
                 // TODO: Memoize this result for the host triple
                 let execInfos = try target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
-                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: $0.supportedTriples.map{$0.tripleString}) }
+                return try execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: try $0.supportedTriples.map{ try $0.withoutVersion().tripleString }) }
             }
             // For an executable target we create a `builtTool`.
             else if executableOrBinaryTarget.type == .executable {
