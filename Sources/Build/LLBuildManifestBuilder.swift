@@ -621,8 +621,14 @@ extension LLBuildManifestBuilder {
                 let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
                 let displayName = command.configuration.displayName ?? execPath.basename
                 var commandLine = [execPath.pathString] + command.configuration.arguments
+
+                // Apply the sandbox, if appropriate.
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [result.pluginOutputDirectory])
+                    let sandboxProfile = SandboxProfile([
+                        .writable(result.pluginOutputDirectory),
+                        .writable(try AbsolutePath(validating: "/tmp")),
+                        .writable(try self.fileSystem.tempDirectory)])
+                    commandLine = try sandboxProfile.apply(to: commandLine)
                 }
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,

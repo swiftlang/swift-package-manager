@@ -11,6 +11,10 @@ Swift 5.8
 
   In packages that specify resources using tools version 5.8 or later, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
 
+* [#5857]
+
+  When running a compiler package manifest, the sandbox on Darwin platforms no longer allows writing to the compiler's module cache directories. These directories were originally writable when running Swift package manifests in the interpreter, but the Swift interpreter has not been used for package manifests (regardless of tools version) for several releases now, so this should have no noticeable impact on existing packages.
+
 Swift 5.7
 -----------
 

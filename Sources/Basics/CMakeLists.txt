@@ -27,7 +27,7 @@ add_library(Basics
   NSLock+Extensions.swift
   Observability.swift
   SQLite.swift
-  Sandbox.swift
+  SandboxProfile.swift
   String+Extensions.swift
   Triple+Extensions.swift
   SwiftVersion.swift
