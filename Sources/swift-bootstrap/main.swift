@@ -91,7 +91,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     @Option(
       name: .customLong("arch"),
       help: ArgumentHelp("Build the package for the these architectures", shouldDisplay: false))
-    public var archs: [String] = []
+    public var architectures: [String] = []
 
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
@@ -109,7 +109,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return archs.count > 1 ? .xcode : .native
+        return self.architectures.count > 1 ? .xcode : .native
         #else
         // Force building with the native build system on other platforms than macOS.
         return .native
@@ -149,6 +149,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 scratchDirectory: scratchDirectory,
                 buildSystem: self.buildSystem,
                 configuration: self.configuration,
+                architectures: self.architectures,
                 buildFlags: self.buildFlags,
                 useIntegratedSwiftDriver: self.useIntegratedSwiftDriver
             )
@@ -174,7 +175,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         init(fileSystem: FileSystem, logLevel: Basics.Diagnostic.Severity) throws {
             self.identityResolver = DefaultIdentityResolver()
             self.hostToolchain = try UserToolchain(destination: Destination.hostDestination())
-            self.destinationToolchain = hostToolchain // FIXME
+            self.destinationToolchain = hostToolchain // TODO: support destinations?
             self.manifestLoader = ManifestLoader(
                 toolchain: self.hostToolchain,
                 isManifestSandboxEnabled: false,
@@ -194,6 +195,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             scratchDirectory: AbsolutePath,
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
+            architectures: [String],
             buildFlags: BuildFlags,
             useIntegratedSwiftDriver: Bool
         ) throws {
@@ -202,6 +204,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 scratchDirectory: scratchDirectory,
                 buildSystem: buildSystem,
                 configuration: configuration,
+                architectures: architectures,
                 buildFlags: buildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 logLevel: logLevel
@@ -214,6 +217,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             scratchDirectory: AbsolutePath,
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
+            architectures: [String],
             buildFlags: BuildFlags,
             useIntegratedSwiftDriver: Bool,
             logLevel: Basics.Diagnostic.Severity
@@ -222,9 +226,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             var buildFlags = buildFlags
             buildFlags.swiftCompilerFlags += self.additionalSwiftBuildFlags
 
-            // FIXME: move somewhere more generic
             let dataPath = scratchDirectory.appending(
-                component: buildSystem == .xcode ? "apple" : self.destinationToolchain.triple.platformBuildPathComponent()
+                component: self.destinationToolchain.triple.platformBuildPathComponent(buildSystem: buildSystem)
             )
 
             let buildParameters = BuildParameters(
@@ -234,6 +237,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 hostTriple: self.hostToolchain.triple,
                 destinationTriple: self.destinationToolchain.triple,
                 flags: buildFlags,
+                architectures: architectures,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 verboseOutput: logLevel <= .info
             )
@@ -337,7 +341,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 let packagePath = try AbsolutePath(validating: package.locationString) // FIXME
                 let manifestPath = packagePath.appending(component: Manifest.filename)
                 let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-                manifestLoader.load(
+                self.manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: manifestToolsVersion,
                     packageIdentity: package.identity,
@@ -358,7 +362,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
     }
 }
 
-// FIXME: move to shared area
+// TODO: move to shared area
 extension AbsolutePath: ExpressibleByArgument {
     public init?(argument: String) {
         if let cwd = localFileSystem.currentWorkingDirectory {

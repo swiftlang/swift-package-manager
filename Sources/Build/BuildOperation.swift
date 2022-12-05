@@ -526,7 +526,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
             delegate: buildSystemDelegate,
-            schedulerLanes: buildParameters.jobs
+            schedulerLanes: buildParameters.workers
         )
 
         // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain

@@ -319,7 +319,7 @@ public final class SwiftTool {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.build.archs.isEmpty && options.build.customCompileTriple != nil {
+        if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
@@ -587,16 +587,17 @@ public final class SwiftTool {
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: options.build.buildSystem == .xcode ? "apple" : destinationTriple.platformBuildPathComponent())
+                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            )
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
                 toolchain: destinationToolchain,
                 destinationTriple: destinationTriple,
-                archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
-                jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                architectures: options.build.architectures,
+                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
@@ -647,7 +648,7 @@ public final class SwiftTool {
         if let sdk = self.options.build.customCompileSDK {
             destination.sdkRootDir = sdk
         }
-        destination.archs = options.build.archs
+        destination.architectures = options.build.architectures
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
