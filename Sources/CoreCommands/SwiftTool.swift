@@ -153,8 +153,6 @@ public final class SwiftTool {
     /// Path to the cross-compilation SDK directory.
     public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
 
-    public let pkgConfigDirectory: AbsolutePath?
-
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
 
@@ -302,7 +300,6 @@ public final class SwiftTool {
         self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
         self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: options, fileSystem: fileSystem)
-        self.pkgConfigDirectory = options.locations.pkgConfigDirectory
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }

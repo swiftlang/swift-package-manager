@@ -196,6 +196,7 @@ struct PluginCommand: SwiftCommand {
             toolNamesToTriples: toolNamesToTriples,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
+            pkgConfigDirectory: swiftTool.options.locations.pkgConfigDirectory,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,
             callbackQueue: delegateQueue,
