@@ -1387,7 +1387,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(linkFileListPath.pathString)"]
         }
         if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
+            return [librarian, "-static", "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
         }
         return [librarian, "crs", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
     }

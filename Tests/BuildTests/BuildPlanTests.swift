@@ -3808,7 +3808,7 @@ final class BuildPlanTests: XCTestCase {
                 inputs: ["\(buildPath.appending(components: "rary.build", "rary.swift.o").escapedPathString())"]
                 outputs: ["\(buildPath.appending(components: "library.a").escapedPathString())"]
                 description: "Archiving \(buildPath.appending(components: "library.a").escapedPathString())"
-                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
+                args: ["\(result.plan.buildParameters.toolchain.librarianPath.escapedPathString())","-static","-o","\(buildPath.appending(components: "library.a").escapedPathString())","@\(buildPath.appending(components: "rary.product", "Objects.LinkFileList").escapedPathString())"]
             """))
         } else {    // assume Unix `ar` is the librarian
             XCTAssertMatch(contents, .contains("""
