@@ -373,7 +373,12 @@ extension PackageGraph {
                         dict[name] = path
                     }
                 })
-                let builtToolNames = accessibleTools.compactMap { if case .builtTool(let name, _) = $0 { return name } else { return nil } }
+                let builtToolNames = accessibleTools.compactMap { (accTool) -> String? in
+                    if case .builtTool(let name, _) = accTool {
+                        return name
+                    }
+                    return nil
+                }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
                 let toolPaths = toolNamesToPaths.values.sorted()
