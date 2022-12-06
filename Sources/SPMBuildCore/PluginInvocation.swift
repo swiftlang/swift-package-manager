@@ -44,6 +44,7 @@ extension PluginTarget {
     ///   - workingDirectory: The initial working directory of the invoked plugin.
     ///   - outputDirectory: A directory under which the plugin can write anything it wants to.
     ///   - toolNamesToPaths: A mapping from name of tools available to the plugin to the corresponding absolute paths.
+    ///   - pkgConfigDirectory: A directory for searching `pkg-config` `.pc` files in it.
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
@@ -58,6 +59,7 @@ extension PluginTarget {
         toolNamesToTriples: [String: [String]],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        pkgConfigDirectory: AbsolutePath?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -75,7 +77,11 @@ extension PluginTarget {
         // Serialize the plugin action to send as the initial message.
         let initialMessage: Data
         do {
-            var serializer = PluginContextSerializer(fileSystem: fileSystem, buildEnvironment: buildEnvironment)
+            var serializer = PluginContextSerializer(
+                fileSystem: fileSystem,
+                buildEnvironment: buildEnvironment,
+                pkgConfigDirectory: pkgConfigDirectory
+            )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
             let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serializer.serialize(path: $0) }
@@ -318,6 +324,7 @@ extension PackageGraph {
         builtToolsDir: AbsolutePath,
         buildEnvironment: BuildEnvironment,
         toolSearchDirectories: [AbsolutePath],
+        pkgConfigDirectory: AbsolutePath?,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
@@ -468,6 +475,7 @@ extension PackageGraph {
                     toolNamesToTriples: toolNamesToTriples,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
+                    pkgConfigDirectory: pkgConfigDirectory,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,

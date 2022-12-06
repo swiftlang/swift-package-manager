@@ -194,6 +194,7 @@ class PluginInvocationTests: XCTestCase {
             builtToolsDir: builtToolsDir,
             buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+            pkgConfigDirectory: nil,
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
@@ -885,7 +886,7 @@ class PluginInvocationTests: XCTestCase {
                     outputDir: outputDir,
                     builtToolsDir: builtToolsDir,
                     buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                    toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                    toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory], pkgConfigDirectory: <#AbsolutePath?#>,
                     pluginScriptRunner: pluginScriptRunner,
                     observabilityScope: observability.topScope,
                     fileSystem: localFileSystem
@@ -1181,7 +1182,7 @@ class PluginInvocationTests: XCTestCase {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory], pkgConfigDirectory: <#AbsolutePath?#>,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem

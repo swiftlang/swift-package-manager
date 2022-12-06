@@ -33,6 +33,7 @@ extension SwiftTool {
                         additionalFileRules: FileRuleDescription.swiftpmFileTypes,
                         pluginScriptRunner: self.getPluginScriptRunner(),
                         pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
+                        pkgConfigDirectory: self.options.locations.pkgConfigDirectory,
                         disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
                         outputStream: customOutputStream ?? self.outputStream,
                         logLevel: customLogLevel ?? self.logLevel,

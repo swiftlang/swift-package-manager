@@ -95,6 +95,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// File rules to determine resource handling behavior.
     private let additionalFileRules: [FileRuleDescription]
 
+    private let pkgConfigDirectory: AbsolutePath?
+
     public init(
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
@@ -102,6 +104,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         additionalFileRules: [FileRuleDescription],
         pluginScriptRunner: PluginScriptRunner,
         pluginWorkDirectory: AbsolutePath,
+        pkgConfigDirectory: AbsolutePath?,
         disableSandboxForPluginCommands: Bool,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
@@ -118,6 +121,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginScriptRunner = pluginScriptRunner
         self.pluginWorkDirectory = pluginWorkDirectory
+        self.pkgConfigDirectory = pkgConfigDirectory
         self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
@@ -399,6 +403,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             builtToolsDir: self.buildParameters.buildPath,
             buildEnvironment: self.buildParameters.buildEnvironment,
             toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+            pkgConfigDirectory: self.pkgConfigDirectory,
             pluginScriptRunner: self.pluginScriptRunner,
             observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem

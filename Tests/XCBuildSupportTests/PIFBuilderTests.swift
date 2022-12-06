@@ -2614,7 +2614,8 @@ extension PIFBuilderParameters {
         PIFBuilderParameters(
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: AbsolutePath(path: "/toolchain/lib")
+            toolchainLibDir: AbsolutePath(path: "/toolchain/lib"),
+            pkgConfigDirectory: AbsolutePath(path: "/pkg-config")
         )
     }
 }

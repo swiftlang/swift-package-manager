@@ -24,23 +24,15 @@ import SPMBuildCore
 struct PIFBuilderParameters {
 
     /// Whether or not build for testability is enabled.
-    public let enableTestability: Bool
+    let enableTestability: Bool
 
     /// Whether to create dylibs for dynamic library products.
-    public let shouldCreateDylibForDynamicProducts: Bool
+    let shouldCreateDylibForDynamicProducts: Bool
 
     /// The path to the library directory of the active toolchain.
-    public let toolchainLibDir: AbsolutePath
+    let toolchainLibDir: AbsolutePath
 
-    /// Creates a `PIFBuilderParameters` instance.
-    /// - Parameters:
-    ///   - enableTestability: Whether or not build for testability is enabled.
-    ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath) {
-        self.enableTestability = enableTestability
-        self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
-        self.toolchainLibDir = toolchainLibDir
-    }
+    let pkgConfigDirectory: AbsolutePath?
 }
 
 /// PIF object builder for a package graph.
@@ -708,7 +700,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var impartedSettings = PIF.BuildSettings()
 
         var cFlags: [String] = []
-        for result in try pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
+        for result in try pkgConfigArgs(
+            for: systemTarget,
+            pkgConfigDirectory: parameters.pkgConfigDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        ) {
             if let error = result.error {
                 self.observabilityScope.emit(
                     warning: "\(error)",

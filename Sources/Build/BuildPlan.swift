@@ -2416,7 +2416,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         else {
             pkgConfigCache[target] = ([], [])
         }
-        let results = try pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        let results = try pkgConfigArgs(
+            for: target,
+            pkgConfigDirectory: buildParameters.pkgConfigDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
             ret.append((result.cFlags, result.libs))

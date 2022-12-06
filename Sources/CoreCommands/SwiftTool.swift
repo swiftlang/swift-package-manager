@@ -153,6 +153,8 @@ public final class SwiftTool {
     /// Path to the cross-compilation SDK directory.
     public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
 
+    public let pkgConfigDirectory: AbsolutePath?
+
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
 
@@ -296,10 +298,11 @@ public final class SwiftTool {
             (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: options, fileSystem: fileSystem)
+        self.pkgConfigDirectory = options.locations.pkgConfigDirectory
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -591,6 +594,7 @@ public final class SwiftTool {
                 archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
+                pkgConfigDirectory: options.locations.pkgConfigDirectory,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(

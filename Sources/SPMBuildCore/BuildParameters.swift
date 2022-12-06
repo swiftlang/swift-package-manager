@@ -137,6 +137,8 @@ public struct BuildParameters: Encodable {
     /// Extra build flags.
     public var flags: BuildFlags
 
+    public var pkgConfigDirectory: AbsolutePath?
+
     /// How many jobs should llbuild and the Swift compiler spawn
     public var jobs: UInt32
 
@@ -231,6 +233,7 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
+        pkgConfigDirectory: AbsolutePath?,
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
@@ -261,6 +264,7 @@ public struct BuildParameters: Encodable {
         self.triple = triple
         self.archs = archs
         self.flags = flags
+        self.pkgConfigDirectory = pkgConfigDirectory
         self.xcbuildFlags = xcbuildFlags
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
