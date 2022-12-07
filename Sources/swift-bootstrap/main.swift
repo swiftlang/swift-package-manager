@@ -173,8 +173,19 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         ]
 
         init(fileSystem: FileSystem, logLevel: Basics.Diagnostic.Severity) throws {
+            let observabilityScope = ObservabilitySystem { _, diagnostics in
+                if diagnostics.severity >= logLevel {
+                    print(diagnostics)
+                }
+            }.topScope
+
+            guard let cwd = fileSystem.currentWorkingDirectory else {
+                observabilityScope.emit(error: "couldn't determine the current working directory")
+                throw ExitCode.failure
+            }
+
             self.identityResolver = DefaultIdentityResolver()
-            self.hostToolchain = try UserToolchain(destination: Destination.hostDestination())
+            self.hostToolchain = try UserToolchain(destination: Destination.hostDestination(originalWorkingDirectory: cwd))
             self.destinationToolchain = hostToolchain // TODO: support destinations?
             self.manifestLoader = ManifestLoader(
                 toolchain: self.hostToolchain,
@@ -182,11 +193,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 extraManifestFlags: self.additionalSwiftBuildFlags
             )
             self.fileSystem = fileSystem
-            self.observabilityScope = ObservabilitySystem { _, diagnostics in
-                if diagnostics.severity >= logLevel {
-                    print(diagnostics)
-                }
-            }.topScope
+            self.observabilityScope = observabilityScope
             self.logLevel = logLevel
         }
 
