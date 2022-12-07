@@ -3219,6 +3219,8 @@ final class BuildPlanTests: XCTestCase {
                         .init(tool: .swift, kind: .define("RLINUX"), condition: .init(platformNames: ["linux"], config: "release")),
                         .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["macos"], config: "debug")),
                         .init(tool: .swift, kind: .unsafeFlags(["-Isfoo", "-L", "sbar"])),
+                        .init(tool: .swift, kind: .upcomingFeatures(["BestFeature"])),
+                        .init(tool: .swift, kind: .upcomingFeatures(["WorstFeature"]), condition: .init(platformNames: ["macos"], config: "debug"))
                     ]
                 ),
                 try TargetDescription(
@@ -3283,7 +3285,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-enable-future-feature", "BestFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
@@ -3299,7 +3301,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-enable-future-feature", "BestFeature", "-enable-future-feature", "WorstFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
@@ -3950,6 +3952,81 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try barTarget.objects.map{ $0.pathString }, [
             buildPath.appending(components: "Bar.build", "Bar.swift.o").pathString,
         ])
+    }
+
+    func testClangBundleAccessor() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/Foo/include/Foo.h",
+            "/Pkg/Sources/Foo/Foo.m",
+            "/Pkg/Sources/Foo/bar.h",
+            "/Pkg/Sources/Foo/bar.c",
+            "/Pkg/Sources/Foo/resource.txt"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Pkg",
+                    path: .init(path: "/Pkg"),
+                    toolsVersion: .current,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            resources: [
+                                .init(
+                                    rule: .process(localization: .none),
+                                    path: "resource.txt"
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(component: "debug")
+
+        let fooTarget = try result.target(for: "Foo").clangTarget()
+        XCTAssertEqual(try fooTarget.objects.map(\.pathString).sorted(), [
+            buildPath.appending(components: "Foo.build", "Foo.m.o").pathString,
+            buildPath.appending(components: "Foo.build", "bar.c.o").pathString,
+            buildPath.appending(components: "Foo.build", "resource_bundle_accessor.m.o").pathString
+        ].sorted())
+
+        let resourceAccessorDirectory = buildPath.appending(components:
+            "Foo.build",
+            "DerivedSources"
+        )
+
+        let resourceAccessorHeader = resourceAccessorDirectory
+            .appending(component: "resource_bundle_accessor.h")
+        let headerContents: String = try fs.readFileContents(resourceAccessorHeader)
+        XCTAssertMatch(
+            headerContents,
+            .contains("#define SWIFTPM_MODULE_BUNDLE Foo_SWIFTPM_MODULE_BUNDLE()")
+        )
+
+        let resourceAccessorImpl = resourceAccessorDirectory
+            .appending(component: "resource_bundle_accessor.m")
+        let implContents: String = try fs.readFileContents(resourceAccessorImpl)
+        XCTAssertMatch(
+            implContents,
+            .contains("NSBundle* Foo_SWIFTPM_MODULE_BUNDLE() {")
+        )
     }
 
     func testShouldLinkStaticSwiftStdlib() throws {

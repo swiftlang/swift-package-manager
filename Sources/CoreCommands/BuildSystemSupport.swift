@@ -30,10 +30,12 @@ extension SwiftTool {
                         buildParameters: customBuildParameters ?? self.buildParameters(),
                         cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
                         packageGraphLoader: customPackageGraphLoader ?? graphLoader,
+                        pluginConfiguration: .init(
+                            scriptRunner: self.getPluginScriptRunner(),
+                            workDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
+                            disableSandbox: self.options.security.shouldDisableSandbox
+                        ),
                         additionalFileRules: FileRuleDescription.swiftpmFileTypes,
-                        pluginScriptRunner: self.getPluginScriptRunner(),
-                        pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                        disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
                         outputStream: customOutputStream ?? self.outputStream,
                         logLevel: customLogLevel ?? self.logLevel,
                         fileSystem: self.fileSystem,

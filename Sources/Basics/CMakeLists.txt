@@ -29,7 +29,6 @@ add_library(Basics
   SQLite.swift
   Sandbox.swift
   String+Extensions.swift
-  Triple+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift

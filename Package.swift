@@ -244,9 +244,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageLoading",
-                "PackageModel",
-                "PackageRegistry",
-                "SourceControl"
+                "PackageModel"
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -320,7 +318,7 @@ let package = Package(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
             dependencies: ["SPMBuildCore", "PackageGraph"],
-            exclude: ["CMakeLists.txt"]
+            exclude: ["CMakeLists.txt", "CODEOWNERS"]
         ),
         .target(
             /** High level functionality */
@@ -330,6 +328,7 @@ let package = Package(
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageModel",
+                "PackageRegistry",
                 "SourceControl",
                 "SPMBuildCore",
             ],
@@ -346,7 +345,9 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageFingerprint",
+                "PackageLoading",
                 "PackageModel",
+                "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
             ],
@@ -415,7 +416,15 @@ let package = Package(
         .executableTarget(
             /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
             name: "swift-bootstrap",
-            dependencies: ["CoreCommands"],
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "XCBuildSupport",
+            ],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
