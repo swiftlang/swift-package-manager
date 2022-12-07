@@ -113,7 +113,7 @@ public struct Destination: Encodable, Equatable {
         binDir: AbsolutePath,
         extraCCFlags: [String] = [],
         extraSwiftCFlags: [String] = [],
-        extraCPPFlags: [String]
+        extraCPPFlags: [String] = []
     ) {
         self.hostTriple = nil
         self.targetTriple = target
