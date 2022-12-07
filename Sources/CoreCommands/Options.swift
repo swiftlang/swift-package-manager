@@ -284,7 +284,7 @@ public struct BuildOptions: ParsableArguments {
       help: ArgumentHelp(
         "Build the package for the these architectures",
         shouldDisplay: false))
-    public var architectures: [String] = []
+    public var archs: [String] = []
 
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
@@ -332,7 +332,7 @@ public struct BuildOptions: ParsableArguments {
     public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+        return archs.count > 1 ? .xcode : self._buildSystem
         #else
         // Force building with the native build system on other platforms than macOS.
         return .native

@@ -8,6 +8,7 @@
 
 add_library(CoreCommands
   BuildSystemSupport.swift
+  MinimalBuildTool.swift
   SwiftTool.swift
   SwiftToolObservabilityHandler.swift
   Options.swift)

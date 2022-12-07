@@ -140,7 +140,7 @@ struct APIDigesterBaselineDumper {
         // Dump the SDK JSON.
         try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(buildParameters.workers))
+        let semaphore = DispatchSemaphore(value: Int(buildParameters.jobs))
         let errors = ThreadSafeArrayStore<Swift.Error>()
         for module in modulesToDiff {
             semaphore.wait()
