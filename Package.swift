@@ -345,7 +345,9 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageFingerprint",
+                "PackageLoading",
                 "PackageModel",
+                "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
             ],
@@ -414,7 +416,15 @@ let package = Package(
         .executableTarget(
             /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
             name: "swift-bootstrap",
-            dependencies: ["CoreCommands"],
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "XCBuildSupport",
+            ],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(

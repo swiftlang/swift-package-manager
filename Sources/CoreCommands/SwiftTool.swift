@@ -75,7 +75,12 @@ public protocol SwiftCommand: ParsableCommand {
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration, workspaceDelegateProvider: self.workspaceDelegateProvider, workspaceLoaderProvider: self.workspaceLoaderProvider)
+        let swiftTool = try SwiftTool(
+            options: globalOptions,
+            toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
+            workspaceDelegateProvider: self.workspaceDelegateProvider,
+            workspaceLoaderProvider: self.workspaceLoaderProvider
+        )
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -314,7 +319,7 @@ public final class SwiftTool {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.build.archs.isEmpty && options.build.customCompileTriple != nil {
+        if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
@@ -575,23 +580,24 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let toolchain = try self.getDestinationToolchain()
-            let triple = toolchain.triple
+            let destinationToolchain = try self.getDestinationToolchain()
+            let destinationTriple = destinationToolchain.triple
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            )
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
-                toolchain: toolchain,
-                destinationTriple: triple,
-                archs: options.build.archs,
+                toolchain: destinationToolchain,
+                destinationTriple: destinationTriple,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
-                jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                architectures: options.build.architectures,
+                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
@@ -642,7 +648,7 @@ public final class SwiftTool {
         if let sdk = self.options.build.customCompileSDK {
             destination.sdkRootDir = sdk
         }
-        destination.archs = options.build.archs
+        destination.architectures = options.build.architectures
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
