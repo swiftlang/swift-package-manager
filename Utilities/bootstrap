@@ -361,11 +361,7 @@ def test(args):
 
     note("Testing")
     parse_test_args(args)
-    cmd = [
-        "SWIFT_EXEC=" + args.swiftc_path,
-        "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
-        os.path.join(args.bin_dir, "swift-test")
-    ]
+    cmd = [os.path.join(args.bin_dir, "swift-test")]
     if args.parallel:
         cmd.append("--parallel")
     for arg in args.filter:
