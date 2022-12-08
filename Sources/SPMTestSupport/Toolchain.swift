@@ -33,18 +33,6 @@ private func resolveBinDir() throws -> AbsolutePath {
 #endif
 }
 
-extension UserToolchain {
-
-#if os(macOS)
-    public var sdkPlatformFrameworksPath: AbsolutePath {
-        get throws {
-            return try Destination.sdkPlatformFrameworkPaths()!.fwk
-        }
-    }
-#endif
-
-}
-
 extension Destination {
     public static var `default`: Self {
         get throws {
