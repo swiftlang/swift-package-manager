@@ -30,7 +30,7 @@ class InitTests: XCTestCase {
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
-                packageType: .empty,
+                options: InitPackage.InitPackageOptions(packageType: .empty, platforms: []),
                 destinationPath: path,
                 fileSystem: localFileSystem
             )
@@ -177,7 +177,7 @@ class InitTests: XCTestCase {
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
-                packageType: .systemModule,
+                options: InitPackage.InitPackageOptions(packageType: .systemModule, platforms: []),
                 destinationPath: path,
                 fileSystem: localFileSystem
             )
@@ -292,13 +292,12 @@ class InitTests: XCTestCase {
 
     func testPlatforms() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            var options = InitPackage.InitPackageOptions(packageType: .library)
-            options.platforms = [
+            let options = InitPackage.InitPackageOptions(packageType: .library, platforms: [
                 .init(platform: .macOS, version: PlatformVersion("10.15")),
                 .init(platform: .iOS, version: PlatformVersion("12")),
                 .init(platform: .watchOS, version: PlatformVersion("2.1")),
                 .init(platform: .tvOS, version: PlatformVersion("999")),
-            ]
+            ])
 
             let packageRoot = tempDirPath.appending(component: "Foo")
             try localFileSystem.removeFileTree(packageRoot)
@@ -314,6 +313,30 @@ class InitTests: XCTestCase {
 
             let contents: String = try localFileSystem.readFileContents(packageRoot.appending(component: "Package.swift"))
             XCTAssertMatch(contents, .contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
+        }
+    }
+
+    func testDefaultPlatform() throws {
+        #if !os(macOS)
+        // Platform default versions are only set on macOS
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            let packageRoot = tempDirPath.appending(component: "Foo")
+            try localFileSystem.removeFileTree(packageRoot)
+            try localFileSystem.createDirectory(packageRoot)
+
+            let initPackage = try InitPackage(
+                name: "Foo",
+                packageType: .executable,
+                destinationPath: packageRoot,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let contents: String = try localFileSystem.readFileContents(packageRoot.appending(component: "Package.swift"))
+            XCTAssertMatch(contents, .contains(#"platforms: [.macOS("#))
         }
     }
 

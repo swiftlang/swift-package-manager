@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import TSCBasic
 import PackageModel
 
@@ -31,7 +32,7 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            platforms: [SupportedPlatform] = []
+            platforms: [SupportedPlatform]
         ) {
             self.packageType = packageType
             self.platforms = platforms
@@ -87,7 +88,7 @@ public final class InitPackage {
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType),
+            options: InitPackageOptions(packageType: packageType, platforms: getDefaultPlatforms()),
             destinationPath: destinationPath,
             fileSystem: fileSystem
         )
@@ -497,4 +498,14 @@ extension SupportedPlatform {
             return false
         }
     }
+}
+
+private func getDefaultPlatforms() -> [SupportedPlatform] {
+    #if os(macOS)
+    let hostVersion = ProcessInfo.processInfo.operatingSystemVersion
+    let version = PlatformVersion("\(hostVersion.majorVersion).\(hostVersion.minorVersion)")
+    return [SupportedPlatform(platform: .macOS, version: version)]
+    #else
+    return []
+    #endif
 }
