@@ -77,7 +77,7 @@ func mockBuildParameters(
         hostTriple: hostTriple,
         destinationTriple: destinationTriple,
         flags: flags,
-        workers: 3,
+        jobs: 3,
         shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
         canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
         indexStoreMode: indexStoreMode,

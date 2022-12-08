@@ -883,7 +883,7 @@ public final class SwiftTargetBuildDescription {
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
-        args += ["-j\(buildParameters.workers)"]
+        args += ["-j\(buildParameters.jobs)"]
         args += activeCompilationConditions
         args += additionalFlags
         args += try moduleCacheArgs
@@ -1037,7 +1037,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(buildParameters.workers)"]
+        result += ["-j\(buildParameters.jobs)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += try moduleCacheArgs
@@ -1084,7 +1084,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(buildParameters.workers)"]
+        result += ["-j\(buildParameters.jobs)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += try moduleCacheArgs

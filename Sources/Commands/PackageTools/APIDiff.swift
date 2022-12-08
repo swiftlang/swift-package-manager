@@ -114,7 +114,7 @@ struct APIDiff: SwiftCommand {
 
         let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
         let group = DispatchGroup()
-        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.buildParameters.workers))
+        let semaphore = DispatchSemaphore(value: Int(try buildSystem.buildPlan.buildParameters.jobs))
         var skippedModules: Set<String> = []
 
         for module in modulesToDiff {
