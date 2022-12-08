@@ -133,6 +133,16 @@ enum TestingSupport {
         if let location = toolchain.xctestPath {
             env.prependPath("Path", value: location.pathString)
         }
+        #elseif os(Linux)
+        var libraryPaths = ["/usr/lib/swift/linux"]
+        if let path = env["PATH"], let firstPathEntry = path.components(separatedBy: ":").first {
+            libraryPaths.append("\(firstPathEntry)/../lib/swift/linux")
+        }
+        if let originalLibraryPaths = env["LD_LIBRARY_PATH"] {
+            libraryPaths.append(originalLibraryPaths)
+        }
+        // Pass this explicitly on Linux because XCTest started requiring it, rdar://103054033
+        env["LD_LIBRARY_PATH"] = libraryPaths.joined(separator: ":")
         #endif
         return env
         #else
