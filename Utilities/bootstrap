@@ -481,7 +481,7 @@ def install_binary(args, binary, destination, destination_is_directory=True, ign
 # Build functions
 # -----------------------------------------------------------
 
-def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
+def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake_env = []):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
     if args.reconfigure or not os.path.isfile(cache_path) or not args.swiftc_path in open(cache_path).read():
@@ -493,7 +493,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
         swift_flags += ' -module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache'))
 
         cmd = [
-            "env", "MACOSX_DEPLOYMENT_TARGET=%s" % (g_macos_deployment_target),
+            "env"] + cmake_env + ["MACOSX_DEPLOYMENT_TARGET=%s" % (g_macos_deployment_target),
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
             "-DCMAKE_BUILD_TYPE:=Debug",
@@ -535,16 +535,19 @@ def build_llbuild(args):
         "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
+    cmake_env = []
 
-    # On Darwin, make sure we're building for the host architecture.
     if platform.system() == 'Darwin':
+        # On Darwin, make sure we're building for the host architecture.
         flags.append("-DCMAKE_OSX_ARCHITECTURES:=%s" % (get_build_target(args).split('-')[0]))
+        # Inject linkage of C++ standard library
+        cmake_env.append("LDFLAGS=-lc++")
 
     if args.sysroot:
         flags.append("-DSQLite3_INCLUDE_DIR=%s/usr/include" % args.sysroot)
 
     args.source_dirs["llbuild"] = get_llbuild_source_path(args)
-    build_with_cmake(args, flags, [], args.source_dirs["llbuild"], args.build_dirs["llbuild"])
+    build_with_cmake(args, flags, [], args.source_dirs["llbuild"], args.build_dirs["llbuild"], cmake_env=cmake_env)
 
 def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmake_flags = []):
     note("Building " + target_name)
