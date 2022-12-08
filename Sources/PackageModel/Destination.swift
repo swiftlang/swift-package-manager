@@ -54,7 +54,7 @@ public struct Destination: Encodable, Equatable {
     public let hostTriple: Triple?
 
     /// The architectures to build for. We build for host architecture if this is empty.
-    public var architectures: [String]? = nil
+    public var archs: [String] = []
 
     /// Root directory path of the SDK used to compile for the destination.
     @available(*, deprecated, message: "use `sdkRootDir` instead")
@@ -113,7 +113,7 @@ public struct Destination: Encodable, Equatable {
         binDir: AbsolutePath,
         extraCCFlags: [String] = [],
         extraSwiftCFlags: [String] = [],
-        extraCPPFlags: [String]
+        extraCPPFlags: [String] = []
     ) {
         self.hostTriple = nil
         self.targetTriple = target
@@ -195,12 +195,11 @@ public struct Destination: Encodable, Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
 #if os(macOS)
-        if let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment) {
-            extraCCFlags += ["-F", sdkPaths.fwk.pathString]
-            extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
-            extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
-            extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
-        }
+        let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment)
+        extraCCFlags += ["-F", sdkPaths.fwk.pathString]
+        extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
+        extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
+        extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
 #endif
 
 #if !os(Windows)
@@ -217,26 +216,29 @@ public struct Destination: Encodable, Equatable {
     /// Returns macosx sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
         environment: EnvironmentVariables = .process()
-    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath)? {
+    ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
         if let path = _sdkPlatformFrameworkPath {
             return path
         }
-        let platformPath = try? TSCBasic.Process.checkNonZeroExit(
+        let platformPath = try TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
             environment: environment).spm_chomp()
 
-        if let platformPath = platformPath, !platformPath.isEmpty {
-            // For XCTest framework.
-            let fwk = try AbsolutePath(validating: platformPath).appending(
-                components: "Developer", "Library", "Frameworks")
-
-            // For XCTest Swift library.
-            let lib = try AbsolutePath(validating: platformPath).appending(
-                components: "Developer", "usr", "lib")
-
-            _sdkPlatformFrameworkPath = (fwk, lib)
+        guard !platformPath.isEmpty else {
+            throw StringError("could not determine SDK platform path")
         }
-        return _sdkPlatformFrameworkPath
+
+        // For XCTest framework.
+        let fwk = try AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "Library", "Frameworks")
+
+        // For XCTest Swift library.
+        let lib = try AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "usr", "lib")
+
+        let sdkPlatformFrameworkPath = (fwk, lib)
+        _sdkPlatformFrameworkPath = sdkPlatformFrameworkPath
+        return sdkPlatformFrameworkPath
     }
 
     /// Cache storage for sdk platform path.

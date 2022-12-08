@@ -133,6 +133,9 @@ extension PluginTarget {
             
             /// Whether at least one error has been reported; this is used to make sure there is at least one error if the plugin fails.
             var hasReportedError = false
+
+            /// If this is true, we exited early with an error.
+            var exitEarly = false
             
             init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
@@ -191,13 +194,18 @@ extension PluginTarget {
                         outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
                     
                 case .definePrebuildCommand(let config, let outputFilesDir):
-                    self.invocationDelegate.pluginDefinedPrebuildCommand(
+                    let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
                         displayName: config.displayName,
                         executable: try AbsolutePath(validating: config.executable),
                         arguments: config.arguments,
                         environment: config.environment,
                         workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
                         outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+
+                    if !success {
+                        exitEarly = true
+                        hasReportedError = true
+                    }
 
                 case .buildOperationRequest(let subset, let parameters):
                     self.invocationDelegate.pluginRequestedBuildOperation(subset: .init(subset), parameters: .init(parameters)) {
@@ -264,10 +272,9 @@ extension PluginTarget {
             delegate: runnerDelegate) { result in
                 dispatchPrecondition(condition: .onQueue(callbackQueue))
                 completion(result.map { exitCode in
-                    // Return a result based on the exit code. If the plugin
-                    // exits with an error but hasn't already emitted an error,
-                    // we do so for it.
-                    let exitedCleanly = (exitCode == 0)
+                    // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
+                    // exits with an error but hasn't already emitted an error, we do so for it.
+                    let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
                     if !exitedCleanly && !runnerDelegate.hasReportedError {
                         delegate.pluginEmittedDiagnostic(
                             .error("Plugin ended with exit code \(exitCode)")
@@ -366,6 +373,12 @@ extension PackageGraph {
                         dict[name] = path
                     }
                 })
+                let builtToolNames = accessibleTools.compactMap { (accTool) -> String? in
+                    if case .builtTool(let name, _) = accTool {
+                        return name
+                    }
+                    return nil
+                }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
                 let toolPaths = toolNamesToPaths.values.sorted()
@@ -393,15 +406,17 @@ extension PackageGraph {
                     let fileSystem: FileSystem
                     let delegateQueue: DispatchQueue
                     let toolPaths: [AbsolutePath]
+                    let builtToolNames: [String]
                     var outputData = Data()
                     var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
-                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath]) {
+                    init(fileSystem: FileSystem, delegateQueue: DispatchQueue, toolPaths: [AbsolutePath], builtToolNames: [String]) {
                         self.fileSystem = fileSystem
                         self.delegateQueue = delegateQueue
                         self.toolPaths = toolPaths
+                        self.builtToolNames = builtToolNames
                     }
                     
                     func pluginCompilationStarted(commandLine: [String], environment: EnvironmentVariables) {
@@ -436,12 +451,12 @@ extension PackageGraph {
                             outputFiles: outputFiles))
                     }
                     
-                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         // executable must exist before running prebuild command
-                        if !fileSystem.exists(executable) {
-                            diagnostics.append(.error("executable target '\(executable.basename)' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build '\(executable.basename)' first and then run the plugin "))
-                            return
+                        if builtToolNames.contains(executable.basename) {
+                            diagnostics.append(.error("a prebuild command cannot use executables built from source, including executable target '\(executable.basename)'"))
+                            return false
                         }
                         prebuildCommands.append(.init(
                             configuration: .init(
@@ -451,9 +466,10 @@ extension PackageGraph {
                                 environment: environment,
                                 workingDirectory: workingDirectory),
                             outputFilesDirectory: outputFilesDirectory))
+                        return true
                     }
                 }
-                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths)
+                let delegate = PluginDelegate(fileSystem: fileSystem, delegateQueue: delegateQueue, toolPaths: toolPaths, builtToolNames: builtToolNames)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
@@ -655,7 +671,7 @@ public protocol PluginInvocationDelegate {
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])
 
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
-    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath)
+    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
     
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
@@ -779,7 +795,8 @@ public struct PluginInvocationTestResult {
 public extension PluginInvocationDelegate {
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
     }
-    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
+        return true
     }
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
         DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }

@@ -345,9 +345,7 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageFingerprint",
-                "PackageLoading",
                 "PackageModel",
-                "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
             ],
@@ -416,15 +414,7 @@ let package = Package(
         .executableTarget(
             /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
             name: "swift-bootstrap",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "Basics",
-                "Build",
-                "PackageGraph",
-                "PackageLoading",
-                "PackageModel",
-                "XCBuildSupport",
-            ],
+            dependencies: ["CoreCommands"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -517,8 +507,7 @@ let package = Package(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]
         ),
-        // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
-        /*.testTarget(
+        .testTarget(
             name: "FunctionalTests",
             dependencies: [
                 "swift-build",
@@ -527,7 +516,7 @@ let package = Package(
                 "PackageModel",
                 "SPMTestSupport"
             ]
-        ),*/
+        ),
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: [
