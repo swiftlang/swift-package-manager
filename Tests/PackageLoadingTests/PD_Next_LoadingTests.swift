@@ -32,7 +32,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") {
-            if case ManifestParseError.invalidManifestFormat(let error, _) = $0 {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = $0 {
                 XCTAssertMatch(error, .contains("cannot find 'FileManager' in scope"))
             } else {
                 XCTFail("unexpected error: \($0)")

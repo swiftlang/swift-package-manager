@@ -541,7 +541,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertTrue(error.contains("Operation not permitted"), "unexpected error message: \(error)")
             } else {
                 XCTFail("unexpected error: \(error)")

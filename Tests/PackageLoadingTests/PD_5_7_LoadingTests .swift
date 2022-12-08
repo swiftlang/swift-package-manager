@@ -110,7 +110,7 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertMatch(error, .contains("when(platforms:)' was obsoleted"))
             } else {
                 XCTFail("unexpected error: \(error)")
@@ -137,7 +137,7 @@ class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope)) { error in
-            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("error: 'productItem(name:package:condition:)' is unavailable: use .product(name:package:condition) instead."))
             } else {
                 XCTFail("unexpected error: \(error)")

@@ -59,7 +59,7 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("is unavailable"))
                 XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))
             } else {
