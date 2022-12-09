@@ -364,32 +364,14 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = try pluginTarget.accessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
-                let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
-                    switch tool {
-                    case .builtTool(let name, let path):
-                        dict[name] = builtToolsDir.appending(path)
-                    case .vendedTool(let name, let path, _):
-                        dict[name] = path
-                    }
-                })
-                let builtToolNames = accessibleTools.compactMap { (accTool) -> String? in
-                    if case .builtTool(let name, _) = accTool {
-                        return name
-                    }
-                    return nil
+                var builtToolNames: [String] = []
+                let (toolNamesToPaths, toolNamesToTriples) = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
+                    builtToolNames.append(name)
+                    return builtToolsDir.appending(path)
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
                 let toolPaths = toolNamesToPaths.values.sorted()
-
-                let toolNamesToTriples = accessibleTools.reduce(into: [String: [String]](), { dict, tool in
-                    switch tool {
-                    case .vendedTool(let name, _, let triples):
-                        dict[name, default: []].append(contentsOf: triples)
-                    default: break
-                    }
-                })
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -529,7 +511,7 @@ public extension PluginTarget {
     }
 
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
+    private func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
         return try Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
             let builtToolName: String
             let executableOrBinaryTarget: Target
@@ -559,6 +541,31 @@ public extension PluginTarget {
                 return []
             }
         })
+    }
+
+    func processAccessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> (toolNamesToPaths: [String: AbsolutePath], toolNamesToTriples: [String: [String]]) {
+        var toolNamesToPaths: [String: AbsolutePath] = [:]
+        // Add supported triples info per tool so they can be looked up when running the tool
+        var toolNamesToTriples: [String: [String]] = [:]
+
+        for dep in try accessibleTools(packageGraph: packageGraph, fileSystem: fileSystem, environment: environment, for: hostTriple) {
+            switch dep {
+            case .builtTool(let name, let path):
+                if let path = try builtToolHandler(name, path) {
+                    toolNamesToPaths[name] = path
+                }
+            case .vendedTool(let name, let path, let triples):
+                // Avoid having the path of an unsupported tool overwrite a supported one.
+                guard !triples.isEmpty || toolNamesToPaths[name] == nil else {
+                    continue
+                }
+                toolNamesToPaths[name] = path
+                // Need triples info for .vendedTool
+                toolNamesToTriples[name, default: []].append(contentsOf: triples)
+            }
+        }
+
+        return (toolNamesToPaths, toolNamesToTriples)
     }
 }
 

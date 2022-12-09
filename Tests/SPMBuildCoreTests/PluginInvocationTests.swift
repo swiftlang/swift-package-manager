@@ -1113,14 +1113,14 @@ class PluginInvocationTests: XCTestCase {
                         print("Looking for LocalBinaryTool...")
                         let localBinaryTool = try context.tool(named: "LocalBinaryTool")
                         print("... found it at \\(localBinaryTool.path)")
-                        return []
+                        return [.buildCommand(displayName: "", executable: localBinaryTool.path, arguments: [], inputFiles: [], outputFiles: [])]
                     }
                  }
             """
             try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: content)
             let artifactVariants = artifactSupportedTriples.map {
                 """
-                { "path": "LocalBinaryTool.sh", "supportedTriples": ["\($0.tripleString)"] }
+                { "path": "LocalBinaryTool\($0.tripleString).sh", "supportedTriples": ["\($0.tripleString)"] }
                 """
             }
 
@@ -1238,6 +1238,7 @@ class PluginInvocationTests: XCTestCase {
                 $0.value.forEach {
                     XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
                     XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                    XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
                 }
             }
         }
