@@ -280,7 +280,7 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testBuildCompleteMessage() throws {
-        throw XCTSkip("This test isn't stable w.r.t. the build cache; rdar://101815761")
+        throw XCTSkip("This test fails to match the 'Compiling' regex; rdar://101815761")
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
