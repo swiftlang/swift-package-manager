@@ -24,16 +24,25 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let fileSystem: FileSystem
     private let cacheDir: AbsolutePath
     private let toolchain: UserToolchain
+    private let extraPluginSwiftCFlags: [String]
     private let enableSandbox: Bool
     private let cancellator: Cancellator
     private let verboseOutput: Bool
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: UserToolchain, enableSandbox: Bool = true, verboseOutput: Bool = false) {
+    public init(
+        fileSystem: FileSystem,
+        cacheDir: AbsolutePath,
+        toolchain: UserToolchain,
+        extraPluginSwiftCFlags: [String] = [],
+        enableSandbox: Bool = true,
+        verboseOutput: Bool = false
+    ) {
         self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
+        self.extraPluginSwiftCFlags = extraPluginSwiftCFlags
         self.enableSandbox = enableSandbox
         self.cancellator = Cancellator(observabilityScope: .none)
         self.verboseOutput = verboseOutput
@@ -208,6 +217,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Finally add the output path of the compiled executable.
         commandLine += ["-o", execFilePath.pathString]
+
+        // Add any extra flags passed for the host in the command line
+        commandLine += self.extraPluginSwiftCFlags
 
         if (verboseOutput) {
             commandLine.append("-v")

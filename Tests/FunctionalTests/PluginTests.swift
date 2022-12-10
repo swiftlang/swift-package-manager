@@ -1009,4 +1009,25 @@ class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    func testPluginCanBeAffectedByXBuildToolsParameters() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
+
+        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try executeSwiftBuild(
+                fixturePath.appending(component: "MySourceGenPlugin"),
+                configuration: .Debug,
+                extraArgs: ["--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATING"]
+            )
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }
