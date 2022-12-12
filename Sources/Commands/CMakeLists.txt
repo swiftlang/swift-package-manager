@@ -7,8 +7,6 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
-  DestinationTools/DestinationCommand.swift
-  DestinationTools/ListDestinations.swift
   PackageTools/APIDiff.swift
   PackageTools/ArchiveSource.swift
   PackageTools/CompletionTool.swift

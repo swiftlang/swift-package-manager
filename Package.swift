@@ -369,6 +369,18 @@ let package = Package(
         ),
 
         .target(
+            /** Interacts with cross-compilation destinations */
+            name: "CrossCompilationDestinationsTool",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "CoreCommands",
+                "SPMBuildCore",
+                "PackageModel",
+            ]
+        ),
+
+        .target(
             /** Interacts with package collections */
             name: "PackageCollectionsTool",
             dependencies: [
@@ -418,6 +430,11 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** Interacts with cross-compilation destinations */
+            name: "swift-experimental-destination",
+            dependencies: ["Commands", "CrossCompilationDestinationsTool"]
+        ),
+        .executableTarget(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"],
@@ -437,7 +454,13 @@ let package = Package(
         .executableTarget(
             /** Multi-tool entry point for SwiftPM. */
             name: "swift-package-manager",
-            dependencies: ["Commands", "Basics", "PackageCollectionsTool", "PackageRegistryTool"]
+            dependencies: [
+                "Basics",
+                "Commands",
+                "CrossCompilationDestinationsTool",
+                "PackageCollectionsTool",
+                "PackageRegistryTool"
+            ]
         ),
         .executableTarget(
             /** Interact with package registry */

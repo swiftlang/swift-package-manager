@@ -11,12 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 
-public struct DestinationCommand: ParsableCommand {
-    public static var configuration = CommandConfiguration(
+public struct SwiftDestinationTool: ParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "experimental-destination",
-        _superCommandName: "package",
+        _superCommandName: "swift",
         abstract: "Perform operations on Swift cross-compilation destinations.",
+        version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             ListDestinations.self,
         ],
