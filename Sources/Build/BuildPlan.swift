@@ -333,9 +333,62 @@ public final class ClangTargetBuildDescription {
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         if target.type == .library {
-            // If there's a custom module map, use it as given.
-            if case .custom(let path) = clangTarget.moduleMapType {
-                self.moduleMap = path
+            if case .custom(let customModuleMapPath) = clangTarget.moduleMapType {
+                if isWithinMixedTarget {
+                    let customModuleMapContents: String = try fileSystem.readFileContents(customModuleMapPath)
+
+                    // Check that custom module map does not contain a Swift
+                    // submodule.
+                    if customModuleMapContents.contains("\(clangTarget.c99name).Swift") {
+                        throw StringError("The target's module map may not " +
+                                          "contain a Swift submodule for " +
+                                          "the module \(target.c99name).")
+                    }
+
+                    // Add a submodule to wrap the generated Swift header in
+                    // the custom module map.
+                    let modifiedModuleMapContents = """
+                        \(customModuleMapContents)
+
+                        module \(target.c99name).Swift {
+                            header "\(target.c99name)-Swift.h"
+                            requires objc
+                        }
+                        """
+
+                    // Write the modified contents to a new module map in the
+                    // build directory.
+                    let writePath = tempsPath.appending(component: moduleMapFilename)
+                    try fileSystem.createDirectory(writePath.parentDirectory, recursive: true)
+
+                    // If the file exists with the identical contents, we don't need to rewrite it.
+                    // Otherwise, compiler will recompile even if nothing else has changed.
+                    let contents = try? fileSystem.readFileContents(writePath) as String
+                    if contents != modifiedModuleMapContents {
+                        try fileSystem.writeFileContents(writePath, string: modifiedModuleMapContents)
+                    }
+
+                    self.moduleMap = writePath
+
+                    // The unextended module map purposefully excludes the
+                    // generated Swift header. This is so, when compiling the
+                    // mixed target's Swift part, the generated Swift header is
+                    // not considered an input (the header is an output of
+                    // compiling the mixed target's Swift part).
+                    //
+                    // At this point, the custom module map has been checked
+                    // that it does not include the Swift submodule. For that
+                    // reason, it can be copied to the build directory to
+                    // double as the unextended module map.
+                    try? fileSystem.copy(
+                        from: customModuleMapPath,
+                        to: tempsPath.appending(component: unextendedModuleMapFilename)
+                    )
+                } else {
+                    // When not building within a mixed target, use the custom
+                    // module map as it does not need to be modified.
+                    self.moduleMap = customModuleMapPath
+                }
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
@@ -465,7 +518,15 @@ public final class ClangTargetBuildDescription {
             args += ["-F", buildParameters.buildPath.pathString]
         }
 
-        args += ["-I", clangTarget.includeDir.pathString]
+        // For mixed targets, the `include` directory is instead overlayed over
+        // the build directory and that directory is passed as a header search
+        // path (See `MixedTargetBuildDescription`). This is done to avoid
+        // module re-declaration errors for cases when a mixed target contains
+        // a custom module map.
+        if !isWithinMixedTarget {
+            args += ["-I", clangTarget.includeDir.pathString]
+        }
+
         args += additionalFlags
         if enableModules {
             args += try moduleCacheArgs
@@ -1363,6 +1424,10 @@ public final class MixedTargetBuildDescription {
         swiftTargetBuildDescription.resourceBundleInfoPlistPath
     }
 
+    /// The path to the VFS overlay file that overlays the public headers of
+    /// the Clang half of the target over the target's build directory.
+    private(set) var allProductHeadersOverlay: AbsolutePath? = nil
+
     /// The modulemap file for this target, if any
     var moduleMap: AbsolutePath? { clangTargetBuildDescription.moduleMap }
 
@@ -1441,7 +1506,6 @@ public final class MixedTargetBuildDescription {
             // with mappings to the target's module map and public headers.
             let publicHeadersPath = clangTargetBuildDescription.clangTarget.includeDir
             let buildArtifactDirectory = swiftTargetBuildDescription.tempsPath
-            let generatedInteropHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
             let allProductHeadersPath = buildArtifactDirectory
                 .appending(component: "all-product-headers.yaml")
 
@@ -1462,38 +1526,34 @@ public final class MixedTargetBuildDescription {
                 )
             ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
 
+            // TODO(ncooke3): What happens if a custom module map exists with a
+            // name other than `module.modulemap`?
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
-                    name: publicHeadersPath.pathString,
+                    name: buildArtifactDirectory.pathString,
                     contents:
                         // Public headers
                     	try VFSOverlay.overlayResources(
                             directoryPath: publicHeadersPath,
-                            fileSystem: fileSystem
+                            fileSystem: fileSystem,
+                            shouldInclude: {
+                                // Filter out a potential custom module map as
+                                // only the generated module map in the build
+                                // directory is used.
+                                !$0.pathString.hasSuffix("module.modulemap")
+                            }
                         )
-                ),
-                VFSOverlay.Directory(
-                    name: buildArtifactDirectory.pathString,
-                    contents: [
-                        // Module map
-                        VFSOverlay.File(
-                            name: moduleMapFilename,
-                            externalContents:
-                                buildArtifactDirectory.appending(component: moduleMapFilename).pathString
-                        )
-                    ]
-                ),
-                VFSOverlay.Directory(
-                    name: buildArtifactDirectory.pathString,
-                    contents: [
-                        // Generated $(ModuleName)-Swift.h header
-                        VFSOverlay.File(
-                            name: generatedInteropHeaderPath.basename,
-                            externalContents: generatedInteropHeaderPath.pathString
-                        )
-                    ]
-                ),
+                )
             ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
+
+            // The Objective-C umbrella is virtually placed in the build
+            // directory via a VFS overlay. This is done to preserve
+            // relative paths in custom module maps. But when resources
+            // exist, a warning will appear because the generated resource
+            // header (also in the build directory) is not included in the
+            // umbrella directory. Passing `-Wno-incomplete-umbrella` seems
+            // to prevent it but is not an ideal workaround.
+            // TODO(ncooke3): Investigate a way around this.
 
             swiftTargetBuildDescription.additionalFlags.append(
                 // Builds Objective-C portion of module.
@@ -1507,14 +1567,19 @@ public final class MixedTargetBuildDescription {
                 "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString
             )
 
-            // For mixed targets, the Swift half of the target will generate
-            // an Objective-C compatibility header in the build folder.
-            // Compiling the Objective-C half of the target may require this
-            // generated header if the Objective-C half uses any APIs from
-            // the Swift half. For successful compilation, the directory
-            // with the generated header is added as a header search path.
-            clangTargetBuildDescription.additionalFlags.append("-I\(buildArtifactDirectory)")
-        }
+            // Overlay the public headers over the build directory and add
+            // the directory to the header search paths. This will also help
+            // pickup generated headers in the build directory like the
+            // generated interop Swift header.
+            clangTargetBuildDescription.additionalFlags += [
+                "-I",
+                buildArtifactDirectory.pathString,
+                "-ivfsoverlay",
+                allProductHeadersPath.pathString
+            ]
+
+            self.allProductHeadersOverlay = allProductHeadersPath
+         }
     }
 }
 
@@ -2603,8 +2668,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             case let target as MixedTarget where target.type == .library:
                 // Add the modulemap of the dependency if it has one.
                 if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
-                    if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                    if let moduleMap = dependencyTargetDescription.moduleMap,
+                       let allProductHeadersOverlay = dependencyTargetDescription.allProductHeadersOverlay {
+                        clangTarget.additionalFlags += [
+                            "-fmodule-map-file=\(moduleMap.pathString)",
+                            "-ivfsoverlay",
+                            allProductHeadersOverlay.pathString
+                        ]
                     }
                 }
             case let target as SystemLibraryTarget:
@@ -2665,11 +2735,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 // Add the path to modulemap of the dependency. Currently we
                 // require that all Mixed targets have a modulemap as it is
                 // required for interoperability.
-                guard let moduleMap = target.moduleMap else { break }
+                guard
+                    let moduleMap = target.moduleMap,
+                    let allProductHeadersOverlay = target.allProductHeadersOverlay
+                else { break }
                 swiftTarget.appendClangFlags(
                     "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-I",
-                    target.clangTargetBuildDescription.clangTarget.includeDir.pathString
+                    "-ivfsoverlay",
+                    allProductHeadersOverlay.pathString
                 )
             default:
                 break
@@ -2679,6 +2752,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Plan a Mixed target.
     private func plan(mixedTarget: MixedTargetBuildDescription) throws {
+        // TODO(ncooke3): Add tests for when mixed target depends on
+        // - MixedTarget
+        // - ClangTarget
+        // - SwiftTarget
         try plan(swiftTarget: mixedTarget.swiftTargetBuildDescription)
         try plan(clangTarget: mixedTarget.clangTargetBuildDescription)
     }

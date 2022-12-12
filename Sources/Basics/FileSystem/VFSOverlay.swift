@@ -94,25 +94,33 @@ public extension VFSOverlay {
     /// - Parameters:
     ///   - directoryPath: The directory to recursively search for resources in.
     ///   - fileSystem: The file system to search.
+    ///   - shouldInclude: A closure used to determine if the tree should include a given path.
+    ///   Defaults to including any path.
     /// - Returns: An array of `VFSOverlay.Resource`s from the given directory.
     /// - Throws: An error if the given path is a not a directory.
     /// - Note: This API will recursively scan all subpaths of the given path.
     static func overlayResources(
         directoryPath: AbsolutePath,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        shouldInclude: (AbsolutePath) -> Bool = { _ in true }
     ) throws -> [VFSOverlay.Resource] {
         return
             // Absolute path to each resource in the directory.
             try fileSystem.getDirectoryContents(directoryPath).map(directoryPath.appending(component:))
             // Map each path to a corresponding VFSOverlay, recursing for directories.
             .compactMap { resourcePath in
+                guard shouldInclude(resourcePath) else {
+                    return nil
+                }
+
                 if fileSystem.isDirectory(resourcePath) {
                     return VFSOverlay.Directory(
                         name: resourcePath.basename,
                         contents:
                             try overlayResources(
                                 directoryPath: resourcePath,
-                                fileSystem: fileSystem
+                                fileSystem: fileSystem,
+                                shouldInclude: shouldInclude
                             )
                     )
                 } else if fileSystem.isFile(resourcePath) {
