@@ -151,6 +151,10 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
     public var shouldDisableSandbox: Bool = false
 
+    /// Force usage of the netrc file even in cases where it is not allowed.
+    @Flag(name: .customLong("netrc"), help: "Use netrc file even in cases where other credential stores are preferred")
+    public var forceNetrc: Bool = false
+    
     /// Whether to load netrc files for authenticating with remote servers
     /// when downloading binary artifacts. This has no effects on registry
     /// communications.
@@ -162,7 +166,7 @@ public struct SecurityOptions: ParsableArguments {
     /// The path to the netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
-        help: "Specify the netrc file path.",
+        help: "Specify the netrc file path",
         completion: .file())
     public var netrcFilePath: AbsolutePath?
 

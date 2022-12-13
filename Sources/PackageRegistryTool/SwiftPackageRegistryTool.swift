@@ -237,7 +237,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 loginAPIPath = url.path
             }
             
-            // Require HTTPS
+            // Login URL must be HTTPS
             guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
@@ -260,7 +260,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             try tsc_await { callback in
                 registryClient.login(
                     url: loginURL,
-                    timeout: .seconds(3),
+                    timeout: .seconds(5),
                     observabilityScope: swiftTool.observabilityScope,
                     callbackQueue: .sharedConcurrent,
                     completion: callback
@@ -273,12 +273,20 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
             
             // Prompt if writing to netrc file and --no-confirm is not set
-            if !osStore, !self.noConfirm {
-                print("""
+            if saveChanges, !osStore, !self.noConfirm {
+                if globalOptions.security.forceNetrc {
+                    print("""
 
-                WARNING: Secure credential store is not supported on this platform.
-                Your credentials will be written out to netrc file.
-                """)
+                    WARNING: You choose to use netrc file instead of the operating system's secure credential store.
+                    Your credentials will be written out to netrc file.
+                    """)
+                } else {
+                    print("""
+                    
+                    WARNING: Secure credential store is not supported on this platform.
+                    Your credentials will be written out to netrc file.
+                    """)
+                }
                 print("Continue? (Yes/No): ")
                 guard readLine(strippingNewline: true)?.lowercased() == "yes" else {
                     print("Credentials not saved. Exiting...")

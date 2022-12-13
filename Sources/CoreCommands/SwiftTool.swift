@@ -447,8 +447,9 @@ public final class SwiftTool {
             authorization.netrc = .user
         }
 
+        // Don't use OS credential store if user wants netrc
         #if canImport(Security)
-        authorization.keychain = .enabled
+        authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
         #endif
 
         return try authorization.makeRegistryAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
