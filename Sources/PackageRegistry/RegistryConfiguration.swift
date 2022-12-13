@@ -24,13 +24,13 @@ public struct RegistryConfiguration: Hashable {
     public var defaultRegistry: Registry?
     public var scopedRegistries: [PackageIdentity.Scope: Registry]
     public var registryAuthentication: [String: Authentication]
-    public var security: Security
+    public var security: Security?
 
     public init() {
         self.defaultRegistry = nil
         self.scopedRegistries = [:]
         self.registryAuthentication = [:]
-        self.security = .init()
+        self.security = nil
     }
 
     public var isEmpty: Bool {
@@ -50,7 +50,9 @@ public struct RegistryConfiguration: Hashable {
             self.registryAuthentication[registry] = authentication
         }
         
-        self.security = other.security
+        if let security = other.security {
+            self.security = security
+        }
     }
 
     public func registry(for scope: PackageIdentity.Scope) -> Registry? {
@@ -160,7 +162,7 @@ extension RegistryConfiguration: Codable {
             self.scopedRegistries = scopedRegistries
 
             self.registryAuthentication = try container.decodeIfPresent([String: Authentication].self, forKey: .authentication) ?? [:]
-            self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? .init()
+            self.security = try container.decodeIfPresent(Security.self, forKey: .security)
         case nil:
             throw DecodingError.dataCorruptedError(forKey: .version, in: container, debugDescription: "invalid version: \(version)")
         }

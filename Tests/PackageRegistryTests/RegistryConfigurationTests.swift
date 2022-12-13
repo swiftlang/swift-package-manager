@@ -26,7 +26,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
-        XCTAssertEqual(configuration.security, .init())
+        XCTAssertNil(configuration.security)
     }
 
     func testRoundTripCodingForEmptyConfiguration() throws {
@@ -83,6 +83,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertNil(configuration.security)
     }
 
     func testDecodeExampleConfiguration() throws {
@@ -118,7 +119,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
-        XCTAssertEqual(configuration.security.credentialStore, .default)
+        XCTAssertEqual(configuration.security?.credentialStore, .default)
     }
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
