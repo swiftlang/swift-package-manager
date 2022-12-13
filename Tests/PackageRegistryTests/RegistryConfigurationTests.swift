@@ -26,6 +26,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertEqual(configuration.security, .init())
     }
 
     func testRoundTripCodingForEmptyConfiguration() throws {
@@ -45,6 +46,7 @@ final class RegistryConfigurationTests: XCTestCase {
         configuration.scopedRegistries["bar"] = .init(url: customRegistryBaseURL)
 
         configuration.registryAuthentication[defaultRegistryBaseURL.host!] = .init(type: .token)
+        configuration.security = .init(credentialStore: .netrc)
 
         let encoded = try encoder.encode(configuration)
         let decoded = try decoder.decode(RegistryConfiguration.self, from: encoded)
@@ -57,6 +59,7 @@ final class RegistryConfigurationTests: XCTestCase {
         {
             "registries": {},
             "authentication": {},
+            "security": {},
             "version": 1
         }
         """#
@@ -65,9 +68,10 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertEqual(configuration.security, .init())
     }
 
-    func testDecodeEmptyConfigurationWithoutAuthentication() throws {
+    func testDecodeEmptyConfigurationWithMissingKeys() throws {
         let json = #"""
         {
             "registries": {},
@@ -101,6 +105,9 @@ final class RegistryConfigurationTests: XCTestCase {
                     "loginAPIPath": "/v1/login"
                 }
             },
+            "security": {
+                "credentialStore": "default"
+            },
             "version": 1
         }
         """#
@@ -111,6 +118,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
+        XCTAssertEqual(configuration.security.credentialStore, .default)
     }
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
@@ -147,6 +155,21 @@ final class RegistryConfigurationTests: XCTestCase {
                 "packages.example.com": {
                     "type": "foobar"
                 }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+    
+    func testDecodeConfigurationWithInvalidCredentialStore() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {},
+            "security": {
+                "credentialStore": "foobar"
             },
             "version": 1
         }

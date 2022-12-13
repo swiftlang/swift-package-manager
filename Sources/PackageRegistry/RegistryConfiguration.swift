@@ -24,11 +24,13 @@ public struct RegistryConfiguration: Hashable {
     public var defaultRegistry: Registry?
     public var scopedRegistries: [PackageIdentity.Scope: Registry]
     public var registryAuthentication: [String: Authentication]
+    public var security: Security
 
     public init() {
         self.defaultRegistry = nil
         self.scopedRegistries = [:]
         self.registryAuthentication = [:]
+        self.security = .init()
     }
 
     public var isEmpty: Bool {
@@ -47,6 +49,8 @@ public struct RegistryConfiguration: Hashable {
         for (registry, authentication) in other.registryAuthentication {
             self.registryAuthentication[registry] = authentication
         }
+        
+        self.security = other.security
     }
 
     public func registry(for scope: PackageIdentity.Scope) -> Registry? {
@@ -76,12 +80,37 @@ extension RegistryConfiguration {
     }
 }
 
+extension RegistryConfiguration {
+    public struct Security: Hashable, Codable {
+        public var credentialStore: CredentialStore
+        
+        private enum CodingKeys: String, CodingKey {
+            case credentialStore
+        }
+        
+        public init(credentialStore: CredentialStore = .default) {
+            self.credentialStore = credentialStore
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.credentialStore = try container.decodeIfPresent(CredentialStore.self, forKey: .credentialStore) ?? .default
+        }
+    }
+
+    public enum CredentialStore: String, Hashable, Codable {
+        case `default`
+        case netrc
+    }
+}
+
 // MARK: - Codable
 
 extension RegistryConfiguration: Codable {
     private enum CodingKeys: String, CodingKey {
         case registries
         case authentication
+        case security
         case version
     }
 
@@ -131,6 +160,7 @@ extension RegistryConfiguration: Codable {
             self.scopedRegistries = scopedRegistries
 
             self.registryAuthentication = try container.decodeIfPresent([String: Authentication].self, forKey: .authentication) ?? [:]
+            self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? .init()
         case nil:
             throw DecodingError.dataCorruptedError(forKey: .version, in: container, debugDescription: "invalid version: \(version)")
         }
@@ -151,5 +181,6 @@ extension RegistryConfiguration: Codable {
         }
 
         try container.encode(self.registryAuthentication, forKey: .authentication)
+        try container.encode(self.security, forKey: .security)
     }
 }
