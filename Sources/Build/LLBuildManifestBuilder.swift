@@ -847,7 +847,9 @@ extension LLBuildManifestBuilder {
         // input to the Clang compile command, which therefore forces the
         // Swift half of the mixed target to be built first.
         if target.isWithinMixedTarget {
-            inputs.append(Node.file(target.tempsPath.appending(component: "\(target.target.name)-Swift.h")))
+            inputs += [
+                .file(target.tempsPath.appending(component: "\(target.target.name)-Swift.h"))
+            ]
         }
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {

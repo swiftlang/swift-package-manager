@@ -69,7 +69,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testMixedSourcesDoNotSupportCustomModuleMap() throws {
+    func testMixedSourcesWithCustomModuleMap() throws {
         let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -86,11 +86,13 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(
-                diagnostic: "Target with mixed sources at /Sources/foo contains a custom module map; targets with mixed language sources do not support custom module maps.",
-                severity: .error
-            )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: foo.pathString, paths: "Foo.swift", "Bar.m")
+                module.check(includeDir: foo.appending(component: "include").pathString)
+                module.check(moduleMapType: .custom(foo.appending(components: "include", "module.modulemap")))
+            }
         }
     }
 

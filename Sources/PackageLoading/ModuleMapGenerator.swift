@@ -180,12 +180,8 @@ public struct ModuleMapGenerator {
     }
 
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any
-    /// diagnostics are added to the receiver's diagnostics engine.
-    ///
-    /// The `interopHeaderPath` is the path to the generated interop header used to access a
-    /// module's Swift API in an Objective-C context (`$(ModuleName)-Swift.h`). If non-`nil`, the
-    /// created module map will include a submodule to access interop header's API.
-    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath, interopHeaderPath: AbsolutePath? = nil) throws {
+    /// diagnostics are added to the receiver's diagnostics engine..
+    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath, addSwiftSubmodule: Bool = false) throws {
         let stream = BufferedOutputByteStream()
         stream <<< "module \(moduleName) {\n"
         switch type {
@@ -196,9 +192,9 @@ public struct ModuleMapGenerator {
         }
         stream <<< "    export *\n"
         stream <<< "}\n"
-        if let interopHeaderPath = interopHeaderPath {
+        if addSwiftSubmodule {
             stream <<< "module \(moduleName).Swift {\n"
-            stream <<< "    header \"" <<< interopHeaderPath.pathString <<< "\"\n"
+            stream <<< "    header \"\(moduleName)-Swift.h\"\n"
             stream <<< "    requires objc\n"
             stream <<< "}\n"
         }
