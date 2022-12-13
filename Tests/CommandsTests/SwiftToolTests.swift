@@ -154,7 +154,7 @@ final class SwiftToolTests: CommandsTestCase {
             }
         }
     }
-    
+
     func testAuthorizationProviders() throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
@@ -170,7 +170,7 @@ final class SwiftToolTests: CommandsTestCase {
                 let tool = try SwiftTool.createSwiftToolForTest(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
-                let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
+                let netrcProviders = authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider } ?? []
                 XCTAssertEqual(netrcProviders.count, 1)
                 XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 

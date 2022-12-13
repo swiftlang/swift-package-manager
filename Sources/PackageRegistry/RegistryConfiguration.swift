@@ -63,7 +63,7 @@ extension RegistryConfiguration {
     public struct Authentication: Hashable, Codable {
         public var type: AuthenticationType
         public var loginAPIPath: String?
-        
+
         public init(type: AuthenticationType, loginAPIPath: String? = nil) {
             self.type = type
             self.loginAPIPath = loginAPIPath
@@ -145,7 +145,7 @@ extension RegistryConfiguration: Codable {
 
         try registriesContainer.encodeIfPresent(self.defaultRegistry, forKey: .default)
 
-        for (scope, registry) in scopedRegistries {
+        for (scope, registry) in self.scopedRegistries {
             let key = ScopeCodingKey(stringValue: scope.description)
             try registriesContainer.encode(registry, forKey: key)
         }

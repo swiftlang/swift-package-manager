@@ -24,7 +24,7 @@ public protocol AuthorizationProvider {
 
 public protocol AuthorizationWriter {
     func addOrUpdate(for url: URL, user: String, password: String, persist: Bool, callback: @escaping (Result<Void, Error>) -> Void)
-    
+
     func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void)
 }
 
@@ -63,7 +63,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
     // marked internal for testing
     internal let path: AbsolutePath
     private let fileSystem: FileSystem
-    
+
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
 
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
@@ -77,7 +77,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
         guard let machine = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
-        
+
         if !persist {
             self.cache[machine] = (user, password)
             return callback(.success(()))
@@ -109,7 +109,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
             callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
         }
     }
-    
+
     public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
         callback(.failure(AuthorizationProviderError.other("User must edit netrc file at \(self.path) manually to remove entries")))
     }
@@ -155,7 +155,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
 #if canImport(Security)
 public class KeychainAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     private let observabilityScope: ObservabilityScope
-    
+
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
 
     public init(observabilityScope: ObservabilityScope) {
@@ -166,12 +166,12 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
-        
+
         if !persist {
             self.cache[server] = (user, password)
             return callback(.success(()))
         }
-        
+
         guard let passwordData = password.data(using: .utf8) else {
             return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
         }
@@ -186,7 +186,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
             callback(.failure(error))
         }
     }
-    
+
     public func remove(for url: URL, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
@@ -206,7 +206,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         guard let server = url.authenticationID else {
             return nil
         }
-        
+
         if let cached = self.cache[server] {
             return cached
         }
@@ -262,7 +262,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         }
         return true
     }
-    
+
     private func delete(server: String, protocol: CFString) throws {
         let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
                                     kSecAttrServer as String: server,

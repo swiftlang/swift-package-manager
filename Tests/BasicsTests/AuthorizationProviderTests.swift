@@ -88,7 +88,7 @@ final class AuthorizationProviderTests: XCTestCase {
         // Existing password is updated
         self.assertAuthentication(provider, for: url, expected: (user, newPassword))
         self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
-        
+
         // Delete
         XCTAssertNoThrow(try tsc_await { callback in provider.remove(for: url, callback: callback) })
         XCTAssertNil(provider.authentication(for: url))

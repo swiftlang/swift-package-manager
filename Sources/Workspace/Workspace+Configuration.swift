@@ -260,7 +260,7 @@ extension Workspace.Configuration {
             self.netrc = netrc
             self.keychain = keychain
         }
-        
+
         public func makeAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
 
@@ -300,7 +300,7 @@ extension Workspace.Configuration {
 
         public func makeRegistryAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
-            
+
             // OS-specific AuthorizationProvider has higher precedence
             switch self.keychain {
             case .enabled:
@@ -482,7 +482,6 @@ extension Workspace.Configuration {
             }
         }
 
-
         /// Apply a mutating handler on the mirrors in this configuration
         @discardableResult
         public func apply(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
@@ -507,16 +506,16 @@ extension Workspace.Configuration {
             let data: Data = try fileSystem.readFileContents(path)
             let decoder = JSONDecoder.makeWithDefaults()
             let mirrors = try decoder.decode(MirrorsStorage.self, from: data)
-            let mirrorsMap = Dictionary(mirrors.object.map({ ($0.original, $0.mirror) }), uniquingKeysWith: { first, _ in first })
+            let mirrorsMap = Dictionary(mirrors.object.map { ($0.original, $0.mirror) }, uniquingKeysWith: { first, _ in first })
             return mirrorsMap
         }
 
         private static func save(_ mirrors: [String: String], to path: AbsolutePath, fileSystem: FileSystem, deleteWhenEmpty: Bool) throws {
             if mirrors.isEmpty {
-                if deleteWhenEmpty && fileSystem.exists(path)  {
+                if deleteWhenEmpty && fileSystem.exists(path) {
                     // deleteWhenEmpty is a backward compatibility mode
                     return try fileSystem.removeFileTree(path)
-                } else if !fileSystem.exists(path)  {
+                } else if !fileSystem.exists(path) {
                     // nothing to do
                     return
                 }
@@ -558,7 +557,7 @@ extension Workspace.Configuration {
         /// The registry configuration
         public var configuration: RegistryConfiguration {
             self.lock.withLock {
-                return self._configuration
+                self._configuration
             }
         }
 

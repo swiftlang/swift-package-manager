@@ -55,7 +55,8 @@ public struct ToolWorkspaceConfiguration {
     let wantsREPLProduct: Bool
 
     public init(wantsMultipleTestProducts: Bool = false,
-         wantsREPLProduct: Bool = false) {
+                wantsREPLProduct: Bool = false)
+    {
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
@@ -540,8 +541,8 @@ public final class SwiftTool {
 
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        self.fileSystem.exists(buildParameters.llbuildManifest) &&
-        self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildParameters.llbuildManifest) &&
+            self.fileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -760,6 +761,14 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     return root
 }
 
+/// Returns the build path from the environment, if present.
+private func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
+    // Don't rely on build path from env for SwiftPM's own tests.
+    guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+    guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
+    return try AbsolutePath(validating: env, relativeTo: workingDir)
+}
+
 private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
@@ -883,6 +892,6 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
 
 public extension Basics.Diagnostic {
     static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
-        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+        .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

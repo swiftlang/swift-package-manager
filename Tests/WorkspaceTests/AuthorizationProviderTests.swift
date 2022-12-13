@@ -33,7 +33,7 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
-            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+            let netrcProviders = authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider }
 
             XCTAssertEqual(netrcProviders?.count, 1)
             XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
@@ -61,7 +61,7 @@ final class AuthorizationProviderTests: XCTestCase {
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
-            let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider }
+            let netrcProviders = authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider }
 
             XCTAssertEqual(netrcProviders?.count, 1)
             XCTAssertEqual(try netrcProviders?.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
@@ -73,12 +73,12 @@ final class AuthorizationProviderTests: XCTestCase {
             // delete it
             do {
                 try fileSystem.removeFileTree(userPath)
-                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope)  as? CompositeAuthorizationProvider
+                let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
                 XCTAssertNil(authorizationProvider)
             }
         }
     }
-    
+
     func testRegistryNetrcAuthorizationProviders() throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -138,7 +138,7 @@ final class AuthorizationProviderTests: XCTestCase {
                 // Even if user .netrc file doesn't exist, the provider will be non-nil but contain no data.
                 XCTAssertNotNil(authorizationProvider)
                 XCTAssertEqual(try authorizationProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(userPath))
-                
+
                 XCTAssertTrue(authorizationProvider!.machines.isEmpty)
             }
         }

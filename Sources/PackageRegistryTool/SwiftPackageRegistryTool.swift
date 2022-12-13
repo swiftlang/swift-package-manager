@@ -14,15 +14,15 @@ import ArgumentParser
 import Basics
 import Commands
 import CoreCommands
-import TSCBasic
-import SPMBuildCore
-import PackageModel
-import PackageLoading
-import PackageGraph
-import SourceControl
-import Workspace
 import Foundation
+import PackageGraph
+import PackageLoading
+import PackageModel
 import PackageRegistry
+import SourceControl
+import SPMBuildCore
+import TSCBasic
+import Workspace
 
 private enum RegistryConfigurationError: Swift.Error {
     case missingScope(PackageIdentity.Scope? = nil)
@@ -140,7 +140,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             }
         }
     }
-    
+
     struct Login: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry")
@@ -150,19 +150,19 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
         @Argument(help: "The registry URL")
         var url: String
-        
+
         @Option(help: "Username")
         var username: String?
 
         @Option(help: "Password")
         var password: String?
-        
+
         @Option(help: "Access token")
         var token: String?
-        
+
         @Flag(help: "Allow writing to netrc file without confirmation")
         var noConfirm: Bool = false
-        
+
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -170,7 +170,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
-            
+
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
                 throw StringError("No credential store available")
@@ -180,7 +180,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             let storeUsername: String
             let storePassword: String
             var saveChanges = true
-            
+
             if let username = self.username {
                 authenticationType = .basic
 
@@ -213,7 +213,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     storePassword = String(cString: getpass("Enter access token: "))
                 }
             }
-            
+
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
             if saveChanges, authorizationWriter == nil {
                 throw StringError("Credential store must be writable")
@@ -229,21 +229,21 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     callback: callback
                 )
             }
-            
+
             // `url` can either be base URL of the registry, in which case the login API
             // is assumed to be at /login, or the full URL of the login API.
             var loginAPIPath: String?
             if !url.path.isEmpty, url.path != "/" {
                 loginAPIPath = url.path
             }
-            
+
             // Login URL must be HTTPS
             guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
-            
+
             let configuration = try getRegistriesConfig(swiftTool)
-            
+
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
             registryConfiguration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
@@ -267,14 +267,14 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 )
             }
             print("Login successful.")
-            
+
             // Login successful. Persist credentials to storage.
-            
+
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
-            
+
             // Prompt if writing to netrc file and --no-confirm is not set
             if saveChanges, !osStore, !self.noConfirm {
-                if globalOptions.security.forceNetrc {
+                if self.globalOptions.security.forceNetrc {
                     print("""
 
                     WARNING: You choose to use netrc file instead of the operating system's secure credential store.
@@ -282,7 +282,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     """)
                 } else {
                     print("""
-                    
+
                     WARNING: Secure credential store is not supported on this platform.
                     Your credentials will be written out to netrc file.
                     """)
@@ -293,7 +293,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                     return
                 }
             }
-            
+
             if saveChanges {
                 try tsc_await { callback in
                     authorizationWriter?.addOrUpdate(
@@ -304,14 +304,14 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                         callback: callback
                     )
                 }
-                
+
                 if osStore {
                     print("\nCredentials have been saved to the operating system's secure credential store.")
                 } else {
                     print("\nCredentials have been saved to netrc file.")
                 }
             }
-            
+
             // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 configuration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
@@ -321,7 +321,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             print("Registry configuration updated.")
         }
     }
-    
+
     struct Logout: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log out from a registry")
@@ -337,15 +337,15 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
-            
+
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
                 throw StringError("No credential store available")
             }
-            
+
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
-            
+
             // Only OS credential store supports deletion
             if osStore {
                 try tsc_await { callback in authorizationWriter?.remove(for: url, callback: callback) }
@@ -353,7 +353,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             } else {
                 print("netrc file not updated. Please remove credentials from the file manually.")
             }
-            
+
             let configuration = try getRegistriesConfig(swiftTool)
 
             // Update user-level registry configuration file
