@@ -20,6 +20,16 @@ import SPMTestSupport
 import enum TSCUtility.Git
 
 class GitRepositoryTests: XCTestCase {
+
+    override func setUp() {
+        // needed for submodule tests
+        Git.environment = ["GIT_ALLOW_PROTOCOL": "file"]
+    }
+
+    override func tearDown() {
+        Git.environment = ProcessInfo.processInfo.environment
+    }
+
     /// Test the basic provider functions.
     func testRepositorySpecifier() {
         do {
@@ -177,7 +187,9 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(repoPath)
 
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString)
+                args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
+                environment: Git.environment
+            )
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
             try repo.commit()
@@ -562,7 +574,11 @@ class GitRepositoryTests: XCTestCase {
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
-            try systemQuietly([Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar"])
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
+                environment: Git.environment
+            )
+
             try foo.stageEverything()
             try foo.commit()
             try foo.tag(name: "1.0.1")
@@ -580,7 +596,11 @@ class GitRepositoryTests: XCTestCase {
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
-            try systemQuietly([Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz"])
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
+                environment: Git.environment
+            )
+
             try bar.stageEverything()
             try bar.commit()
 
