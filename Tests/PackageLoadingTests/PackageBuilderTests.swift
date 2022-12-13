@@ -41,6 +41,28 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testMixedSourcesWhenUnsupportedToolsVersion() throws {
+        let foo: AbsolutePath = AbsolutePath(path: "/Sources/foo")
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "Foo.swift").pathString,
+            foo.appending(components: "bar.c").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            name: "pkg",
+            path: .root,
+            toolsVersion: .v3,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            // TODO(ncooke3): Update error message with support version.
+            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported until tools version XX", severity: .error)
+        }
+    }
+
     func testMixedSources() throws {
         let foo: AbsolutePath = "/Sources/foo"
 

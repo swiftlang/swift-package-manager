@@ -194,6 +194,9 @@ extension Target {
             case emptyName
         }
 
+        /// The target contains an invalid mix of languages (e.g. both Swift and C).
+        case mixedSources(AbsolutePath)
+
     }
 }
 
@@ -202,6 +205,10 @@ extension Target.Error: CustomStringConvertible {
         switch self {
         case .invalidName(let path, let problem):
             return "invalid target name at '\(path)'; \(problem)"
+        case .mixedSources(let path):
+            // TODO(ncooke3): Update error message with support version.
+            return "target at '\(path)' contains mixed language source " +
+                    "files; feature not supported until tools version XX"
         }
     }
 }
