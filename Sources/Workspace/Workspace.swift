@@ -3129,7 +3129,7 @@ extension Workspace {
         try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
         // Record the new state.
-        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
+        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
         self.state.dependencies.add(
             try .sourceControlCheckout(
                 packageRef: package,
@@ -3280,7 +3280,7 @@ extension Workspace {
          }
 
          // Record the new state.
-         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
+         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
          self.state.dependencies.add(
             try .registryDownload(
                 packageRef: package,

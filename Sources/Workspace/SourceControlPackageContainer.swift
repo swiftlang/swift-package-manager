@@ -92,7 +92,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.currentToolsVersion = currentToolsVersion
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
-        self.observabilityScope = observabilityScope
+        self.observabilityScope = observabilityScope.makeChildScope(
+            description: "SourceControlPackageContainer",
+            metadata: package.diagnosticsMetadata)
     }
 
     // Compute the map of known versions.
