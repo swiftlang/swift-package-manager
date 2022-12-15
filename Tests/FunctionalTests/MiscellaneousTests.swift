@@ -197,7 +197,6 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
-
     func testOverridingDeploymentTargetUsingSwiftCompilerArgument() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
@@ -238,6 +237,14 @@ class MiscellaneousTestCase: XCTestCase {
             let moduleUser = fixturePath.appending(component: "SystemModuleUserClang")
             let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
+
+            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SystemModuleUserClang"))
+
+            // Clean up the build directory before re-running the build with
+            // different arguments.
+            _ = try executeSwiftPackage(moduleUser, extraArgs: ["clean"])
+
+            _ = try executeSwiftBuild(moduleUser, extraArgs: ["--pkg-config-path", fixturePath.pathString])
 
             XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SystemModuleUserClang"))
         }
