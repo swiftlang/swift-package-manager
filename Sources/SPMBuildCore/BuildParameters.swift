@@ -137,7 +137,8 @@ public struct BuildParameters: Encodable {
     /// Extra build flags.
     public var flags: BuildFlags
 
-    public var pkgConfigDirectory: AbsolutePath?
+    /// An array of paths to search for pkg-config `.pc` files.
+    public var pkgConfigDirectories: [AbsolutePath]
 
     /// How many jobs should llbuild and the Swift compiler spawn
     public var jobs: UInt32
@@ -157,7 +158,7 @@ public struct BuildParameters: Encodable {
     /// Whether to enable code coverage.
     public var enableCodeCoverage: Bool
 
-    /// Whether to enable generation of `.swiftinterface` files alongside
+    /// Whether to enable generation of `.swiftinterface` files alongside.
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
 
@@ -170,10 +171,10 @@ public struct BuildParameters: Encodable {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
 
-    /// Whether to use the explicit module build flow (with the integrated driver)
+    /// Whether to use the explicit module build flow (with the integrated driver).
     public var useExplicitModuleBuild: Bool
 
-    /// A flag that inidcates this build should check whether targets only import
+    /// A flag that inidcates this build should check whether targets only import.
     /// their explicitly-declared dependencies
     public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
@@ -233,7 +234,7 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
-        pkgConfigDirectory: AbsolutePath?,
+        pkgConfigDirectories: [AbsolutePath],
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
@@ -264,7 +265,7 @@ public struct BuildParameters: Encodable {
         self.triple = triple
         self.archs = archs
         self.flags = flags
-        self.pkgConfigDirectory = pkgConfigDirectory
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.xcbuildFlags = xcbuildFlags
         self.jobs = jobs
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib

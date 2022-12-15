@@ -591,7 +591,7 @@ public final class SwiftTool {
                 archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
-                pkgConfigDirectory: options.locations.pkgConfigDirectory,
+                pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(

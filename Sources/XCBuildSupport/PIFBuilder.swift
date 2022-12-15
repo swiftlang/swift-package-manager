@@ -32,7 +32,8 @@ struct PIFBuilderParameters {
     /// The path to the library directory of the active toolchain.
     let toolchainLibDir: AbsolutePath
 
-    let pkgConfigDirectory: AbsolutePath?
+    /// An array of paths to search for pkg-config `.pc` files.
+    let pkgConfigDirectories: [AbsolutePath]
 }
 
 /// PIF object builder for a package graph.
@@ -702,7 +703,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var cFlags: [String] = []
         for result in try pkgConfigArgs(
             for: systemTarget,
-            pkgConfigDirectory: parameters.pkgConfigDirectory,
+            pkgConfigDirectories: parameters.pkgConfigDirectories,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) {

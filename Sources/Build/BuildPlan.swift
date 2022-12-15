@@ -2418,7 +2418,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         }
         let results = try pkgConfigArgs(
             for: target,
-            pkgConfigDirectory: buildParameters.pkgConfigDirectory,
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

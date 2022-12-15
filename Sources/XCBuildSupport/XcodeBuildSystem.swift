@@ -301,7 +301,7 @@ extension PIFBuilderParameters {
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectory: buildParameters.pkgConfigDirectory
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories
         )
     }
 }

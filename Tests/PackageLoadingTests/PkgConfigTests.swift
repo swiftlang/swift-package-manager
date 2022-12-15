@@ -38,7 +38,7 @@ class PkgConfigTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             let result = try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: ""),
-                pkgConfigDirectory: nil,
+                pkgConfigDirectories: [],
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )
@@ -60,7 +60,7 @@ class PkgConfigTests: XCTestCase {
             )
             for result in try pkgConfigArgs(
                 for: target,
-                pkgConfigDirectory: nil,
+                pkgConfigDirectories: [],
                 fileSystem: fs,
                 observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
@@ -92,7 +92,7 @@ class PkgConfigTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Foo"),
-                pkgConfigDirectory: nil,
+                pkgConfigDirectories: [],
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             ) {
@@ -110,7 +110,7 @@ class PkgConfigTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Bar"),
-                pkgConfigDirectory: nil,
+                pkgConfigDirectories: [],
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             ) {
@@ -133,7 +133,7 @@ class PkgConfigTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Framework"),
-                pkgConfigDirectory: nil,
+                pkgConfigDirectories: [],
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             ) {

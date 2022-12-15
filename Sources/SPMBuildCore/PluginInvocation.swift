@@ -59,7 +59,7 @@ extension PluginTarget {
         toolNamesToTriples: [String: [String]],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
-        pkgConfigDirectory: AbsolutePath?,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -80,7 +80,7 @@ extension PluginTarget {
             var serializer = PluginContextSerializer(
                 fileSystem: fileSystem,
                 buildEnvironment: buildEnvironment,
-                pkgConfigDirectory: pkgConfigDirectory
+                pkgConfigDirectories: pkgConfigDirectories
             )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
@@ -324,7 +324,7 @@ extension PackageGraph {
         builtToolsDir: AbsolutePath,
         buildEnvironment: BuildEnvironment,
         toolSearchDirectories: [AbsolutePath],
-        pkgConfigDirectory: AbsolutePath?,
+        pkgConfigDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
@@ -475,7 +475,7 @@ extension PackageGraph {
                     toolNamesToTriples: toolNamesToTriples,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
-                    pkgConfigDirectory: pkgConfigDirectory,
+                    pkgConfigDirectories: pkgConfigDirectories,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,

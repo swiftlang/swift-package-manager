@@ -60,7 +60,7 @@ public struct PkgConfigResult {
 /// Get pkgConfig result for a system library target.
 public func pkgConfigArgs(
     for target: SystemLibraryTarget,
-    pkgConfigDirectory: AbsolutePath?,
+    pkgConfigDirectories: [AbsolutePath],
     brewPrefix: AbsolutePath? = .none,
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
@@ -70,10 +70,13 @@ public func pkgConfigArgs(
 
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
-    var additionalSearchPaths = try provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
-    if let pkgConfigDirectory = pkgConfigDirectory {
-        // Give priority to `pkgConfigPath` passed as an argument to this function.
-        additionalSearchPaths.insert(pkgConfigDirectory, at: 0)
+
+    let additionalSearchPaths: [AbsolutePath]
+    // Give priority to `pkgConfigDirectories` passed as an argument to this function.
+    if let providerSearchPaths = try provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) {
+        additionalSearchPaths = pkgConfigDirectories + providerSearchPaths
+    } else {
+        additionalSearchPaths = pkgConfigDirectories
     }
 
     var ret: [PkgConfigResult] = []

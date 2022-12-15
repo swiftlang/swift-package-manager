@@ -24,7 +24,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 internal struct PluginContextSerializer {
     let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
-    let pkgConfigDirectory: AbsolutePath?
+    let pkgConfigDirectories: [AbsolutePath]
     var paths: [WireInput.Path] = []
     var pathsToIds: [AbsolutePath: WireInput.Path.Id] = [:]
     var targets: [WireInput.Target] = []
@@ -108,7 +108,7 @@ internal struct PluginContextSerializer {
             let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
             for result in try pkgConfigArgs(
                 for: target,
-                pkgConfigDirectory: pkgConfigDirectory,
+                pkgConfigDirectories: pkgConfigDirectories,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             ) {
