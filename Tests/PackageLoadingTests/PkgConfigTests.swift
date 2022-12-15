@@ -29,13 +29,12 @@ extension SystemLibraryTarget {
 
 class PkgConfigTests: XCTestCase {
     let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let observability = ObservabilitySystem.makeForTesting()
+    let fs = localFileSystem
 
     func testBasics() throws {
-        let fs = localFileSystem
-
         // No pkgConfig name.
         do {
-            let observability = ObservabilitySystem.makeForTesting()
             let result = try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: ""),
                 pkgConfigDirectories: [],
@@ -47,8 +46,6 @@ class PkgConfigTests: XCTestCase {
 
         // No pc file.
         do {
-            let observability = ObservabilitySystem.makeForTesting()
-
             let target = SystemLibraryTarget(
                 pkgConfig: "Foo",
                 providers: [
@@ -86,10 +83,11 @@ class PkgConfigTests: XCTestCase {
                 }
             }
         }
+    }
 
+    func testEnvVar() throws {
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Foo"),
                 pkgConfigDirectories: [],
@@ -107,7 +105,6 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Bar"),
                 pkgConfigDirectories: [],
@@ -130,7 +127,6 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with -framework Framework flag.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let observability = ObservabilitySystem.makeForTesting()
             for result in try pkgConfigArgs(
                 for: SystemLibraryTarget(pkgConfig: "Framework"),
                 pkgConfigDirectories: [],
@@ -152,10 +148,67 @@ class PkgConfigTests: XCTestCase {
         }
     }
 
+    func testExplicitPkgConfigDirectories() throws {
+        // Pc file.
+        for result in try pkgConfigArgs(
+            for: SystemLibraryTarget(pkgConfig: "Foo"),
+            pkgConfigDirectories: [inputsDir],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ) {
+            XCTAssertEqual(result.pkgConfigName, "Foo")
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
+            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
+            XCTAssertNil(result.provider)
+            XCTAssertNil(result.error)
+            XCTAssertFalse(result.couldNotFindConfigFile)
+        }
+
+        // Pc file with prohibited flags.
+        for result in try pkgConfigArgs(
+            for: SystemLibraryTarget(pkgConfig: "Bar"),
+            pkgConfigDirectories: [inputsDir],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ) {
+            XCTAssertEqual(result.pkgConfigName, "Bar")
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
+            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
+            XCTAssertNil(result.provider)
+            XCTAssertFalse(result.couldNotFindConfigFile)
+            switch result.error {
+            case PkgConfigError.prohibitedFlags(let desc)?:
+                XCTAssertEqual(desc, "-DDenyListed")
+            default:
+                XCTFail("unexpected error \(result.error.debugDescription)")
+            }
+        }
+
+        // Pc file with -framework Framework flag.
+        let observability = ObservabilitySystem.makeForTesting()
+        for result in try pkgConfigArgs(
+            for: SystemLibraryTarget(pkgConfig: "Framework"),
+            pkgConfigDirectories: [inputsDir],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ) {
+            XCTAssertEqual(result.pkgConfigName, "Framework")
+            XCTAssertEqual(result.cFlags, ["-F/usr/lib"])
+            XCTAssertEqual(result.libs, ["-F/usr/lib", "-framework", "SystemFramework"])
+            XCTAssertNil(result.provider)
+            XCTAssertFalse(result.couldNotFindConfigFile)
+            switch result.error {
+            case PkgConfigError.prohibitedFlags(let desc)?:
+                XCTAssertEqual(desc, "-DDenyListed")
+            default:
+                XCTFail("unexpected error \(result.error.debugDescription)")
+            }
+        }
+    }
+
     func testDependencies() throws {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.
-        let observability = ObservabilitySystem.makeForTesting()
         let result = try PkgConfig(
             name: "Dependent",
             additionalSearchPaths: [inputsDir],
