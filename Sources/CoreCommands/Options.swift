@@ -91,11 +91,11 @@ public struct LocationOptions: ParsableArguments {
         name: .customLong("pkg-config-path"),
         help:
             """
-            Specify alternate path to search for pkg-config `.pc` files. You can use the option multiple times to
+            Specify alternative path to search for pkg-config `.pc` files. You can use the option multiple times to
             specify more than one path.
             """,
         completion: .directory)
-    public var pkgConfigDirectories: [AbsolutePath]
+    public var pkgConfigDirectories: [AbsolutePath] = []
 }
 
 public struct CachingOptions: ParsableArguments {

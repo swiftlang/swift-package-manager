@@ -95,6 +95,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// File rules to determine resource handling behavior.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
     public init(
