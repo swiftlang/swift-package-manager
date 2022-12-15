@@ -356,7 +356,10 @@ public final class ClangTargetBuildDescription {
 
     /// Builds up basic compilation arguments for a source file in this target; these arguments may be different for C++ vs non-C++.
     /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock avoidance with clients. Callers should always specify what they want based either the user's indication or on a default value (possibly based on the filename suffix).
-    public func basicArguments(isCXX isCXXOverride: Bool? = .none) throws -> [String] {
+    public func basicArguments(
+        isCXX isCXXOverride: Bool? = .none,
+        isC: Bool = false
+    ) throws -> [String] {
         // For now fall back on the hold semantics if the C++ nature isn't specified. This is temporary until clients have been updated.
         let isCXX = isCXXOverride ?? clangTarget.isCXX
 
@@ -386,7 +389,7 @@ public final class ClangTargetBuildDescription {
 
         // Enable Clang module flags, if appropriate.
         let enableModules: Bool
-        if toolsVersion < .vNext {
+        if toolsVersion < .v5_8 {
           // For version < 5.8, we enable them except in these cases:
           // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
           // 2. on Windows when compiling for any language, because of issues with the Windows SDK
@@ -419,7 +422,10 @@ public final class ClangTargetBuildDescription {
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
 
-        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile {
+        // Include the path to the resource header unless the arguments are
+        // being evaluated for a C file. A C file cannot depend on the resource
+        // accessor header due to it exporting a Foundation type (`NSBundle`).
+        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile, !isC {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
@@ -503,7 +509,13 @@ public final class ClangTargetBuildDescription {
 
         NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
             NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
-            return [NSBundle bundleWithURL:bundleURL];
+
+            NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
+            if (preferredBundle == nil) {
+              return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+            }
+
+            return preferredBundle;
         }
         """
 
@@ -822,7 +834,7 @@ public final class SwiftTargetBuildDescription {
 
         let stream = BufferedOutputByteStream()
         stream <<< """
-        \(toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+        \(toolsVersion < .v5_8 ? "import" : "@_implementationOnly import") class Foundation.Bundle
 
         extension Foundation.Bundle {
             static let module: Bundle = {
@@ -1375,7 +1387,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(linkFileListPath.pathString)"]
         }
         if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
+            return [librarian, "-static", "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
         }
         return [librarian, "crs", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
     }
@@ -2436,7 +2448,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            return try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            let execInfos = try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
+            return execInfos.filter{!$0.supportedTriples.isEmpty}
         }
     }
 }

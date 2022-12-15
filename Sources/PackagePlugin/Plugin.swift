@@ -133,10 +133,13 @@ extension Plugin {
                 let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
                     try deserializer.path(for: $0)
                 }
+                let toolNamesToTriples = wireInput.toolNamesToTriples
+
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
                     toolNamesToPaths: toolNamesToPaths,
+                    toolNamesToTriples: toolNamesToTriples,
                     toolSearchDirectories: toolSearchDirectories)
                 target = try deserializer.target(for: targetId)
             }
@@ -211,10 +214,13 @@ extension Plugin {
                 let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
                     try deserializer.path(for: $0)
                 }
+
+                let toolNamesToTriples = wireInput.toolNamesToTriples
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
                     toolNamesToPaths: toolNamesToPaths,
+                    toolNamesToTriples: toolNamesToTriples,
                     toolSearchDirectories: toolSearchDirectories)
             }
             catch {

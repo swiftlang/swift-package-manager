@@ -16,16 +16,19 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
+import DriverSupport
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
     let fileSystem: FileSystem
     let tool: AbsolutePath
+    let observabilityScope: ObservabilityScope
     
     var skipSynthesizedMembers = false
     var minimumAccessLevel = AccessLevel.public
     var skipInheritedDocs = false
     var includeSPISymbols = false
+    var emitExtensionBlockSymbols = false
     var outputFormat = OutputFormat.json(pretty: false)
 
     /// Access control levels.
@@ -70,6 +73,14 @@ public struct SymbolGraphExtract {
         if includeSPISymbols {
             commandLine += ["-include-spi-symbols"]
         }
+        
+        let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
+        if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], fileSystem: fileSystem) {
+            commandLine += [extensionBlockSymbolsFlag]
+        } else {
+            observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
+        }
+        
         switch outputFormat {
         case .json(let pretty):
             if pretty {

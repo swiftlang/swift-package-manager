@@ -893,8 +893,352 @@ class PluginInvocationTests: XCTestCase {
 
                 let diags = result.map{$0.value}.flatMap{$0}.map{$0.diagnostics}.flatMap{$0}
                 testDiagnostics(diags) { result in
-                    let msg = "exectuable target 'Y' is not pre-built; a plugin running a prebuild command should only rely on an existing binary; as a workaround, build 'Y' first and then run the plugin"
+                    let msg = "a prebuild command cannot use executables built from source, including executable target 'Y'"
                     result.check(diagnostic: .contains(msg), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testScanImportsInPluginTargets() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                      .package(path: "../OtherPackage"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            dependencies: [.product(name: "OtherPlugin", package: "OtherPackage")]
+                        ),
+                        .plugin(
+                            name: "XPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "YPlugin",
+                            capability: .command(
+                               intent: .custom(verb: "YPlugin", description: "Plugin example"),
+                               permissions: []
+                            )
+                        )
+                    ]
+                )
+                """)
+
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                    public func hello() { }
+                    """)
+            let xPluginTargetDir = packageDir.appending(components: "Plugins", "XPlugin")
+            try localFileSystem.createDirectory(xPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(xPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import XcodeProjectPlugin
+                  @main struct XBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+            let yPluginTargetDir = packageDir.appending(components: "Plugins", "YPlugin")
+            try localFileSystem.createDirectory(yPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(yPluginTargetDir.appending(component: "plugin.swift"), string: """
+                     import PackagePlugin
+                     import Foundation
+                     @main struct YPlugin: BuildToolPlugin {
+                         func createBuildCommands(
+                             context: PluginContext,
+                             target: Target
+                         ) throws -> [Command] { }
+                     }
+                     """)
+
+
+            //////
+
+            let otherPackageDir = tmpPath.appending(components: "OtherPackage")
+            try localFileSystem.createDirectory(otherPackageDir, recursive: true)
+            try localFileSystem.writeFileContents(otherPackageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "OtherPackage",
+                    products: [
+                        .plugin(
+                            name: "OtherPlugin",
+                            targets: ["QPlugin"])
+                    ],
+                    targets: [
+                        .plugin(
+                            name: "QPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "RPlugin",
+                            capability: .command(
+                               intent: .custom(verb: "RPlugin", description: "Plugin example"),
+                               permissions: []
+                            )
+                        )
+                    ]
+                )
+                """)
+
+            let qPluginTargetDir = otherPackageDir.appending(components: "Plugins", "QPlugin")
+            try localFileSystem.createDirectory(qPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(qPluginTargetDir.appending(component: "plugin.swift"), string: """
+                  import PackagePlugin
+                  import XcodeProjectPlugin
+                  @main struct QBuildToolPlugin: BuildToolPlugin {
+                      func createBuildCommands(
+                          context: PluginContext,
+                          target: Target
+                      ) throws -> [Command] { }
+                  }
+                  """)
+            /////////
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            let graph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            workspace.loadPluginImports(packageGraph: graph) { (result: Result<[PackageIdentity : [String : [String]]], Error>) in
+
+                var count = 0
+                if let dict = try? result.get() {
+                    for (pkg, entry) in dict {
+                        if pkg.description == "mypackage" {
+                            XCTAssertNotNil(entry["XPlugin"])
+                            XCTAssertEqual(entry["XPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
+                            XCTAssertEqual(entry["YPlugin"], ["PackagePlugin", "Foundation"])
+                            count += 1
+                        } else if pkg.description == "otherpackage" {
+                            XCTAssertNotNil(dict[pkg]?["QPlugin"])
+                            XCTAssertEqual(entry["QPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
+                            count += 1
+                        }
+                    }
+                } else {
+                    XCTFail("Scanned import list should not be empty")
+                }
+
+                XCTAssertEqual(count, 2)
+            }
+        }
+    }
+
+    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple, pluginResultChecker: ([ResolvedTarget: [BuildToolPluginInvocationResult]]) throws -> ()) throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                   // swift-tools-version: 5.7
+                   import PackageDescription
+                   let package = Package(
+                       name: "MyPackage",
+                       dependencies: [
+                       ],
+                       targets: [
+                           .target(
+                               name: "MyLibrary",
+                               plugins: [
+                                   "Foo",
+                               ]
+                           ),
+                           .plugin(
+                               name: "Foo",
+                               capability: .buildTool(),
+                               dependencies: [
+                                   .target(name: "LocalBinaryTool"),
+                               ]
+                            ),
+                           .binaryTarget(
+                               name: "LocalBinaryTool",
+                               path: "Binaries/LocalBinaryTool.artifactbundle"
+                           ),
+                        ]
+                   )
+                   """)
+
+            let libDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(libDir, recursive: true)
+            try localFileSystem.writeFileContents(libDir.appending(components: "library.swift")) {
+                $0 <<< """
+                public func myLib() { }
+                """
+            }
+
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            let content = """
+                 import PackagePlugin
+                 @main struct FooPlugin: BuildToolPlugin {
+                     func createBuildCommands(
+                         context: PluginContext,
+                         target: Target
+                     ) throws -> [Command] {
+                        print("Looking for LocalBinaryTool...")
+                        let localBinaryTool = try context.tool(named: "LocalBinaryTool")
+                        print("... found it at \\(localBinaryTool.path)")
+                        return [.buildCommand(displayName: "", executable: localBinaryTool.path, arguments: [], inputFiles: [], outputFiles: [])]
+                    }
+                 }
+            """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: content)
+            let artifactVariants = artifactSupportedTriples.map {
+                """
+                { "path": "LocalBinaryTool\($0.tripleString).sh", "supportedTriples": ["\($0.tripleString)"] }
+                """
+            }
+
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
+                $0 <<< """
+                {   "schemaVersion": "1.0",
+                    "artifacts": {
+                        "LocalBinaryTool": {
+                            "type": "executable",
+                            "version": "1.2.3",
+                            "variants": [
+                                \(artifactVariants.joined(separator: ","))
+                            ]
+                        }
+                    }
+                }
+                """
+            }
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                delegate: MockWorkspaceDelegate()
+            )
+
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            // Find the build tool plugin.
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "Foo" }.first as? PluginTarget)
+            XCTAssertEqual(buildToolPlugin.name, "Foo")
+            XCTAssertEqual(buildToolPlugin.capability, .buildTool)
+
+            // Construct a toolchain with a made-up host/target triple
+            let destination = try Destination.default
+            let toolchain = try UserToolchain(destination: Destination(hostTriple: hostTriple, targetTriple: hostTriple, sdkRootDir: destination.sdkRootDir, toolchainBinDir: destination.toolchainBinDir))
+
+            // Create a plugin script runner for the duration of the test.
+            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: toolchain
+            )
+
+            // Invoke build tool plugin
+            let outputDir = packageDir.appending(component: ".build")
+            let builtToolsDir = outputDir.appending(component: "debug")
+            let result = try packageGraph.invokeBuildToolPlugins(
+                outputDir: outputDir,
+                builtToolsDir: builtToolsDir,
+                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                pluginScriptRunner: pluginScriptRunner,
+                observabilityScope: observability.topScope,
+                fileSystem: localFileSystem
+            )
+            try pluginResultChecker(result)
+        }
+    }
+
+    func testParseArtifactNotSupportedOnTargetPlatform() throws {
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = try [Triple("riscv64-apple-windows-android")]
+
+        var checked = false
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
+            if let pluginResult = result.first,
+               let diag = pluginResult.value.first?.diagnostics,
+               diag.description == "[[error]: Tool ‘LocalBinaryTool’ is not supported on the target platform]" {
+                checked = true
+            }
+        }
+        XCTAssertTrue(checked)
+    }
+
+    func testParseArtifactsDoesNotCheckPlatformVersion() throws {
+        #if !os(macOS)
+        throw XCTSkip("platform versions are only available if the host is macOS")
+        #else
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
+
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
+            result.forEach {
+                $0.value.forEach {
+                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                }
+            }
+        }
+        #endif
+    }
+
+    func testParseArtifactsConsidersAllSupportedTriples() throws {
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = [hostTriple, try Triple("riscv64-apple-windows-android")]
+
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
+            result.forEach {
+                $0.value.forEach {
+                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                    XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
                 }
             }
         }

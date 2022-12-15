@@ -706,8 +706,8 @@ class PackageBuilderTests: XCTestCase {
                     type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { package, diagnotics in
-            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: \(bar.appending(components: "Tests", "barTests.swift"))", severity: .error)
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "target 'barTests' has overlapping sources: \(bar.appending(components: "Tests", "barTests.swift"))", severity: .error)
         }
 
         manifest = Manifest.createRootManifest(
@@ -2278,6 +2278,46 @@ class PackageBuilderTests: XCTestCase {
                     Foo.appending(components: "Foo.xcassets").pathString,
                     Foo.appending(components: "Foo.metal").pathString
                 ])
+            }
+        }
+    }
+    
+    func testSnippetsLinkProductLibraries() throws {
+        let root = AbsolutePath(path: "/Foo")
+        let internalSourcesDir = root.appending(components: "Sources", "Internal")
+        let productSourcesDir = root.appending(components: "Sources", "Product")
+        let snippetsDir = root.appending(components: "Snippets")
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        internalSourcesDir.appending(component: "Internal.swift").pathString,
+            productSourcesDir.appending(component: "Product.swift").pathString,
+            snippetsDir.appending(component: "ASnippet.swift").pathString)
+        
+        let manifest = Manifest.createRootManifest(
+            name: "Foo", toolsVersion: .v5_7,
+            products: [
+                try ProductDescription(name: "Product", type: .library(.automatic), targets: ["Product"])
+            ],
+            targets: [
+                try TargetDescription(name: "Internal"),
+                try TargetDescription(name: "Product"),
+            ])
+        
+        PackageBuilderTester(manifest, path: root, in: fs) { result, diagnostics in
+            result.checkProduct("Product") { product in
+                product.check(type: .library(.automatic), targets: ["Product"])
+            }
+            result.checkProduct("ASnippet") { aSnippet in
+                aSnippet.check(type: .snippet, targets: ["ASnippet"])
+            }
+            result.checkModule("Internal") { foo in
+                foo.checkSources(sources: ["Internal.swift"])
+            }
+            result.checkModule("Product") { foo in
+                foo.checkSources(sources: ["Product.swift"])
+            }
+            result.checkModule("ASnippet") { aSnippet in
+                aSnippet.checkSources(sources: ["ASnippet.swift"])
+                aSnippet.check(targetDependencies: ["Product"])
             }
         }
     }

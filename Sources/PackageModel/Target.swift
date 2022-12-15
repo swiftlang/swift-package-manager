@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
+import Dispatch
 
 import protocol TSCUtility.PolymorphicCodableProtocol
 import Basics
@@ -811,7 +812,7 @@ public extension Sequence where Iterator.Element == Target {
             switch $0.type {
             case .binary:
                 return ($0 as? BinaryTarget)?.containsExecutable == true
-            case .executable:
+            case .executable, .snippet:
                 return true
             default:
                 return false

@@ -45,6 +45,9 @@ public enum WorkspaceResolveReason: Equatable {
 
     /// An unknown reason.
     case other(String)
+
+    /// Errors previously reported, e.g. during cloning. This will skip emitting additional unhelpful diagnostics.
+    case errorsPreviouslyReported
 }
 
 public struct PackageFetchDetails {
@@ -1176,6 +1179,37 @@ extension Workspace {
         }
     }
 
+    public func loadPluginImports(
+        packageGraph: PackageGraph,
+        completion: @escaping(Result<[PackageIdentity: [String: [String]]], Error>) -> Void) {
+        let pluginTargets = packageGraph.allTargets.filter{$0.type == .plugin}
+        let scanner = SwiftcImportScanner(swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment, swiftCompilerFlags: hostToolchain.swiftCompilerFlags, swiftCompilerPath: hostToolchain.swiftCompilerPath)
+        var importList = [PackageIdentity: [String: [String]]]()
+
+        for pluginTarget in pluginTargets {
+            let paths = pluginTarget.sources.paths
+            guard let pkgId = packageGraph.package(for: pluginTarget)?.identity else { continue }
+
+            if importList[pkgId] == nil {
+                importList[pkgId] = [pluginTarget.name: []]
+            } else if importList[pkgId]?[pluginTarget.name] == nil {
+                importList[pkgId]?[pluginTarget.name] = []
+            }
+
+            for path in paths {
+                do {
+                    let result = try tsc_await {
+                        scanner.scanImports(path, callbackQueue: DispatchQueue.sharedConcurrent, completion: $0)
+                    }
+                    importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }
+        completion(.success(importList))
+    }
+
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading in a longer-lived program, like an IDE.
     public func loadPackage(
         with identity: PackageIdentity,
@@ -2302,7 +2336,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        if case let .required(reason) = precomputationResult {
+        if case let .required(reason) = precomputationResult, reason != .errorsPreviouslyReported {
             let reasonString = Self.format(workspaceResolveReason: reason)
 
             if !fileSystem.exists(self.location.resolvedVersionsFile) {
@@ -2606,6 +2640,10 @@ extension Workspace {
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
         let result = resolver.solve(constraints: computedConstraints)
+
+        guard !observabilityScope.errorsReported else {
+            return .required(reason: .errorsPreviouslyReported)
+        }
 
         switch result {
         case .success:
@@ -3091,7 +3129,7 @@ extension Workspace {
         try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
         // Record the new state.
-        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
+        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
         self.state.dependencies.add(
             try .sourceControlCheckout(
                 packageRef: package,
@@ -3242,7 +3280,7 @@ extension Workspace {
          }
 
          // Record the new state.
-         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
+         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies", metadata: package.diagnosticsMetadata)
          self.state.dependencies.add(
             try .registryDownload(
                 packageRef: package,
@@ -3368,6 +3406,10 @@ fileprivate extension PackageDependency {
 
 extension Workspace {
     public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {
+        guard reason != .errorsPreviouslyReported else {
+            return ""
+        }
+
         var result = "Running resolver because "
 
         switch reason {
@@ -3415,7 +3457,7 @@ extension Workspace {
 
             result.append(" requirement.")
         default:
-            result.append(" requirements have changed.")
+            result.append("requirements have changed.")
         }
 
         return result

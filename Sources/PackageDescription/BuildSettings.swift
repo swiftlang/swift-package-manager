@@ -296,6 +296,55 @@ public struct SwiftSetting: Encodable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
+
+    /// Enable an upcoming feature with the given name.
+    ///
+    /// An upcoming feature is one that has been accepted into Swift as of a
+    /// certain language version, but is not available by default in prior
+    /// language modes because it has some impact on source compatibility.
+    ///
+    /// Multiple upcoming features can be added to a given target, and can
+    /// be used in a target without affecting its dependencies. An unknown
+    /// upcoming feature will be ignored by the implementation.
+    ///
+    /// - Since: First available in PackageDescription 5.8.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the upcoming feature, e.g., ConciseMagicFile.
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    @available(_PackageDescription, introduced: 5.8)
+    public static func enableUpcomingFeature(
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "upcomingFeatures", value: [name], condition: condition)
+    }
+
+    /// Enable an experimental feature with the given name.
+    ///
+    /// An experimental feature is one that is in development, but
+    /// has not been accepted into Swift as a language feature.
+    ///
+    /// Multiple experimental features can be added to a given target, and can
+    /// be used in a target without affecting its dependencies. An unknown
+    /// experimental feature will be ignored by the implementation.
+    ///
+    /// - Since: First available in PackageDescription 5.8.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the experimental feature, e.g., VariadicGenerics.
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    @available(_PackageDescription, introduced: 5.8)
+    public static func enableExperimentalFeature(
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "experimentalFeatures", value: [name], condition: condition)
+    }
 }
 
 /// A linker build setting.

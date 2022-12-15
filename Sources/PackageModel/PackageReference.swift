@@ -173,6 +173,12 @@ extension PackageReference: Hashable {
     }
 }
 
+extension PackageReference {
+    public var diagnosticsMetadata: ObservabilityMetadata {
+        return .packageMetadata(identity: self.identity, kind: self.kind)
+    }
+}
+
 extension PackageReference: CustomStringConvertible {
     public var description: String {
         return "\(self.identity) \(self.kind)"

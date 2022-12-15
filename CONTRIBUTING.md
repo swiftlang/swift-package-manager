@@ -10,15 +10,18 @@ For more information about making contributions to the Swift project in general 
 
 ## Reporting issues
 
-Issues are tracked using [SwiftPM JIRA Bug Tracker](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
+Issues are tracked using [SwiftPM GitHub Issue Tracker](https://github.com/apple/swift-package-manager/issues).
 
 Fill the following fields:
 
-* `Summary`: A one line summary of the problem you're facing
-* `Description`: The complete description of the problem. Be specific and clearly mention the steps to reproduce the bug
-* `Environment`: The Operating System, Xcode version (`$ xcodebuild -version`), Toolchain, and `swift build` version (`$ swift build --version`)
-* `Component/s`: Package Manager
-* `Attachment`: Relevant files like logs, project files, etc.
+* `Title`: A one line summary of the problem you're facing.
+* `Description`: The complete description of the problem. Be specific.
+* `Expected behavior`: How you expect SwiftPM to behave. 
+* `Actual behavior` : What actually happens.
+* `Steps to reproduce`: Be specific, provide steps to reproduce the bug.
+* `Swift Package Manager version/commit hash` : With which version are you testing.
+* `Actual behavior` : What actually happens.
+* `Swift & OS version` : (output of `swift --version && uname -a`).
 
 Please include a minimal example package which can reproduce the issue. The
 sample package can be attached with the report or you can include the URL of the
@@ -183,21 +186,14 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-driver
    ```
 
-6. [swift-crypto] and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
-
-   For example, if the latest tag is 1.1.6:
-   ```sh
-   $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
-   ```
-
-7. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+6. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
 
     For example, if the latest tag is 1.0.0:
     ```sh
     $> git clone https://github.com/apple/swift-system --branch 1.0.0
     ```
 
-8. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
     For example, if the latest tag is 1.0.1:
     ```sh
@@ -205,7 +201,6 @@ Clone the following repositories beside the SwiftPM directory:
 
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
-[swift-crypto]: https://github.com/apple/swift-crypto
 [swift-driver]: https://github.com/apple/swift-driver
 [swift-llbuild]: https://github.com/apple/swift-llbuild
 [swift-system]: https://github.com/apple/swift-system
@@ -304,7 +299,7 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 4. Make your code changes
 5. Try to keep your changes (when possible) below 200 lines of code.
 6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR.
-7. Commit (include the Radar link or JIRA issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
 8. Push the commit / branch to your fork
 9. Make a PR from your fork / branch to `apple: main`
 10. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.

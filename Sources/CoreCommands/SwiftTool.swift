@@ -103,17 +103,6 @@ extension SwiftCommand {
     }
 }
 
-/// A safe wrapper of TSCBasic.exec.
-func exec(path: String, args: [String]) throws -> Never {
-    #if !os(Windows)
-    // On platforms other than Windows, signal(SIGINT, SIG_IGN) is used for handling SIGINT by DispatchSourceSignal,
-    // but this process is about to be replaced by exec, so SIG_IGN must be returned to default.
-    signal(SIGINT, SIG_DFL)
-    #endif
-
-    try TSCBasic.exec(path: path, args: args)
-}
-
 public final class SwiftTool {
     #if os(Windows)
     // unfortunately this is needed for C callback handlers used by Windows shutdown handler

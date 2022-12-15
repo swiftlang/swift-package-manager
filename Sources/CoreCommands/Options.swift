@@ -186,7 +186,7 @@ public struct ResolverOptions: ParsableArguments {
 
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .swizzle
 
     public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
         case disabled

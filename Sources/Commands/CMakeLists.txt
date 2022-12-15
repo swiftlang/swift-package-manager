@@ -24,8 +24,6 @@ add_library(Commands
   PackageTools/ResetCommands.swift
   PackageTools/Resolve.swift
   PackageTools/ShowDependencies.swift
-  PackageTools/SwiftPackageCollectionsTool.swift
-  PackageTools/SwiftPackageRegistryTool.swift
   PackageTools/SwiftPackageTool.swift
   PackageTools/ToolsVersionCommand.swift
   PackageTools/Update.swift
@@ -54,8 +52,6 @@ target_link_libraries(Commands PUBLIC
   Basics
   Build
   CoreCommands
-  PackageCollections
-  PackageFingerprint
   PackageGraph
   SourceControl
   TSCBasic

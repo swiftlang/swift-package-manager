@@ -185,7 +185,6 @@ def parse_global_args(args):
     args.source_dirs["yams"]                  = os.path.join(args.project_root, "..", "yams")
     args.source_dirs["swift-argument-parser"] = os.path.join(args.project_root, "..", "swift-argument-parser")
     args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
-    args.source_dirs["swift-crypto"]          = os.path.join(args.project_root, "..", "swift-crypto")
     args.source_dirs["swift-system"]          = os.path.join(args.project_root, "..", "swift-system")
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
     args.source_root                          = os.path.join(args.project_root, "Sources")
@@ -351,7 +350,6 @@ def build(args):
             "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
-        build_dependency(args, "swift-crypto")
         build_dependency(args, "swift-collections")
         build_swiftpm_with_cmake(args)
 
@@ -425,10 +423,10 @@ def install(args):
 
 # Installs the SwiftPM tools and runtime support libraries.
 def install_swiftpm(prefix, args):
-    # Install the swift-package tool and create symlinks to it.
+    # Install the swift-package-manager tool and create symlinks to it.
     cli_tool_dest = os.path.join(prefix, "bin")
-    install_binary(args, "swift-package", cli_tool_dest)
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry"]:
+    install_binary(args, "swift-package-manager", os.path.join(cli_tool_dest, "swift-package"), destination_is_directory=False)
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-experimental-destination"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         note("Creating tool symlink from %s to %s" % (src, dest))
@@ -468,12 +466,16 @@ def install_dylib(args, library_name, install_dir, module_names):
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, dest_dir, ignored_patterns=[]):
+def install_binary(args, binary, destination, destination_is_directory=True, ignored_patterns=[]):
     src = os.path.join(args.bin_dir, binary)
-    dest = os.path.join(dest_dir, binary)
+
+    if destination_is_directory:
+        dest = os.path.join(destination, binary)
+        mkdir_p(os.path.dirname(dest))
+    else:
+        dest = destination
 
     note("Installing %s to %s" % (src, dest))
-    mkdir_p(os.path.dirname(dest))
     if os.path.isdir(src):
         shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
     else:
@@ -483,7 +485,7 @@ def install_binary(args, binary, dest_dir, ignored_patterns=[]):
 # Build functions
 # -----------------------------------------------------------
 
-def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
+def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake_env = []):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
     if args.reconfigure or not os.path.isfile(cache_path) or not args.swiftc_path in open(cache_path).read():
@@ -495,11 +497,13 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
         swift_flags += ' -module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache'))
 
         cmd = [
+            "env"] + cmake_env + ["MACOSX_DEPLOYMENT_TARGET=%s" % (g_macos_deployment_target),
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
+            "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
         ] + cmake_args + [source_path]
 
         if args.verbose:
@@ -514,6 +518,8 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir):
     if args.verbose:
         ninja_cmd.append("-v")
 
+    if platform.system() == 'Darwin':
+        call(["sed", "-i", "", "s/macosx10.10/macosx%s/" % (g_macos_deployment_target), "build.ninja"], cwd=build_dir)
 
     call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
 
@@ -529,20 +535,23 @@ def build_llbuild(args):
     call(["touch", "codemodel-v2"], cwd=api_dir, verbose=args.verbose)
 
     flags = [
-        "-DCMAKE_C_COMPILER:=clang",
-        "-DCMAKE_CXX_COMPILER:=clang++",
+        "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
+        "-DCMAKE_CXX_COMPILER:=%s" % (args.clang_path),
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
+    cmake_env = []
 
-    # On Darwin, make sure we're building for the host architecture.
     if platform.system() == 'Darwin':
+        # On Darwin, make sure we're building for the host architecture.
         flags.append("-DCMAKE_OSX_ARCHITECTURES:=%s" % (get_build_target(args).split('-')[0]))
+        # Inject linkage of C++ standard library
+        cmake_env.append("LDFLAGS=-lc++")
 
     if args.sysroot:
         flags.append("-DSQLite3_INCLUDE_DIR=%s/usr/include" % args.sysroot)
 
     args.source_dirs["llbuild"] = get_llbuild_source_path(args)
-    build_with_cmake(args, flags, [], args.source_dirs["llbuild"], args.build_dirs["llbuild"])
+    build_with_cmake(args, flags, [], args.source_dirs["llbuild"], args.build_dirs["llbuild"], cmake_env=cmake_env)
 
 def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmake_flags = []):
     note("Building " + target_name)
@@ -586,7 +595,6 @@ def build_swiftpm_with_cmake(args):
         "-DTSC_DIR="              + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
         "-DArgumentParser_DIR="   + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         "-DSwiftDriver_DIR="      + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
-        "-DSwiftCrypto_DIR="      + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftSystem_DIR="      + os.path.join(args.build_dirs["swift-system"],          "cmake/modules"),
         "-DSwiftCollections_DIR=" + os.path.join(args.build_dirs["swift-collections"],     "cmake/modules"),
     ]
@@ -604,7 +612,6 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["yams"],                  "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-argument-parser"], "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
 
@@ -618,6 +625,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     swiftpm_args = [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
+        "CC=" + args.clang_path
     ]
 
     if args.bootstrap:
@@ -717,7 +725,6 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["yams"],                  "lib"),
             os.path.join(args.build_dirs["swift-argument-parser"], "lib"),
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
-            os.path.join(args.build_dirs["swift-crypto"],          "lib"),
             os.path.join(args.build_dirs["swift-system"],          "lib"),
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
         ] + args.target_info["paths"]["runtimeLibraryPaths"])

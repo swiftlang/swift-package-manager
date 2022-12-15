@@ -37,7 +37,6 @@ services:
       - ../../../yams:/code/yams:z
       - ../../../swift-argument-parser:/code/swift-argument-parser:z
       - ../../../swift-driver:/code/swift-driver:z
-      - ../../../swift-crypto:/code/swift-crypto:z
       - ../../../swift-llbuild:/code/llbuild:z
       - ../../../swift-system:/code/swift-system:z
       - ../../../swift-collections:/code/swift-collections:z
