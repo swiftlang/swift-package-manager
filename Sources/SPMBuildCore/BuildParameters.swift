@@ -234,7 +234,7 @@ public struct BuildParameters: Encodable {
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
-        pkgConfigDirectories: [AbsolutePath],
+        pkgConfigDirectories: [AbsolutePath] = [],
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
