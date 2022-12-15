@@ -316,6 +316,5 @@ enum PluginToHostMessage: Codable {
             }
             var includeSynthesized: Bool
             var includeSPI: Bool
-            var emitExtensionBlocks: Bool
         }
 }
