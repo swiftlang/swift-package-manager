@@ -26,8 +26,13 @@ enum HostToPluginMessage: Codable {
             let packages: [Package]
             let pluginWorkDirId: Path.Id
             let toolSearchDirIds: [Path.Id]
-            let toolNamesToPathIds: [String: Path.Id]
-            let toolNamesToTriples: [String: [String]]
+            let accessibleTools: [String: Tool]
+
+            // Wrapper struct for encoding information about a tool that's accessible to the plugin.
+            struct Tool: Codable {
+                let path: Path.Id
+                let triples: [String]?
+            }
 
             /// A single absolute path in the wire structure, represented as a tuple
             /// consisting of the ID of the base path and subpath off of that path.

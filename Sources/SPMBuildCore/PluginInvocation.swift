@@ -54,8 +54,7 @@ extension PluginTarget {
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
-        toolNamesToPaths: [String: AbsolutePath],
-        toolNamesToTriples: [String: [String]],
+        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -78,8 +77,10 @@ extension PluginTarget {
             var serializer = PluginContextSerializer(fileSystem: fileSystem, buildEnvironment: buildEnvironment)
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
-            let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serializer.serialize(path: $0) }
-            let toolNamesToTriplesDict = toolNamesToTriples
+            let accessibleTools = try accessibleTools.mapValues { (tool: (AbsolutePath, [String]?)) -> HostToPluginMessage.InputContext.Tool in
+                let path = try serializer.serialize(path: tool.0)
+                return .init(path: path, triples: tool.1)
+            }
             let actionMessage: HostToPluginMessage
             switch action {
                 
@@ -95,8 +96,7 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds,
-                    toolNamesToTriples: toolNamesToTriplesDict)
+                    accessibleTools: accessibleTools)
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -110,8 +110,7 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds,
-                    toolNamesToTriples: toolNamesToTriples)
+                    accessibleTools: accessibleTools)
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -365,13 +364,13 @@ extension PackageGraph {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
                 var builtToolNames: [String] = []
-                let (toolNamesToPaths, toolNamesToTriples) = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
+                let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
                     builtToolNames.append(name)
                     return builtToolsDir.appending(path)
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
-                let toolPaths = toolNamesToPaths.values.sorted()
+                let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -462,8 +461,7 @@ extension PackageGraph {
                     workingDirectory: package.path,
                     outputDirectory: pluginOutputDir,
                     toolSearchDirectories: toolSearchDirectories,
-                    toolNamesToPaths: toolNamesToPaths,
-                    toolNamesToTriples: toolNamesToTriples,
+                    accessibleTools: accessibleTools,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
                     fileSystem: fileSystem,
@@ -543,29 +541,26 @@ public extension PluginTarget {
         })
     }
 
-    func processAccessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> (toolNamesToPaths: [String: AbsolutePath], toolNamesToTriples: [String: [String]]) {
-        var toolNamesToPaths: [String: AbsolutePath] = [:]
-        // Add supported triples info per tool so they can be looked up when running the tool
-        var toolNamesToTriples: [String: [String]] = [:]
+    func processAccessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
+        var pluginAccessibleTools: [String: (path: AbsolutePath, triples: [String]?)] = [:]
 
         for dep in try accessibleTools(packageGraph: packageGraph, fileSystem: fileSystem, environment: environment, for: hostTriple) {
             switch dep {
             case .builtTool(let name, let path):
                 if let path = try builtToolHandler(name, path) {
-                    toolNamesToPaths[name] = path
+                    pluginAccessibleTools[name] = (path, nil)
                 }
             case .vendedTool(let name, let path, let triples):
                 // Avoid having the path of an unsupported tool overwrite a supported one.
-                guard !triples.isEmpty || toolNamesToPaths[name] == nil else {
+                guard !triples.isEmpty || pluginAccessibleTools[name] == nil else {
                     continue
                 }
-                toolNamesToPaths[name] = path
-                // Need triples info for .vendedTool
-                toolNamesToTriples[name, default: []].append(contentsOf: triples)
+                let priorTriples = pluginAccessibleTools[name]?.triples ?? []
+                pluginAccessibleTools[name] = (path, priorTriples + triples)
             }
         }
 
-        return (toolNamesToPaths, toolNamesToTriples)
+        return pluginAccessibleTools
     }
 }
 

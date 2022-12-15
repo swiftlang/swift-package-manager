@@ -130,16 +130,15 @@ extension Plugin {
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
                     try deserializer.path(for: $0)
                 }
-                let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
-                    try deserializer.path(for: $0)
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (Path, [String]?) in
+                    let path = try deserializer.path(for: tool.path)
+                    return (path, tool.triples)
                 }
-                let toolNamesToTriples = wireInput.toolNamesToTriples
 
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
-                    toolNamesToPaths: toolNamesToPaths,
-                    toolNamesToTriples: toolNamesToTriples,
+                    accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
                 target = try deserializer.target(for: targetId)
             }
@@ -211,16 +210,14 @@ extension Plugin {
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
                     try deserializer.path(for: $0)
                 }
-                let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
-                    try deserializer.path(for: $0)
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (Path, [String]?) in
+                    let path = try deserializer.path(for: tool.path)
+                    return (path, tool.triples)
                 }
-
-                let toolNamesToTriples = wireInput.toolNamesToTriples
                 context = PluginContext(
                     package: package,
                     pluginWorkDirectory: pluginWorkDirectory,
-                    toolNamesToPaths: toolNamesToPaths,
-                    toolNamesToTriples: toolNamesToTriples,
+                    accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories)
             }
             catch {
