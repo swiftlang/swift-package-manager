@@ -15,6 +15,7 @@ import PackageModel
 import TSCBasic
 
 import struct TSCUtility.Triple
+import struct TSCUtility.Version
 
 public struct ArtifactsArchiveMetadata: Equatable {
     public let schemaVersion: String
@@ -42,6 +43,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
     // This can also support resource-only artifacts as well. For example, 3d models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
+        case crossCompilationDestination
     }
 
     public struct Variant: Equatable {
@@ -65,7 +67,19 @@ extension ArtifactsArchiveMetadata {
         do {
             let data: Data = try fileSystem.readFileContents(path)
             let decoder = JSONDecoder.makeWithDefaults()
-            return try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
+            let decodedMetadata = try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
+            let version = try Version(
+                versionString: decodedMetadata.schemaVersion,
+                usesLenientParsing: true
+            )
+
+            switch (version.major, version.minor) {
+            case (1, 1), (1, 0):
+                return decodedMetadata
+            default:
+                throw StringError("invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)")
+            }
+
         } catch {
             throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
         }

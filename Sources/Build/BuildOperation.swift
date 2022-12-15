@@ -411,6 +411,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Surface any diagnostics from build tool plugins.
+        var succeeded = true
         for (target, results) in buildToolPluginInvocationResults {
             // There is one result for each plugin that gets applied to a target.
             for result in results {
@@ -426,7 +427,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 for diag in result.diagnostics {
                     diagnosticsEmitter.emit(diag)
                 }
+                succeeded = succeeded && result.succeeded
             }
+        }
+
+        if !succeeded {
+            throw StringError("build stopped due to build-tool plugin failures")
         }
 
         // Run any prebuild commands provided by build tool plugins. Any failure stops the build.

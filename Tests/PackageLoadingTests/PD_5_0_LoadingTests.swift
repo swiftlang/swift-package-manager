@@ -112,7 +112,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("'v3' is unavailable"))
                     XCTAssertMatch(message, .contains("'v3' was obsoleted in PackageDescription 5"))
                 } else {
@@ -274,7 +274,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("error: 'v11' is unavailable"))
                     XCTAssertMatch(message, .contains("note: 'v11' was introduced in PackageDescription 5.3"))
                     XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
@@ -298,7 +298,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("error: 'v10_16' has been renamed to 'v11'"))
                     XCTAssertMatch(message, .contains("note: 'v10_16' has been explicitly marked unavailable here"))
                     XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
@@ -395,7 +395,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                         fileSystem: fs,
                         observabilityScope: observability.topScope
                     )
-                } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
+                } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile, _) {
                     XCTAssertMatch(error, .contains("expected expression in container literal"))
                     let contents = try localFileSystem.readFileContents(diagnosticFile!)
                     XCTAssertNotNil(contents)
@@ -506,7 +506,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
                 } else {
@@ -553,7 +553,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("is unavailable"))
                 XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
             } else {

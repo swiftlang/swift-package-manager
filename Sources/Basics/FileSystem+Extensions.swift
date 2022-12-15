@@ -224,7 +224,7 @@ extension FileSystem {
     }
 }
 
-// MARK: - cross-compilation SDKs
+// MARK: - cross-compilation destinations
 
 private let crossCompilationDestinationsDirectoryName = "destinations"
 
@@ -232,18 +232,57 @@ extension FileSystem {
     /// SwiftPM cross-compilation destinations directory (if exists)
     public var swiftPMCrossCompilationDestinationsDirectory: AbsolutePath {
         get throws {
-            if let path = try self.idiomaticSwiftPMDirectory {
+            if let path = try idiomaticSwiftPMDirectory {
                 return path.appending(component: crossCompilationDestinationsDirectoryName)
             } else {
-                return try self.dotSwiftPMCrossCompilationDestinationsDirectory
+                return try dotSwiftPMCrossCompilationDestinationsDirectory
             }
         }
     }
 
     fileprivate var dotSwiftPMCrossCompilationDestinationsDirectory: AbsolutePath {
         get throws {
-            return try self.dotSwiftPM.appending(component: crossCompilationDestinationsDirectoryName)
+            return try dotSwiftPM.appending(component: crossCompilationDestinationsDirectoryName)
         }
+    }
+
+    public func getSharedCrossCompilationDestinationsDirectory(
+        explicitDirectory: AbsolutePath?
+    ) throws -> AbsolutePath? {
+        if let explicitDestinationsDirectory = explicitDirectory {
+            // Create the explicit SDKs path if necessary
+            if !exists(explicitDestinationsDirectory) {
+                try createDirectory(explicitDestinationsDirectory, recursive: true)
+            }
+            return explicitDestinationsDirectory
+        } else {
+            return try swiftPMCrossCompilationDestinationsDirectory
+        }
+    }
+
+    public func getOrCreateSwiftPMCrossCompilationDestinationsDirectory() throws -> AbsolutePath {
+        let idiomaticDestinationsDirectory = try swiftPMCrossCompilationDestinationsDirectory
+
+        // Create idiomatic if necessary
+        if !exists(idiomaticDestinationsDirectory) {
+            try createDirectory(idiomaticDestinationsDirectory, recursive: true)
+        }
+        // Create ~/.swiftpm if necessary
+        if !exists(try dotSwiftPM) {
+            try createDirectory(dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/destinations symlink if necessary
+        // locking ~/.swiftpm to protect from concurrent access
+        try withLock(on: dotSwiftPM, type: .exclusive) {
+            if !exists(try dotSwiftPMCrossCompilationDestinationsDirectory, followSymlink: false) {
+                try createSymbolicLink(
+                    dotSwiftPMCrossCompilationDestinationsDirectory,
+                    pointingAt: idiomaticDestinationsDirectory,
+                    relative: false
+                )
+            }
+        }
+        return idiomaticDestinationsDirectory
     }
 }
 

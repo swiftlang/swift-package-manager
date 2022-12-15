@@ -74,13 +74,14 @@ extension BinaryTarget {
             // Filter supported triples with versionLessTriple and pass into
             // ExecutableInfo; empty if non matching triples found.
             try entry.value.variants.map{
-                ExecutableInfo(name: entry.key, executablePath: try AbsolutePath(validating: $0.path, relativeTo: self.artifactPath), supportedTriples: $0.supportedTriples.filter({$0 == versionLessTriple}))
+                let filteredSupportedTriples = try $0.supportedTriples.filter({try $0.withoutVersion() == versionLessTriple})
+                return ExecutableInfo(name: entry.key, executablePath: try AbsolutePath(validating: $0.path, relativeTo: self.artifactPath), supportedTriples: filteredSupportedTriples)
             }
         }
     }
 }
 
-fileprivate extension Triple {
+extension Triple {
     func withoutVersion() throws -> Triple {
         if isDarwin() {
             let stringWithoutVersion = tripleString(forPlatformVersion: "")

@@ -57,7 +57,9 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.fileSystem = fileSystem
-        self.observabilityScope = observabilityScope
+        self.observabilityScope = observabilityScope.makeChildScope(
+            description: "FileSystemPackageContainer",
+            metadata: package.diagnosticsMetadata)
     }
 
     private func loadManifest() throws -> Manifest {

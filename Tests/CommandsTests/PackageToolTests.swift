@@ -1408,7 +1408,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
             XCTAssertMatch(output, .contains("This is text from the plugin"))
             XCTAssertMatch(output, .contains("error: This is an error from the plugin"))
-            XCTAssertMatch(output, .contains("Build complete!"))
+            XCTAssertMatch(output, .contains("build stopped due to build-tool plugin failures"))
         }
     }
 
