@@ -56,8 +56,6 @@ public struct SwiftPackageTool: ParsableCommand {
             Resolve.self,
             Fetch.self,
 
-            DestinationCommand.self,
-
             ShowDependencies.self,
             ToolsVersionCommand.self,
             ComputeChecksum.self,
