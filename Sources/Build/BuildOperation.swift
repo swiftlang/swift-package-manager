@@ -79,13 +79,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
 
-    /// The verbosity level to print out at
+    /// The verbosity level to use for diagnostics.
     private let logLevel: Basics.Diagnostic.Severity
 
-    /// File system to operate on
+    /// File system to operate on.
     private let fileSystem: TSCBasic.FileSystem
 
-    /// ObservabilityScope with which to emit diagnostics
+    /// ObservabilityScope with which to emit diagnostics.
     private let observabilityScope: ObservabilityScope
 
     public var builtTestProducts: [BuiltTestProduct] {
