@@ -331,8 +331,20 @@ public final class ClangTargetBuildDescription {
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
         self.isWithinMixedTarget = isWithinMixedTarget
 
-        // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
-        if target.type == .library {
+        // Try computing the modulemap path, creating a module map in the
+        // file system if necessary, for either a Clang source library or a
+        // Clang source test target being built within a mixed test target,
+        // The latter of which is allowed to support sharing test utilities
+        // between mixed language test files within a single test target.
+        if target.type == .library || (target.type == .test && isWithinMixedTarget) {
+
+            let moduleMapGenerator = ModuleMapGenerator(
+                targetName: clangTarget.name,
+                moduleName: clangTarget.c99name,
+                publicHeadersDir: clangTarget.includeDir,
+                fileSystem: fileSystem
+            )
+
             if case .custom(let customModuleMapPath) = clangTarget.moduleMapType {
                 if isWithinMixedTarget {
                     let customModuleMapContents: String = try fileSystem.readFileContents(customModuleMapPath)
@@ -372,21 +384,29 @@ public final class ClangTargetBuildDescription {
 
                     self.moduleMap = writePath
 
-                    // The unextended module map purposefully excludes the
-                    // generated Swift header. This is so, when compiling the
-                    // mixed target's Swift part, the generated Swift header is
-                    // not considered an input (the header is an output of
-                    // compiling the mixed target's Swift part).
-                    //
-                    // At this point, the custom module map has been checked
-                    // that it does not include the Swift submodule. For that
-                    // reason, it can be copied to the build directory to
-                    // double as the unextended module map.
-                    try? fileSystem.copy(
-                        from: customModuleMapPath,
-                        to: tempsPath
-                            .appending(component: "Product")
-                            .appending(component: unextendedModuleMapFilename)
+                    // Intermediates module maps
+                    let intermediateModuleMapPath = tempsPath
+                        .appending(component: "Intermediates")
+                        .appending(component: moduleMapFilename)
+                    try moduleMapGenerator.generateModuleMap(
+                        type: .umbrellaDirectory(tempsPath.appending(component: "Intermediates")),
+                        at: intermediateModuleMapPath,
+                        addSwiftSubmodule: true
+                    )
+                    // The underlying Clang target is building within a Mixed
+                    // language target and needs an auxiliary module map that
+                    // doesn't include the generated interop header from the
+                    // Swift half of the mixed target. This will later allow the
+                    // Clang half of the module to be built when compiling the
+                    // Swift part without the generated header being considered
+                    // an input (because it won't exist yet and is an output of
+                    // that compilation command).
+                    let unextendedModuleMapPath = tempsPath
+                        .appending(component: "Intermediates")
+                        .appending(component: unextendedModuleMapFilename)
+                    try moduleMapGenerator.generateModuleMap(
+                        type: .umbrellaDirectory(tempsPath.appending(component: "Intermediates")),
+                        at: unextendedModuleMapPath
                     )
                 } else {
                     // When not building within a mixed target, use the custom
@@ -396,13 +416,6 @@ public final class ClangTargetBuildDescription {
             }
             // If a generated module map is needed, generate one now in our temporary directory.
             else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
-                let moduleMapGenerator = ModuleMapGenerator(
-                    targetName: clangTarget.name,
-                    moduleName: clangTarget.c99name,
-                    publicHeadersDir: clangTarget.includeDir,
-                    fileSystem: fileSystem
-                )
-
                 let moduleMapPath = tempsPath
                     .appending(component: "Product")
                     .appending(component: moduleMapFilename)
@@ -413,6 +426,14 @@ public final class ClangTargetBuildDescription {
                 )
 
                 if isWithinMixedTarget {
+                    let intermediateModuleMapPath = tempsPath
+                        .appending(component: "Intermediates")
+                        .appending(component: moduleMapFilename)
+                    try moduleMapGenerator.generateModuleMap(
+                        type: .umbrellaDirectory(tempsPath.appending(component: "Intermediates")),
+                        at: intermediateModuleMapPath,
+                        addSwiftSubmodule: true
+                    )
                     // The underlying Clang target is building within a Mixed
                     // language target and needs an auxiliary module map that
                     // doesn't include the generated interop header from the
@@ -422,10 +443,10 @@ public final class ClangTargetBuildDescription {
                     // an input (because it won't exist yet and is an output of
                     // that compilation command).
                     let unextendedModuleMapPath = tempsPath
-                        .appending(component: "Product")
+                        .appending(component: "Intermediates")
                         .appending(component: unextendedModuleMapFilename)
                     try moduleMapGenerator.generateModuleMap(
-                        type: generatedModuleMapType,
+                        type: .umbrellaDirectory(tempsPath.appending(component: "Intermediates")),
                         at: unextendedModuleMapPath
                     )
                 }
@@ -1235,7 +1256,8 @@ public final class SwiftTargetBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        return buildParameters.triple.isDarwin() && target.type == .library
+        return buildParameters.triple.isDarwin() &&
+            (target.type == .library || target.type == .test && isWithinMixedTarget)
     }
 
     private func writeOutputFileMap() throws -> AbsolutePath {
@@ -1506,27 +1528,34 @@ public final class MixedTargetBuildDescription {
             isWithinMixedTarget: true
         )
 
-        if target.type == .library {
+        if target.type == .library || target.type == .test {
             // Compiling the mixed target will require a Clang VFS overlay file
             // with mappings to the target's module map and public headers.
             let publicHeadersPath = clangTargetBuildDescription.clangTarget.includeDir
-            let buildArtifactDirectory = swiftTargetBuildDescription.tempsPath
-            let buildArtifactProductDirectory = buildArtifactDirectory.appending(component: "Product")
             let generatedInteropHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
-            let allProductHeadersPath = buildArtifactDirectory
+
+            let buildArtifactDirectory = swiftTargetBuildDescription.tempsPath
+            let allProductHeadersPathProduct = buildArtifactDirectory
+                .appending(component: "Product")
+                .appending(component: "all-product-headers.yaml")
+
+            let buildArtifactIntermediatesDirectory = buildArtifactDirectory
+                .appending(component: "Intermediates")
+
+            let allProductHeadersPath = buildArtifactIntermediatesDirectory
                 .appending(component: "all-product-headers.yaml")
 
             // The auxilliary module map is passed to the Clang compiler
             // via a VFS overlay, represented by the below YAML file.
-            let unextendedModuleMapOverlayPath = buildArtifactDirectory
+            let unextendedModuleMapOverlayPath = buildArtifactIntermediatesDirectory
                 .appending(component: "unextended-module-overlay.yaml")
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
-                    name: buildArtifactProductDirectory.pathString,
+                    name: buildArtifactIntermediatesDirectory.pathString,
                     contents: [
                         VFSOverlay.File(
                             name: moduleMapFilename,
-                            externalContents: buildArtifactProductDirectory
+                            externalContents: buildArtifactIntermediatesDirectory
                                 .appending(component: unextendedModuleMapFilename)
                                 .pathString
                         )
@@ -1534,14 +1563,58 @@ public final class MixedTargetBuildDescription {
                 )
             ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
 
+            // TODO(ncooke3): Use @resultBuilder for this.
+            var roots = [
+                VFSOverlay.Directory(
+                    name: buildArtifactIntermediatesDirectory.pathString,
+                    contents:
+                        // All headers
+                    try VFSOverlay.overlayResources(
+                        // TODO(ncooke3): Figure out a way to get the root sources path.
+                        directoryPath: publicHeadersPath.parentDirectory,
+                        fileSystem: fileSystem,
+                        shouldInclude: {
+                            // Only include headers.
+                            fileSystem.isDirectory($0) || $0.pathString.hasSuffix(".h")
+                        }
+                    ) + [
+                        VFSOverlay.File(
+                            name: generatedInteropHeaderPath.basename,
+                            externalContents: generatedInteropHeaderPath.pathString
+                        )
+                    ]
+                )
+            ]
+
+            if case .custom(let customModuleMapPath) = clangTargetBuildDescription.clangTarget.moduleMapType {
+                roots.append(
+                    VFSOverlay.Directory(
+                        name: customModuleMapPath.parentDirectory.pathString,
+                        contents: [
+                            VFSOverlay.File(
+                                name: customModuleMapPath.basename,
+                                externalContents: buildArtifactIntermediatesDirectory
+                                    .appending(component: "module.modulemap")
+                                    .pathString
+                            )
+                        ]
+                    )
+                )
+            }
+
             // TODO(ncooke3): What happens if a custom module map exists with a
             // name other than `module.modulemap`?
+            try VFSOverlay(roots: roots)
+                .write(to: allProductHeadersPath, fileSystem: fileSystem)
+
+            // For Product directory
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
-                    name: buildArtifactProductDirectory.pathString,
+                    name: buildArtifactDirectory
+                        .appending(component: "Product").pathString,
                     contents:
                         // Public headers
-                    	try VFSOverlay.overlayResources(
+                        try VFSOverlay.overlayResources(
                             directoryPath: publicHeadersPath,
                             fileSystem: fileSystem,
                             shouldInclude: {
@@ -1557,7 +1630,7 @@ public final class MixedTargetBuildDescription {
                             )
                         ]
                 )
-            ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
+            ]).write(to: allProductHeadersPathProduct, fileSystem: fileSystem)
 
             swiftTargetBuildDescription.additionalFlags += [
                 // Builds Objective-C portion of module.
@@ -1565,7 +1638,7 @@ public final class MixedTargetBuildDescription {
                 // Add the location of the module's Objective-C module map as
                 // a header search path.
                 "-I",
-                buildArtifactProductDirectory.pathString
+                buildArtifactIntermediatesDirectory.pathString
             ]
 
             swiftTargetBuildDescription.appendClangFlags(
@@ -1581,12 +1654,12 @@ public final class MixedTargetBuildDescription {
             // generated interop Swift header.
             clangTargetBuildDescription.additionalFlags += [
                 "-I",
-                buildArtifactProductDirectory.pathString,
+                buildArtifactIntermediatesDirectory.pathString,
                 "-ivfsoverlay",
                 allProductHeadersPath.pathString
             ]
 
-            self.allProductHeadersOverlay = allProductHeadersPath
+            self.allProductHeadersOverlay = allProductHeadersPathProduct
          }
     }
 }
