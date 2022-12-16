@@ -697,6 +697,7 @@ public struct PluginInvocationSymbolGraphOptions {
     }
     public var includeSynthesized: Bool
     public var includeSPI: Bool
+    public var emitExtensionBlocks: Bool
 }
 
 public struct PluginInvocationSymbolGraphResult {
@@ -957,6 +958,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
+        self.emitExtensionBlocks = options.emitExtensionBlocks
     }
 }
 

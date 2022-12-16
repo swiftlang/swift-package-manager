@@ -229,11 +229,15 @@ public struct PackageManager {
         
         /// Whether to include symbols marked as SPI.
         public var includeSPI: Bool
+
+        /// Whether to emit symbols for extensions to external types.
+        public var emitExtensionBlocks: Bool
         
-        public init(minimumAccessLevel: AccessLevel = .public, includeSynthesized: Bool = false, includeSPI: Bool = false) {
+        public init(minimumAccessLevel: AccessLevel = .public, includeSynthesized: Bool = false, includeSPI: Bool = false, emitExtensionBlocks: Bool = false) {
             self.minimumAccessLevel = minimumAccessLevel
             self.includeSynthesized = includeSynthesized
             self.includeSPI = includeSPI
+            self.emitExtensionBlocks = emitExtensionBlocks
         }
     }
 
@@ -410,6 +414,7 @@ fileprivate extension PluginToHostMessage.SymbolGraphOptions {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
+        self.emitExtensionBlocks = options.emitExtensionBlocks
     }
 }
 
