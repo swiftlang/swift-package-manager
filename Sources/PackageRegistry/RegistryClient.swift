@@ -108,6 +108,7 @@ public final class RegistryClient: Cancellable {
                     let alternateLocations = try response.headers.parseAlternativeLocationLinks()
 
                     return PackageMetadata(
+                        registry: registry,
                         versions: versions,
                         alternateLocations: alternateLocations?.map{ $0.url }
                     )
@@ -659,6 +660,7 @@ fileprivate extension RegistryClient {
 
 extension RegistryClient {
     public struct PackageMetadata {
+        public let registry: Registry
         public let versions: [Version]
         public let alternateLocations: [URL]?
     }
