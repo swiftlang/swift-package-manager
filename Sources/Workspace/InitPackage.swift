@@ -316,10 +316,10 @@ public final class InitPackage {
         case .executable:
             content = """
                 @main
-                public struct \(typeName) {
-                    public private(set) var text = "Hello, World!"
+                struct \(typeName) {
+                    private(set) var text = "Hello, World!"
 
-                    public static func main() {
+                    static func main() {
                         print(\(typeName)().text)
                     }
                 }
