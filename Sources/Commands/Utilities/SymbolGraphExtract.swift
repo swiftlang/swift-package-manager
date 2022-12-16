@@ -16,7 +16,7 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import DriverSupport
+@_implementationOnly import DriverSupport
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
