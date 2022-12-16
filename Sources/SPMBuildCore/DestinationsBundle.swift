@@ -77,7 +77,7 @@ public struct DestinationsBundle {
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) throws -> Destination {
-        guard let destinationsDirectory else {
+        guard let destinationsDirectory = destinationsDirectory else {
             throw StringError(
                 """
                 No cross-compilation destinations directory found, specify one
