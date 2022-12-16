@@ -36,19 +36,22 @@ extension Workspace {
         /// Path to the Package.resolved file.
         public var resolvedVersionsFile: AbsolutePath
 
-        /// Path to the local configuration directory
+        /// Path to the local configuration directory.
         public var localConfigurationDirectory: AbsolutePath
 
-        /// Path to the shared configuration directory
+        /// Path to the shared configuration directory.
         public var sharedConfigurationDirectory: AbsolutePath?
 
-        /// Path to the shared security directory
+        /// Path to the shared security directory.
         public var sharedSecurityDirectory: AbsolutePath?
 
-        /// Path to the shared cache directory
+        /// Path to the shared cache directory.
         public var sharedCacheDirectory: AbsolutePath?
 
-        /// Whether or not to emit a warning about the existence of deprecated configuration files
+        /// Path to the shared cross-compilation destinations directory.
+        public var sharedCrossCompilationDestinationsDirectory: AbsolutePath?
+
+        /// Whether or not to emit a warning about the existence of deprecated configuration files.
         public var emitDeprecatedConfigurationWarning: Bool
 
         // working directories

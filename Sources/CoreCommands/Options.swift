@@ -286,6 +286,10 @@ public struct BuildOptions: ParsableArguments {
         shouldDisplay: false))
     public var archs: [String] = []
 
+    /// Path to the compilation destination describing JSON file.
+    @Option(name: .customLong("experimental-destination-selector"), help: .hidden)
+    public var crossCompilationDestinationSelector: String?
+
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
             help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)",

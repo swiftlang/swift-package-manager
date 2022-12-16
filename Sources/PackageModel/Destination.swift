@@ -103,7 +103,7 @@ public struct Destination: Encodable, Equatable {
     }
     
     /// Additional flags to be passed to the build tools.
-    public let extraFlags: BuildFlags
+    public var extraFlags: BuildFlags
 
     /// Creates a compilation destination with the specified properties.
     @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolchainBinDir:extraFlags)` instead")

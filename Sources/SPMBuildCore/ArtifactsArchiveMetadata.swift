@@ -38,9 +38,10 @@ public struct ArtifactsArchiveMetadata: Equatable {
         }
     }
 
-    // In the future we are likely to extend the ArtifactsArchive file format to carry other types of artifacts beyond executables.
-    // Additional fields may be required to support these new artifact types e.g. headers path for libraries.
-    // This can also support resource-only artifacts as well. For example, 3d models along with associated textures, or fonts, etc.
+    // In the future we are likely to extend the ArtifactsArchive file format to carry other types of artifacts beyond
+    // executables and cross-compilation destinations. Additional fields may be required to support these new artifact
+    // types e.g. headers path for libraries. This can also support resource-only artifacts as well. For example,
+    // 3d models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
         case crossCompilationDestination
