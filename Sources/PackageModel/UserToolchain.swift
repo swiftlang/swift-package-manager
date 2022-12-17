@@ -113,11 +113,15 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - public API
 
-    public static func determineLibrarian(triple: Triple, binDir: AbsolutePath,
-                                          useXcrun: Bool,
-                                          environment: EnvironmentVariables,
-                                          searchPaths: [AbsolutePath]) throws
-            -> AbsolutePath {
+    public static func determineLibrarian(
+        triple: Triple, binDir: AbsolutePath,
+        useXcrun: Bool,
+        environment: EnvironmentVariables,
+        searchPaths: [AbsolutePath],
+        extraSwiftFlags: [String]
+    ) throws
+        -> AbsolutePath
+    {
         let variable: String = triple.isDarwin() ? "LIBTOOL" : "AR"
         let tool: String = {
             if triple.isDarwin() { return "libtool" }
@@ -128,7 +132,12 @@ public final class UserToolchain: Toolchain {
                                              environment: environment) {
                     return librarian.basename
                 }
-                // TODO(5719) use `lld-link` if the build requests lld.
+                // TODO(5719) handle `-Xmanifest` vs `-Xswiftc`
+                // `-use-ld=` is always joined in Swift.
+                if let ld = extraSwiftFlags.first(where: { $0.starts(with: "-use-ld=") }) {
+                    let linker = String(ld.split(separator: "=").last!)
+                    return linker == "lld" ? "lld-link" : linker
+                }
                 return "link"
             }
             // TODO(compnerd) consider defaulting to `llvm-ar` universally with
@@ -375,8 +384,6 @@ public final class UserToolchain: Toolchain {
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
-        self.librarianPath = try UserToolchain.determineLibrarian(triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
-
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
         if archs.count == 1 {
@@ -388,6 +395,11 @@ public final class UserToolchain: Toolchain {
         self.extraFlags = BuildFlags()
 
         self.extraFlags.swiftCompilerFlags = try Self.deriveSwiftCFlags(triple: triple, destination: destination, environment: environment)
+
+        self.librarianPath = try UserToolchain.determineLibrarian(
+            triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment,
+            searchPaths: envSearchPaths, extraSwiftFlags: self.extraFlags.swiftCompilerFlags
+        )
 
         if let sdkDir = destination.sdkRootDir {
             self.extraFlags.cCompilerFlags = [
