@@ -215,6 +215,10 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
     /// Tests access to the package's directory contents.
     func testPackageContextDirectory() throws {
+        #if os(Windows)
+        throw XCTSkip("Skipping since this tests does not fully work without the VFS overlay which is currently disabled on Windows")
+        #endif
+
         let content = """
             import PackageDescription
             import Foundation
