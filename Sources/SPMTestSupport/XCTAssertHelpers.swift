@@ -106,6 +106,7 @@ public func XCTAssertSwiftTest(
 @discardableResult
 public func XCTAssertBuildFails(
     _ path: AbsolutePath,
+    extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
@@ -114,7 +115,7 @@ public func XCTAssertBuildFails(
     line: UInt = #line
 ) -> CommandExecutionError? {
     var failure: CommandExecutionError? = nil
-    XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc), file: file, line: line) { error in
+    XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(path, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc), file: file, line: line) { error in
         failure = error
     }
     return failure

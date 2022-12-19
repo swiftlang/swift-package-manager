@@ -1002,8 +1002,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/fooPkg/Sources/Logging/fileLogging.m",
-            "/fooPkg/Sources/Logging/include/fileLogging.h"
-        )
+            "/fooPkg/Sources/Logging/include/fileLogging.h",
+            "/fooPkg/Sources/Logging/FileLogging.swift"
+            )
         let observability = ObservabilitySystem.makeForTesting()
         let _ = try loadPackageGraph(
             fileSystem: fs,

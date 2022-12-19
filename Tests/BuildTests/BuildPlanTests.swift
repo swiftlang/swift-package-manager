@@ -27,6 +27,13 @@ import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 
+// TODO(ncooke3): Add test for building statically linked mixed target.
+// TODO(ncooke3): Add test for building dynamically linked mixed target.
+
+// TODO(ncooke3): Add test for expected failure cases:
+// - Non-Library target
+// - Non-Test target
+
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     private let driverSupport = DriverSupport()

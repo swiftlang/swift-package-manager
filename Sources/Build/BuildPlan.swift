@@ -422,7 +422,7 @@ public final class ClangTargetBuildDescription {
                 try moduleMapGenerator.generateModuleMap(
                     type: generatedModuleMapType,
                     at: moduleMapPath,
-                    addSwiftSubmodule: true
+                    addSwiftSubmodule: isWithinMixedTarget
                 )
 
                 if isWithinMixedTarget {
@@ -1570,7 +1570,7 @@ public final class MixedTargetBuildDescription {
                     contents:
                         // All headers
                     try VFSOverlay.overlayResources(
-                        // TODO(ncooke3): Figure out a way to get the root sources path.
+                        // TODO(ncooke3): #456 Figure out a way to get the root sources path.
                         directoryPath: publicHeadersPath.parentDirectory,
                         fileSystem: fileSystem,
                         shouldInclude: {
@@ -1655,6 +1655,9 @@ public final class MixedTargetBuildDescription {
             clangTargetBuildDescription.additionalFlags += [
                 "-I",
                 buildArtifactIntermediatesDirectory.pathString,
+                // TODO(ncooke3): #123 This is pretty hacky and doesn't scale well.
+//                "-I",
+//                buildArtifactIntermediatesDirectory.appending(component: "Public").pathString,
                 "-ivfsoverlay",
                 allProductHeadersPath.pathString
             ]
