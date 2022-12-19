@@ -34,6 +34,7 @@ extension SwiftTool {
                         pluginScriptRunner: self.getPluginScriptRunner(),
                         pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
                         disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
+                        pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
                         outputStream: customOutputStream ?? self.outputStream,
                         logLevel: customLogLevel ?? self.logLevel,
                         fileSystem: self.fileSystem,

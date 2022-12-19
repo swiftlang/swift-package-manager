@@ -300,7 +300,8 @@ extension PIFBuilderParameters {
         self.init(
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root
+            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories
         )
     }
 }

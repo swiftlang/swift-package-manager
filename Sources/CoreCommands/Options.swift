@@ -86,6 +86,16 @@ public struct LocationOptions: ParsableArguments {
 
     @Option(name: .customLong("experimental-destinations-path"), help: .hidden, completion: .directory)
     public var crossCompilationDestinationsDirectory: AbsolutePath?
+
+    @Option(
+        name: .customLong("pkg-config-path"),
+        help:
+            """
+            Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
+            specify more than one path.
+            """,
+        completion: .directory)
+    public var pkgConfigDirectories: [AbsolutePath] = []
 }
 
 public struct CachingOptions: ParsableArguments {

@@ -3,6 +3,13 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.8
 -----------
 
+* [#5949]
+  
+  New `--pkg-config-path` option on `build`, `test`, and `run` commands has been
+  introduced as an alternative to passing `PKG_CONFIG_PATH` environment variable.
+  It allows specifying alternative path to search for `.pc` files used by
+  `pkg-config`. Use the option multiple times to specify more than one path.
+
 * [#5874]
 
   In packages using tools version 5.8 or later, Foundation is no longer implicitly imported into package manifests. If Foundation APIs are used, the module needs to be imported explicitly.

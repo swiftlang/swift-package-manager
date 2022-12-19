@@ -297,11 +297,11 @@ public final class SwiftTool {
             (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
         self.sharedCrossCompilationDestinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: self.options.locations.crossCompilationDestinationsDirectory
+            explicitDirectory: options.locations.crossCompilationDestinationsDirectory
         )
 
         // set global process logging handler
@@ -594,6 +594,7 @@ public final class SwiftTool {
                 archs: options.build.archs,
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
+                pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A build environment with which to evaluation conditions.
+/// A build environment with which to evaluate conditions.
 public struct BuildEnvironment: Codable {
     public let platform: Platform
     public let configuration: BuildConfiguration?

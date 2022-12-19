@@ -58,15 +58,28 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsolutePath? = .none, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> [PkgConfigResult] {
+public func pkgConfigArgs(
+    for target: SystemLibraryTarget,
+    pkgConfigDirectories: [AbsolutePath],
+    brewPrefix: AbsolutePath? = .none,
+    fileSystem: FileSystem,
+    observabilityScope: ObservabilityScope
+) throws -> [PkgConfigResult] {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigNames = target.pkgConfig else { return [] }
 
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
-    let additionalSearchPaths = try provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
 
-   var ret: [PkgConfigResult] = []
+    let additionalSearchPaths: [AbsolutePath]
+    // Give priority to `pkgConfigDirectories` passed as an argument to this function.
+    if let providerSearchPaths = try provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) {
+        additionalSearchPaths = pkgConfigDirectories + providerSearchPaths
+    } else {
+        additionalSearchPaths = pkgConfigDirectories
+    }
+
+    var ret: [PkgConfigResult] = []
     // Get the pkg config flags.
     for pkgConfigName in pkgConfigNames.components(separatedBy: " ") {
         let result: PkgConfigResult
@@ -92,11 +105,11 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
             }
 
             result = PkgConfigResult(
-                    pkgConfigName: pkgConfigName,
-                    cFlags: cFlags,
-                    libs: libs,
-                    error: error,
-                    provider: provider
+                pkgConfigName: pkgConfigName,
+                cFlags: cFlags,
+                libs: libs,
+                error: error,
+                provider: provider
             )
         } catch {
             result = PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
@@ -104,7 +117,9 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
 
         // If there is no pc file on system and we have an available provider, emit a warning.
         if let provider = result.provider, result.couldNotFindConfigFile {
-            observabilityScope.emit(warning: "you may be able to install \(result.pkgConfigName) using your system-packager:\n\(provider.installText)")
+            observabilityScope.emit(
+                warning: "you may be able to install \(result.pkgConfigName) using your system-packager:\n\(provider.installText)"
+            )
         } else if let error = result.error {
             observabilityScope.emit(
                 warning: "\(error)",

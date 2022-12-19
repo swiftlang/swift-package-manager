@@ -24,6 +24,7 @@ typealias WireInput = HostToPluginMessage.InputContext
 internal struct PluginContextSerializer {
     let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
+    let pkgConfigDirectories: [AbsolutePath]
     var paths: [WireInput.Path] = []
     var pathsToIds: [AbsolutePath: WireInput.Path.Id] = [:]
     var targets: [WireInput.Target] = []
@@ -105,7 +106,12 @@ internal struct PluginContextSerializer {
             var ldFlags: [String] = []
             // FIXME: What do we do with any diagnostics here?
             let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
-            for result in try pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: observabilityScope) {
+            for result in try pkgConfigArgs(
+                for: target,
+                pkgConfigDirectories: pkgConfigDirectories,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            ) {
                 if let error = result.error {
                     observabilityScope.emit(
                         warning: "\(error)",
