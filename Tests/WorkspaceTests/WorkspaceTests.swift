@@ -4603,11 +4603,13 @@ final class WorkspaceTests: XCTestCase {
                     diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
                     severity: .error
                 )
+                XCTAssertEqual(diagnostic1?.metadata?.packageIdentity, .plain("foo"))
                 XCTAssertEqual(diagnostic1?.metadata?.targetName, "Foo")
                 let diagnostic2 = result.checkUnordered(
                     diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
                     severity: .error
                 )
+                XCTAssertEqual(diagnostic2?.metadata?.packageIdentity, .plain("foo"))
                 XCTAssertEqual(diagnostic2?.metadata?.targetName, "Foo")
             }
         }
