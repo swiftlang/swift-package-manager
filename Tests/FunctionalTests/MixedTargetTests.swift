@@ -185,7 +185,7 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Blocked on search paths bug #456 AND #123.
+    // TODO(ncooke3): Blocked on search paths bug #123.
     func testMixedTargetWithNestedPublicHeaders() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(

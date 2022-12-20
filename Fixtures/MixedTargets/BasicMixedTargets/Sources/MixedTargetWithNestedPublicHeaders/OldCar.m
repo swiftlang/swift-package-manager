@@ -7,7 +7,7 @@
 #import "Blah/Public/OldCar.h"
 
 // Import the Swift half of the module.
-#import "BasicMixedTarget-Swift.h"
+#import "MixedTargetWithNestedPublicHeaders-Swift.h"
 
 #import "Transmission.h"
 
