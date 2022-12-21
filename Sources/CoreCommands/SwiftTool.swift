@@ -822,6 +822,8 @@ extension LoggingOptions {
             return .info
         } else if self.veryVerbose {
             return .debug
+        } else if self.quiet {
+            return .error
         } else {
             return .warning
         }
