@@ -345,6 +345,8 @@ public final class ClangTargetBuildDescription {
                 fileSystem: fileSystem
             )
 
+            var generateIntermediateModuleMaps = false
+
             if case .custom(let customModuleMapPath) = clangTarget.moduleMapType {
                 if isWithinMixedTarget {
                     let customModuleMapContents: String = try fileSystem.readFileContents(customModuleMapPath)
@@ -384,33 +386,7 @@ public final class ClangTargetBuildDescription {
 
                     self.moduleMap = writePath
 
-                    // Intermediates module maps
-                    let intermediateModuleMapPath = tempsPath
-                        .appending(component: "Intermediates")
-                        .appending(component: moduleMapFilename)
-                    try moduleMapGenerator.generateModuleMap(
-                        type: .umbrellaDirectory(clangTarget.path),
-                        at: intermediateModuleMapPath,
-                        addSwiftSubmodule: true
-                    )
-                    // The underlying Clang target is building within a Mixed
-                    // language target and needs an auxiliary module map that
-                    // doesn't include the generated interop header from the
-                    // Swift half of the mixed target. This will later allow the
-                    // Clang half of the module to be built when compiling the
-                    // Swift part without the generated header being considered
-                    // an input (because it won't exist yet and is an output of
-                    // that compilation command).
-                    let unextendedModuleMapPath = tempsPath
-                        .appending(component: "Intermediates")
-                        .appending(component: unextendedModuleMapFilename)
-                    let nonObjcHeaders: [AbsolutePath] = clangTarget.headers
-                        .filter { $0.extension != "h" }
-                    try moduleMapGenerator.generateModuleMap(
-                        type: .umbrellaDirectory(clangTarget.path),
-                        at: unextendedModuleMapPath,
-                        excludeHeaders: nonObjcHeaders
-                    )
+                    generateIntermediateModuleMaps = true
                 } else {
                     // When not building within a mixed target, use the custom
                     // module map as it does not need to be modified.
@@ -428,39 +404,41 @@ public final class ClangTargetBuildDescription {
                     addSwiftSubmodule: isWithinMixedTarget
                 )
 
-                if isWithinMixedTarget {
-                    let intermediateModuleMapPath = tempsPath
-                        .appending(component: "Intermediates")
-                        .appending(component: moduleMapFilename)
-                    try moduleMapGenerator.generateModuleMap(
-                        type: .umbrellaDirectory(clangTarget.path),
-                        at: intermediateModuleMapPath,
-                        addSwiftSubmodule: true
-                    )
-
-                    // The underlying Clang target is building within a Mixed
-                    // language target and needs an auxiliary module map that
-                    // doesn't include the generated interop header from the
-                    // Swift half of the mixed target. This will later allow the
-                    // Clang half of the module to be built when compiling the
-                    // Swift part without the generated header being considered
-                    // an input (because it won't exist yet and is an output of
-                    // that compilation command).
-                    let unextendedModuleMapPath = tempsPath
-                        .appending(component: "Intermediates")
-                        .appending(component: unextendedModuleMapFilename)
-                    let nonObjcHeaders: [AbsolutePath] = clangTarget.headers
-                        .filter { $0.extension != "h" }
-                    try moduleMapGenerator.generateModuleMap(
-                        type: .umbrellaDirectory(clangTarget.path),
-                        at: unextendedModuleMapPath,
-                        excludeHeaders: nonObjcHeaders
-                    )
-                }
-
                 self.moduleMap = moduleMapPath
+
+                generateIntermediateModuleMaps = isWithinMixedTarget
             }
             // Otherwise there is no module map, and we leave `moduleMap` unset.
+
+            // Generate the intermediate module maps if needed.
+            if generateIntermediateModuleMaps {
+                let intermediateModuleMapPath = tempsPath
+                    .appending(component: "Intermediates")
+                    .appending(component: moduleMapFilename)
+                try moduleMapGenerator.generateModuleMap(
+                    type: .umbrellaDirectory(clangTarget.path),
+                    at: intermediateModuleMapPath,
+                    addSwiftSubmodule: true
+                )
+                // The underlying Clang target is building within a Mixed
+                // language target and needs an auxiliary module map that
+                // doesn't include the generated interop header from the
+                // Swift half of the mixed target. This will later allow the
+                // Clang half of the module to be built when compiling the
+                // Swift part without the generated header being considered
+                // an input (because it won't exist yet and is an output of
+                // that compilation command).
+                let unextendedModuleMapPath = tempsPath
+                    .appending(component: "Intermediates")
+                    .appending(component: unextendedModuleMapFilename)
+                let nonObjcHeaders: [AbsolutePath] = clangTarget.headers
+                    .filter { $0.extension != "h" }
+                try moduleMapGenerator.generateModuleMap(
+                    type: .umbrellaDirectory(clangTarget.path),
+                    at: unextendedModuleMapPath,
+                    excludeHeaders: nonObjcHeaders
+                )
+            }
         }
 
         // Do nothing if we're not generating a bundle.
