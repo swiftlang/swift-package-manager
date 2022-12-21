@@ -1,4 +1,5 @@
-// swift-tools-version: 5.7
+// swift-tools-version: 999.0
+// FIXME(ncooke3): Update above version with the next version of SwiftPM.
 
 import PackageDescription
 
@@ -114,7 +115,7 @@ let package = Package(
             publicHeadersPath: "Blah/Public"
         ),
 
-        // MARK: - MixedTargetWithNoPublicObjectiveCHeaders.
+        // MARK: - MixedTargetWithNoPublicObjectiveCHeaders
        .target(
            name: "MixedTargetWithNoPublicObjectiveCHeaders"
        ),
@@ -122,6 +123,11 @@ let package = Package(
             name: "MixedTargetWithNoPublicObjectiveCHeadersTests",
             dependencies: ["MixedTargetWithNoPublicObjectiveCHeaders"]
         ),
+
+        // MARK: - MixedTargetWithNoObjectiveCCompatibleSwiftAPI
+        .target(
+           name: "MixedTargetWithNoObjectiveCCompatibleSwiftAPI"
+       ),
 
         // MARK: - MixedTestTargetWithSharedTestUtilities
         .testTarget(

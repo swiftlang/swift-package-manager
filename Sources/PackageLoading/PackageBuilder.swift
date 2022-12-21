@@ -205,7 +205,7 @@ extension Target.Error: CustomStringConvertible {
         case .invalidName(let path, let problem):
             return "invalid target name at '\(path)'; \(problem)"
         case .mixedSources(let path):
-            // TODO(ncooke3): Update error message with support version.
+            // FIXME(ncooke3): Update error message with support version.
             return "target at '\(path)' contains mixed language source " +
                     "files; feature not supported until tools version XX"
         }
@@ -882,14 +882,9 @@ public final class PackageBuilder {
         let buildSettings = try self.buildSettings(for: manifestTarget, targetRoot: potentialModule.path, cxxLanguageStandard: self.manifest.cxxLanguageStandard)
 
         // Compute the path to public headers directory.
-        let publicHeadersPath: AbsolutePath
-        switch potentialModule.type {
-        case .test:
-            publicHeadersPath = potentialModule.path
-        default:
-            let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-            publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
-        }
+        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
+        let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
+
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
@@ -965,19 +960,29 @@ public final class PackageBuilder {
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources && sources.hasClangSources {
 
-            let moduleMapType = try findModuleMapType(
-                for: potentialModule,
-                targetType: targetType,
-                publicHeadersPath: publicHeadersPath,
-                isMixedTarget: true
-            )
+            let mixedTargetPublicHeadersPath: AbsolutePath
+            let moduleMapType: ModuleMapType
+            // Mixed test targets use the target's root as an umbrella
+            // directory to expose all headers to the Swift portion of the test
+            // target. This enables the sharing of test utility files.
+            if targetType == .test {
+                mixedTargetPublicHeadersPath = potentialModule.path
+                moduleMapType = .umbrellaDirectory(potentialModule.path)
+            } else {
+                mixedTargetPublicHeadersPath = publicHeadersPath
+                moduleMapType = findModuleMapType(
+                    for: potentialModule,
+                    targetType: targetType,
+                    publicHeadersPath: publicHeadersPath
+                )
+            }
 
             return try MixedTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
-                includeDir: publicHeadersPath,
+                includeDir: mixedTargetPublicHeadersPath,
                 moduleMapType: moduleMapType,
                 headers: headers,
                 type: targetType,
@@ -1009,7 +1014,7 @@ public final class PackageBuilder {
         } else {
             // It's not a Mixed or Swift target, so it's a Clang target.
 
-            let moduleMapType = try findModuleMapType(
+            let moduleMapType = findModuleMapType(
                 for: potentialModule,
                 targetType: targetType,
                 publicHeadersPath: publicHeadersPath
@@ -1017,6 +1022,11 @@ public final class PackageBuilder {
 
             if resources.contains(where: { $0.rule == .embedInCode }) {
                 throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
+            }
+
+            if moduleMapType == .none, targetType == .library, manifest.toolsVersion >= .v5_5 {
+                // If this clang target is a library, it must contain "include" directory.
+                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
             }
 
             return try ClangTarget(
@@ -1237,28 +1247,19 @@ public final class PackageBuilder {
     private func findModuleMapType(
         for potentialModule: PotentialModule,
         targetType: Target.Kind,
-        publicHeadersPath: AbsolutePath,
-        isMixedTarget: Bool = false
-    ) throws -> ModuleMapType {
-        if fileSystem.exists(publicHeadersPath) {
-            let moduleMapGenerator = ModuleMapGenerator(
-                targetName: potentialModule.name,
-                moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(),
-                publicHeadersDir: publicHeadersPath,
-                fileSystem: self.fileSystem
-            )
-            return moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
-        } else if targetType == .library, manifest.toolsVersion >= .v5_5, !isMixedTarget {
-            // If this clang target is a library, it must contain "include" directory.
-            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-        } else if targetType == .test && isMixedTarget {
-            // TODO(ncooke3): Consider if this should be handled in BuildPlan.swift?
-            // Mixed test targets use an umbrella directory to expose all
-            // headers to the Swift portion of the test target.
-            return .umbrellaDirectory(potentialModule.path)
-        } else {
+        publicHeadersPath: AbsolutePath
+    ) -> ModuleMapType {
+        guard fileSystem.exists(publicHeadersPath) else {
             return .none
         }
+
+        let moduleMapGenerator = ModuleMapGenerator(
+            targetName: potentialModule.name,
+            moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(),
+            publicHeadersDir: publicHeadersPath,
+            fileSystem: fileSystem
+        )
+        return moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
     }
 
     /// Find the test entry point file for the package.

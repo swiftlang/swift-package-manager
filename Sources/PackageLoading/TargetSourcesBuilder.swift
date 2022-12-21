@@ -180,8 +180,8 @@ public struct TargetSourcesBuilder {
         diagnoseInvalidResource(in: target.resources)
 
         // It's an error to contain mixed language source files.
-        // TODO(ncooke3): Update `toolsVersion` when the PR merges.
-        if sources.containsMixedLanguage, toolsVersion < .v4  {
+        // FIXME(ncooke3): Update with next version of SPM.
+        if sources.containsMixedLanguage, toolsVersion < .vNext  {
             throw Target.Error.mixedSources(targetPath)
         }
 

@@ -30,10 +30,6 @@ import enum TSCUtility.Diagnostics
 // TODO(ncooke3): Add test for building statically linked mixed target.
 // TODO(ncooke3): Add test for building dynamically linked mixed target.
 
-// TODO(ncooke3): Add test for expected failure cases:
-// - Non-Library target
-// - Non-Test target
-
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     private let driverSupport = DriverSupport()
@@ -1477,8 +1473,10 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init(path: "/Pkg"),
+                    // FIXME(ncooke3): Update error message with support version.
+                    toolsVersion: .vNext,
                     targets: [
-                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "exe", dependencies: ["lib"], type: .executable),
                         TargetDescription(name: "lib")
                     ]
                 )
@@ -1517,26 +1515,27 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, [
-            "-target", "\(defaultTargetTriple)", "-swift-version", "4",
+            "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
             "-fmodule-map-file=/path/to/build/debug/lib.build/Product/module.modulemap",
             "-Xcc", "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/all-product-headers.yaml",
+            "/path/to/build/debug/lib.build/Product/all-product-headers.yaml",
             "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence
         ])
 
         let swiftPartOfLib = try result.target(for: "lib").mixedTarget().swiftTargetBuildDescription.compileArguments()
         XCTAssertMatch(swiftPartOfLib, [
-            "-target", "\(defaultTargetTriple)", "-swift-version", "4",
+            "-target", "\(defaultTargetTriple)", "-swift-version", "5",
             "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j),
             "-DSWIFT_PACKAGE", "-DDEBUG", "-import-underlying-module", "-I",
-            "/path/to/build/debug/lib.build/Product", "-Xcc", "-ivfsoverlay",
-            "-Xcc", "/path/to/build/debug/lib.build/all-product-headers.yaml",
+            "/path/to/build/debug/lib.build/Intermediates", "-Xcc",
+            "-ivfsoverlay", "-Xcc",
+            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
             "-Xcc", "-ivfsoverlay", "-Xcc",
-            "/path/to/build/debug/lib.build/unextended-module-overlay.yaml",
-            "-module-cache-path",
+            "/path/to/build/debug/lib.build/Intermediates/unextended-module-overlay.yaml",
+            "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib", "-module-cache-path",
             "\(buildPath.appending(components: "ModuleCache"))", .anySequence,
             "-parse-as-library", "-emit-objc-header", "-emit-objc-header-path",
             "/path/to/build/debug/lib.build/lib-Swift.h"
@@ -1546,8 +1545,10 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clangPartOfLib, [
             "-fobjc-arc", "-target", "x86_64-apple-macosx10.13", "-g", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-fmodules",
-            "-fmodule-name=lib", "-I", "/path/to/build/debug/lib.build/Product",
-            "-ivfsoverlay", "/path/to/build/debug/lib.build/all-product-headers.yaml",
+            "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-I",
+            "/Pkg/Sources/lib", "-ivfsoverlay",
+            "/path/to/build/debug/lib.build/Intermediates/all-product-headers.yaml",
+            "-I", "/path/to/build/debug/lib.build/Intermediates",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
         ])
 
@@ -1568,10 +1569,11 @@ final class BuildPlanTests: XCTestCase {
             result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString, "-o", buildPath.appending(components: "exe").pathString,
             "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath",
-            "-Xlinker", "@loader_path", "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))", "-Xlinker", "-rpath", "-Xlinker",
-            "/fake/path/lib/swift-5.5/macosx", "-target", defaultTargetTriple, "-Xlinker",
-            "-add_ast_path", "-Xlinker",
-            buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString
+            "-Xlinker", "@loader_path",
+            "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
+            "-Xlinker", buildPath.appending(component: "exe.swiftmodule").pathString
         ])
 
         testDiagnostics(observability.diagnostics) { result in

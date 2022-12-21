@@ -2864,10 +2864,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Plan a Mixed target.
     private func plan(mixedTarget: MixedTargetBuildDescription) throws {
-        // TODO(ncooke3): Add tests for when mixed target depends on
-        // - MixedTarget
-        // - ClangTarget
-        // - SwiftTarget
         try plan(swiftTarget: mixedTarget.swiftTargetBuildDescription)
         try plan(clangTarget: mixedTarget.clangTargetBuildDescription)
     }

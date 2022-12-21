@@ -1004,7 +1004,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/fooPkg/Sources/Logging/fileLogging.m",
             "/fooPkg/Sources/Logging/include/fileLogging.h",
             "/fooPkg/Sources/Logging/FileLogging.swift"
-            )
+        )
         let observability = ObservabilitySystem.makeForTesting()
         let _ = try loadPackageGraph(
             fileSystem: fs,
@@ -1012,6 +1012,8 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "fooPkg",
                     path: "/fooPkg",
+                    // FIXME(ncooke3): Update with next version of SPM.
+                    toolsVersion: .vNext,
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
                     ],
