@@ -139,7 +139,7 @@ public struct LoggingOptions: ParsableArguments {
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
     public var veryVerbose: Bool = false
 
-    /// Whether logging output should be limited to error.
+    /// Whether logging output should be limited to `.error`.
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
 }
