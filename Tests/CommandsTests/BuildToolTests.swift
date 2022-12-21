@@ -390,4 +390,16 @@ final class BuildToolTests: CommandsTestCase {
             XCTAssertMatch(output, .prefix("digraph Jobs {"))
         }
     }
+    
+    func testSwiftDriverRawOutputGetsNewlines() throws {
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not compatible with whole module optimization` message, which should have a trailing newline.  Since that message won't be there at all when the legacy compiler driver is used, we gate this check on whether the remark is there in the first place.
+            let result = try execute(["-c", "release", "-Xswiftc", "-wmo"], packagePath: fixturePath)
+            if result.stdout.contains("remark: Incremental compilation has been disabled: it is not compatible with whole module optimization") {
+                XCTAssertMatch(result.stdout, .contains("optimization\n"))
+                XCTAssertNoMatch(result.stdout, .contains("optimization["))
+                XCTAssertNoMatch(result.stdout, .contains("optimizationremark"))
+            }
+        }
+    }
 }
