@@ -407,6 +407,19 @@ public final class ClangTargetBuildDescription {
                 self.moduleMap = moduleMapPath
 
                 generateIntermediateModuleMaps = isWithinMixedTarget
+            } else if isWithinMixedTarget && clangTarget.moduleMapType == .none {
+                let moduleMapPath = tempsPath
+                    .appending(component: "Product")
+                    .appending(component: moduleMapFilename)
+                try moduleMapGenerator.generateModuleMap(
+                    type: nil,
+                    at: moduleMapPath,
+                    addSwiftSubmodule: isWithinMixedTarget
+                )
+
+                self.moduleMap = moduleMapPath
+
+                generateIntermediateModuleMaps = true
             }
             // Otherwise there is no module map, and we leave `moduleMap` unset.
 
@@ -1616,30 +1629,37 @@ public final class MixedTargetBuildDescription {
 
             // For Product directory
             // TODO(ncooke3): Experiment with refactoring this next...
+            var contents: [VFSOverlay.Resource] = [
+                VFSOverlay.File(
+                    name: generatedInteropHeaderPath.basename,
+                    externalContents: generatedInteropHeaderPath.pathString
+                )
+            ]
+
+            if mixedTarget.clangTarget.moduleMapType != .none {
+                contents +=
+                    // Public headers
+                    try VFSOverlay.overlayResources(
+                        directoryPath: mixedTarget.clangTarget.includeDir,
+                        fileSystem: fileSystem,
+                        shouldInclude: {
+                            // Filter out a potential custom module map as
+                            // only the generated module map in the build
+                            // directory is used.
+                            !$0.pathString.hasSuffix("module.modulemap")
+                        }
+                    )
+            }
+
             try VFSOverlay(roots: [
                 VFSOverlay.Directory(
                     name: buildArtifactDirectory
                         .appending(component: "Product").pathString,
-                    contents:
-                        // Public headers
-                        try VFSOverlay.overlayResources(
-                            directoryPath: mixedTarget.clangTarget.includeDir,
-                            fileSystem: fileSystem,
-                            shouldInclude: {
-                                // Filter out a potential custom module map as
-                                // only the generated module map in the build
-                                // directory is used.
-                                !$0.pathString.hasSuffix("module.modulemap")
-                            }
-                        ) + [
-                            VFSOverlay.File(
-                                name: generatedInteropHeaderPath.basename,
-                                externalContents: generatedInteropHeaderPath.pathString
-                            )
-                        ]
+                    contents: contents
                 )
             ]).write(to: allProductHeadersPathProduct, fileSystem: fileSystem)
 
+            // Build flags
             swiftTargetBuildDescription.appendClangFlags(
                 // Pass both VFS overlays to the underlying Clang compiler.
                 "-ivfsoverlay", allProductHeadersPath.pathString,

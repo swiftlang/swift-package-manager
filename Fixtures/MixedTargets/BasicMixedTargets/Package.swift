@@ -114,11 +114,14 @@ let package = Package(
             publicHeadersPath: "Blah/Public"
         ),
 
-        // MARK: - MixedTargetWithNoPublicObjectiveCHeaders
-        // TODO(ncooke3): Re-enable when corresponding test is working.
-//        .target(
-//            name: "MixedTargetWithNoPublicObjectiveCHeaders"
-//        ),
+        // MARK: - MixedTargetWithNoPublicObjectiveCHeaders.
+       .target(
+           name: "MixedTargetWithNoPublicObjectiveCHeaders"
+       ),
+        .testTarget(
+            name: "MixedTargetWithNoPublicObjectiveCHeadersTests",
+            dependencies: ["MixedTargetWithNoPublicObjectiveCHeaders"]
+        ),
 
         // MARK: - MixedTestTargetWithSharedTestUtilities
         .testTarget(

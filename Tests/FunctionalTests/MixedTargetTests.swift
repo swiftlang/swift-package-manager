@@ -92,15 +92,19 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Update the implementation to support this.
     func testMixedTargetWithNoPublicObjectiveCHeaders() throws {
-        XCTAssert(false)
-//        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-//            XCTAssertBuilds(
-//                fixturePath,
-//                extraArgs: ["--target", "MixedTargetWithNoPublicObjectiveCHeaders"]
-//            )
-//        }
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithNoPublicObjectiveCHeadersTests"]
+            )
+
+            XCTAssertBuildFails(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithNoPublicObjectiveCHeadersTests"],
+                Xcc: ["EXPECT_FAILURE"]
+            )
+        }
     }
 
     func testNonPublicHeadersAreVisibleFromSwiftHalfOfMixedTarget() throws {
