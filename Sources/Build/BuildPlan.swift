@@ -404,9 +404,12 @@ public final class ClangTargetBuildDescription {
                     let unextendedModuleMapPath = tempsPath
                         .appending(component: "Intermediates")
                         .appending(component: unextendedModuleMapFilename)
+                    let nonObjcHeaders: [AbsolutePath] = clangTarget.headers
+                        .filter { $0.extension != "h" }
                     try moduleMapGenerator.generateModuleMap(
                         type: .umbrellaDirectory(clangTarget.path),
-                        at: unextendedModuleMapPath
+                        at: unextendedModuleMapPath,
+                        excludeHeaders: nonObjcHeaders
                     )
                 } else {
                     // When not building within a mixed target, use the custom

@@ -67,6 +67,11 @@ let package = Package(
             dependencies: ["MixedTargetWithCXX"]
         ),
 
+        // MARK: MixedTargetWithCXXAndCustomModuleMap
+        .target(
+            name: "MixedTargetWithCXXAndCustomModuleMap"
+        ),
+
         // MARK: - MixedTargetWithC
         .target(
             name: "MixedTargetWithC"

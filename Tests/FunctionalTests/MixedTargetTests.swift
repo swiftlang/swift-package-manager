@@ -17,6 +17,8 @@ import SPMTestSupport
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
 // TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
 
+// TODO(ncooke3): Add test for mixed target with no ObjC-compatible Swift API.
+
 // MARK: - MixedTargetTests
 
 final class MixedTargetTests: XCTestCase {
@@ -68,6 +70,15 @@ final class MixedTargetTests: XCTestCase {
             XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: ["--filter", "MixedTargetWithCXX"]
+            )
+        }
+    }
+
+    func testMixedTargetWithCXXAndCustomModuleMap() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithCXXAndCustomModuleMap"]
             )
         }
     }
