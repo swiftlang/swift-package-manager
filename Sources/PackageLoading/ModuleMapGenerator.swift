@@ -181,7 +181,12 @@ public struct ModuleMapGenerator {
 
     /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any
     /// diagnostics are added to the receiver's diagnostics engine..
-    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath, addSwiftSubmodule: Bool = false) throws {
+    public func generateModuleMap(
+        type: GeneratedModuleMapType,
+        at path: AbsolutePath,
+        excludeHeaders: [AbsolutePath] = [],
+        addSwiftSubmodule: Bool = false
+    ) throws {
         let stream = BufferedOutputByteStream()
         stream <<< "module \(moduleName) {\n"
         switch type {
@@ -190,6 +195,10 @@ public struct ModuleMapGenerator {
         case .umbrellaDirectory(let dir):
             moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
         }
+        excludeHeaders.forEach {
+            stream <<< "    exclude header \"\($0.moduleEscapedPathString)\"\n"
+        }
+
         stream <<< "    export *\n"
         stream <<< "}\n"
         if addSwiftSubmodule {

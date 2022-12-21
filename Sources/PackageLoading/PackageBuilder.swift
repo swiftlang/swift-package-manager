@@ -1253,7 +1253,9 @@ public final class PackageBuilder {
             // If this clang target is a library, it must contain "include" directory.
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         } else if targetType == .test && isMixedTarget {
-            // TODO(ncooke3): Revisit and add comment.
+            // TODO(ncooke3): Consider if this should be handled in BuildPlan.swift?
+            // Mixed test targets use an umbrella directory to expose all
+            // headers to the Swift portion of the test target.
             return .umbrellaDirectory(potentialModule.path)
         } else {
             return .none

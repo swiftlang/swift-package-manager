@@ -103,6 +103,12 @@ let package = Package(
             publicHeadersPath: "Blah/Public"
         ),
 
+        // MARK: - MixedTargetWithNestedPublicHeadersAndCustomModuleMap
+        .target(
+            name: "MixedTargetWithNestedPublicHeadersAndCustomModuleMap",
+            publicHeadersPath: "Blah/Public"
+        ),
+
         // MARK: - MixedTargetWithNoPublicObjectiveCHeaders
         // TODO(ncooke3): Re-enable when corresponding test is working.
 //        .target(

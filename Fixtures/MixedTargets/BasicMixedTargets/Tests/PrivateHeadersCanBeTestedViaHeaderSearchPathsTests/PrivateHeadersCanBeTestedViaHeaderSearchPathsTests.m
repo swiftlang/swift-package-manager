@@ -11,8 +11,8 @@
 @implementation PrivateHeadersCanBeTestedViaHeaderSearchPathsTests
 
 - (void)testPrivateHeaders {
-    Foo *foo = [[Foo alloc] init];
-    Bar*bar = [[Bar alloc] init];
+    Foo *foo = [[Foo alloc] init];
+    Bar *bar = [[Bar alloc] init];
 }
 
 @end

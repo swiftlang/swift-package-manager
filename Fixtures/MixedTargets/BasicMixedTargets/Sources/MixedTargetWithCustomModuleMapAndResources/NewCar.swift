@@ -5,4 +5,6 @@ public class NewCar {
     var engine: Engine? = nil
     // `Driver` is defined in Objective-C.
     var driver: Driver? = nil
+    // `Transmission` is defined ina  private header.
+    var transmission: Transmission? = nil
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -117,7 +117,6 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Blocked on search paths bug.
     func testMixedTargetWithCustomPaths() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
@@ -158,7 +157,6 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Blocked on search paths bug #123.
     func testMixedTargetsPublicHeadersAreIncludedInHeaderSearchPathsForObjcSource() throws {
         // Consider a mixed target with the following structure:
         //
@@ -185,12 +183,23 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Blocked on search paths bug #123.
     func testMixedTargetWithNestedPublicHeaders() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithNestedPublicHeaders"]
+            )
+        }
+    }
+
+    func testMixedTargetWithNestedPublicHeadersAndCustomModuleMap() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: [
+                    "--target",
+                    "MixedTargetWithNestedPublicHeadersAndCustomModuleMap"
+                ]
             )
         }
     }
