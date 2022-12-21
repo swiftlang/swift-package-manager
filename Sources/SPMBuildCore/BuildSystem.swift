@@ -15,6 +15,7 @@ import PackageGraph
 
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.OutputByteStream
+import enum TSCBasic.ProcessEnv
 
 /// An enum representing what subset of the package to build.
 public enum BuildSubset {
@@ -53,7 +54,6 @@ public protocol BuildSystem: Cancellable {
 }
 
 extension BuildSystem {
-
     /// Builds the default subset: all targets excluding tests.
     public func build() throws {
         try build(subset: .allExcludingTests)
@@ -128,4 +128,14 @@ public struct BuildSystemProvider {
 
 private enum Errors: Swift.Error {
     case buildSystemProviderNotRegistered(kind: BuildSystemProvider.Kind)
+}
+
+public enum BuildSystemUtilities {
+    /// Returns the build path from the environment, if present.
+    public static func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
+        // Don't rely on build path from env for SwiftPM's own tests.
+        guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
+        guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
+        return try AbsolutePath(validating: env, relativeTo: workingDir)
+    }
 }

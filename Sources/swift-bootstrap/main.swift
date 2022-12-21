@@ -139,11 +139,33 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     public func run() throws {
         do {
+            let fileSystem = localFileSystem
+
+            let observabilityScope = ObservabilitySystem { _, diagnostics in
+                if diagnostics.severity >= logLevel {
+                    print(diagnostics)
+                }
+            }.topScope
+
+            guard let cwd = fileSystem.currentWorkingDirectory else {
+                observabilityScope.emit(error: "couldn't determine the current working directory")
+                throw ExitCode.failure
+            }
+
             guard let packagePath = packageDirectory ?? localFileSystem.currentWorkingDirectory else {
                 throw StringError("unknown package path")
             }
-            let scratchDirectory = self.scratchDirectory ?? packagePath.appending(component: ".build")
-            let builder = try Builder(fileSystem: localFileSystem, logLevel: self.logLevel)
+
+            let scratchDirectory =
+                try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
+                self.scratchDirectory ??
+                packagePath.appending(component: ".build")
+
+            let builder = try Builder(
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope,
+                logLevel: self.logLevel
+            )
             try builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
@@ -172,15 +194,8 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             "-Xfrontend", "-disable-implicit-string-processing-module-import"
         ]
 
-        init(fileSystem: FileSystem, logLevel: Basics.Diagnostic.Severity) throws {
-            let observabilityScope = ObservabilitySystem { _, diagnostics in
-                if diagnostics.severity >= logLevel {
-                    print(diagnostics)
-                }
-            }.topScope
-
+        init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
             guard let cwd = fileSystem.currentWorkingDirectory else {
-                observabilityScope.emit(error: "couldn't determine the current working directory")
                 throw ExitCode.failure
             }
 
