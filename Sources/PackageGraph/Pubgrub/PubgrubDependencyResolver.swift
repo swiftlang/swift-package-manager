@@ -1315,7 +1315,7 @@ private final class ContainerProvider {
             self.underlying.getContainer(
                 for: package,
                 skipUpdate: self.skipUpdate,
-                observabilityScope: self.observabilityScope,
+                observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
@@ -1344,7 +1344,7 @@ private final class ContainerProvider {
                 self.underlying.getContainer(
                     for: identifier,
                     skipUpdate: self.skipUpdate,
-                    observabilityScope: self.observabilityScope,
+                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetcing package container", metadata: identifier.diagnosticsMetadata),
                     on: .sharedConcurrent
                 ) { result in
                     defer { self.prefetches[identifier]?.leave() }

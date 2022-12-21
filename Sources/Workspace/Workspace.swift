@@ -715,6 +715,8 @@ extension Workspace {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
         }
+        
+        let observabilityScope = observabilityScope.makeChildScope(description: "editing package", metadata: dependency.packageRef.diagnosticsMetadata)
 
         try self.unedit(dependency: dependency, forceRemove: forceRemove, root: root, observabilityScope: observabilityScope)
     }
@@ -744,6 +746,8 @@ extension Workspace {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
             throw StringError("dependency '\(packageName)' was not found")
         }
+
+        let observabilityScope = observabilityScope.makeChildScope(description: "editing package", metadata: dependency.packageRef.diagnosticsMetadata)
 
         let defaultRequirement: PackageRequirement
         switch dependency.state {
@@ -1269,6 +1273,8 @@ extension Workspace {
             observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
         }
+        
+        let observabilityScope = observabilityScope.makeChildScope(description: "editing package", metadata: dependency.packageRef.diagnosticsMetadata)
 
         let checkoutState: CheckoutState
         switch dependency.state {
@@ -1811,7 +1817,7 @@ extension Workspace {
         // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
             if root.packages.keys.contains(dependency.packageRef.identity) {
-                observabilityScope.trap {
+                observabilityScope.makeChildScope(description: "removing managed dependencies", metadata: dependency.packageRef.diagnosticsMetadata).trap {
                     try self.remove(package: dependency.packageRef)
                 }
             }
@@ -2060,7 +2066,7 @@ extension Workspace {
         // Make a copy of dependencies as we might mutate them in the for loop.
         let allDependencies = Array(self.state.dependencies)
         for dependency in allDependencies {
-            observabilityScope.trap {
+            observabilityScope.makeChildScope(description: "copying managed dependencies", metadata: dependency.packageRef.diagnosticsMetadata).trap {
                 // If the dependency is present, we're done.
                 let dependencyPath = self.path(to: dependency)
                 if fileSystem.isDirectory(dependencyPath) {
@@ -2287,6 +2293,7 @@ extension Workspace {
         let group = DispatchGroup()
         for pin in pinsStore.pins {
             group.enter()
+            let observabilityScope = observabilityScope.makeChildScope(description: "requesting package containers", metadata: pin.packageRef.diagnosticsMetadata)
             packageContainerProvider.getContainer(for: pin.packageRef, skipUpdate: self.configuration.skipDependenciesUpdates, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in
                 group.leave()
             })
@@ -2314,7 +2321,7 @@ extension Workspace {
 
         // Retrieve the required pins.
         for pin in requiredPins {
-            observabilityScope.trap {
+            observabilityScope.makeChildScope(description: "retrieving dependency pins", metadata: pin.packageRef.diagnosticsMetadata).trap {
                 switch pin.packageRef.kind {
                 case .localSourceControl, .remoteSourceControl:
                     _ = try self.checkoutRepository(package: pin.packageRef, at: pin.state, observabilityScope: observabilityScope)
@@ -2517,7 +2524,7 @@ extension Workspace {
 
         // First remove the checkouts that are no longer required.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.trap {
+            observabilityScope.makeChildScope(description: "removing unneeded checkouts", metadata: packageRef.diagnosticsMetadata).trap {
                 switch state {
                 case .added, .updated, .unchanged: break
                 case .removed:
@@ -2528,7 +2535,7 @@ extension Workspace {
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
-            observabilityScope.trap {
+            observabilityScope.makeChildScope(description: "updating or cloning new packages", metadata: packageRef.diagnosticsMetadata).trap {
                 switch state {
                 case .added(let state):
                     _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)

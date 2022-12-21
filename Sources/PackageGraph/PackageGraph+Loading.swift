@@ -353,7 +353,7 @@ private func createResolvedPackages(
         )
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
+        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: packageObservabilityScope) }
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
