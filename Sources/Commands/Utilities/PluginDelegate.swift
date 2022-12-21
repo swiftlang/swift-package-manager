@@ -338,7 +338,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract()
+            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            observabilityScope: swiftTool.observabilityScope
         )
         symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {
@@ -355,6 +356,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
         symbolGraphExtractor.skipInheritedDocs = true
         symbolGraphExtractor.includeSPISymbols = options.includeSPI
+        symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
 
         // Determine the output directory, and remove any old version if it already exists.
         guard let package = packageGraph.package(for: target) else {
