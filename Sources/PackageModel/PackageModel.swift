@@ -124,7 +124,7 @@ extension Package.Error: CustomStringConvertible {
 
 extension Manifest {
     public var disambiguateByProductIDs: Bool {
-        return self.toolsVersion >= .vNext
+        return self.toolsVersion >= .v5_8
     }
 }
 
