@@ -114,6 +114,15 @@ class ResourcesTests: XCTestCase {
         }
     }
 
+    func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() throws {
+        try fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                Xswiftc: ["-warnings-as-errors"]
+            )
+        }
+    }
+
     func testResourceBundleInClangPackageWhenRunningSwiftTest() throws {
         #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
