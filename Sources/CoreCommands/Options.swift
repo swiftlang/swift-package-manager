@@ -269,10 +269,11 @@ public struct BuildOptions: ParsableArguments {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: cCompilerFlags,
-            cxxCompilerFlags: cxxCompilerFlags,
-            swiftCompilerFlags: swiftCompilerFlags,
-            linkerFlags: linkerFlags
+            cCompilerFlags: self.cCompilerFlags,
+            cxxCompilerFlags: self.cxxCompilerFlags,
+            swiftCompilerFlags: self.swiftCompilerFlags,
+            linkerFlags: self.linkerFlags,
+            xcbuildFlags: self.xcbuildFlags
         )
     }
 

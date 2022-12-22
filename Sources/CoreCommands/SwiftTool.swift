@@ -598,7 +598,6 @@ public final class SwiftTool {
                 toolchain: destinationToolchain,
                 destinationTriple: destinationTriple,
                 flags: options.build.buildFlags,
-                xcbuildFlags: options.build.xcbuildFlags,
                 pkgConfigDirectories: options.locations.pkgConfigDirectories,
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),

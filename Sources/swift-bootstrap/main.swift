@@ -118,10 +118,11 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: cCompilerFlags,
-            cxxCompilerFlags: cxxCompilerFlags,
-            swiftCompilerFlags: swiftCompilerFlags,
-            linkerFlags: linkerFlags
+            cCompilerFlags: self.cCompilerFlags,
+            cxxCompilerFlags: self.cxxCompilerFlags,
+            swiftCompilerFlags: self.swiftCompilerFlags,
+            linkerFlags: self.linkerFlags,
+            xcbuildFlags: self.xcbuildFlags
         )
     }
 
@@ -173,6 +174,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 configuration: self.configuration,
                 architectures: self.architectures,
                 buildFlags: self.buildFlags,
+                manifestBuildFlags: self.manifestFlags,
                 useIntegratedSwiftDriver: self.useIntegratedSwiftDriver
             )
         } catch _ as Diagnostics {
@@ -185,11 +187,10 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         let hostToolchain: UserToolchain
         let destinationToolchain: UserToolchain
         let fileSystem: FileSystem
-        let manifestLoader: ManifestLoader
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
 
-        let additionalSwiftBuildFlags = [
+        static let additionalSwiftBuildFlags = [
             "-Xfrontend", "-disable-implicit-concurrency-module-import",
             "-Xfrontend", "-disable-implicit-string-processing-module-import"
         ]
@@ -202,11 +203,6 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             self.identityResolver = DefaultIdentityResolver()
             self.hostToolchain = try UserToolchain(destination: Destination.hostDestination(originalWorkingDirectory: cwd))
             self.destinationToolchain = hostToolchain // TODO: support destinations?
-            self.manifestLoader = ManifestLoader(
-                toolchain: self.hostToolchain,
-                isManifestSandboxEnabled: false,
-                extraManifestFlags: self.additionalSwiftBuildFlags
-            )
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
             self.logLevel = logLevel
@@ -219,6 +215,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             configuration: BuildConfiguration,
             architectures: [String],
             buildFlags: BuildFlags,
+            manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool
         ) throws {
             let buildSystem = try createBuildSystem(
@@ -228,6 +225,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 configuration: configuration,
                 architectures: architectures,
                 buildFlags: buildFlags,
+                manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
                 logLevel: logLevel
             )
@@ -241,12 +239,13 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             configuration: BuildConfiguration,
             architectures: [String],
             buildFlags: BuildFlags,
+            manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
             logLevel: Basics.Diagnostic.Severity
         ) throws -> BuildSystem {
 
             var buildFlags = buildFlags
-            buildFlags.swiftCompilerFlags += self.additionalSwiftBuildFlags
+            buildFlags.swiftCompilerFlags += Self.additionalSwiftBuildFlags
 
             let dataPath = scratchDirectory.appending(
                 component: self.destinationToolchain.triple.platformBuildPathComponent(buildSystem: buildSystem)
@@ -261,10 +260,16 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 flags: buildFlags,
                 architectures: architectures,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                isXcodeBuildSystemEnabled: buildSystem == .xcode,
                 verboseOutput: logLevel <= .info
             )
 
-            let packageGraphLoader = { try self.loadPackageGraph(packagePath: packagePath) }
+            let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
+
+            let packageGraphLoader = {
+                try self.loadPackageGraph(packagePath: packagePath, manifestLoader: manifestLoader)
+
+            }
 
             switch buildSystem {
             case .native:
@@ -291,9 +296,22 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             }
         }
 
-        func loadPackageGraph(packagePath: AbsolutePath) throws -> PackageGraph {
+        func createManifestLoader(manifestBuildFlags: [String]) -> ManifestLoader {
+            var extraManifestFlags = manifestBuildFlags + Self.additionalSwiftBuildFlags
+            if self.logLevel <= .info {
+                extraManifestFlags.append("-v")
+            }
+
+            return ManifestLoader(
+                toolchain: self.hostToolchain,
+                isManifestSandboxEnabled: false,
+                extraManifestFlags: extraManifestFlags
+            )
+        }
+
+        func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) throws -> PackageGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
-            let rootPackageManifest =  try tsc_await { self.loadManifest(package: rootPackageRef, completion: $0) }
+            let rootPackageManifest =  try tsc_await { self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef, completion: $0) }
 
             var loadedManifests = [PackageIdentity: Manifest]()
             loadedManifests[rootPackageRef.identity] = rootPackageManifest
@@ -303,7 +321,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             _ = try topologicalSort(input) { pair in
                 let dependenciesRequired = pair.item.dependenciesRequired(for: .everything)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
-                let dependenciesManifests = try temp_await { self.loadManifests(packages: dependenciesToLoad, completion: $0) }
+                let dependenciesManifests = try temp_await { self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad, completion: $0) }
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
                     loadedManifests[dependency.identity].flatMap {
@@ -330,6 +348,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         }
 
         func loadManifests(
+            manifestLoader: ManifestLoader,
             packages: [PackageReference],
             completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void
         ) {
@@ -338,7 +357,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             var manifests = [PackageIdentity: Manifest]()
             Set(packages).forEach { package in
                 sync.enter()
-                self.loadManifest(package: package) { result in
+                self.loadManifest(manifestLoader: manifestLoader, package: package) { result in
                     defer { sync.leave() }
                     switch result {
                     case .success(let manifest):
@@ -357,6 +376,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
         }
 
         func loadManifest(
+            manifestLoader: ManifestLoader,
             package: PackageReference,
             completion: @escaping (Result<Manifest, Error>) -> Void
         ) {
@@ -364,7 +384,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 let packagePath = try AbsolutePath(validating: package.locationString) // FIXME
                 let manifestPath = packagePath.appending(component: Manifest.filename)
                 let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
-                self.manifestLoader.load(
+                manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: manifestToolsVersion,
                     packageIdentity: package.identity,

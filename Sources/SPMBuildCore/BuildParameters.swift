@@ -209,9 +209,6 @@ public struct BuildParameters: Encodable {
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
-    /// Extra arguments to pass when using xcbuild.
-    public var xcbuildFlags: [String]?
-
     // Whether building for testability is enabled.
     public var enableTestability: Bool
 
@@ -232,7 +229,6 @@ public struct BuildParameters: Encodable {
         hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
         flags: BuildFlags,
-        xcbuildFlags: [String]? = nil, // FIXME: this seems out of place
         pkgConfigDirectories: [AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
@@ -264,7 +260,6 @@ public struct BuildParameters: Encodable {
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
         self.flags = flags
-        self.xcbuildFlags = xcbuildFlags
         self.pkgConfigDirectories = pkgConfigDirectories
         self.architectures = architectures
         self.workers = workers

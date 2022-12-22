@@ -113,7 +113,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         let buildParamsFile: AbsolutePath?
         // Do not generate a build parameters file if a custom one has been passed.
-        if let flags = buildParameters.xcbuildFlags, !flags.contains("--buildParametersFile") {
+        if let flags = buildParameters.flags.xcbuildFlags, !flags.contains("--buildParametersFile") {
             buildParamsFile = try createBuildParametersFile()
             if let buildParamsFile = buildParamsFile {
                 arguments += ["--buildParametersFile", buildParamsFile.pathString]
@@ -122,7 +122,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             buildParamsFile = nil
         }
 
-        if let flags = buildParameters.xcbuildFlags {
+        if let flags = buildParameters.flags.xcbuildFlags {
             arguments += flags
         }
 
