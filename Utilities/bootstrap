@@ -327,11 +327,11 @@ def build(args):
     """Builds SwiftPM using a two-step process: first using CMake, then with itself."""
     parse_build_args(args)
 
-    # Build llbuild if its build path is not passed in.
-    if not "llbuild" in args.build_dirs:
-        build_llbuild(args)
-
     if args.bootstrap:
+        # Build llbuild if its build path is not passed in.
+        if not "llbuild" in args.build_dirs:
+            build_llbuild(args)
+
         # tsc depends on swift-system so they must be built first.
         build_dependency(args, "swift-system")
         # swift-driver depends on tsc, swift-argument-parser, and yams so they must be built first.
