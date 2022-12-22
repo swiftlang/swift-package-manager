@@ -27,9 +27,6 @@ import class TSCBasic.InMemoryFileSystem
 
 import enum TSCUtility.Diagnostics
 
-// TODO(ncooke3): Add test for building statically linked mixed target.
-// TODO(ncooke3): Add test for building dynamically linked mixed target.
-
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     private let driverSupport = DriverSupport()
@@ -2483,6 +2480,210 @@ final class BuildPlanTests: XCTestCase {
             "The dynamic library will not work once moved outside the build directory."
         )
       #endif
+    }
+
+    func testDynamicProductsForMixedTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/Bar/Source/Bar/source.swift",
+            "/Bar/Source/Bar/include/source.h",
+            "/Bar/Source/Bar/source.c"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar"),
+                    // FIXME(ncooke3): Update with next version of SPM.
+                    toolsVersion: .vNext,
+                    products: [
+                        ProductDescription(
+                            name: "Bar-Baz",
+                            type: .library(.dynamic),
+                            targets: ["Bar"]
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "Foo",
+                    path: .init(path: "/Foo"),
+                    dependencies: [
+                        .localSourceControl(
+                            path: .init(path: "/Bar"),
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: ["Bar-Baz"],
+                            type: .executable
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        #if !os(macOS)
+        XCTAssertThrowsError(
+            try BuildPlanResult(plan: BuildPlan(
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )),
+            "This should fail when run on non-Apple platforms."
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Targets with mixed language sources are only supported on Apple platforms."
+            )
+        }
+        #else
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: g,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(2)
+
+        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+
+        let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
+        let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
+
+        XCTAssertEqual(fooLinkArgs, [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "Foo").pathString,
+            "-module-name", "Foo",
+            "-lBar-Baz",
+            "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-target", defaultTargetTriple,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString
+        ])
+
+        XCTAssertEqual(barLinkArgs, [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "libBar-Baz.dylib").pathString,
+            "-module-name", "Bar_Baz",
+            "-emit-library",
+            "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
+            "-runtime-compatibility-version", "none", "-target", defaultTargetTriple
+        ])
+        #endif
+    }
+
+    func testStaticProductsForMixedTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/Bar/Source/Bar/source.swift",
+            "/Bar/Source/Bar/include/source.h",
+            "/Bar/Source/Bar/source.c"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar"),
+                    // FIXME(ncooke3): Update with next version of SPM.
+                    toolsVersion: .vNext,
+                    products: [
+                        ProductDescription(
+                            name: "Bar-Baz",
+                            type: .library(.static),
+                            targets: ["Bar"]
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "Foo",
+                    path: .init(path: "/Foo"),
+                    dependencies: [
+                        .localSourceControl(
+                            path: .init(path: "/Bar"),
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: ["Bar-Baz"],
+                            type: .executable
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        #if !os(macOS)
+        XCTAssertThrowsError(
+            try BuildPlanResult(plan: BuildPlan(
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )),
+            "This should fail when run on non-Apple platforms."
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Targets with mixed language sources are only supported on Apple platforms."
+            )
+        }
+        #else
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(),
+            graph: g,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(2)
+
+        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(components: "debug")
+
+        let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
+        let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
+
+        XCTAssertEqual(fooLinkArgs, [
+            result.plan.buildParameters.toolchain.swiftCompilerPath.pathString,
+            "-L", buildPath.pathString,
+            "-o", buildPath.appending(components: "Foo").pathString,
+            "-module-name", "Foo",
+            "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-target", defaultTargetTriple,
+            "-Xlinker", "-add_ast_path", "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString
+        ])
+
+        // No arguments for linking static libraries.
+        XCTAssertEqual(barLinkArgs, [])
+        #endif
     }
 
     func testExecAsDependency() throws {

@@ -17,6 +17,9 @@ import SPMTestSupport
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
 // TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
 
+// Mixed language targets are only supported on macOS.
+#if os(macOS)
+
 // MARK: - MixedTargetTests
 
 final class MixedTargetTests: XCTestCase {
@@ -179,6 +182,28 @@ final class MixedTargetTests: XCTestCase {
                 extraArgs: ["--product", "StaticallyLinkedBasicMixedTarget"]
             )
         }
+
+        // Test that statically linked mixed library is successfully
+        // integrated into an Objective-C executable.
+        try fixture(name: "MixedTargets") { fixturePath in
+            let output = try executeSwiftRun(
+                fixturePath.appending(component: "DummyTargets"),
+                "ClangExecutableDependsOnStaticallyLinkedMixedTarget"
+            )
+            // The program should print "Hello, world!"
+            XCTAssert(output.stderr.contains("Hello, world!"))
+        }
+
+        // Test that statically linked mixed library is successfully
+        // integrated into a Swift executable.
+        try fixture(name: "MixedTargets") { fixturePath in
+            let output = try executeSwiftRun(
+                fixturePath.appending(component: "DummyTargets"),
+                "SwiftExecutableDependsOnStaticallyLinkedMixedTarget"
+            )
+            // The program should print "Hello, world!"
+            XCTAssert(output.stdout.contains("Hello, world!"))
+        }
     }
 
     func testDynamicallyLinkedMixedTarget() throws {
@@ -187,6 +212,28 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--product", "DynamicallyLinkedBasicMixedTarget"]
             )
+        }
+
+        // Test that dynamically linked mixed library is successfully
+        // integrated into an Objective-C executable.
+        try fixture(name: "MixedTargets") { fixturePath in
+            let output = try executeSwiftRun(
+                fixturePath.appending(component: "DummyTargets"),
+                "ClangExecutableDependsOnDynamicallyLinkedMixedTarget"
+            )
+            // The program should print "Hello, world!"
+            XCTAssert(output.stderr.contains("Hello, world!"))
+        }
+
+        // Test that dynamically linked mixed library is successfully
+        // integrated into a Swift executable.
+        try fixture(name: "MixedTargets") { fixturePath in
+            let output = try executeSwiftRun(
+                fixturePath.appending(component: "DummyTargets"),
+                "SwiftExecutableDependsOnDynamicallyLinkedMixedTarget"
+            )
+            // The program should print "Hello, world!"
+            XCTAssert(output.stdout.contains("Hello, world!"))
         }
     }
 
@@ -314,3 +361,5 @@ final class MixedTargetTests: XCTestCase {
     }
 
 }
+
+#endif
