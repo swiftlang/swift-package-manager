@@ -245,7 +245,8 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageLoading",
-                "PackageModel"
+                "PackageModel",
+                "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
