@@ -436,7 +436,7 @@ public final class ClangTargetBuildDescription {
                 // The underlying Clang target is building within a Mixed
                 // language target and needs an auxiliary module map that
                 // doesn't include the generated interop header from the
-                // Swift half of the mixed target. This will later allow the
+                // Swift part of the mixed target. This will later allow the
                 // Clang half of the module to be built when compiling the
                 // Swift part without the generated header being considered
                 // an input (because it won't exist yet and is an output of
@@ -1552,7 +1552,7 @@ public final class MixedTargetBuildDescription {
             let rootOverlayResourceDirectory: AbsolutePath
             if case .custom(let customModuleMapPath) = mixedTarget.clangTarget.moduleMapType {
                 // Building a mixed target uses a modified module map to expose
-                // private headers to the Swift half of the module. To avoid
+                // private headers to the Swift part of the module. To avoid
                 // the custom module map causing a module redeclaration error,
                 // a VFS overlay is used when building the target to redirect
                 // the custom module map to the modified module map in the

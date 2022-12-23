@@ -842,9 +842,9 @@ extension LLBuildManifestBuilder {
         }
 
         // If it's a mixed target, add the Objective-C compatibility header that
-        // the Swift half of the mixed target generates. This header acts as an
+        // the Swift part of the mixed target generates. This header acts as an
         // input to the Clang compile command, which therefore forces the
-        // Swift half of the mixed target to be built first.
+        // Swift part of the mixed target to be built first.
         if target.isWithinMixedTarget {
             inputs += [
                 .file(target.tempsPath.appending(component: "\(target.target.name)-Swift.h"))
