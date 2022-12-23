@@ -6,7 +6,7 @@
 // - This one is from the root of the target's sources directory.
 #import "Blah/Public/OldCar.h"
 
-// Import the Swift half of the module.
+// Import the Swift part of the module.
 #import "MixedTargetWithNestedPublicHeadersAndCustomModuleMap-Swift.h"
 
 #import "Transmission.h"

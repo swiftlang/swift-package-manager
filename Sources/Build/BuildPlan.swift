@@ -437,7 +437,7 @@ public final class ClangTargetBuildDescription {
                 // language target and needs an auxiliary module map that
                 // doesn't include the generated interop header from the
                 // Swift part of the mixed target. This will later allow the
-                // Clang half of the module to be built when compiling the
+                // Clang part of the module to be built when compiling the
                 // Swift part without the generated header being considered
                 // an input (because it won't exist yet and is an output of
                 // that compilation command).
@@ -1450,7 +1450,7 @@ public final class MixedTargetBuildDescription {
     }
 
     /// The path to the VFS overlay file that overlays the public headers of
-    /// the Clang half of the target over the target's build directory.
+    /// the Clang part of the target over the target's build directory.
     private(set) var allProductHeadersOverlay: AbsolutePath? = nil
 
     /// The modulemap file for this target, if any
@@ -1560,7 +1560,7 @@ public final class MixedTargetBuildDescription {
                 // custom module map's parent directory, as to replace it.
                 rootOverlayResourceDirectory = customModuleMapPath.parentDirectory
                 // Importing the underlying module will build the Objective-C
-                // half of the module. In order to find the underlying module,
+                // part of the module. In order to find the underlying module,
                 // a `module.modulemap` needs to be discoverable via a header
                 // search path. In the case of a custom module map, its parent
                 // directory is used.
@@ -1578,7 +1578,7 @@ public final class MixedTargetBuildDescription {
                 // header.
                 rootOverlayResourceDirectory = buildArtifactIntermediatesDirectory
                 // Importing the underlying module will build the Objective-C
-                // half of the module. In order to find the underlying module,
+                // part of the module. In order to find the underlying module,
                 // a `module.modulemap` needs to be discoverable via a header
                 // search path. In this case, the module map in the build
                 // directory is used.

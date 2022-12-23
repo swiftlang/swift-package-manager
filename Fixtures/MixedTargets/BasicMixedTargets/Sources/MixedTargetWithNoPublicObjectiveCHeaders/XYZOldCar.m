@@ -2,7 +2,7 @@
 
 #import "XYZOldCar.h"
 
-// Import the Swift half of the module.
+// Import the Swift part of the module.
 #import "MixedTargetWithNoPublicObjectiveCHeaders-Swift.h"
 
 @implementation XYZOldCar

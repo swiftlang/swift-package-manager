@@ -3,7 +3,7 @@
 #import "OldCar.h"
 #import "include/OldCar.h"
 
-// Import the Swift half of the module. Note that this header wouldn't vend any
+// Import the Swift part of the module. Note that this header wouldn't vend any
 // API as this target intentionally has no Objective-C compatible Swift API.
 #import "MixedTargetWithNoObjectiveCCompatibleSwiftAPI-Swift.h"
 

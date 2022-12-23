@@ -3,7 +3,7 @@
 #import "OldCar.h"
 #import "include/OldCar.h"
 
-// Import the Swift half of the module.
+// Import the Swift part of the module.
 #import "BasicMixedTarget-Swift.h"
 
 #import "Transmission.h"

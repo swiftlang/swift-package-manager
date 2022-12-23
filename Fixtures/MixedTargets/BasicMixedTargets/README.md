@@ -4,8 +4,8 @@ A collection of targets to test SPM's support of mixed language targets.
 
 ## BasicMixedTarget
 Represents a simple mixed package where:
-- Swift half of the target used types from the Objective-C half of the module
-- Objective-C half of the target used types from the Swift half of the module
+- Swift part of the target used types from the Objective-C part of the module
+- Objective-C p of the target used types from the Swift part of the module
 
 ## MixedTargetWithResources
 Represents a simple mixed package with a bundled resource where:
