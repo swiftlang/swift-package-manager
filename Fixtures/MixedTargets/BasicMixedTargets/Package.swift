@@ -68,9 +68,48 @@ let package = Package(
             dependencies: ["MixedTargetWithCXX"]
         ),
 
-        // MARK: MixedTargetWithCXXAndCustomModuleMap
+        // MARK: - MixedTargetWithCXXAndCustomModuleMap
         .target(
             name: "MixedTargetWithCXXAndCustomModuleMap"
+        ),
+
+        // MARK: - MixedTargetWithPublicCXXAPI 
+        // In order to import this target into downstream targets, two
+        // additional things must be done (depending on whether the target is
+        // being imported into a Clang vs. Swift context):
+        // - Clang context: The downstream target must pass `-fcxx-modules` 
+        //   and `-fmodules` as unsafe flags in the target's `cSettings`.
+        // - Swift context: The mixed target needs to make a custom module
+        //   map that only exposes public CXX headers in a non-Swift context.
+        //   
+        //      // module.modulemap
+        //      module MixedTargetWithPublicCXXAPI {
+        //          umbrella header "PublicNonCXXHeaders.h"
+        //          
+        //          module CXX {
+        //              header "PublicCXXHeaders.h"
+        //              export *
+        //              requires !swift
+        //          }
+        //          
+        //          export *
+        //      }
+        //
+        .target(
+            name: "MixedTargetWithPublicCXXAPI"
+        ),
+        .testTarget(
+            name: "MixedTargetWithPublicCXXAPITests",
+            dependencies: ["MixedTargetWithPublicCXXAPI"],
+            cSettings: [
+                // To get the `MixedTargetWithPublicCXXAPI` target to build for use in
+                // an Objective-C context (e.g. Objective-C++ test file), the following 
+                // unsafe flags must be passed.
+                .unsafeFlags(["-fcxx-modules", "-fmodules"])
+            ],
+            linkerSettings: [
+                .linkedLibrary("c++"),
+            ]
         ),
 
         // MARK: - MixedTargetWithC

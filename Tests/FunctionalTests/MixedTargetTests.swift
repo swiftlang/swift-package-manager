@@ -17,12 +17,12 @@ import SPMTestSupport
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
 // TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
 
-// Mixed language targets are only supported on macOS.
-#if os(macOS)
-
 // MARK: - MixedTargetTests
 
 final class MixedTargetTests: XCTestCase {
+
+    // Mixed language targets are only supported on macOS.
+    #if os(macOS)
 
     // MARK: - Testing Mixed Targets
 
@@ -70,12 +70,11 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // TODO(ncooke3): Can you export a C++ type in a mixed Obj-C / Cxx project?
     func testMixedTargetWithCXX() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertSwiftTest(
                 fixturePath,
-                extraArgs: ["--filter", "MixedTargetWithCXX"]
+                extraArgs: ["--filter", "MixedTargetWithCXXTests"]
             )
         }
     }
@@ -88,6 +87,16 @@ final class MixedTargetTests: XCTestCase {
             )
         }
     }
+
+    func testMixedTargetWithPublicCXXAPI() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedTargetWithPublicCXXAPITests"]
+            )
+        }
+    }
+
 
     func testMixedTargetWithC() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
@@ -360,6 +369,27 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-}
+    #else
 
-#endif
+    // MARK: - Test Mixed Targets unsupported on non-macOS
+
+    func testMixedTargetOnlySupportedOnMacOS() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            let commandExecutionError = try XCTUnwrap(
+                XCTAssertBuildFails(
+                    fixturePath,
+                    extraArgs: ["--target", "BasicMixedTarget"]
+                )
+            )
+
+            XCTAssert(
+                commandExecutionError.stderr.contains(
+                    "error: Targets with mixed language sources are only supported on Apple platforms."
+                )
+            )
+        }
+    }
+
+    #endif
+
+}
