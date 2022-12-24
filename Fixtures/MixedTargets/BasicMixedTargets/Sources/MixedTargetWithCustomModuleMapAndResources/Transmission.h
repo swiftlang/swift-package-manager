@@ -5,6 +5,7 @@ typedef NS_ENUM(NSInteger, TransmissionKind) {
   TransmissionKindAutomatic
 };
 
-@interface Transmission : NSObject
+NS_SWIFT_NAME(Transmission)
+@interface ABCTransmission : NSObject
 @property (nonatomic, readonly, assign) TransmissionKind transmissionKind;
 @end

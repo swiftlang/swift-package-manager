@@ -2,5 +2,5 @@
 
 #import "Transmission.h"
 
-@implementation Transmission
+@implementation ABCTransmission
 @end

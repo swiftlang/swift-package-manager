@@ -6,9 +6,10 @@
 // must be forward declared in headers.
 @class Engine;
 
-@interface OldCar : NSObject
+NS_SWIFT_NAME(OldCar)
+@interface ABCOldCar : NSObject
 // `Engine` is defined in Swift.
 @property(nullable) Engine *engine;
 // `Driver` is defined in Objective-C.
-@property(nullable) Driver *driver;
+@property(nullable) ABCDriver *driver;
 @end

@@ -847,7 +847,7 @@ extension LLBuildManifestBuilder {
         // Swift part of the mixed target to be built first.
         if target.isWithinMixedTarget {
             inputs += [
-                .file(target.tempsPath.appending(component: "\(target.target.name)-Swift.h"))
+                .file(target.tempsPath.appending(component: "\(target.target.c99name)-Swift.h"))
             ]
         }
 

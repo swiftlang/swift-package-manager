@@ -7,4 +7,6 @@ public class NewCar {
     var driver: Driver? = nil
     // `Transmission` is defined ina  private header.
     var transmission: Transmission? = nil
+
+    public init() {}
 }

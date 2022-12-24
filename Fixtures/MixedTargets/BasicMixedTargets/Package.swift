@@ -58,6 +58,10 @@ let package = Package(
                 .process("foo.txt")
             ]
         ),
+        .testTarget(
+            name: "MixedTargetWithCustomModuleMapAndResourcesTests",
+            dependencies: ["MixedTargetWithCustomModuleMapAndResources"]
+        ),  
 
         // MARK: - MixedTargetWithC++
         .target(

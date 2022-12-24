@@ -55,11 +55,11 @@ final class MixedTargetTests: XCTestCase {
 
     func testMixedTargetWithCustomModuleMapAndResources() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
-            XCTAssertBuilds(
+            XCTAssertSwiftTest(
                 fixturePath,
                 extraArgs: [
-                    "--target", "MixedTargetWithCustomModuleMapAndResources"
-                    // FIXME(ncooke3): Blocked by fix for #5728.
+                    "--filter", "MixedTargetWithCustomModuleMapAndResourcesTests"
+// FIXME(ncooke3): Blocked by fix for #5728.
 //                ],
 //                // Surface warning where custom umbrella header does not
 //                // include `resource_bundle_accessor.h` in `build` directory.
@@ -67,7 +67,7 @@ final class MixedTargetTests: XCTestCase {
 //                    "-warnings-as-errors"
                 ]
             )
-        }
+        } 
     }
 
     func testMixedTargetWithCXX() throws {
