@@ -1517,8 +1517,6 @@ public final class MixedTargetBuildDescription {
             self.moduleMap = productModuleMapPath
         }
 
-        // ------- FINAL END ------- //
-
         // MARK: Generate intermediate artifacts used to build the target.
         // Building a mixed target uses intermediate module maps to expose
         // private headers to the Swift part of the module.
