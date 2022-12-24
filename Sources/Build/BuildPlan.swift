@@ -1343,12 +1343,6 @@ public final class MixedTargetBuildDescription {
     /// The modulemap file for this target.
     let moduleMap: AbsolutePath
 
-    /// Path to the temporary directory for this target.
-    private let tempsPath: AbsolutePath
-
-    /// The path to the Objective-C compatibility header for the underlying Swift target.
-    private let interopHeaderPath: AbsolutePath
-
     /// Paths to the binary libraries the target depends on.
     var libraryBinaryPaths: Set<AbsolutePath> {
         swiftTargetBuildDescription.libraryBinaryPaths
@@ -1360,8 +1354,6 @@ public final class MixedTargetBuildDescription {
 
     /// The build description for the Swift sources.
     let swiftTargetBuildDescription: SwiftTargetBuildDescription
-
-    private let fileSystem: FileSystem
 
     init(
         package: ResolvedPackage,
@@ -1384,8 +1376,6 @@ public final class MixedTargetBuildDescription {
         }
 
         self.target = target
-        self.fileSystem = fileSystem
-        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
 
         let clangResolvedTarget = ResolvedTarget(
             target: mixedTarget.clangTarget,
@@ -1420,12 +1410,13 @@ public final class MixedTargetBuildDescription {
             isWithinMixedTarget: true
         )
 
-        self.interopHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
+        let interopHeaderPath = swiftTargetBuildDescription.objCompatibilityHeaderPath
 
         // A mixed target's build directory uses two subdirectories to
         // distinguish between build artifacts:
         // - Intermediates: Stores artifacts used during the target's build.
         // - Product: Stores artifacts used by clients of the target.
+        let tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         let intermediatesDirectory = tempsPath.appending(component: "Intermediates")
         let productDirectory = tempsPath.appending(component: "Product")
 
