@@ -61,9 +61,10 @@ public struct PackageFetchDetails {
 public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occur during
     /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
-    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
+    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
+    
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -2011,7 +2012,7 @@ extension Workspace {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
-        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
+        delegate?.willLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind)
 
         let manifestLoadingScope = observabilityScope.makeChildScope(description: "Loading manifest") {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
@@ -2036,7 +2037,7 @@ extension Workspace {
             switch result {
             case .failure(let error):
                 manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics)
+                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics)
             case .success(let manifest):
                 let validator = ManifestValidator(manifest: manifest, sourceControlValidator: self.repositoryManager, fileSystem: self.fileSystem)
                 let validationIssues = validator.validate()
@@ -2045,7 +2046,7 @@ extension Workspace {
                     result = .failure(Diagnostics.fatalError)
                     manifestLoadingDiagnostics.append(contentsOf: validationIssues)
                 }
-                self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics)
+                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics)
             }
             manifestLoadingScope.emit(manifestLoadingDiagnostics)
             completion(result)
