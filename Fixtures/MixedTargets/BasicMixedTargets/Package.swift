@@ -51,6 +51,11 @@ let package = Package(
             name: "MixedTargetWithCustomModuleMap"
         ),
 
+        // MARK: - MixedTargetWithInvalidCustomModuleMap
+        .target(
+            name: "MixedTargetWithInvalidCustomModuleMap"
+        ),
+
         // MARK: - MixedTargetWithCustomModuleMapAndResources
         .target(
             name: "MixedTargetWithCustomModuleMapAndResources",

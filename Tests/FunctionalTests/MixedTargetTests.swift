@@ -16,6 +16,7 @@ import SPMTestSupport
 // TODO(ncooke3): Create a larger E2E test with a complex mixed target.
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
 // TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
+// TODO(ncooke3): Audit all test imports to test all supported routes.
 
 // MARK: - MixedTargetTests
 
@@ -49,6 +50,24 @@ final class MixedTargetTests: XCTestCase {
             XCTAssertBuilds(
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCustomModuleMap"]
+            )
+        }
+    }
+
+    func testMixedTargetWithInvalidCustomModuleMap() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            let commandExecutionError = try XCTUnwrap(
+                XCTAssertBuildFails(
+                    fixturePath,
+                    extraArgs: ["--target", "MixedTargetWithInvalidCustomModuleMap"]
+                )
+            )
+
+            XCTAssert(
+                commandExecutionError.stderr.contains(
+                    "error: The target's module map may not contain a Swift " +
+                    "submodule for the module MixedTargetWithInvalidCustomModuleMap."
+                )
             )
         }
     }
