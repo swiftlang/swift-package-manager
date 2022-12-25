@@ -1522,11 +1522,9 @@ public final class MixedTargetBuildDescription {
         // Building a mixed target uses intermediate module maps to expose
         // private headers to the Swift part of the module.
 
-        // TODO(ncooke3): I wonder if this is really needed?
         // 1. Generate an intermediate module map that exposes all headers,
         // including the submodule with the generated Swift header.
-        let intermediateModuleMapPath = intermediatesDirectory
-            .appending(component: moduleMapFilename)
+        let intermediateModuleMapPath = intermediatesDirectory.appending(component: moduleMapFilename)
         try moduleMapGenerator.generateModuleMap(
             type: .umbrellaDirectory(mixedTarget.clangTarget.path),
             at: intermediateModuleMapPath,
@@ -1579,9 +1577,7 @@ public final class MixedTargetBuildDescription {
                     // module map in the intermediates directory.
                     VFSOverlay.File(
                         name: moduleMapFilename,
-                        externalContents: intermediatesDirectory
-                            .appending(component: moduleMapFilename)
-                            .pathString
+                        externalContents: intermediateModuleMapPath.pathString
                     ),
                     // Add a generated Swift header that redirects to the
                     // generated header in the build directory's root.
@@ -1602,9 +1598,7 @@ public final class MixedTargetBuildDescription {
                     // module map in the intermediates directory.
                     VFSOverlay.File(
                         name: moduleMapFilename,
-                        externalContents: intermediatesDirectory
-                            .appending(component: unextendedModuleMapFilename)
-                            .pathString
+                        externalContents: unextendedModuleMapPath.pathString
                     )
                 ]
             )
