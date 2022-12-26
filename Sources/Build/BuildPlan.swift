@@ -437,7 +437,6 @@ public final class ClangTargetBuildDescription {
         }
 
         args += ["-I", clangTarget.includeDir.pathString]
-
         args += additionalFlags
         if enableModules {
             args += try moduleCacheArgs
