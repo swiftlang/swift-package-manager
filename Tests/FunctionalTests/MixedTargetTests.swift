@@ -56,6 +56,24 @@ final class MixedTargetTests: XCTestCase {
 
     func testMixedTargetWithInvalidCustomModuleMap() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            // An invalid module map will cause the whole package to fail to
+            // build. To work around this, the module map is made invalid
+            // during the actual test.
+            let moduleMapPath = fixturePath.appending(
+                .init("Sources/MixedTargetWithInvalidCustomModuleMap/include/module.modulemap")
+            )
+
+            // In this case, an invalid module map is one that include a
+            // submodule of the form `$(ModuleName).Swift`. This is invalid
+            // because it collides with the submodule that SwiftPM will generate.
+            try """
+            module MixedTargetWithInvalidCustomModuleMap {
+                header "Foo.h"
+            }
+
+            module MixedTargetWithInvalidCustomModuleMap.Swift {}
+            """.write(to: moduleMapPath.asURL, atomically: true, encoding: .utf8)
+
             let commandExecutionError = try XCTUnwrap(
                 XCTAssertBuildFails(
                     fixturePath,
