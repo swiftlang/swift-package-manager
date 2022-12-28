@@ -145,7 +145,7 @@ class PackageBuilderTests: XCTestCase {
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(
-                diagnostic: "Target with mixed sources at \(foo) is a \(Target.Kind.executable) target; targets with mixed language sources are only supported for library and test targets.",
+                diagnostic: "Target with mixed sources at '\(foo)' is a \(Target.Kind.executable) target; targets with mixed language sources are only supported for library and test targets.",
                 severity: .error
             )
         }
