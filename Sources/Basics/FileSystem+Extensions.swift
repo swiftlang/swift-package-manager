@@ -353,9 +353,8 @@ extension FileSystem {
     public func writeFileContentsIfNeeded(_ path: AbsolutePath, bytes: ByteString) throws {
         try createDirectory(path.parentDirectory, recursive: true)
 
-        // If the file exists with the identical contents, we don't need to
-        // rewrite it. Otherwise, compiler will recompile even if nothing else
-        // has changed.
+        // If the file exists with the identical contents, there is no need to
+        // rewrite it.
         if let contents = try? readFileContents(path), contents == bytes {
             return
         }
