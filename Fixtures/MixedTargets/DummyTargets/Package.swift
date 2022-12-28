@@ -3,6 +3,7 @@
 
 import PackageDescription
 
+// This package vends targets to aid in testing the BasicMixedTargets package.
 let package = Package(
     name: "DummyTargets",
     dependencies: [
