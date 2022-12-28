@@ -194,7 +194,7 @@ final class MixedTargetTests: XCTestCase {
                 // the intentional build failure will break other unit tests
                 // since all targets in the package are build when running
                 // `swift test`.
-                Xswiftc: ["MIXED_TARGET_WITH_C_TESTS"]
+                Xswiftc: ["EXPECT_FAILURE"]
             )
         }
     }

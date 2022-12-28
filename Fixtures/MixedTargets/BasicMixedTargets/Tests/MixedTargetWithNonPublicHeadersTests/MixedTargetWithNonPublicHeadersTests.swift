@@ -1,7 +1,7 @@
 import XCTest
 import MixedTargetWithNonPublicHeaders
 
-#if MIXED_TARGET_WITH_C_TESTS
+#if EXPECT_FAILURE
 
 final class MixedTargetWithCTests: XCTestCase {
     func testInternalObjcTypesAreNotExposed() throws {
@@ -14,4 +14,4 @@ final class MixedTargetWithCTests: XCTestCase {
     }
 }
 
-#endif  // MIXED_TARGET_WITH_C_TESTS
+#endif  // EXPECT_FAILURE
