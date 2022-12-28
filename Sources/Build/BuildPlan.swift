@@ -332,7 +332,8 @@ public final class ClangTargetBuildDescription {
         self.isWithinMixedTarget = isWithinMixedTarget
 
         // Try computing the modulemap path, creating a module map in the
-        // file system if necessary.
+        // file system if necessary. If building for a mixed target, the mixed
+        // target build description handle the module map.
         if target.type == .library && !isWithinMixedTarget {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
@@ -1141,6 +1142,9 @@ public final class SwiftTargetBuildDescription {
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
         return buildParameters.triple.isDarwin() &&
+            // Emitting the interop header for mixed test targets enables the
+            // sharing of Objective-C compatible Swift test helpers between
+            // Swift and Objective-C test files.
             (target.type == .library || target.type == .test && isWithinMixedTarget)
     }
 
@@ -1628,11 +1632,11 @@ public final class MixedTargetBuildDescription {
             // path allows for importing headers using paths relative to
             // the root.
             "-I", mixedTarget.path.pathString,
-            // Include overlay to add interop header to intermediates directory.
+            // Include overlay file to add interop header to overlay directory.
             "-ivfsoverlay", allProductHeadersPath.pathString,
-            // The above overlay adds the interop header in the
-            // intermediates directory. Pass the intermediates directory as
-            // a search path so the generated header can be imported.
+            // The above two args add the interop header in the overlayed
+            // directory. Pass the overlay directory as a search path so the
+            // generated header can be imported.
             "-I", intermediatesDirectory.pathString
         ]
     }
