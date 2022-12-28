@@ -1551,15 +1551,14 @@ public final class MixedTargetBuildDescription {
         // module map) during the build. The directory to add a VFS overlay in
         // depends on the presence of a custom module map.
         let rootOverlayResourceDirectory: AbsolutePath
-        switch mixedTarget.clangTarget.moduleMapType {
-        case .custom(let customModuleMapPath):
+        if case .custom(let customModuleMapPath) = mixedTarget.clangTarget.moduleMapType {
             // To avoid the custom module map causing a module redeclaration
             // error, a VFS overlay is used when building the target to
             // redirect the custom module map to the modified module map in the
             // build directory. This redirecting overlay is placed in the
             // custom module map's parent directory, as to replace it.
             rootOverlayResourceDirectory = customModuleMapPath.parentDirectory
-        case .umbrellaHeader, .umbrellaDirectory, .none:
+        } else {
             // Since no custom module map exists, the build directory can
             // be used as the root of the VFS overlay. In this case, the
             // VFS overlay's sole purpose is to expose the generated Swift
