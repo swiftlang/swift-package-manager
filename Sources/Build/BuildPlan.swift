@@ -1318,10 +1318,7 @@ public final class MixedTargetBuildDescription {
     var resources: [Resource] { target.underlyingTarget.resources }
 
     /// If this target is a test target.
-    var isTestTarget: Bool {
-        clangTargetBuildDescription.isTestTarget &&
-            swiftTargetBuildDescription.isTestTarget
-    }
+    var isTestTarget: Bool { target.underlyingTarget.type == .test }
 
     /// The objects in this target. This includes both the Swift and Clang object files.
     var objects: [AbsolutePath] {
