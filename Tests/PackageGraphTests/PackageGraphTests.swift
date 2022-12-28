@@ -526,6 +526,35 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testTargetOnclyContainingHeaders() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Bar/Sources/Bar/include/bar.h"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar"),
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        PackageGraphTester(g) { result in
+            result.check(packages: "Bar")
+            result.check(targets: "Bar")
+        }
+    }
+
     func testProductDependencyNotFound() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTarget/foo.swift"
