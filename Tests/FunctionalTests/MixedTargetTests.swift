@@ -13,10 +13,8 @@
 import XCTest
 import SPMTestSupport
 
-// TODO(ncooke3): Create a larger E2E test with a complex mixed target.
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
 // TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
-// TODO(ncooke3): Audit all test imports to test all supported routes.
 
 // MARK: - MixedTargetTests
 
