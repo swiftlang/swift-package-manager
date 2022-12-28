@@ -819,7 +819,7 @@ public final class PackageBuilder {
         // The name of the bundle, if one is being generated.
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
-        if sources.relativePaths.isEmpty && resources.isEmpty {
+        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
             return nil
         }
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
