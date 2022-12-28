@@ -248,7 +248,7 @@ extension LLBuildManifestBuilder {
 // MARK: - Compile Swift
 
 extension LLBuildManifestBuilder {
-    /// Create a llbuild target for a Swift target description and returns the Swift targets outputs.
+    /// Create a llbuild target for a Swift target description and returns the Swift target's outputs.
     @discardableResult
     private func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription,
