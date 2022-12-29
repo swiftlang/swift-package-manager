@@ -51,13 +51,13 @@ target_link_libraries(Commands PUBLIC
   Build
   CoreCommands
   PackageGraph
-  SourceControl
   TSCBasic
   TSCUtility
   Workspace
   XCBuildSupport)
 target_link_libraries(Commands PRIVATE
   DriverSupport
+  SourceControl
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
@@ -69,3 +69,4 @@ install(TARGETS Commands
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 endif()
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Commands)

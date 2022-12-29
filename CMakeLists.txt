@@ -46,6 +46,9 @@ if(FIND_PM_DEPS)
   find_package(SwiftSystem CONFIG REQUIRED)
   find_package(TSC CONFIG REQUIRED)
 
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_package(Threads REQUIRED)
+
   find_package(LLBuild CONFIG)
   if(NOT LLBuild_FOUND)
     find_package(LLBuild REQUIRED)
