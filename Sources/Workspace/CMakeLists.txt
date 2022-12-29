@@ -28,15 +28,16 @@ target_link_libraries(Workspace PUBLIC
   TSCUtility
   Basics
   SPMBuildCore
-  PackageFingerprint
   PackageGraph
   PackageLoading
   PackageModel
-  PackageRegistry
-  PackageSigning
-  SourceControl)
+  PackageSigning)
 target_link_libraries(Workspace PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
+target_link_libraries(Workspace PRIVATE
+  PackageFingerprint
+  PackageRegistry
+  SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Workspace PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
@@ -47,3 +48,4 @@ install(TARGETS Workspace
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 endif()
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Workspace)
