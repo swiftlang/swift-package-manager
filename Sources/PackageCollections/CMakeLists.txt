@@ -40,11 +40,15 @@ target_link_libraries(PackageCollections PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
-  PackageCollectionsModel
-  PackageCollectionsSigning
   PackageModel
   SourceControl
   TSCBasic)
+target_link_libraries(PackageCollections PRIVATE
+  PackageCollectionsModel
+  PackageCollectionsSigning)
+target_link_libraries(PackageCollections PUBLIC
+  Crypto
+  CCryptoBoringSSL)
 
 if(USE_CMAKE_INSTALL)
   install(TARGETS PackageCollections
