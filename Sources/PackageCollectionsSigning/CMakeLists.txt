@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(PackageCollectionsSigning
+add_library(PackageCollectionsSigning STATIC
   Certificate/Certificate.swift
   Certificate/CertificatePolicy.swift
   Key/ASN1/ASN1.swift
@@ -44,11 +44,3 @@ target_link_libraries(PackageCollectionsSigning PUBLIC
   TSCBasic)
 target_link_libraries(PackageCollectionsSigning PRIVATE
   PackageCollectionsSigningLibc)
-
-if(USE_CMAKE_INSTALL)
-  install(TARGETS PackageCollectionsSigning
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          RUNTIME DESTINATION bin)
-endif()
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageCollectionsSigning)
