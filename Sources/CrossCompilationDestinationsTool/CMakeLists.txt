@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(CrossCompilationDestinationsTool
+add_library(CrossCompilationDestinationsTool STATIC
   ListDestinations.swift
   SwiftDestinationCommand.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
@@ -19,11 +19,3 @@ target_link_libraries(CrossCompilationDestinationsTool PUBLIC
   SPMBuildCore
   PackageModel
   TSCBasic)
-
-if(USE_CMAKE_INSTALL)
-  install(TARGETS CrossCompilationDestinationsTool
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          RUNTIME DESTINATION bin)
-endif()
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS CrossCompilationDestinationsTool)
