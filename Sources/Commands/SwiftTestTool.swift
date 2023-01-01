@@ -111,6 +111,10 @@ struct TestToolOptions: ParsableArguments {
             help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
 
+    @Option(name: .customLong("json-output"),
+            help: "Path where the json output file should be generated.")
+    var jsonOutput: AbsolutePath?
+
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
     var enableTestableImports: Bool = true
@@ -305,6 +309,15 @@ public struct SwiftTestTool: SwiftCommand {
                     results: testResults
                 )
                 try generator.generate(at: xUnitOutput)
+            }
+
+            // Generate json file if requested
+            if let jsonOutput = options.jsonOutput {
+                let generator = JSONGenerator(
+                    fileSystem: swiftTool.fileSystem,
+                    results: testResults
+                )
+                try generator.generate(at: jsonOutput)
             }
 
             // process code Coverage if request
@@ -578,6 +591,16 @@ struct UnitTest {
     }
 }
 
+extension UnitTest: JSONSerializable {
+    func toJSON() -> JSON {
+        JSON([
+            "productPath": productPath,
+            "name": name,
+            "testCase": testCase
+        ])
+    }
+}
+
 /// A class to run tests on a XCTest binary.
 ///
 /// Note: Executes the XCTest with inherited environment as it is convenient to pass senstive
@@ -690,14 +713,34 @@ final class TestRunner {
     }
 }
 
+extension DispatchTimeInterval {
+    /// Encode the nanoseconds dispatch time in JSON
+    /// - Returns: JSON instance for the nanoseconds or `.null`
+    public func toNanosecondsJSON() -> JSON {
+        guard let nanoseconds = nanoseconds() else {
+            return .null
+        }
+        return nanoseconds.toJSON()
+    }
+}
+
 /// A class to run tests in parallel.
 final class ParallelTestRunner {
     /// An enum representing result of a unit test execution.
-    struct TestResult {
+    struct TestResult: JSONSerializable {
         var unitTest: UnitTest
         var output: String
         var success: Bool
         var duration: DispatchTimeInterval
+
+        func toJSON() -> TSCBasic.JSON {
+            JSON([
+                "output": output,
+                "success": success,
+                "unitTest": unitTest,
+                "durationInNanoseconds": duration.toNanosecondsJSON()
+            ])
+        }
     }
 
     /// Path to XCTest binaries.
@@ -1000,11 +1043,33 @@ fileprivate extension Array where Element == UnitTest {
     }
 }
 
+// JSON file generator for a swift-test run.
+final class JSONGenerator {
+    typealias TestResult = ParallelTestRunner.TestResult
+
+    /// The file system to use.
+    let fileSystem: FileSystem
+
+    /// The test results.
+    let results: [TestResult]
+
+    init(fileSystem: FileSystem, results: [TestResult]) {
+        self.fileSystem = fileSystem
+        self.results = results
+    }
+
+    /// Generate the file at the given path.
+    func generate(at path: AbsolutePath) throws {
+        let json = results.toJSON()
+        try self.fileSystem.writeFileContents(path, bytes: json.toBytes())
+    }
+}
+
 /// xUnit XML file generator for a swift-test run.
 final class XUnitGenerator {
     typealias TestResult = ParallelTestRunner.TestResult
 
-    /// The file system to use
+    /// The file system to use.
     let fileSystem: FileSystem
 
     /// The test results.
