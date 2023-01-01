@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(PackageCollectionsTool
+add_library(PackageCollectionsTool STATIC
   SwiftPackageCollectionsTool.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageCollectionsTool PROPERTIES
@@ -19,11 +19,3 @@ target_link_libraries(PackageCollectionsTool PUBLIC
   llbuild
   llbuildSwift
   PackageCollections)
-
-if(USE_CMAKE_INSTALL)
-  install(TARGETS PackageCollectionsTool
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          RUNTIME DESTINATION bin)
-endif()
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageCollectionsTool)
