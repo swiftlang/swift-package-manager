@@ -15,8 +15,8 @@
 
 - (void)testPublicObjcAPI {
     // Check that Objective-C API surface is exposed...
-    OldCar *oldCar = [[OldCar alloc] init];
-    Driver *driver = [[Driver alloc] init];
+    OldPlane *oldPlane = [[OldPlane alloc] init];
+    Pilot *pilot = [[Pilot alloc] init];
 }
 
 @end

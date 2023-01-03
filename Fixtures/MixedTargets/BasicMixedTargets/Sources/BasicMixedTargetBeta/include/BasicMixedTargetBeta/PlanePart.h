@@ -1,4 +1,4 @@
 #import <Foundation/Foundation.h>
 
-@interface CarPart : NSObject
+@interface PlanePart : NSObject
 @end
