@@ -34,6 +34,21 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
+    // See `Fixtures/MixedTargets/BasicMixedTargets/Package.swift` for
+    // explanation of `BasicMixedTargetBeta` target.
+    func testMixedTargetBeta() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "BasicMixedTargetBeta"]
+            )
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "BasicMixedTargetBetaTests"]
+            )
+        }
+    }
+
     func testMixedTargetWithResources() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertSwiftTest(
