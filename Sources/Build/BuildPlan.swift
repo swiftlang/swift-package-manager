@@ -2722,6 +2722,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     }
                 }
             case let target as MixedTarget where target.type == .library:
+                // Add the public headers of the dependency.
+                clangTarget.additionalFlags += ["-I", target.clangTarget.includeDir.pathString]
+
                 // Add the modulemap of the dependency.
                 if case let .mixed(dependencyTargetDescription)? = targetMap[dependency] {
                     clangTarget.additionalFlags.append(
