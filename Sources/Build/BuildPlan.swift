@@ -2772,8 +2772,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.appendClangFlags(
                     "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-I",
-                    target.clangTarget.includeDir.pathString
+                    "-I", target.clangTarget.includeDir.pathString
                 )
             case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
@@ -2792,11 +2791,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 guard case let .mixed(target)? = targetMap[dependency] else {
                     throw InternalError("unexpected mixed target \(underlyingTarget)")
                 }
-                // Add the path to modulemap of the dependency. Currently we
-                // require that all Mixed targets have a modulemap as it is
-                // required for interoperability.
+                // Add the dependency's modulemap and public headers.
                 swiftTarget.appendClangFlags(
-                    "-fmodule-map-file=\(target.moduleMap.pathString)"
+                    "-fmodule-map-file=\(target.moduleMap.pathString)",
+                    "-I", target.clangTargetBuildDescription.clangTarget.includeDir.pathString
                 )
 
                 if let allProductHeadersOverlay = target.allProductHeadersOverlay {
