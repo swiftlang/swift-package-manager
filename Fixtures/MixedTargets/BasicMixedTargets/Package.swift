@@ -56,8 +56,6 @@ let package = Package(
         ),
 
         // MARK: - MixedTargetWithCustomModuleMap
-        // TODO(ncooke3): Play around and try to break this target with a more
-        // complex module map.
         .target(
             name: "MixedTargetWithCustomModuleMap"
         ),
