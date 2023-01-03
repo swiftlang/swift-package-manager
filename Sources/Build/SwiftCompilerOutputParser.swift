@@ -162,7 +162,7 @@ extension SwiftCompilerOutputParser: JSONMessageStreamingParserDelegate {
             return
         }
 
-        let message = SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput(text))
+        let message = SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput(text + "\n"))
         delegate?.swiftCompilerOutputParser(self, didParse: message)
     }
 

@@ -156,7 +156,7 @@ class SwiftCompilerOutputParserTests: XCTestCase {
 
             """.utf8)
         delegate.assert(messages: [
-            SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput("2A"))
+            SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput("2A\n"))
         ], errorDescription: nil)
 
         parser.parse(bytes: """
