@@ -16,6 +16,7 @@ import CoreCommands
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import class Foundation.JSONEncoder
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -591,15 +592,7 @@ struct UnitTest {
     }
 }
 
-extension UnitTest: JSONSerializable {
-    func toJSON() -> JSON {
-        JSON([
-            "productPath": productPath,
-            "name": name,
-            "testCase": testCase
-        ])
-    }
-}
+extension UnitTest: Encodable {}
 
 /// A class to run tests on a XCTest binary.
 ///
@@ -713,34 +706,32 @@ final class TestRunner {
     }
 }
 
-extension DispatchTimeInterval {
-    /// Encode the nanoseconds dispatch time in JSON
-    /// - Returns: JSON instance for the nanoseconds or `.null`
-    public func toNanosecondsJSON() -> JSON {
+extension DispatchTimeInterval: Encodable {
+    /// Encodable conformance
+    /// - Note: `DispatchTimeInterval` will be encoded in nanoseconds if it does have a value or nil.
+    /// - Parameter encoder: An encoder instance
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        /// Encode the time interval in nanoseconds
         guard let nanoseconds = nanoseconds() else {
-            return .null
+            return try container.encodeNil()
         }
-        return nanoseconds.toJSON()
+
+        try container.encode(nanoseconds)
     }
 }
+
+extension ParallelTestRunner.TestResult: Encodable {}
 
 /// A class to run tests in parallel.
 final class ParallelTestRunner {
     /// An enum representing result of a unit test execution.
-    struct TestResult: JSONSerializable {
+    struct TestResult {
         var unitTest: UnitTest
         var output: String
         var success: Bool
         var duration: DispatchTimeInterval
-
-        func toJSON() -> TSCBasic.JSON {
-            JSON([
-                "output": output,
-                "success": success,
-                "unitTest": unitTest,
-                "durationInNanoseconds": duration.toNanosecondsJSON()
-            ])
-        }
     }
 
     /// Path to XCTest binaries.
@@ -1058,10 +1049,10 @@ final class JSONGenerator {
         self.results = results
     }
 
-    /// Generate the file at the given path.
+    /// Encode the test results in `.JSON` format and write them to the provided path
     func generate(at path: AbsolutePath) throws {
-        let json = results.toJSON()
-        try self.fileSystem.writeFileContents(path, bytes: json.toBytes())
+        let data = try JSONEncoder().encode(results)
+        try self.fileSystem.writeFileContents(path, data: data)
     }
 }
 
