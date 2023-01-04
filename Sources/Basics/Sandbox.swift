@@ -13,10 +13,7 @@
 import Foundation
 import TSCBasic
 
-import enum TSCUtility.Platform
-
 public enum Sandbox {
-
     /// Applies a sandbox invocation to the given command line (if the platform supports it),
     /// and returns the modified command line. On platforms that don't support sandboxing, the
     /// command line is returned unmodified.
@@ -55,6 +52,29 @@ public enum Sandbox {
 // MARK: - macOS
 
 #if os(macOS)
+fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
+    func GetConfStr(_ name: CInt) -> AbsolutePath? {
+        let length: Int = confstr(name, nil, 0)
+
+        let buffer: UnsafeMutableBufferPointer<CChar> = .allocate(capacity: length)
+        defer { buffer.deallocate() }
+
+        guard confstr(name, buffer.baseAddress, length) == length else { return nil }
+
+        let value: String = String(cString: buffer.baseAddress!)
+        guard value.hasSuffix("/") else { return nil }
+
+        return try? resolveSymlinks(AbsolutePath(validating: value))
+    }
+
+    var directories: [AbsolutePath] = []
+    try? directories.append(AbsolutePath(validating: "/private/var/tmp"))
+    (try? TSCBasic.determineTempDirectory()).map { directories.append($0) }
+    GetConfStr(_CS_DARWIN_USER_TEMP_DIR).map { directories.append($0) }
+    GetConfStr(_CS_DARWIN_USER_CACHE_DIR).map { directories.append($0) }
+    return directories
+}()
+
 fileprivate func macOSSandboxProfile(
     strictness: Sandbox.Strictness,
     writableDirectories: [AbsolutePath],
@@ -86,7 +106,7 @@ fileprivate func macOSSandboxProfile(
 
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
     if strictness == .manifest_pre_53 {
-        writableDirectoriesExpression += Platform.threadSafeDarwinCacheDirectories.get().map {
+        writableDirectoriesExpression += threadSafeDarwinCacheDirectories.map {
             ##"(regex #"^\##($0.pathString)/org\.llvm\.clang.*")"##
         }
     }
@@ -136,9 +156,5 @@ fileprivate extension AbsolutePath {
             .replacingOccurrences(of: "\"", with: "\\\"")
             + "\""
     }
-}
-
-extension TSCUtility.Platform {
-    fileprivate static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>((try? Self.darwinCacheDirectories()) ?? [])
 }
 #endif
