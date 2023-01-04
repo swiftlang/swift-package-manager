@@ -113,7 +113,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         let buildParamsFile: AbsolutePath?
         // Do not generate a build parameters file if a custom one has been passed.
-        if !buildParameters.xcbuildFlags.contains("--buildParametersFile") {
+        if let flags = buildParameters.flags.xcbuildFlags, !flags.contains("--buildParametersFile") {
             buildParamsFile = try createBuildParametersFile()
             if let buildParamsFile = buildParamsFile {
                 arguments += ["--buildParametersFile", buildParamsFile.pathString]
@@ -122,7 +122,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             buildParamsFile = nil
         }
 
-        arguments += buildParameters.xcbuildFlags
+        if let flags = buildParameters.flags.xcbuildFlags {
+            arguments += flags
+        }
 
         let delegate = createBuildDelegate()
         var hasStdout = false
@@ -203,8 +205,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         ).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
-        if !buildParameters.archs.isEmpty {
-            settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
+        if let architectures = buildParameters.architectures, !architectures.isEmpty {
+            settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
         // Generate the build parameters.
