@@ -280,7 +280,7 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testBuildCompleteMessage() throws {
-        throw XCTSkip("This test isn't stable w.r.t. the build cache; rdar://101815761")
+        throw XCTSkip("This test fails to match the 'Compiling' regex; rdar://101815761")
 
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             do {
@@ -388,6 +388,18 @@ final class BuildToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let output = try execute(["--print-manifest-job-graph"], packagePath: fixturePath).stdout
             XCTAssertMatch(output, .prefix("digraph Jobs {"))
+        }
+    }
+    
+    func testSwiftDriverRawOutputGetsNewlines() throws {
+        try fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not compatible with whole module optimization` message, which should have a trailing newline.  Since that message won't be there at all when the legacy compiler driver is used, we gate this check on whether the remark is there in the first place.
+            let result = try execute(["-c", "release", "-Xswiftc", "-wmo"], packagePath: fixturePath)
+            if result.stdout.contains("remark: Incremental compilation has been disabled: it is not compatible with whole module optimization") {
+                XCTAssertMatch(result.stdout, .contains("optimization\n"))
+                XCTAssertNoMatch(result.stdout, .contains("optimization["))
+                XCTAssertNoMatch(result.stdout, .contains("optimizationremark"))
+            }
         }
     }
 }

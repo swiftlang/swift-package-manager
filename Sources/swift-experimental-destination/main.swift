@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,13 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A build environment with which to evaluate conditions.
-public struct BuildEnvironment: Codable {
-    public let platform: Platform
-    public let configuration: BuildConfiguration?
+import CrossCompilationDestinationsTool
 
-    public init(platform: Platform, configuration: BuildConfiguration? = nil) {
-        self.platform = platform
-        self.configuration = configuration
-    }
-}
+SwiftDestinationTool.main()

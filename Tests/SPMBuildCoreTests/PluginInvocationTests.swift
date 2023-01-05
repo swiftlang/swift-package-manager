@@ -194,6 +194,7 @@ class PluginInvocationTests: XCTestCase {
             builtToolsDir: builtToolsDir,
             buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
             toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+            pkgConfigDirectories: [],
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem
@@ -886,6 +887,7 @@ class PluginInvocationTests: XCTestCase {
                     builtToolsDir: builtToolsDir,
                     buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                     toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                    pkgConfigDirectories: [],
                     pluginScriptRunner: pluginScriptRunner,
                     observabilityScope: observability.topScope,
                     fileSystem: localFileSystem
@@ -1056,8 +1058,7 @@ class PluginInvocationTests: XCTestCase {
         }
     }
 
-
-    func testParseArtifactNotSupportedOnTargetPlatform() throws {
+    func checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: [Triple], hostTriple: Triple, pluginResultChecker: ([ResolvedTarget: [BuildToolPluginInvocationResult]]) throws -> ()) throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1114,12 +1115,17 @@ class PluginInvocationTests: XCTestCase {
                         print("Looking for LocalBinaryTool...")
                         let localBinaryTool = try context.tool(named: "LocalBinaryTool")
                         print("... found it at \\(localBinaryTool.path)")
-                        return []
+                        return [.buildCommand(displayName: "", executable: localBinaryTool.path, arguments: [], inputFiles: [], outputFiles: [])]
                     }
                  }
             """
             try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: content)
-            let tripleString = "x86_64-apple-macos15"
+            let artifactVariants = artifactSupportedTriples.map {
+                """
+                { "path": "LocalBinaryTool\($0.tripleString).sh", "supportedTriples": ["\($0.tripleString)"] }
+                """
+            }
+
             try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
                 $0 <<< """
                 {   "schemaVersion": "1.0",
@@ -1128,9 +1134,7 @@ class PluginInvocationTests: XCTestCase {
                             "type": "executable",
                             "version": "1.2.3",
                             "variants": [
-                                {   "path": "LocalBinaryTool.sh",
-                                    "supportedTriples": ["\(tripleString)"]
-                                },
+                                \(artifactVariants.joined(separator: ","))
                             ]
                         }
                     }
@@ -1166,12 +1170,16 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(buildToolPlugin.name, "Foo")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
+            // Construct a toolchain with a made-up host/target triple
+            let destination = try Destination.default
+            let toolchain = try UserToolchain(destination: Destination(hostTriple: hostTriple, targetTriple: hostTriple, sdkRootDir: destination.sdkRootDir, toolchainBinDir: destination.toolchainBinDir))
+
             // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: try UserToolchain.default
+                toolchain: toolchain
             )
 
             // Invoke build tool plugin
@@ -1182,17 +1190,60 @@ class PluginInvocationTests: XCTestCase {
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                pkgConfigDirectories: [],
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: observability.topScope,
                 fileSystem: localFileSystem
             )
-            var checked = false
+            try pluginResultChecker(result)
+        }
+    }
+
+    func testParseArtifactNotSupportedOnTargetPlatform() throws {
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = try [Triple("riscv64-apple-windows-android")]
+
+        var checked = false
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
             if let pluginResult = result.first,
                let diag = pluginResult.value.first?.diagnostics,
                diag.description == "[[error]: Tool ‘LocalBinaryTool’ is not supported on the target platform]" {
                 checked = true
             }
-            XCTAssertTrue(checked)
+        }
+        XCTAssertTrue(checked)
+    }
+
+    func testParseArtifactsDoesNotCheckPlatformVersion() throws {
+        #if !os(macOS)
+        throw XCTSkip("platform versions are only available if the host is macOS")
+        #else
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
+
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
+            result.forEach {
+                $0.value.forEach {
+                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                }
+            }
+        }
+        #endif
+    }
+
+    func testParseArtifactsConsidersAllSupportedTriples() throws {
+        let hostTriple = try UserToolchain.default.triple
+        let artifactSupportedTriples = [hostTriple, try Triple("riscv64-apple-windows-android")]
+
+        try checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple) { result in
+            result.forEach {
+                $0.value.forEach {
+                    XCTAssertTrue($0.succeeded, "plugin unexpectedly failed")
+                    XCTAssertEqual($0.diagnostics.map { $0.message }, [], "plugin produced unexpected diagnostics")
+                    XCTAssertEqual($0.buildCommands.first?.configuration.executable.basename, "LocalBinaryTool\(hostTriple.tripleString).sh")
+                }
+            }
         }
     }
 }

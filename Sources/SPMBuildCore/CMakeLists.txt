@@ -14,11 +14,13 @@ add_library(SPMBuildCore
   BuildSystemCommand.swift
   BuildSystemDelegate.swift
   BuiltTestProduct.swift
+  DestinationsBundle.swift
   PluginContextSerializer.swift
   PluginInvocation.swift
   PluginMessages.swift
   PluginScriptRunner.swift
   PrebuildCommandResult.swift
+  Triple+Extensions.swift
   XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES

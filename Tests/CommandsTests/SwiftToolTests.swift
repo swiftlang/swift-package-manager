@@ -115,6 +115,44 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
                 XCTAssertMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--quiet"])
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
+                XCTAssertEqual(tool.logLevel, .error)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+            }
+
+            do {
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "-q"])
+                let tool = try SwiftTool.createSwiftToolForTest(outputStream: outputStream, options: options)
+                XCTAssertEqual(tool.logLevel, .error)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+            }
         }
     }
 

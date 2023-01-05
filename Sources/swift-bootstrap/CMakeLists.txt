@@ -9,4 +9,12 @@
 add_executable(swift-bootstrap
     main.swift)
 target_link_libraries(swift-bootstrap PRIVATE
-    CoreCommands)
+  ArgumentParser
+  Basics
+  Build
+  PackageGraph
+  PackageLoading
+  PackageModel
+  TSCBasic
+  TSCUtility
+  XCBuildSupport)

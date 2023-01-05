@@ -85,7 +85,17 @@ public struct LocationOptions: ParsableArguments {
     public var customCompileDestination: AbsolutePath?
 
     @Option(name: .customLong("experimental-destinations-path"), help: .hidden, completion: .directory)
-    var crossCompilationDestinationsDirectory: AbsolutePath?
+    public var crossCompilationDestinationsDirectory: AbsolutePath?
+
+    @Option(
+        name: .customLong("pkg-config-path"),
+        help:
+            """
+            Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
+            specify more than one path.
+            """,
+        completion: .directory)
+    public var pkgConfigDirectories: [AbsolutePath] = []
 }
 
 public struct CachingOptions: ParsableArguments {
@@ -128,6 +138,10 @@ public struct LoggingOptions: ParsableArguments {
     /// The verbosity of informational output.
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
     public var veryVerbose: Bool = false
+
+    /// Whether logging output should be limited to `.error`.
+    @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
+    public var quiet: Bool = false
 }
 
 public struct SecurityOptions: ParsableArguments {
@@ -259,10 +273,11 @@ public struct BuildOptions: ParsableArguments {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: cCompilerFlags,
-            cxxCompilerFlags: cxxCompilerFlags,
-            swiftCompilerFlags: swiftCompilerFlags,
-            linkerFlags: linkerFlags
+            cCompilerFlags: self.cCompilerFlags,
+            cxxCompilerFlags: self.cxxCompilerFlags,
+            swiftCompilerFlags: self.swiftCompilerFlags,
+            linkerFlags: self.linkerFlags,
+            xcbuildFlags: self.xcbuildFlags
         )
     }
 
@@ -284,7 +299,11 @@ public struct BuildOptions: ParsableArguments {
       help: ArgumentHelp(
         "Build the package for the these architectures",
         visibility: .hidden))
-    public var archs: [String] = []
+    public var architectures: [String] = []
+
+    /// Path to the compilation destination describing JSON file.
+    @Option(name: .customLong("experimental-destination-selector"), visibility: .hidden)
+    public var crossCompilationDestinationSelector: String?
 
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
@@ -332,7 +351,7 @@ public struct BuildOptions: ParsableArguments {
     public var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return archs.count > 1 ? .xcode : self._buildSystem
+        return self.architectures.count > 1 ? .xcode : self._buildSystem
         #else
         // Force building with the native build system on other platforms than macOS.
         return .native

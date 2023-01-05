@@ -103,7 +103,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(
                         message,
                             .and(
@@ -166,7 +166,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
                 } else {
@@ -188,7 +188,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
                 } else {
@@ -208,7 +208,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
                 } else {
@@ -239,7 +239,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                 XCTAssertMatch(message, .contains("is unavailable"))
                 XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
             } else {
@@ -499,7 +499,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let message, let diagnosticFile) = error {
+            if case ManifestParseError.invalidManifestFormat(let message, let diagnosticFile, _) = error {
                 XCTAssertNil(diagnosticFile)
                 XCTAssertEqual(message, "'https://someurl.com' is not a valid path for path-based dependencies; use relative or absolute path instead.")
             } else {
@@ -519,9 +519,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             case .invalidAbsolutePath:
               return nil
             case .relativePath:
-              return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil)
+              return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil)
             case .unsupportedHostname:
-              return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil)
+              return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil)
             }
           }
 

@@ -165,7 +165,7 @@ enum ManifestJSONParser {
         do {
             path = try AbsolutePath(validating: location)
         } catch PathValidationError.invalidAbsolutePath(let path) {
-            throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
+            throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil, compilerCommandLine: nil)
         }
         let identity = try identityResolver.resolveIdentity(for: path)
         return .fileSystem(identity: identity,
@@ -224,11 +224,11 @@ enum ManifestJSONParser {
             guard hostnameComponent.isEmpty else {
               if hostnameComponent == ".." {
                 throw ManifestParseError.invalidManifestFormat(
-                  "file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil
+                  "file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil
                 )
               }
               throw ManifestParseError.invalidManifestFormat(
-                "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil
+                "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil
               )
             }
             return try AbsolutePath(validating: location).pathString

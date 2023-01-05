@@ -28,6 +28,7 @@ let swiftPMDataModelProduct = (
         "PackageCollectionsModel",
         "PackageGraph",
         "PackageLoading",
+        "PackageMetadata",
         "PackageModel",
         "SourceControl",
         "Workspace",
@@ -334,6 +335,16 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        .target(
+            // ** High level interface for package discovery */
+            name: "PackageMetadata",
+            dependencies: [
+                "Basics",
+                "PackageCollections",
+                "PackageModel",
+                "PackageRegistry",
+            ]
+        ),
 
         // MARK: Commands
 
@@ -345,7 +356,9 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageFingerprint",
+                "PackageLoading",
                 "PackageModel",
+                "PackageGraph",
                 "Workspace",
                 "XCBuildSupport",
             ],
@@ -366,6 +379,18 @@ let package = Package(
                 "XCBuildSupport",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
+        ),
+
+        .target(
+            /** Interacts with cross-compilation destinations */
+            name: "CrossCompilationDestinationsTool",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "CoreCommands",
+                "SPMBuildCore",
+                "PackageModel",
+            ]
         ),
 
         .target(
@@ -414,8 +439,21 @@ let package = Package(
         .executableTarget(
             /** Builds SwiftPM itself for bootstrapping (minimal version of `swift-build`) */
             name: "swift-bootstrap",
-            dependencies: ["CoreCommands"],
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "XCBuildSupport",
+            ],
             exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
+            /** Interacts with cross-compilation destinations */
+            name: "swift-experimental-destination",
+            dependencies: ["Commands", "CrossCompilationDestinationsTool"]
         ),
         .executableTarget(
             /** Runs package tests */
@@ -437,7 +475,13 @@ let package = Package(
         .executableTarget(
             /** Multi-tool entry point for SwiftPM. */
             name: "swift-package-manager",
-            dependencies: ["Commands", "Basics", "PackageCollectionsTool", "PackageRegistryTool"]
+            dependencies: [
+                "Basics",
+                "Commands",
+                "CrossCompilationDestinationsTool",
+                "PackageCollectionsTool",
+                "PackageRegistryTool"
+            ]
         ),
         .executableTarget(
             /** Interact with package registry */
@@ -507,7 +551,8 @@ let package = Package(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]
         ),
-        .testTarget(
+        // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+        /*.testTarget(
             name: "FunctionalTests",
             dependencies: [
                 "swift-build",
@@ -516,7 +561,7 @@ let package = Package(
                 "PackageModel",
                 "SPMTestSupport"
             ]
-        ),
+        ),*/
         .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: [

@@ -883,7 +883,7 @@ public final class SwiftTargetBuildDescription {
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
-        args += ["-j\(buildParameters.jobs)"]
+        args += ["-j\(buildParameters.workers)"]
         args += activeCompilationConditions
         args += additionalFlags
         args += try moduleCacheArgs
@@ -1037,7 +1037,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(buildParameters.jobs)"]
+        result += ["-j\(buildParameters.workers)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += try moduleCacheArgs
@@ -1084,7 +1084,7 @@ public final class SwiftTargetBuildDescription {
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
-        result += ["-j\(buildParameters.jobs)"]
+        result += ["-j\(buildParameters.workers)"]
         result += activeCompilationConditions
         result += additionalFlags
         result += try moduleCacheArgs
@@ -1387,7 +1387,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             return [librarian, "/LIB", "/OUT:\(binaryPath.pathString)", "@\(linkFileListPath.pathString)"]
         }
         if triple.isDarwin(), librarian.hasSuffix("libtool") {
-            return [librarian, "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
+            return [librarian, "-static", "-o", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
         }
         return [librarian, "crs", binaryPath.pathString, "@\(linkFileListPath.pathString)"]
     }
@@ -2416,7 +2416,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         else {
             pkgConfigCache[target] = ([], [])
         }
-        let results = try pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        let results = try pkgConfigArgs(
+            for: target,
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
             ret.append((result.cFlags, result.libs))

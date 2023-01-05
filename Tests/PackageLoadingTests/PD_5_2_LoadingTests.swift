@@ -41,7 +41,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))
             } else {
                 XCTFail("unexpected error: \(error)")
@@ -277,7 +277,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertMatch(error, .contains("is unavailable"))
                 XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
             } else {
@@ -303,7 +303,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
                 } else {
@@ -329,7 +329,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
                 } else {
@@ -359,7 +359,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertMatch(error, .contains("is unavailable"))
                 XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
             } else {
@@ -384,7 +384,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                     XCTAssertMatch(error, .contains("is unavailable"))
                     XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
                 } else {
@@ -415,7 +415,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+            if case ManifestParseError.invalidManifestFormat(let error, _, _) = error {
                 XCTAssertTrue(error.contains("Operation not permitted"), "unexpected error message: \(error)")
             } else {
                 XCTFail("unexpected error: \(error)")

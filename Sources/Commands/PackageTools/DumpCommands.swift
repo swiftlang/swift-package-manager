@@ -39,6 +39,9 @@ struct DumpSymbolGraph: SwiftCommand {
 
     @Flag(help: "Add symbols with SPI information to the symbol graph.")
     var includeSPISymbols = false
+    
+    @Flag(help: "Emit extension block symbols for extensions to external types or directly associate members and conformances with the extended nominal.")
+    var extensionBlockSymbolBehavior: ExtensionBlockSymbolBehavior = .omitExtensionBlockSymbols
 
     func run(_ swiftTool: SwiftTool) throws {
         // Build the current package.
@@ -51,10 +54,12 @@ struct DumpSymbolGraph: SwiftCommand {
         let symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
             tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            observabilityScope: swiftTool.observabilityScope,
             skipSynthesizedMembers: skipSynthesizedMembers,
             minimumAccessLevel: minimumAccessLevel,
             skipInheritedDocs: skipInheritedDocs,
             includeSPISymbols: includeSPISymbols,
+            emitExtensionBlockSymbols: extensionBlockSymbolBehavior == .emitExtensionBlockSymbols,
             outputFormat: .json(pretty: prettyPrint)
         )
 
@@ -74,6 +79,11 @@ struct DumpSymbolGraph: SwiftCommand {
 
         print("Files written to", symbolGraphDirectory.pathString)
     }
+}
+
+enum ExtensionBlockSymbolBehavior: String, EnumerableFlag {
+    case emitExtensionBlockSymbols
+    case omitExtensionBlockSymbols
 }
 
 struct DumpPackage: SwiftCommand {

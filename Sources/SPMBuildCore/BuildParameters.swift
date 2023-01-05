@@ -131,14 +131,17 @@ public struct BuildParameters: Encodable {
     /// Destination triple.
     public var triple: Triple
 
-    /// The architectures to build for.
-    public var archs: [String]
-
     /// Extra build flags.
     public var flags: BuildFlags
 
+    /// An array of paths to search for pkg-config `.pc` files.
+    public var pkgConfigDirectories: [AbsolutePath]
+
+    /// The architectures to build for.
+    public var architectures: [String]?
+
     /// How many jobs should llbuild and the Swift compiler spawn
-    public var jobs: UInt32
+    public var workers: UInt32
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib: Bool
@@ -155,7 +158,7 @@ public struct BuildParameters: Encodable {
     /// Whether to enable code coverage.
     public var enableCodeCoverage: Bool
 
-    /// Whether to enable generation of `.swiftinterface` files alongside
+    /// Whether to enable generation of `.swiftinterface` files alongside.
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
 
@@ -168,10 +171,10 @@ public struct BuildParameters: Encodable {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
 
-    /// Whether to use the explicit module build flow (with the integrated driver)
+    /// Whether to use the explicit module build flow (with the integrated driver).
     public var useExplicitModuleBuild: Bool
 
-    /// A flag that inidcates this build should check whether targets only import
+    /// A flag that inidcates this build should check whether targets only import.
     /// their explicitly-declared dependencies
     public var explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode
 
@@ -206,9 +209,6 @@ public struct BuildParameters: Encodable {
     /// Whether the Xcode build system is used.
     public var isXcodeBuildSystemEnabled: Bool
 
-    /// Extra arguments to pass when using xcbuild.
-    public var xcbuildFlags: [String]
-
     // Whether building for testability is enabled.
     public var enableTestability: Bool
 
@@ -228,10 +228,10 @@ public struct BuildParameters: Encodable {
         toolchain: Toolchain,
         hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
-        archs: [String] = [],
         flags: BuildFlags,
-        xcbuildFlags: [String] = [],
-        jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
+        pkgConfigDirectories: [AbsolutePath] = [],
+        architectures: [String]? = nil,
+        workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
@@ -259,10 +259,10 @@ public struct BuildParameters: Encodable {
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
-        self.archs = archs
         self.flags = flags
-        self.xcbuildFlags = xcbuildFlags
-        self.jobs = jobs
+        self.pkgConfigDirectories = pkgConfigDirectories
+        self.architectures = architectures
+        self.workers = workers
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts

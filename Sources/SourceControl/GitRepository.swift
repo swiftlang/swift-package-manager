@@ -342,6 +342,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
+    private var cachedBranches = ThreadSafeBox<[String]>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important
@@ -420,6 +421,21 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let url = try callGit("config", "--get", "remote.\(name).url",
                                       failureMessage: "Couldn’t get the URL of the remote ‘\(name)’")
                 return (name, url)
+            }
+        }
+    }
+
+    // MARK: Helpers for package search functionality
+
+    public func getDefaultBranch() throws -> String {
+        return try callGit("rev-parse", "--abbrev-ref", "HEAD", failureMessage: "Couldn’t get the default branch")
+    }
+
+    public func getBranches() throws -> [String] {
+        try self.cachedBranches.memoize {
+            try self.lock.withLock {
+                let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
+                return branches.split(separator: "\n").map { $0.dropFirst(2) }.map(String.init)
             }
         }
     }

@@ -45,6 +45,7 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
+import struct TSCUtility.Triple
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
@@ -75,7 +76,12 @@ public protocol SwiftCommand: ParsableCommand {
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: globalOptions, toolWorkspaceConfiguration: self.toolWorkspaceConfiguration, workspaceDelegateProvider: self.workspaceDelegateProvider, workspaceLoaderProvider: self.workspaceLoaderProvider)
+        let swiftTool = try SwiftTool(
+            options: globalOptions,
+            toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
+            workspaceDelegateProvider: self.workspaceDelegateProvider,
+            workspaceLoaderProvider: self.workspaceLoaderProvider
+        )
         swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
         var toolError: Error? = .none
         do {
@@ -150,7 +156,7 @@ public final class SwiftTool {
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath?
 
-    /// Path to the cross-compilation SDK directory.
+    /// Path to the cross-compilation destinations directory.
     public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
@@ -291,15 +297,17 @@ public final class SwiftTool {
 
         self.packageRoot = packageRoot
         self.scratchDirectory =
-            try getEnvBuildPath(workingDir: cwd) ??
+            try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
             (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try getSharedCrossCompilationDestinationsDirectory(options: self.options, fileSystem: fileSystem)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
+            explicitDirectory: options.locations.crossCompilationDestinationsDirectory
+        )
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -314,7 +322,7 @@ public final class SwiftTool {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.build.archs.isEmpty && options.build.customCompileTriple != nil {
+        if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
@@ -575,23 +583,24 @@ public final class SwiftTool {
 
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
-            let toolchain = try self.getDestinationToolchain()
-            let triple = toolchain.triple
+            let destinationToolchain = try self.getDestinationToolchain()
+            let destinationTriple = destinationToolchain.triple
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = self.scratchDirectory.appending(
-                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
+            )
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
-                toolchain: toolchain,
-                destinationTriple: triple,
-                archs: options.build.archs,
+                toolchain: destinationToolchain,
+                destinationTriple: destinationTriple,
                 flags: options.build.buildFlags,
-                xcbuildFlags: options.build.xcbuildFlags,
-                jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                pkgConfigDirectories: options.locations.pkgConfigDirectories,
+                architectures: options.build.architectures,
+                workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
@@ -618,13 +627,24 @@ public final class SwiftTool {
         var destination: Destination
         let hostDestination: Destination
         do {
-            hostDestination = try self._hostToolchain.get().destination
+            let hostToolchain = try _hostToolchain.get()
+            hostDestination = hostToolchain.destination
+            let hostTriple = Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+
             // Create custom toolchain if present.
-            if let customDestination = self.options.locations.customCompileDestination {
-                destination = try Destination(fromFile: customDestination, fileSystem: self.fileSystem)
-            } else if let target = self.options.build.customCompileTriple,
+            if let customDestination = options.locations.customCompileDestination {
+                destination = try Destination(fromFile: customDestination, fileSystem: fileSystem)
+            } else if let target = options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
+            } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
+                destination = try DestinationsBundle.selectDestination(
+                    fromBundlesAt: sharedCrossCompilationDestinationsDirectory,
+                    fileSystem: fileSystem,
+                    matching: destinationSelector,
+                    hostTriple: hostTriple,
+                    observabilityScope: observabilityScope
+                )
             } else {
                 // Otherwise use the host toolchain.
                 destination = hostDestination
@@ -633,16 +653,16 @@ public final class SwiftTool {
             return .failure(error)
         }
         // Apply any manual overrides.
-        if let triple = self.options.build.customCompileTriple {
+        if let triple = options.build.customCompileTriple {
             destination.targetTriple = triple
         }
-        if let binDir = self.options.build.customCompileToolchain {
+        if let binDir = options.build.customCompileToolchain {
             destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
         }
-        if let sdk = self.options.build.customCompileSDK {
+        if let sdk = options.build.customCompileSDK {
             destination.sdkRootDir = sdk
         }
-        destination.archs = options.build.archs
+        destination.architectures = options.build.architectures
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
@@ -724,15 +744,6 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     return root
 }
 
-/// Returns the build path from the environment, if present.
-private func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
-    // Don't rely on build path from env for SwiftPM's own tests.
-    guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-    guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
-    return try AbsolutePath(validating: env, relativeTo: workingDir)
-}
-
-
 private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
@@ -772,21 +783,6 @@ private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSys
     }
 }
 
-private func getSharedCrossCompilationDestinationsDirectory(
-    options: GlobalOptions,
-    fileSystem: FileSystem
-) throws -> AbsolutePath? {
-    if let explicitDestinationsDirectory = options.locations.crossCompilationDestinationsDirectory {
-        // Create the explicit destinations path if necessary
-        if !fileSystem.exists(explicitDestinationsDirectory) {
-            try fileSystem.createDirectory(explicitDestinationsDirectory, recursive: true)
-        }
-        return explicitDestinationsDirectory
-    } else {
-        return try fileSystem.swiftPMCrossCompilationDestinationsDirectory
-    }
-}
-
 extension Basics.Diagnostic {
     static func unsupportedFlag(_ flag: String) -> Self {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
@@ -822,6 +818,8 @@ extension LoggingOptions {
             return .info
         } else if self.veryVerbose {
             return .debug
+        } else if self.quiet {
+            return .error
         } else {
             return .warning
         }

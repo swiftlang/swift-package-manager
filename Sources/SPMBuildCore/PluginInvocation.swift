@@ -44,6 +44,7 @@ extension PluginTarget {
     ///   - workingDirectory: The initial working directory of the invoked plugin.
     ///   - outputDirectory: A directory under which the plugin can write anything it wants to.
     ///   - toolNamesToPaths: A mapping from name of tools available to the plugin to the corresponding absolute paths.
+    ///   - pkgConfigDirectory: A directory for searching `pkg-config` `.pc` files in it.
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
@@ -54,10 +55,10 @@ extension PluginTarget {
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
-        toolNamesToPaths: [String: AbsolutePath],
-        toolNamesToTriples: [String: [String]],
+        accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -75,11 +76,17 @@ extension PluginTarget {
         // Serialize the plugin action to send as the initial message.
         let initialMessage: Data
         do {
-            var serializer = PluginContextSerializer(fileSystem: fileSystem, buildEnvironment: buildEnvironment)
+            var serializer = PluginContextSerializer(
+                fileSystem: fileSystem,
+                buildEnvironment: buildEnvironment,
+                pkgConfigDirectories: pkgConfigDirectories
+            )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
             let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
-            let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serializer.serialize(path: $0) }
-            let toolNamesToTriplesDict = toolNamesToTriples
+            let accessibleTools = try accessibleTools.mapValues { (tool: (AbsolutePath, [String]?)) -> HostToPluginMessage.InputContext.Tool in
+                let path = try serializer.serialize(path: tool.0)
+                return .init(path: path, triples: tool.1)
+            }
             let actionMessage: HostToPluginMessage
             switch action {
                 
@@ -95,8 +102,7 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds,
-                    toolNamesToTriples: toolNamesToTriplesDict)
+                    accessibleTools: accessibleTools)
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -110,8 +116,7 @@ extension PluginTarget {
                     packages: serializer.packages,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    toolNamesToPathIds: toolNamesToPathIds,
-                    toolNamesToTriples: toolNamesToTriples)
+                    accessibleTools: accessibleTools)
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -325,6 +330,7 @@ extension PackageGraph {
         builtToolsDir: AbsolutePath,
         buildEnvironment: BuildEnvironment,
         toolSearchDirectories: [AbsolutePath],
+        pkgConfigDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
@@ -364,32 +370,14 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = try pluginTarget.accessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple)
-                let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
-                    switch tool {
-                    case .builtTool(let name, let path):
-                        dict[name] = builtToolsDir.appending(path)
-                    case .vendedTool(let name, let path, _):
-                        dict[name] = path
-                    }
-                })
-                let builtToolNames = accessibleTools.compactMap { (accTool) -> String? in
-                    if case .builtTool(let name, _) = accTool {
-                        return name
-                    }
-                    return nil
+                var builtToolNames: [String] = []
+                let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
+                    builtToolNames.append(name)
+                    return builtToolsDir.appending(path)
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
-                let toolPaths = toolNamesToPaths.values.sorted()
-
-                let toolNamesToTriples = accessibleTools.reduce(into: [String: [String]](), { dict, tool in
-                    switch tool {
-                    case .vendedTool(let name, _, let triple):
-                        dict[name] = triple
-                    default: break
-                    }
-                })
+                let toolPaths = accessibleTools.values.map { $0.path }.sorted()
 
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
@@ -480,10 +468,10 @@ extension PackageGraph {
                     workingDirectory: package.path,
                     outputDirectory: pluginOutputDir,
                     toolSearchDirectories: toolSearchDirectories,
-                    toolNamesToPaths: toolNamesToPaths,
-                    toolNamesToTriples: toolNamesToTriples,
+                    accessibleTools: accessibleTools,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
+                    pkgConfigDirectories: pkgConfigDirectories,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,
@@ -529,7 +517,7 @@ public extension PluginTarget {
     }
 
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
+    private func accessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple) throws -> Set<PluginAccessibleTool> {
         return try Set(self.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
             let builtToolName: String
             let executableOrBinaryTarget: Target
@@ -549,7 +537,7 @@ public extension PluginTarget {
             if let target = executableOrBinaryTarget as? BinaryTarget {
                 // TODO: Memoize this result for the host triple
                 let execInfos = try target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
-                return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: $0.supportedTriples.map{$0.tripleString}) }
+                return try execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: try $0.supportedTriples.map{ try $0.withoutVersion().tripleString }) }
             }
             // For an executable target we create a `builtTool`.
             else if executableOrBinaryTarget.type == .executable {
@@ -559,6 +547,28 @@ public extension PluginTarget {
                 return []
             }
         })
+    }
+
+    func processAccessibleTools(packageGraph: PackageGraph, fileSystem: FileSystem, environment: BuildEnvironment, for hostTriple: Triple, builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath?) throws -> [String: (path: AbsolutePath, triples: [String]?)] {
+        var pluginAccessibleTools: [String: (path: AbsolutePath, triples: [String]?)] = [:]
+
+        for dep in try accessibleTools(packageGraph: packageGraph, fileSystem: fileSystem, environment: environment, for: hostTriple) {
+            switch dep {
+            case .builtTool(let name, let path):
+                if let path = try builtToolHandler(name, path) {
+                    pluginAccessibleTools[name] = (path, nil)
+                }
+            case .vendedTool(let name, let path, let triples):
+                // Avoid having the path of an unsupported tool overwrite a supported one.
+                guard !triples.isEmpty || pluginAccessibleTools[name] == nil else {
+                    continue
+                }
+                let priorTriples = pluginAccessibleTools[name]?.triples ?? []
+                pluginAccessibleTools[name] = (path, priorTriples + triples)
+            }
+        }
+
+        return pluginAccessibleTools
     }
 }
 
@@ -690,6 +700,7 @@ public struct PluginInvocationSymbolGraphOptions {
     }
     public var includeSynthesized: Bool
     public var includeSPI: Bool
+    public var emitExtensionBlocks: Bool
 }
 
 public struct PluginInvocationSymbolGraphResult {
@@ -950,6 +961,7 @@ fileprivate extension PluginInvocationSymbolGraphOptions {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
+        self.emitExtensionBlocks = options.emitExtensionBlocks
     }
 }
 

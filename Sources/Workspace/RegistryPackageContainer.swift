@@ -46,7 +46,9 @@ public class RegistryPackageContainer: PackageContainer {
         self.registryClient = registryClient
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
-        self.observabilityScope = observabilityScope
+        self.observabilityScope = observabilityScope.makeChildScope(
+            description: "RegistryPackageContainer",
+            metadata: package.diagnosticsMetadata)
     }
 
     // MARK: - PackageContainer
