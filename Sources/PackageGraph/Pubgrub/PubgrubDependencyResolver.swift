@@ -1344,7 +1344,7 @@ private final class ContainerProvider {
                 self.underlying.getContainer(
                     for: identifier,
                     skipUpdate: self.skipUpdate,
-                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetcing package container", metadata: identifier.diagnosticsMetadata),
+                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
                     on: .sharedConcurrent
                 ) { result in
                     defer { self.prefetches[identifier]?.leave() }
