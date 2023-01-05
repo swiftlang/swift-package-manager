@@ -79,18 +79,18 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp(
                 "Pass flag through to the Xcode build system invocations",
-                shouldDisplay: false))
+                visibility: .hidden))
     public var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xmanifest", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
-                               shouldDisplay: false))
+                               visibility: .hidden))
     public var manifestFlags: [String] = []
 
     @Option(
       name: .customLong("arch"),
-      help: ArgumentHelp("Build the package for the these architectures", shouldDisplay: false))
+      help: ArgumentHelp("Build the package for the these architectures", visibility: .hidden))
     public var architectures: [String] = []
 
     /// The verbosity of informational output.
