@@ -761,14 +761,6 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     return root
 }
 
-/// Returns the build path from the environment, if present.
-private func getEnvBuildPath(workingDir: AbsolutePath) throws -> AbsolutePath? {
-    // Don't rely on build path from env for SwiftPM's own tests.
-    guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
-    guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
-    return try AbsolutePath(validating: env, relativeTo: workingDir)
-}
-
 private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem) throws -> AbsolutePath? {
     if let explicitSecurityDirectory = options.locations.securityDirectory {
         // Create the explicit security path if necessary
