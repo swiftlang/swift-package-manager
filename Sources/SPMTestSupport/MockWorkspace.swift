@@ -834,12 +834,12 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("will resolve dependencies")
     }
 
-    public func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
-        self.append("will load manifest for \(packageKind.displayName) package: \(url)")
+    public func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
+        self.append("will load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
     }
 
-    public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {
-        self.append("did load manifest for \(packageKind.displayName) package: \(url)")
+    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {
+        self.append("did load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
         self.lock.withLock {
             self._manifest = manifest
             self._manifestLoadingDiagnostics = diagnostics
