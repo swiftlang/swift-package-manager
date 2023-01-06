@@ -151,22 +151,28 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
     public var shouldDisableSandbox: Bool = false
 
-    /// Whether to load .netrc files for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
+    /// Force usage of the netrc file even in cases where it is not allowed.
+    @Flag(name: .customLong("netrc"), help: "Use netrc file even in cases where other credential stores are preferred")
+    public var forceNetrc: Bool = false
+
+    /// Whether to load netrc files for authenticating with remote servers
+    /// when downloading binary artifacts. This has no effects on registry
+    /// communications.
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
-          help: "Load credentials from a .netrc file")
+          help: "Load credentials from a netrc file")
     public var netrc: Bool = true
 
-    /// The path to the .netrc file used when `netrc` is `true`.
+    /// The path to the netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
-        help: "Specify the .netrc file path.",
+        help: "Specify the netrc file path",
         completion: .file())
     public var netrcFilePath: AbsolutePath?
 
     /// Whether to use keychain for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
+    /// when downloading binary artifacts. This has no effects on registry
+    /// communications.
     #if canImport(Security)
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
@@ -197,7 +203,6 @@ public struct ResolverOptions: ParsableArguments {
     /// Skip updating dependencies from their remote during a resolution.
     @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
     public var skipDependencyUpdate: Bool = false
-
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .swizzle
@@ -377,7 +382,7 @@ public struct BuildOptions: ParsableArguments {
         case disableIndexStore
     }
 
-    public enum TargetDependencyImportCheckingMode : String, Codable, ExpressibleByArgument {
+    public enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument {
         case none
         case warn
         case error
@@ -398,9 +403,7 @@ public struct LinkerOptions: ParsableArguments {
     public var shouldLinkStaticSwiftStdlib: Bool = false
 }
 
-
 // MARK: - Extensions
-
 
 extension BuildConfiguration: ExpressibleByArgument {
     public init?(argument: String) {
@@ -430,7 +433,6 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-
 extension FingerprintCheckingMode: ExpressibleByArgument {
     public init?(argument: String) {
         self.init(rawValue: argument)
@@ -458,5 +460,4 @@ public extension Sanitizer {
     }
 }
 
-extension BuildSystemProvider.Kind: ExpressibleByArgument {
-}
+extension BuildSystemProvider.Kind: ExpressibleByArgument {}
