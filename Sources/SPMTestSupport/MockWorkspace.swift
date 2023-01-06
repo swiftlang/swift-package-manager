@@ -814,7 +814,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("creating working copy for: \(url)")
     }
 
-    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.append("finished creating working copy for: \(url)")
     }
 
@@ -822,7 +822,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("checking out repo: \(url)")
     }
 
-    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.append("finished checking out repo: \(url)")
     }
 
@@ -838,7 +838,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("will load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
     }
 
-    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {
+    public func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
         self.append("did load manifest for \(packageKind.displayName) package: \(url) (identity: \(packageIdentity))")
         self.lock.withLock {
             self._manifest = manifest

@@ -206,10 +206,10 @@ public class RepositoryManager: Cancellable {
                 return handle
             }
             // Update the repository when it is being looked up.
-            let start = DispatchTime.now()
             delegateQueue.async {
                 self.delegate?.willUpdate(package: package, repository: handle.repository)
             }
+            let start = DispatchTime.now()
             let repository = try handle.open()
             try repository.fetch()
             let duration = start.distance(to: .now())
