@@ -1232,6 +1232,141 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testMirrorSimple() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending(component: "MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending(component: "Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(url: "https://scm.com/org/foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+        }
+    }
+
+    func testMirrorURLToRegistry() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending(component: "MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending(component: "Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(url: "https://scm.com/org/foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "org.bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("org.bar"))
+            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+        }
+    }
+
+    func testMirrorRegistryToURL() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending(component: "MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending(component: "Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(id: "org.foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "org.foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(output, .contains("org.foo"))
+        }
+    }
+
     func testPackageLoadingCommandPathResilience() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "skipping on non-macOS")
