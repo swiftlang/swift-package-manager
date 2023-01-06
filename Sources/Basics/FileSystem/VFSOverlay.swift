@@ -55,6 +55,7 @@ public struct VFSOverlay: Encodable {
             super.init(name: name, type: "directory")
         }
 
+        // TODO(ncooke3): Do we need to wrap this in `#if swift(>=5.4)`?
         public convenience init(
             name: String,
             @VFSOverlayBuilder contents: () -> [VFSOverlay.Resource]
@@ -95,7 +96,7 @@ public struct VFSOverlay: Encodable {
     }
 }
 
-// TOOD(ncooke3): Gate this?
+// TODO(ncooke3): Do we need to wrap this in `#if swift(>=5.4)`?
 @resultBuilder
 public struct VFSOverlayBuilder {
     public static func buildBlock(_ components: [VFSOverlay.Resource]...) -> [VFSOverlay.Resource] {

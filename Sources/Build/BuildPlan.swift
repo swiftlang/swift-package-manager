@@ -1438,17 +1438,21 @@ public final class MixedTargetBuildDescription {
         // When the Swift compiler creates the generated interop header for
         // Objective-C compatible Swift API (via `-emit-objc-header`), any
         // Objective-C symbol that cannot be forward declared (e.g. superclass,
-        // protocol, etc.) will attempt to be imported via a module import of
-        // the module's umbrella header (e.g. `#import <Module/Module.h>`). The
-        // Swift compiler assumes (1) the module has the structure of a
-        // framework and (2) that an umbrella header exists. However, SwiftPM
-        // does not build frameworks (breaking assumption #1) and an umbrella
-        // header may not exist (breaking assumption #2). Instead, to guarantee
-        // the generated interop header's import can be resolved, the package
-        // manager generates an umbrella header if needed and will later use a
-        // VFS overlay to make the generated header appear in the proper
-        // location so the problematic import in the generated interop header
-        // can be resolved during the build.
+        // protocol, etc.) will attempt to be imported via a bridging header.
+        // Unfortunately, a custom bridging header can not be specified because
+        // the target is evaluated as a framework target (as opposed to an app
+        // target), and framework target do not support bridging headers. So,
+        // the compiler defaults to importing the following in the generated
+        // interop header ($(ModuleName)-Swift.h):
+        //
+        //      #import <$(ModuleName)/$(ModuleName).h>
+        //
+        // The compiler assumes that the above path can be resolved. Instead of
+        // forcing package authors to structure their packages around that
+        // constraint, the package manager generates an umbrella header if
+        // needed and will later use a VFS overlay to make the generated header
+        // appear in the proper location so the bridging header import in the
+        // generated interop header can be resolved during the build.
         var generatedUmbrellaHeaderPath: AbsolutePath? = nil
         let relativeUmbrellaHeaderPath =
             RelativePath("\(mixedTarget.c99name)/\(mixedTarget.c99name).h")
