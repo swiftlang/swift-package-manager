@@ -32,15 +32,22 @@ let package = Package(
             dependencies: ["BasicMixedTarget"]
         ),
 
-        // MARK: - BasicMixedTargetBeta
-        // TODO(ncooke3): Add note about compares this target compares with 
-        // `BasicMixedTarget`.
+        // MARK: - BasicMixedTargetWithNestedUmbrellaHeader
         .target(
-            name: "BasicMixedTargetBeta"
+            name: "BasicMixedTargetWithNestedUmbrellaHeader"
         ),
         .testTarget(
-            name: "BasicMixedTargetBetaTests",
-            dependencies: ["BasicMixedTargetBeta"]
+            name: "BasicMixedTargetWithNestedUmbrellaHeaderTests",
+            dependencies: ["BasicMixedTargetWithNestedUmbrellaHeader"]
+        ),
+
+        // MARK: - BasicMixedTargetWithUmbrellaHeader
+        .target(
+            name: "BasicMixedTargetWithUmbrellaHeader"
+        ),
+        .testTarget(
+            name: "BasicMixedTargetWithUmbrellaHeaderTests",
+            dependencies: ["BasicMixedTargetWithUmbrellaHeader"]
         ),
 
         // MARK: - MixedTargetWithResources

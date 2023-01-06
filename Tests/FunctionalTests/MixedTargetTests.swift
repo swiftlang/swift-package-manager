@@ -34,17 +34,31 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    // See `Fixtures/MixedTargets/BasicMixedTargets/Package.swift` for
-    // explanation of `BasicMixedTargetBeta` target.
-    func testMixedTargetBeta() throws {
+    func testMixedTargetWithUmbrellaHeader() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
-                extraArgs: ["--target", "BasicMixedTargetBeta"]
+                extraArgs: ["--target", "BasicMixedTargetWithUmbrellaHeader"]
             )
             XCTAssertSwiftTest(
                 fixturePath,
-                extraArgs: ["--filter", "BasicMixedTargetBetaTests"]
+                extraArgs: ["--filter", "BasicMixedTargetWithUmbrellaHeaderTests"]
+            )
+        }
+    }
+
+    // TODO(ncooke3): Remove below comment if `-import-objc-header` works.
+    // See `Fixtures/MixedTargets/BasicMixedTargets/Package.swift` for
+    // explanation of `BasicMixedTargetWithNestedUmbrellaHeader` target.
+    func testMixedTargetWithNestedUmbrellaHeader() throws {
+        try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
+            XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "BasicMixedTargetWithNestedUmbrellaHeader"]
+            )
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "BasicMixedTargetWithNestedUmbrellaHeaderTests"]
             )
         }
     }

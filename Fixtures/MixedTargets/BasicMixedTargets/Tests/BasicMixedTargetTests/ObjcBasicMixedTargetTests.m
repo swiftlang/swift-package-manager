@@ -17,6 +17,7 @@
     // Check that Objective-C API surface is exposed...
     OldCar *oldCar = [[OldCar alloc] init];
     Driver *driver = [[Driver alloc] init];
+    CarPart *carPart = [[CarPart alloc] init];
 }
 
 @end

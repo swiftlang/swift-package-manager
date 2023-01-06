@@ -13,6 +13,7 @@ final class BasicMixedTargetTests: XCTestCase {
         // Check that Objective-C API surface is exposed...
         let _ = OldCar()
         let _ = Driver()
+        let _ = CarPart()
     }
 
     func testModulePrefixingWorks() throws {
@@ -20,6 +21,7 @@ final class BasicMixedTargetTests: XCTestCase {
         let _ = BasicMixedTarget.Engine()
         let _ = BasicMixedTarget.OldCar()
         let _ = BasicMixedTarget.Driver()
+        let _ = BasicMixedTarget.CarPart()
     }
 
 }
