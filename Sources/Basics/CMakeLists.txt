@@ -26,8 +26,11 @@ add_library(Basics
   FileSystem/AsyncFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/VFSOverlay.swift
-  HTTPClient+URLSession.swift
-  HTTPClient.swift
+  HTTPClient/HTTPClient.swift
+  HTTPClient/HTTPClient+URLSession.swift
+  HTTPClient/HTTPClientHeaders.swift
+  HTTPClient/HTTPClientRequest.swift
+  HTTPClient/HTTPClientResponse.swift
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
