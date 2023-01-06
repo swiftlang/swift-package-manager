@@ -28,6 +28,7 @@ public struct URLSessionHTTPClient {
         self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
     }
 
+    @available(macOS 12, *)
     public func execute(
         _ request: HTTPClient.Request,
         observabilityScope: ObservabilityScope? = nil,
