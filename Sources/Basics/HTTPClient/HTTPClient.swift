@@ -21,6 +21,8 @@ import struct Foundation.URL
 import struct Foundation.UUID
 import TSCBasic
 
+import _Concurrency
+
 #if canImport(Glibc)
 import Glibc
 #elseif canImport(CRT)
