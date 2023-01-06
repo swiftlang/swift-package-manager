@@ -1,6 +1,6 @@
 # file options
 
---swiftversion 5.0
+--swiftversion 5.5
 --exclude .build
 
 # format options
