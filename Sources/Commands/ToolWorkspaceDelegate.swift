@@ -172,8 +172,8 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     // noop
 
-    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
+    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
     func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
     func resolvedFileChanged() {}
