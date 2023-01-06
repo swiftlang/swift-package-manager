@@ -28,6 +28,18 @@ public struct URLSessionHTTPClient {
         self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
     }
 
+    public func execute(
+        _ request: HTTPClient.Request,
+        observabilityScope: ObservabilityScope? = nil,
+        progress: HTTPClient.ProgressHandler?
+    ) async throws -> HTTPClient.Response {
+        try await withCheckedThrowingContinuation { continuation in
+            execute(request, observabilityScope: observabilityScope, progress: progress, completion: continuation.resume(with:))
+        }
+    }
+
+    // This manual overload has to be present to satisfy `HTTPClient.Handler` closure requirements,
+    // even though `observabilityScope = nil` default argument on the other function creates an identical overload.
     public func execute(_ request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
     }
