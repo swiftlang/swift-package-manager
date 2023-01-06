@@ -13,7 +13,6 @@
 import Basics
 import Foundation
 import PackageModel
-import struct SourceControl.Revision // FIXME: remove this dependency
 import TSCBasic
 
 public final class PinsStore {
