@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -35,12 +35,36 @@ public final class RegistryClient: Cancellable {
         configuration: RegistryConfiguration,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        authorizationProvider: HTTPClientAuthorizationProvider? = .none,
+        authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
     ) {
         self.configuration = configuration
-        self.authorizationProvider = authorizationProvider
+
+        if let authorizationProvider = authorizationProvider {
+            self.authorizationProvider = { url in
+                guard let registryAuthentication = configuration.authentication(for: url) else {
+                    return .none
+                }
+                guard let (user, password) = authorizationProvider.authentication(for: url) else {
+                    return .none
+                }
+
+                switch registryAuthentication.type {
+                case .basic:
+                    let authorizationString = "\(user):\(password)"
+                    guard let authorizationData = authorizationString.data(using: .utf8) else {
+                        return nil
+                    }
+                    return "Basic \(authorizationData.base64EncodedString())"
+                case .token: // `user` value is irrelevant in this case
+                    return "Bearer \(password)"
+                }
+            }
+        } else {
+            self.authorizationProvider = .none
+        }
+
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
@@ -110,7 +134,7 @@ public final class RegistryClient: Cancellable {
                     return PackageMetadata(
                         registry: registry,
                         versions: versions,
-                        alternateLocations: alternateLocations?.map{ $0.url }
+                        alternateLocations: alternateLocations?.map { $0.url }
                     )
                 }.mapError {
                     RegistryError.failedRetrievingReleases($0)
@@ -181,8 +205,6 @@ public final class RegistryClient: Cancellable {
                 }
             )
         }
-
-
     }
 
     public func getManifestContent(
@@ -527,9 +549,42 @@ public final class RegistryClient: Cancellable {
 
                 let packageIdentities = try self.jsonDecoder.decode(Serialization.PackageIdentifiers.self, from: data)
                 return Set(packageIdentities.identifiers.map {
-                    return PackageIdentity.plain($0)
+                    PackageIdentity.plain($0)
                 })
             })
+        }
+    }
+
+    public func login(
+        url: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        let request = HTTPClient.Request(
+            method: .post,
+            url: url,
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        return ()
+                    case 401:
+                        throw RegistryError.unauthorized
+                    case 501:
+                        throw RegistryError.authenticationMethodNotSupported
+                    default:
+                        throw RegistryError.invalidResponseStatus(expected: 200, actual: response.statusCode)
+                    }
+                }
+            )
         }
     }
 
@@ -569,6 +624,8 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingReleaseChecksum(Error)
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
+    case unauthorized
+    case authenticationMethodNotSupported
 
     public var description: String {
         switch self {
@@ -614,17 +671,21 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Failed retrieving manifest from registry: \(error)"
         case .failedDownloadingSourceArchive(let error):
             return "Failed downloading source archive from registry: \(error)"
+        case .unauthorized:
+            return "Missing or invalid authentication credentials"
+        case .authenticationMethodNotSupported:
+            return "Authentication method not supported"
         }
     }
 }
 
-fileprivate extension RegistryClient {
+private extension RegistryClient {
     enum APIVersion: String {
         case v1 = "1"
     }
 }
 
-fileprivate extension RegistryClient {
+private extension RegistryClient {
     enum MediaType: String {
         case json
         case swift
@@ -666,7 +727,7 @@ extension RegistryClient {
     }
 }
 
-fileprivate extension RegistryClient {
+private extension RegistryClient {
     struct AlternativeLocationLink {
         let url: URL
         let kind: Kind
@@ -678,7 +739,7 @@ fileprivate extension RegistryClient {
     }
 }
 
-fileprivate extension RegistryClient {
+private extension RegistryClient {
     struct ManifestLink {
         let url: URL
         let filename: String
@@ -686,18 +747,18 @@ fileprivate extension RegistryClient {
     }
 }
 
-fileprivate extension HTTPClientHeaders {
+private extension HTTPClientHeaders {
     /*
-    <https://github.com/mona/LinkedList>; rel="canonical",
-    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-     */
+     <https://github.com/mona/LinkedList>; rel="canonical",
+     <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+      */
     func parseAlternativeLocationLinks() throws -> [RegistryClient.AlternativeLocationLink]? {
         return try self.get("Link").map { header -> [RegistryClient.AlternativeLocationLink] in
             let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
                 try parseAlternativeLocationLine(linkLine)
             }
-        }.flatMap{ $0 }
+        }.flatMap { $0 }
     }
 
     private func parseAlternativeLocationLine(_ value: String) throws -> RegistryClient.AlternativeLocationLink? {
@@ -713,7 +774,7 @@ fileprivate extension HTTPClientHeaders {
             return nil
         }
 
-        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel)  else {
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel) else {
             return nil
         }
 
@@ -724,17 +785,17 @@ fileprivate extension HTTPClientHeaders {
     }
 }
 
-fileprivate extension HTTPClientHeaders {
+private extension HTTPClientHeaders {
     /*
-    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0"
-    */
+     <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0"
+     */
     func parseManifestLinks() throws -> [RegistryClient.ManifestLink] {
         return try self.get("Link").map { header -> [RegistryClient.ManifestLink] in
             let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
                 try parseManifestLinkLine(linkLine)
             }
-        }.flatMap{ $0 }
+        }.flatMap { $0 }
     }
 
     private func parseManifestLinkLine(_ value: String) throws -> RegistryClient.ManifestLink? {
@@ -774,8 +835,8 @@ fileprivate extension HTTPClientHeaders {
     }
 }
 
-fileprivate extension HTTPClientHeaders {
-     func parseLinkFieldValue(_ field: String) -> String? {
+private extension HTTPClientHeaders {
+    func parseLinkFieldValue(_ field: String) -> String? {
         let parts = field.split(separator: "=")
             .map(String.init)
             .map { $0.spm_chuzzle() ?? $0 }
@@ -876,7 +937,7 @@ public extension RegistryClient {
 
 // MARK: - Utilities
 
-fileprivate extension AbsolutePath {
+private extension AbsolutePath {
     func withExtension(_ extension: String) -> AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
@@ -884,7 +945,7 @@ fileprivate extension AbsolutePath {
     }
 }
 
-fileprivate extension URLComponents {
+private extension URLComponents {
     mutating func appendPathComponents(_ components: String...) {
         path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
     }

@@ -313,6 +313,7 @@ public class Workspace {
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
@@ -325,6 +326,7 @@ public class Workspace {
         fileSystem: FileSystem,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
+        registryAuthorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
@@ -340,6 +342,7 @@ public class Workspace {
             fileSystem: fileSystem,
             location: location,
             authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
@@ -370,6 +373,7 @@ public class Workspace {
     ///   - fileSystem: The file system to use, defaults to local file system.
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
@@ -381,6 +385,7 @@ public class Workspace {
         fileSystem: FileSystem? = .none,
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
+        registryAuthorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
@@ -415,6 +420,7 @@ public class Workspace {
     ///   - fileSystem: The file system to use, defaults to local file system.
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - cancellator: Cancellation handler
     ///   - initializationWarningHandler: Initialization warnings handler
@@ -426,6 +432,7 @@ public class Workspace {
         fileSystem: FileSystem? = .none,
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
+        registryAuthorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
@@ -447,6 +454,7 @@ public class Workspace {
             fileSystem: fileSystem,
             location: location,
             authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
@@ -466,6 +474,7 @@ public class Workspace {
         fileSystem: FileSystem,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
+        registryAuthorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
@@ -490,6 +499,7 @@ public class Workspace {
             fileSystem: fileSystem,
             location: location,
             authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
@@ -515,6 +525,7 @@ public class Workspace {
         fileSystem: FileSystem,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
+        registryAuthorizationProvider: AuthorizationProvider?,
         configuration: WorkspaceConfiguration?,
         cancellator: Cancellator?,
         initializationWarningHandler: ((String) -> Void)?,
@@ -589,7 +600,7 @@ public class Workspace {
             configuration: registriesConfiguration,
             fingerprintStorage: fingerprints,
             fingerprintCheckingMode: configuration.fingerprintCheckingMode,
-            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
+            authorizationProvider: registryAuthorizationProvider
         )
 
         let registryDownloadsManager = RegistryDownloadsManager(

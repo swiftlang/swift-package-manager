@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -30,7 +30,7 @@ final class AuthorizationProviderTests: XCTestCase {
         try testWithTemporaryDirectory { tmpPath in
             let netrcPath = tmpPath.appending(component: ".netrc")
 
-            var provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
+            let provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
 
             let user = UUID().uuidString
 
@@ -87,7 +87,11 @@ final class AuthorizationProviderTests: XCTestCase {
 
         // Existing password is updated
         self.assertAuthentication(provider, for: url, expected: (user, newPassword))
+        self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
 
+        // Delete
+        XCTAssertNoThrow(try tsc_await { callback in provider.remove(for: url, callback: callback) })
+        XCTAssertNil(provider.authentication(for: url))
         self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
         #endif
     }

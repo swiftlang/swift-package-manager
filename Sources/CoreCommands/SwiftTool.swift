@@ -55,7 +55,8 @@ public struct ToolWorkspaceConfiguration {
     let wantsREPLProduct: Bool
 
     public init(wantsMultipleTestProducts: Bool = false,
-         wantsREPLProduct: Bool = false) {
+                wantsREPLProduct: Bool = false)
+    {
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
@@ -362,6 +363,7 @@ public final class SwiftTool {
                 emitDeprecatedConfigurationWarning: emitDeprecatedConfigurationWarning
             ),
             authorizationProvider: self.getAuthorizationProvider(),
+            registryAuthorizationProvider: self.getRegistryAuthorizationProvider(),
             configuration: .init(
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
@@ -423,8 +425,7 @@ public final class SwiftTool {
         } else if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
-            let rootPath = try options.locations.multirootPackageDataFile ?? self.getPackageRoot()
-            authorization.netrc = .workspaceAndUser(rootPath: rootPath)
+            authorization.netrc = .user
         }
 
         #if canImport(Security)
@@ -432,6 +433,22 @@ public final class SwiftTool {
         #endif
 
         return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+    }
+
+    public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
+        var authorization = Workspace.Configuration.Authorization.default
+        if let configuredPath = options.security.netrcFilePath {
+            authorization.netrc = .custom(configuredPath)
+        } else {
+            authorization.netrc = .user
+        }
+
+        // Don't use OS credential store if user wants netrc
+        #if canImport(Security)
+        authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
+        #endif
+
+        return try authorization.makeRegistryAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Resolve the dependencies.
@@ -519,8 +536,8 @@ public final class SwiftTool {
 
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        self.fileSystem.exists(buildParameters.llbuildManifest) &&
-        self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildParameters.llbuildManifest) &&
+            self.fileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -869,6 +886,6 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
 
 public extension Basics.Diagnostic {
     static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
-        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+        .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }
