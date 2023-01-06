@@ -338,7 +338,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Configure the symbol graph extractor.
         var symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            swiftSymbolGraphExtract: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            clangCompiler: swiftTool.getDestinationToolchain().getClangCompiler(),
             observabilityScope: swiftTool.observabilityScope
         )
         symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
