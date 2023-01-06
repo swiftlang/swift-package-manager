@@ -64,7 +64,7 @@ public protocol WorkspaceDelegate: AnyObject {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval)
 
     /// The workspace has started fetching this package.
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
@@ -84,12 +84,12 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to clone a repository from the local cache to a working directory.
     func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath)
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath)
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval)
 
     /// The workspace is about to check out a particular revision of a working directory.
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath)
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath)
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval)
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(package: PackageIdentity, packageLocation: String?)
@@ -2031,6 +2031,7 @@ extension Workspace {
 
         var manifestLoadingDiagnostics = [Basics.Diagnostic]()
 
+        let start = DispatchTime.now()
         self.manifestLoader.load(
             packagePath: packagePath,
             packageIdentity: packageIdentity,
@@ -2044,11 +2045,12 @@ extension Workspace {
             delegateQueue: .sharedConcurrent,
             callbackQueue: .sharedConcurrent
         ) { result in
+            let duration = start.distance(to: .now())
             var result = result
             switch result {
             case .failure(let error):
                 manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics)
+                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics, duration: duration)
             case .success(let manifest):
                 let validator = ManifestValidator(manifest: manifest, sourceControlValidator: self.repositoryManager, fileSystem: self.fileSystem)
                 let validationIssues = validator.validate()
@@ -2057,7 +2059,7 @@ extension Workspace {
                     result = .failure(Diagnostics.fatalError)
                     manifestLoadingDiagnostics.append(contentsOf: validationIssues)
                 }
-                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics)
+                self.delegate?.didLoadManifest(packageIdentity: packageIdentity, packagePath: packagePath, url: packageLocation, version: packageVersion, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics, duration: duration)
             }
             manifestLoadingScope.emit(manifestLoadingDiagnostics)
             completion(result)
@@ -3139,8 +3141,9 @@ extension Workspace {
         // Check out the given revision.
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
-        // Inform the delegate.
+        // Inform the delegate that we're about to start.
         delegate?.willCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
+        let start = DispatchTime.now()
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
@@ -3158,7 +3161,9 @@ extension Workspace {
         )
         try self.state.save()
 
-        delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
+        // Inform the delegate that we're done.
+        let duration = start.distance(to: .now())
+        delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, duration: duration)
 
         return checkoutPath
     }
@@ -3246,13 +3251,20 @@ extension Workspace {
         // Clone the repository into the checkouts.
         let path = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
 
+        // Remove any existing content at that path.
         try self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try self.fileSystem.removeFileTree(path)
 
-        // Inform the delegate that we're starting cloning.
+        // Inform the delegate that we're about to start.
         self.delegate?.willCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path)
+        let start = DispatchTime.now()
+        
+        // Create the working copy.
         _ = try handle.createWorkingCopy(at: path, editable: false)
-        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path)
+        
+        // Inform the delegate that we're done.
+        let duration = start.distance(to: .now())
+        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path, duration: duration)
 
         return path
     }

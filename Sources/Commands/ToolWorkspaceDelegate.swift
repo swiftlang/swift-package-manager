@@ -111,7 +111,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.outputHandler("Creating working copy for \(url)", false)
     }
 
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
     }
 
@@ -173,9 +173,9 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     // noop
 
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {}
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
     func resolvedFileChanged() {}
     func didDownloadAllBinaryArtifacts() {}
 }
