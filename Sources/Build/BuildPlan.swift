@@ -1433,6 +1433,54 @@ public final class MixedTargetBuildDescription {
             fileSystem: fileSystem
         )
 
+        // MARK: Conditionally generate an umbrella header
+
+        // When the Swift compiler creates the generated interop header for
+        // Objective-C compatible Swift API (via `-emit-objc-header`), any
+        // Objective-C symbol that cannot be forward declared (e.g. superclass,
+        // protocol, etc.) will attempt to be imported via a module import of
+        // the module's umbrella header (e.g. `#import <Module/Module.h>`). The
+        // Swift compiler assumes (1) the module has the structure of a
+        // framework and (2) that an umbrella header exists. However, SwiftPM
+        // does not build frameworks (breaking assumption #1) and an umbrella
+        // header may not exist (breaking assumption #2). Instead, to guarantee
+        // the generated interop header's import can be resolved, the package
+        // manager generates an umbrella header if needed and will later use a
+        // VFS overlay to make the generated header appear in the proper
+        // location so the problematic import in the generated interop header
+        // can be resolved during the build.
+        var generatedUmbrellaHeaderPath: AbsolutePath? = nil
+        let relativeUmbrellaHeaderPath =
+            RelativePath("\(mixedTarget.c99name)/\(mixedTarget.c99name).h")
+        let potentialUmbrellaHeaderPath =
+            mixedTarget.clangTarget.includeDir.appending(relativeUmbrellaHeaderPath)
+        if !fileSystem.isFile(potentialUmbrellaHeaderPath) {
+            generatedUmbrellaHeaderPath = tempsPath.appending(component: "\(mixedTarget.c99name).h")
+            // Populate a stream that will become the generated umbrella header.
+            let stream = BufferedOutputByteStream()
+            mixedTarget.clangTarget.headers
+                // One of the requirements for a Swift API to be Objective-C
+                // compatible and therefore included in the generated interop
+                // header is that it has `public` or `open` visbility. This
+                // means that such Swift API can only reference (e.g. subclass)
+                // Objective-C types defined in the target's public headers.
+                // Because of this, the generated umbrella header will only
+                // include public headers so all other can be filtered out.
+                .filter { $0.isDescendant(of: mixedTarget.clangTarget.includeDir) }
+                // Filter out non-Objective-C/C headers.
+                .filter { $0.basename.hasSuffix(".h") }
+                // Add each remaining header to the generated umbrella header.
+                .forEach {
+                    // Import the header, followed by a newline.
+                    stream <<< "#import \"\($0)\"\n"
+                }
+
+            try fileSystem.writeFileContentsIfNeeded(
+                generatedUmbrellaHeaderPath!,
+                bytes: stream.bytes
+            )
+        }
+
         // MARK: Generate products to be used by client of the target.
 
         // Path to the module map used by clients to access the mixed target's
@@ -1483,19 +1531,23 @@ public final class MixedTargetBuildDescription {
             self.moduleMap = customModuleMapPath
             self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
 
-            try VFSOverlay(
-                roots: [
-                    VFSOverlay.Directory(
-                        name: customModuleMapPath.parentDirectory.pathString,
-                        contents: [
-                            VFSOverlay.File(
-                                name: moduleMapFilename,
-                                externalContents: productModuleMapPath.pathString
-                            )
-                        ]
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(name: customModuleMapPath.parentDirectory.pathString) {
+                    VFSOverlay.File(
+                        name: moduleMapFilename,
+                        externalContents: productModuleMapPath.pathString
                     )
-                ]
-            ).write(to: self.allProductHeadersOverlay!, fileSystem: fileSystem)
+
+                    if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
+                        VFSOverlay.Directory(name: mixedTarget.c99name) {
+                            VFSOverlay.File(
+                                name: generatedUmbrellaHeaderPath.basename,
+                                externalContents: generatedUmbrellaHeaderPath.pathString
+                            )
+                        }
+                    }
+                }
+            ]).write(to: self.allProductHeadersOverlay!, fileSystem: fileSystem)
 
         // When the mixed target does not have a custom module map, one will be
         // generated as a product for use by clients.
@@ -1513,9 +1565,25 @@ public final class MixedTargetBuildDescription {
 
             // Set the generated module map as the module map for the target.
             self.moduleMap = productModuleMapPath
-            // An overlay is not neccesssary as there was no original custom
-            // module map to replace.
-            self.allProductHeadersOverlay = nil
+
+            if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
+                // If an umbrella header was generated, it needs to be
+                // overlayed within the public headers directory.
+                self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
+                try VFSOverlay(roots: [
+                    VFSOverlay.Directory(name: mixedTarget.clangTarget.includeDir.pathString) {
+                        VFSOverlay.Directory(name: mixedTarget.c99name) {
+                            VFSOverlay.File(
+                                name: generatedUmbrellaHeaderPath.basename,
+                                externalContents: generatedUmbrellaHeaderPath.pathString
+                            )
+                        }
+                    }
+                ]).write(to: self.allProductHeadersOverlay!, fileSystem: fileSystem)
+            } else {
+                // Else, no product overlay is needed.
+                self.allProductHeadersOverlay = nil
+            }
         }
 
         // MARK: Generate intermediate artifacts used to build the target.
@@ -1569,38 +1637,41 @@ public final class MixedTargetBuildDescription {
 
         let allProductHeadersPath = intermediatesDirectory.appending(component: allProductHeadersFilename)
         try VFSOverlay(roots: [
-            VFSOverlay.Directory(
-                name: rootOverlayResourceDirectory.pathString,
-                contents: [
-                    // Redirect the `module.modulemap` to the modified
-                    // module map in the intermediates directory.
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents: intermediateModuleMapPath.pathString
-                    ),
-                    // Add a generated Swift header that redirects to the
-                    // generated header in the build directory's root.
-                    VFSOverlay.File(
-                        name: interopHeaderPath.basename,
-                        externalContents: interopHeaderPath.pathString
-                    )
-                ]
-            )
+            VFSOverlay.Directory(name: rootOverlayResourceDirectory.pathString) {
+                // Redirect the `module.modulemap` to the modified
+                // module map in the intermediates directory.
+                VFSOverlay.File(
+                    name: moduleMapFilename,
+                    externalContents: intermediateModuleMapPath.pathString
+                )
+                // Add a generated Swift header that redirects to the
+                // generated header in the build directory's root.
+                VFSOverlay.File(
+                    name: interopHeaderPath.basename,
+                    externalContents: interopHeaderPath.pathString
+                )
+
+                if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
+                    VFSOverlay.Directory(name: mixedTarget.c99name) {
+                        VFSOverlay.File(
+                            name: generatedUmbrellaHeaderPath.basename,
+                            externalContents: generatedUmbrellaHeaderPath.pathString
+                        )
+                    }
+                }
+            }
         ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
 
         let unextendedModuleMapOverlayPath = intermediatesDirectory.appending(component: unextendedModuleOverlayFilename)
         try VFSOverlay(roots: [
-            VFSOverlay.Directory(
-                name: rootOverlayResourceDirectory.pathString,
-                contents: [
-                    // Redirect the `module.modulemap` to the *unextended*
-                    // module map in the intermediates directory.
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents: unextendedModuleMapPath.pathString
-                    )
-                ]
-            )
+            VFSOverlay.Directory(name: rootOverlayResourceDirectory.pathString) {
+                // Redirect the `module.modulemap` to the *unextended*
+                // module map in the intermediates directory.
+                VFSOverlay.File(
+                    name: moduleMapFilename,
+                    externalContents: unextendedModuleMapPath.pathString
+                )
+            }
         ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
 
         // 4. Tie everything together by passing build flags.

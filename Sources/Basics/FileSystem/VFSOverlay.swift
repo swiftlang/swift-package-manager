@@ -55,6 +55,13 @@ public struct VFSOverlay: Encodable {
             super.init(name: name, type: "directory")
         }
 
+        public convenience init(
+            name: String,
+            @VFSOverlayBuilder contents: () -> [VFSOverlay.Resource]
+        ) {
+            self.init(name: name, contents: contents())
+        }
+
         public override func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(contents, forKey: .contents)
@@ -85,5 +92,25 @@ public struct VFSOverlay: Encodable {
     public func write(to path: AbsolutePath, fileSystem: FileSystem) throws {
         // VFS overlay files are YAML, but ours is simple enough that it works when being written using `JSONEncoder`.
         try JSONEncoder.makeWithDefaults(prettified: false).encode(path: path, fileSystem: fileSystem, self)
+    }
+}
+
+// TOOD(ncooke3): Gate this?
+@resultBuilder
+public struct VFSOverlayBuilder {
+    public static func buildBlock(_ components: [VFSOverlay.Resource]...) -> [VFSOverlay.Resource] {
+        return components.flatMap { $0 }
+    }
+
+    public static func buildExpression(_ expression: VFSOverlay.Resource) -> [VFSOverlay.Resource] {
+        return [expression]
+    }
+
+    public static func buildExpression(_ expression: [VFSOverlay.Resource]) -> [VFSOverlay.Resource] {
+        return expression
+    }
+
+    public static func buildOptional(_ components: [VFSOverlay.Resource]?) -> [VFSOverlay.Resource] {
+        return components ?? []
     }
 }
