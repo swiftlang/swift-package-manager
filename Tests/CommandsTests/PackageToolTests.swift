@@ -130,7 +130,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertThrowsError(
                 try execute(["resolve", "--netrc-file", "/foo"], packagePath: fixturePath)
             ) { error in
-                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
+                XCTAssertMatch(String(describing: error), .contains("Did not find netrc file at /foo."))
             }
 
             // invalid .netrc file path with --disable-netrc option

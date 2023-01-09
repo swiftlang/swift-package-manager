@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import PackageModel
 
@@ -22,10 +23,12 @@ public struct RegistryConfiguration: Hashable {
 
     public var defaultRegistry: Registry?
     public var scopedRegistries: [PackageIdentity.Scope: Registry]
+    public var registryAuthentication: [String: Authentication]
 
     public init() {
         self.defaultRegistry = nil
         self.scopedRegistries = [:]
+        self.registryAuthentication = [:]
     }
 
     public var isEmpty: Bool {
@@ -40,10 +43,36 @@ public struct RegistryConfiguration: Hashable {
         for (scope, registry) in other.scopedRegistries {
             self.scopedRegistries[scope] = registry
         }
+
+        for (registry, authentication) in other.registryAuthentication {
+            self.registryAuthentication[registry] = authentication
+        }
     }
-    
+
     public func registry(for scope: PackageIdentity.Scope) -> Registry? {
-        return scopedRegistries[scope] ?? defaultRegistry
+        self.scopedRegistries[scope] ?? self.defaultRegistry
+    }
+
+    public func authentication(for registryURL: URL) -> Authentication? {
+        guard let host = registryURL.host else { return nil }
+        return self.registryAuthentication[host]
+    }
+}
+
+extension RegistryConfiguration {
+    public struct Authentication: Hashable, Codable {
+        public var type: AuthenticationType
+        public var loginAPIPath: String?
+
+        public init(type: AuthenticationType, loginAPIPath: String? = nil) {
+            self.type = type
+            self.loginAPIPath = loginAPIPath
+        }
+    }
+
+    public enum AuthenticationType: String, Hashable, Codable {
+        case basic
+        case token
     }
 }
 
@@ -52,12 +81,26 @@ public struct RegistryConfiguration: Hashable {
 extension RegistryConfiguration: Codable {
     private enum CodingKeys: String, CodingKey {
         case registries
+        case authentication
         case version
     }
 
     private struct ScopeCodingKey: CodingKey, Hashable {
         static let `default` = ScopeCodingKey(stringValue: "[default]")
 
+        var stringValue: String
+        var intValue: Int? { nil }
+
+        init(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        init?(intValue: Int) {
+            return nil
+        }
+    }
+
+    private struct AuthenticationCodingKey: CodingKey, Hashable {
         var stringValue: String
         var intValue: Int? { nil }
 
@@ -86,6 +129,8 @@ extension RegistryConfiguration: Codable {
                 scopedRegistries[scope] = try nestedContainer.decode(Registry.self, forKey: key)
             }
             self.scopedRegistries = scopedRegistries
+
+            self.registryAuthentication = try container.decodeIfPresent([String: Authentication].self, forKey: .authentication) ?? [:]
         case nil:
             throw DecodingError.dataCorruptedError(forKey: .version, in: container, debugDescription: "invalid version: \(version)")
         }
@@ -96,13 +141,15 @@ extension RegistryConfiguration: Codable {
 
         try container.encode(Self.version, forKey: .version)
 
-        var nestedContainer = container.nestedContainer(keyedBy: ScopeCodingKey.self, forKey: .registries)
+        var registriesContainer = container.nestedContainer(keyedBy: ScopeCodingKey.self, forKey: .registries)
 
-        try nestedContainer.encodeIfPresent(defaultRegistry, forKey: .default)
+        try registriesContainer.encodeIfPresent(self.defaultRegistry, forKey: .default)
 
-        for (scope, registry) in scopedRegistries {
+        for (scope, registry) in self.scopedRegistries {
             let key = ScopeCodingKey(stringValue: scope.description)
-            try nestedContainer.encode(registry, forKey: key)
+            try registriesContainer.encode(registry, forKey: key)
         }
+
+        try container.encode(self.registryAuthentication, forKey: .authentication)
     }
 }

@@ -92,7 +92,7 @@ public struct NetrcParser {
         return try Self.parse(content)
     }
 
-    /// Parses strnigified netrc content
+    /// Parses stringified netrc content
     ///
     /// - Parameters:
     ///   - content: The content to parse
