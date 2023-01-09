@@ -1040,12 +1040,23 @@ class PluginInvocationTests: XCTestCase {
                     for (pkg, entry) in dict {
                         if pkg.description == "mypackage" {
                             XCTAssertNotNil(entry["XPlugin"])
-                            XCTAssertEqual(entry["XPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
-                            XCTAssertEqual(entry["YPlugin"], ["PackagePlugin", "Foundation"])
+                            let XPluginPossibleImports1 = ["PackagePlugin", "XcodeProjectPlugin"]
+                            let XPluginPossibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "_SwiftConcurrencyShims"]
+                            XCTAssertTrue(entry["XPlugin"] == XPluginPossibleImports1 ||
+                                          entry["XPlugin"] == XPluginPossibleImports2)
+
+                            let YPluginPossibleImports1 = ["PackagePlugin", "Foundation"]
+                            let YPluginPossibleImports2 = ["PackagePlugin", "Foundation", "_SwiftConcurrencyShims"]
+                            XCTAssertTrue(entry["YPlugin"] == YPluginPossibleImports1 ||
+                                          entry["YPlugin"] == YPluginPossibleImports2)
                             count += 1
                         } else if pkg.description == "otherpackage" {
                             XCTAssertNotNil(dict[pkg]?["QPlugin"])
-                            XCTAssertEqual(entry["QPlugin"], ["PackagePlugin", "XcodeProjectPlugin"])
+
+                            let possibleImports1 = ["PackagePlugin", "XcodeProjectPlugin"]
+                            let possibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "_SwiftConcurrencyShims"]
+                            XCTAssertTrue(entry["QPlugin"] == possibleImports1 ||
+                                          entry["QPlugin"] == possibleImports2)
                             count += 1
                         }
                     }
