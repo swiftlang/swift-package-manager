@@ -13,8 +13,6 @@
 import XCTest
 import SPMTestSupport
 
-// TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
-
 // MARK: - MixedTargetTests
 
 final class MixedTargetTests: XCTestCase {
