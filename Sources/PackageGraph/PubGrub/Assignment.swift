@@ -44,7 +44,8 @@ public struct Assignment: Equatable {
             term: term,
             decisionLevel: decisionLevel,
             cause: nil,
-            isDecision: true)
+            isDecision: true
+        )
     }
 
     /// An assignment derived from previously known incompatibilities during
@@ -54,11 +55,12 @@ public struct Assignment: Equatable {
         cause: Incompatibility,
         decisionLevel: Int
     ) -> Assignment {
-        return self.init(
+        self.init(
             term: term,
             decisionLevel: decisionLevel,
             cause: cause,
-            isDecision: false)
+            isDecision: false
+        )
     }
 }
 
@@ -66,9 +68,9 @@ extension Assignment: CustomStringConvertible {
     public var description: String {
         switch self.isDecision {
         case true:
-            return "[Decision \(decisionLevel): \(term)]"
+            return "[Decision \(self.decisionLevel): \(self.term)]"
         case false:
-            return "[Derivation: \(term) ← \(cause?.description ?? "-")]"
+            return "[Derivation: \(self.term) ← \(self.cause?.description ?? "-")]"
         }
     }
 }

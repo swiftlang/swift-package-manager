@@ -44,7 +44,8 @@ public struct PubGrubDependencyResolver {
 
         init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
-             solution: PartialSolution = PartialSolution()) {
+             solution: PartialSolution = PartialSolution())
+        {
             self.root = root
             self.overriddenPackages = overriddenPackages
             self.solution = solution
@@ -53,7 +54,7 @@ public struct PubGrubDependencyResolver {
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
                 // log("incompat: \(incompatibility) \(location)")
-                for package in incompatibility.terms.map({ $0.node }) {
+                for package in incompatibility.terms.map(\.node) {
                     if let incompats = self.incompatibilities[package] {
                         if !incompats.contains(incompatibility) {
                             self.incompatibilities[package]!.append(incompatibility)
@@ -165,7 +166,7 @@ public struct PubGrubDependencyResolver {
                         provider: self.provider
                     )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    return.failure(PubgrubError.unresolvable(diagnostic))
+                    return .failure(PubgrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
                     return .failure(error)
@@ -188,7 +189,7 @@ public struct PubGrubDependencyResolver {
             // otherwise we'll end up creating a repository container
             // for them.
             let pins = self.pinsMap.values
-                .map { $0.packageRef }
+                .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
             self.provider.prefetch(containers: pins)
         }
@@ -208,7 +209,7 @@ public struct PubGrubDependencyResolver {
 
         try self.run(state: state)
 
-        let decisions = state.solution.assignments.filter { $0.isDecision }
+        let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
         for assignment in decisions {
             if assignment.term.node == state.root {
@@ -348,7 +349,6 @@ public struct PubGrubDependencyResolver {
                 }
             case nil:
                 break
-
             }
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
@@ -444,7 +444,7 @@ public struct PubGrubDependencyResolver {
             try self.propagate(state: state, node: nxt)
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
-            self.provider.prefetch(containers: state.solution.undecided.map { $0.node.package })
+            self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
@@ -530,7 +530,7 @@ public struct PubGrubDependencyResolver {
         // rdar://93335995
         // hard protection from infinite loops
         let maxIterations = 1000
-        var iterations: Int = 0
+        var iterations = 0
 
         while !isCompleteFailure(incompatibility, root: state.root) {
             var mostRecentTerm: Term?
@@ -622,7 +622,7 @@ public struct PubGrubDependencyResolver {
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility, root: DependencyResolutionNode) -> Bool {
-        return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
+        incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
     }
 
     private func computeCounts(for terms: [Term], completion: @escaping (Result<[Term: Int], Error>) -> Void) {
@@ -719,8 +719,8 @@ internal enum LogLocation: String {
     case conflictResolution = "conflict resolution"
 }
 
-extension PubGrubDependencyResolver {
-    public enum PubgrubError: Swift.Error, CustomStringConvertible {
+public extension PubGrubDependencyResolver {
+    enum PubgrubError: Swift.Error, CustomStringConvertible {
         case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
 

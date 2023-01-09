@@ -33,10 +33,11 @@ public struct Term: Equatable, Hashable {
 
     /// The same term with an inversed `isPositive` value.
     public var inverse: Term {
-        return Term(
-            node: node,
-            requirement: requirement,
-            isPositive: !isPositive)
+        Term(
+            node: self.node,
+            requirement: self.requirement,
+            isPositive: !self.isPositive
+        )
     }
 
     /// Check if this term satisfies another term, e.g. if `self` is true,
@@ -50,7 +51,7 @@ public struct Term: Equatable, Hashable {
     /// Create an intersection with another term.
     public func intersect(with other: Term) -> Term? {
         guard self.node == other.node else { return nil }
-        return intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
+        return self.intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
     }
 
     /// Create an intersection with a requirement and polarity returning a new
@@ -86,11 +87,11 @@ public struct Term: Equatable, Hashable {
             return nil
         }
 
-        return Term(node: node, requirement: versionIntersection, isPositive: isPositive)
+        return Term(node: self.node, requirement: versionIntersection, isPositive: isPositive)
     }
 
     public func difference(with other: Term) -> Term? {
-        return self.intersect(with: other.inverse)
+        self.intersect(with: other.inverse)
     }
 
     /// Verify if the term fulfills all requirements to be a valid choice for
@@ -99,7 +100,7 @@ public struct Term: Equatable, Hashable {
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
     public func isValidDecision(for solution: PartialSolution) -> Bool {
-        for assignment in solution.assignments where assignment.term.node == node {
+        for assignment in solution.assignments where assignment.term.node == self.node {
             assert(!assignment.isDecision, "Expected assignment to be a derivation.")
             guard satisfies(assignment.term) else { return false }
         }
@@ -117,7 +118,7 @@ public struct Term: Equatable, Hashable {
             if self.isPositive {
                 // If the second requirement contains all the elements of
                 // the first requirement, then it is a subset relation.
-                if other.requirement.containsAll(self.requirement) {    
+                if other.requirement.containsAll(self.requirement) {
                     return .subset
                 }
 
@@ -168,21 +169,21 @@ public struct Term: Equatable, Hashable {
 extension Term: CustomStringConvertible {
     public var description: String {
         let pkg = "\(node)"
-        let req = requirement.description
+        let req = self.requirement.description
 
-        if !isPositive {
+        if !self.isPositive {
             return "¬\(pkg) \(req)"
         }
         return "\(pkg) \(req)"
     }
 }
 
-fileprivate extension VersionSetSpecifier {
+private extension VersionSetSpecifier {
     func containsAll(_ other: VersionSetSpecifier) -> Bool {
-        return self.intersection(other) == other
+        self.intersection(other) == other
     }
 
     func containsAny(_ other: VersionSetSpecifier) -> Bool {
-        return self.intersection(other) != .empty
+        self.intersection(other) != .empty
     }
 }
