@@ -96,13 +96,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "Foo"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "Foo"))"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "Foo")) (identity: foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "Foo")) (identity: foo)"])
 
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix"))"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz"))"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)"])
 
         // Close and reopen workspace.
         try workspace.closeWorkspace(resetState: false)
@@ -9989,12 +9989,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo (identity: foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo (identity: foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar (identity: bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar (identity: bar)"])
     }
 
     func testBasicTransitiveResolutionFromSourceControl() throws {
@@ -10099,14 +10099,14 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/baz"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/baz"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/foo (identity: foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/foo (identity: foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar (identity: bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar (identity: bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/baz (identity: baz)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/baz (identity: baz)"])
     }
 
     func testBasicResolutionFromRegistry() throws {
@@ -10183,12 +10183,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.bar"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo (identity: org.foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo (identity: org.foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar (identity: org.bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.bar (identity: org.bar)"])
     }
 
     func testBasicTransitiveResolutionFromRegistry() throws {
@@ -10293,14 +10293,14 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage"))"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.bar"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo (identity: org.foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo (identity: org.foo)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.bar (identity: org.bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.bar (identity: org.bar)"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz (identity: org.baz)"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz (identity: org.baz)"])
     }
 
     // no dups
