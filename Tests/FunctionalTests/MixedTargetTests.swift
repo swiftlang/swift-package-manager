@@ -14,7 +14,6 @@ import XCTest
 import SPMTestSupport
 
 // TODO(ncooke3): Explore using non-module import of mixed package in Objc Context.
-// TODO(ncooke3): Explore using different ways to import $(ModuleName)-Swift header.
 
 // MARK: - MixedTargetTests
 
