@@ -1,9 +1,11 @@
 #import <Foundation/Foundation.h>
 
-// All three import statements should be supported.
+// The below import statements should be supported.
 #import "MixedTargetWithCustomPaths/Sources/Public/OldCar.h"
 #import "OldCar.h"
 #import "Public/OldCar.h"
+#import <OldCar.h>
+#import <Public/OldCar.h>
 
 // Import the Swift part of the module.
 #import "MixedTargetWithCustomPaths-Swift.h"
