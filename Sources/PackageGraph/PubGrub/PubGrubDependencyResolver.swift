@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2019-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,7 +19,7 @@ import TSCBasic
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
-public struct PubgrubDependencyResolver {
+public struct PubGrubDependencyResolver {
     /// The type of the constraints the resolver operates on.
     public typealias Constraint = PackageContainerConstraint
 
@@ -44,7 +44,8 @@ public struct PubgrubDependencyResolver {
 
         init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
-             solution: PartialSolution = PartialSolution()) {
+             solution: PartialSolution = PartialSolution())
+        {
             self.root = root
             self.overriddenPackages = overriddenPackages
             self.solution = solution
@@ -53,7 +54,7 @@ public struct PubgrubDependencyResolver {
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
                 // log("incompat: \(incompatibility) \(location)")
-                for package in incompatibility.terms.map({ $0.node }) {
+                for package in incompatibility.terms.map(\.node) {
                     if let incompats = self.incompatibilities[package] {
                         if !incompats.contains(incompatibility) {
                             self.incompatibilities[package]!.append(incompatibility)
@@ -165,7 +166,7 @@ public struct PubgrubDependencyResolver {
                         provider: self.provider
                     )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    return.failure(PubgrubError.unresolvable(diagnostic))
+                    return .failure(PubgrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
                     return .failure(error)
@@ -188,7 +189,7 @@ public struct PubgrubDependencyResolver {
             // otherwise we'll end up creating a repository container
             // for them.
             let pins = self.pinsMap.values
-                .map { $0.packageRef }
+                .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
             self.provider.prefetch(containers: pins)
         }
@@ -208,7 +209,7 @@ public struct PubgrubDependencyResolver {
 
         try self.run(state: state)
 
-        let decisions = state.solution.assignments.filter { $0.isDecision }
+        let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
         for assignment in decisions {
             if assignment.term.node == state.root {
@@ -348,7 +349,6 @@ public struct PubgrubDependencyResolver {
                 }
             case nil:
                 break
-
             }
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
@@ -444,7 +444,7 @@ public struct PubgrubDependencyResolver {
             try self.propagate(state: state, node: nxt)
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
-            self.provider.prefetch(containers: state.solution.undecided.map { $0.node.package })
+            self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
@@ -530,7 +530,7 @@ public struct PubgrubDependencyResolver {
         // rdar://93335995
         // hard protection from infinite loops
         let maxIterations = 1000
-        var iterations: Int = 0
+        var iterations = 0
 
         while !isCompleteFailure(incompatibility, root: state.root) {
             var mostRecentTerm: Term?
@@ -622,7 +622,7 @@ public struct PubgrubDependencyResolver {
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
     private func isCompleteFailure(_ incompatibility: Incompatibility, root: DependencyResolutionNode) -> Bool {
-        return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
+        incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
     }
 
     private func computeCounts(for terms: [Term], completion: @escaping (Result<[Term: Int], Error>) -> Void) {
@@ -712,652 +712,6 @@ public struct PubgrubDependencyResolver {
     }
 }
 
-private struct DiagnosticReportBuilder {
-    let rootNode: DependencyResolutionNode
-    let incompatibilities: [DependencyResolutionNode: [Incompatibility]]
-
-    private var lines: [(number: Int, message: String)] = []
-    private var derivations: [Incompatibility: Int] = [:]
-    private var lineNumbers: [Incompatibility: Int] = [:]
-    private let provider: ContainerProvider
-
-    init(root: DependencyResolutionNode, incompatibilities: [DependencyResolutionNode: [Incompatibility]], provider: ContainerProvider) {
-        self.rootNode = root
-        self.incompatibilities = incompatibilities
-        self.provider = provider
-    }
-
-    mutating func makeErrorReport(for rootCause: Incompatibility) throws -> String {
-        /// Populate `derivations`.
-        func countDerivations(_ i: Incompatibility) {
-            self.derivations[i, default: 0] += 1
-            if case .conflict(let cause) = i.cause {
-                countDerivations(cause.conflict)
-                countDerivations(cause.other)
-            }
-        }
-
-        countDerivations(rootCause)
-
-        if rootCause.cause.isConflict {
-            try self.visit(rootCause)
-        } else {
-            assertionFailure("Unimplemented")
-            self.record(
-                rootCause,
-                message: try description(for: rootCause),
-                isNumbered: false
-            )
-        }
-
-        let stream = BufferedOutputByteStream()
-        let padding = lineNumbers.isEmpty ? 0 : "\(Array(lineNumbers.values).last!) ".count
-
-        for (idx, line) in lines.enumerated() {
-            stream <<< Format.asRepeating(string: " ", count: padding)
-            if line.number != -1 {
-                stream <<< Format.asRepeating(string: " ", count: padding)
-                stream <<< " (\(line.number)) "
-            }
-            stream <<< line.message.prefix(1).capitalized
-            stream <<< line.message.dropFirst()
-
-            if lines.count - 1 != idx {
-                stream <<< "\n"
-            }
-        }
-
-        return stream.bytes.description
-    }
-
-    private mutating func visit(
-        _ incompatibility: Incompatibility,
-        isConclusion: Bool = false
-    ) throws {
-        let isNumbered = isConclusion || derivations[incompatibility]! > 1
-        let conjunction = isConclusion || incompatibility.cause == .root ? "As a result, " : ""
-        let incompatibilityDesc = try description(for: incompatibility)
-
-        guard case .conflict(let cause) = incompatibility.cause else {
-            assertionFailure("\(incompatibility)")
-            return
-        }
-
-        if cause.conflict.cause.isConflict && cause.other.cause.isConflict {
-            let conflictLine = lineNumbers[cause.conflict]
-            let otherLine = lineNumbers[cause.other]
-
-            if let conflictLine = conflictLine, let otherLine = otherLine {
-                self.record(
-                    incompatibility,
-                    message: "\(incompatibilityDesc) because \(try description(for: cause.conflict)) (\(conflictLine)) and \(try description(for: cause.other)) (\(otherLine).",
-                    isNumbered: isNumbered
-                )
-            } else if conflictLine != nil || otherLine != nil {
-                let withLine: Incompatibility
-                let withoutLine: Incompatibility
-                let line: Int
-                if let conflictLine = conflictLine {
-                    withLine = cause.conflict
-                    withoutLine = cause.other
-                    line = conflictLine
-                } else {
-                    withLine = cause.other
-                    withoutLine = cause.conflict
-                    line = otherLine!
-                }
-
-                try self.visit(withoutLine)
-                self.record(
-                    incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: withLine)) \(line).",
-                    isNumbered: isNumbered
-                )
-            } else {
-                let singleLineConflict = cause.conflict.cause.isSingleLine
-                let singleLineOther = cause.other.cause.isSingleLine
-                if singleLineOther || singleLineConflict {
-                    let first = singleLineOther ? cause.conflict : cause.other
-                    let second = singleLineOther ? cause.other : cause.conflict
-                    try self.visit(first)
-                    try self.visit(second)
-                    self.record(
-                        incompatibility,
-                        message: "\(incompatibilityDesc).",
-                        isNumbered: isNumbered
-                    )
-                } else {
-                    try self.visit(cause.conflict, isConclusion: true)
-                    try self.visit(cause.other)
-                    self.record(
-                        incompatibility,
-                        message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)).",
-                        isNumbered: isNumbered
-                    )
-                }
-            }
-        } else if cause.conflict.cause.isConflict || cause.other.cause.isConflict {
-            let derived = cause.conflict.cause.isConflict ? cause.conflict : cause.other
-            let ext = cause.conflict.cause.isConflict ? cause.other : cause.conflict
-            let derivedLine = lineNumbers[derived]
-            if let derivedLine = derivedLine {
-                self.record(
-                    incompatibility,
-                    message: "\(incompatibilityDesc) because \(try description(for: ext)) and \(try description(for: derived)) (\(derivedLine)).",
-                    isNumbered: isNumbered
-                )
-            } else if isCollapsible(derived) {
-                guard case .conflict(let derivedCause) = derived.cause else {
-                    assertionFailure("unreachable")
-                    return
-                }
-
-                let collapsedDerived = derivedCause.conflict.cause.isConflict ? derivedCause.conflict : derivedCause.other
-                let collapsedExt = derivedCause.conflict.cause.isConflict ? derivedCause.other : derivedCause.conflict
-
-                try self.visit(collapsedDerived)
-                self.record(
-                    incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: collapsedExt)) and \(try description(for: ext)).",
-                    isNumbered: isNumbered
-                )
-            } else {
-                try self.visit(derived)
-                self.record(
-                    incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: ext)).",
-                    isNumbered: isNumbered
-                )
-            }
-        } else {
-            self.record(
-                incompatibility,
-                message: "\(incompatibilityDesc) because \(try description(for: cause.conflict)) and \(try description(for: cause.other)).",
-                isNumbered: isNumbered
-            )
-        }
-    }
-
-    private func description(for incompatibility: Incompatibility) throws -> String {
-        switch incompatibility.cause {
-        case .dependency(let causeNode):
-            assert(incompatibility.terms.count == 2)
-            let depender = incompatibility.terms.first!
-            let dependee = incompatibility.terms.last!
-            assert(depender.isPositive)
-            assert(!dependee.isPositive)
-
-            let dependerDesc: String
-            // when depender is the root node, the causeNode may be different as it may represent root's indirect dependencies (e.g. dependencies of root's unversioned dependencies)
-            if depender.node == self.rootNode, causeNode != self.rootNode {
-                dependerDesc = causeNode.nameForDiagnostics
-            } else {
-                dependerDesc = try description(for: depender, normalizeRange: true)
-            }
-            let dependeeDesc = try description(for: dependee)
-            return "\(dependerDesc) depends on \(dependeeDesc)"
-        case .noAvailableVersion:
-            assert(incompatibility.terms.count == 1)
-            let term = incompatibility.terms.first!
-            assert(term.isPositive)
-            return "no versions of \(term.node.nameForDiagnostics) match the requirement \(term.requirement)"
-        case .root:
-            // FIXME: This will never happen I think.
-            assert(incompatibility.terms.count == 1)
-            let term = incompatibility.terms.first!
-            assert(term.isPositive)
-            return "\(term.node.nameForDiagnostics) is \(term.requirement)"
-        case .conflict where incompatibility.terms.count == 1 && incompatibility.terms.first?.node == self.rootNode:
-            return "dependencies could not be resolved"
-        case .conflict:
-            break
-        case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
-            return "package '\(versionedDependency.identity)' is required using a stable-version but '\(versionedDependency.identity)' depends on an unstable-version package '\(unversionedDependency.identity)'"
-        case .incompatibleToolsVersion(let version):
-            let term = incompatibility.terms.first!
-            return "\(try description(for: term, normalizeRange: true)) contains incompatible tools version (\(version))"
-        }
-
-        let terms = incompatibility.terms
-        if terms.count == 1 {
-            let term = terms.first!
-            let prefix = try hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : description(for: term, normalizeRange: true)
-            return "\(prefix) " + (term.isPositive ? "cannot be used" : "is required")
-        } else if terms.count == 2 {
-            let term1 = terms.first!
-            let term2 = terms.last!
-            if term1.isPositive == term2.isPositive {
-                if term1.isPositive {
-                    return "\(term1.node.nameForDiagnostics) is incompatible with \(term2.node.nameForDiagnostics)"
-                } else {
-                    return "either \(term1.node.nameForDiagnostics) or \(term2)"
-                }
-            }
-        }
-
-        let positive = try terms.filter { $0.isPositive }.map { try description(for: $0) }
-        let negative = try terms.filter { !$0.isPositive }.map { try description(for: $0) }
-        if !positive.isEmpty, !negative.isEmpty {
-            if positive.count == 1 {
-                let positiveTerm = terms.first { $0.isPositive }!
-                return "\(try description(for: positiveTerm, normalizeRange: true)) practically depends on \(negative.joined(separator: " or "))"
-            } else {
-                return "if \(positive.joined(separator: " and ")) then \(negative.joined(separator: " or "))"
-            }
-        } else if !positive.isEmpty {
-            return "one of \(positive.joined(separator: " or ")) must be true"
-        } else {
-            return "one of \(negative.joined(separator: " or ")) must be true"
-        }
-    }
-
-    /// Returns true if the requirement on this term is effectively "any" because of either the actual
-    /// `any` requirement or because the version range is large enough to fit all current available versions.
-    private func hasEffectivelyAnyRequirement(_ term: Term) throws -> Bool {
-        switch term.requirement {
-        case .any:
-            return true
-        case .empty, .exact, .ranges:
-            return false
-        case .range(let range):
-            // container expected to be cached at this point
-            guard let container = try? provider.getCachedContainer(for: term.node.package) else {
-                return false
-            }
-            let bounds = try container.computeBounds(for: range)
-            return !bounds.includesLowerBound && !bounds.includesUpperBound
-        }
-    }
-
-    private func isCollapsible(_ incompatibility: Incompatibility) -> Bool {
-        if derivations[incompatibility]! > 1 {
-            return false
-        }
-
-        guard case .conflict(let cause) = incompatibility.cause else {
-            assertionFailure("unreachable")
-            return false
-        }
-
-        if cause.conflict.cause.isConflict, cause.other.cause.isConflict {
-            return false
-        }
-
-        if !cause.conflict.cause.isConflict, !cause.other.cause.isConflict {
-            return false
-        }
-
-        let complex = cause.conflict.cause.isConflict ? cause.conflict : cause.other
-        return !lineNumbers.keys.contains(complex)
-    }
-
-    private func description(for term: Term, normalizeRange: Bool = false) throws -> String {
-        let name = term.node.nameForDiagnostics
-
-        switch term.requirement {
-        case .any: return name
-        case .empty: return "no version of \(name)"
-        case .exact(let version):
-            // For the root package, don't output the useless version 1.0.0.
-            if term.node == rootNode {
-                return "root"
-            }
-            return "\(name) \(version)"
-        case .range(let range):
-            // container expected to be cached at this point
-            guard normalizeRange, let container = try? provider.getCachedContainer(for: term.node.package) else {
-                return "\(name) \(range.description)"
-            }
-
-            switch try container.computeBounds(for: range) {
-            case (true, true):
-                return "\(name) \(range.description)"
-            case (false, false):
-                return name
-            case (true, false):
-                return "\(name) >= \(range.lowerBound)"
-            case (false, true):
-                return "\(name) < \(range.upperBound)"
-            }
-        case .ranges(let ranges):
-            let ranges = "{" + ranges.map {
-                if $0.lowerBound == $0.upperBound {
-                    return $0.lowerBound.description
-                }
-                return $0.lowerBound.description + "..<" + $0.upperBound.description
-            }.joined(separator: ", ") + "}"
-            return "\(name) \(ranges)"
-        }
-    }
-
-    /// Write a given output message to a stream. The message should describe
-    /// the incompatibility and how it as derived. If `isNumbered` is true, a
-    /// line number will be assigned to this incompatibility so that it can be
-    /// referred to again.
-    private mutating func record(
-        _ incompatibility: Incompatibility,
-        message: String,
-        isNumbered: Bool
-    ) {
-        var number = -1
-        if isNumbered {
-            number = lineNumbers.count + 1
-            self.lineNumbers[incompatibility] = number
-        }
-        let line = (number: number, message: message)
-        if isNumbered {
-            self.lines.append(line)
-        } else {
-            self.lines.insert(line, at: 0)
-        }
-    }
-}
-
-// MARK: - Container Management
-
-/// A container for an individual package. This enhances PackageContainer to add PubGrub specific
-/// logic which is mostly related to computing incompatibilities at a particular version.
-internal final class PubGrubPackageContainer {
-    /// The underlying package container.
-    let underlying: PackageContainer
-
-    /// Reference to the pins map.
-    private let pinsMap: PinsStore.PinsMap
-
-    init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap) {
-        self.underlying = underlying
-        self.pinsMap = pinsMap
-    }
-
-    var package: PackageReference {
-        self.underlying.package
-    }
-
-    /// Returns the pinned version for this package, if any.
-    var pinnedVersion: Version? {
-        switch self.pinsMap[self.underlying.package.identity]?.state {
-        case .version(let version, _):
-            return version
-        default:
-            return .none
-        }
-    }
-
-    /// Returns the numbers of versions that are satisfied by the given version requirement.
-    func versionCount(_ requirement: VersionSetSpecifier) throws -> Int {
-        if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
-            return 1
-        }
-        return try self.underlying.versionsDescending().filter(requirement.contains).count
-    }
-
-    /// Computes the bounds of the given range against the versions available in the package.
-    ///
-    /// `includesLowerBound` is `false` if range's lower bound is less than or equal to the lowest available version.
-    /// Similarly, `includesUpperBound` is `false` if range's upper bound is greater than or equal to the highest available version.
-    func computeBounds(for range: Range<Version>) throws -> (includesLowerBound: Bool, includesUpperBound: Bool) {
-        var includeLowerBound = true
-        var includeUpperBound = true
-
-        let versions = try self.underlying.versionsDescending()
-
-        if let last = versions.last, range.lowerBound < last {
-            includeLowerBound = false
-        }
-
-        if let first = versions.first, range.upperBound > first {
-            includeUpperBound = false
-        }
-
-        return (includeLowerBound, includeUpperBound)
-    }
-
-    /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) throws -> Version? {
-        assert(term.isPositive, "Expected term to be positive")
-        let versionSet = term.requirement
-
-        // Restrict the selection to the pinned version if is allowed by the current requirements.
-        if let pinnedVersion = self.pinnedVersion {
-            if versionSet.contains(pinnedVersion) {
-                // Make sure the pinned version is still available
-                let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }
-                if version != nil {
-                    return version
-                }
-            }
-        }
-
-        // Return the highest version that is allowed by the input requirement.
-        return try self.underlying.versionsDescending().first { versionSet.contains($0) }
-    }
-
-    /// Compute the bounds of incompatible tools version starting from the given version.
-    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) throws -> VersionSetSpecifier {
-        assert(!self.underlying.isToolsVersionCompatible(at: fromVersion))
-        let versions: [Version] = try self.underlying.versionsAscending()
-
-        // This is guaranteed to be present.
-        let idx = versions.firstIndex(of: fromVersion)!
-
-        var lowerBound = fromVersion
-        var upperBound = fromVersion
-
-        for version in versions.dropFirst(idx + 1) {
-            let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
-            if isToolsVersionCompatible {
-                break
-            }
-            upperBound = version
-        }
-
-        for version in versions.dropLast(versions.count - idx).reversed() {
-            let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
-            if isToolsVersionCompatible {
-                break
-            }
-            lowerBound = version
-        }
-
-        // If lower and upper bounds didn't change then this is the sole incompatible version.
-        if lowerBound == upperBound {
-            return .exact(lowerBound)
-        }
-
-        // If lower bound is the first version then we can use 0 as the sentinel. This
-        // will end up producing a better diagnostic since we can omit the lower bound.
-        if lowerBound == versions.first {
-            lowerBound = "0.0.0"
-        }
-
-        if upperBound == versions.last {
-            // If upper bound is the last version then we can use the next major version as the sentinel.
-            // This will end up producing a better diagnostic since we can omit the upper bound.
-            upperBound = Version(upperBound.major + 1, 0, 0)
-        } else {
-            // Use the next patch since the upper bound needs to be inclusive here.
-            upperBound = upperBound.nextPatch()
-        }
-        return .range(lowerBound ..< upperBound.nextPatch())
-    }
-
-    /// Returns the incompatibilities of a package at the given version.
-    func incompatibilites(
-        at version: Version,
-        node: DependencyResolutionNode,
-        overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
-        root: DependencyResolutionNode
-    ) throws -> [Incompatibility] {
-        // FIXME: It would be nice to compute bounds for this as well.
-        if !self.underlying.isToolsVersionCompatible(at: version) {
-            let requirement = try self.computeIncompatibleToolsVersionBounds(fromVersion: version)
-            let toolsVersion = try self.underlying.toolsVersion(for: version)
-            return [try Incompatibility(Term(node, requirement), root: root, cause: .incompatibleToolsVersion(toolsVersion))]
-        }
-
-        var unprocessedDependencies = try self.underlying.getDependencies(at: version, productFilter: node.productFilter)
-        if let sharedVersion = node.versionLock(version: version) {
-            unprocessedDependencies.append(sharedVersion)
-        }
-        var constraints: [PackageContainerConstraint] = []
-        for dep in unprocessedDependencies {
-            // Version-based packages are not allowed to contain unversioned dependencies.
-            guard case .versionSet = dep.requirement else {
-                let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
-                    versionedDependency: package,
-                    unversionedDependency: dep.package
-                )
-                return [try Incompatibility(Term(node, .exact(version)), root: root, cause: cause)]
-            }
-
-            // Skip if this package is overridden.
-            if overriddenPackages.keys.contains(dep.package) {
-                continue
-            }
-
-            for node in dep.nodes() {
-                constraints.append(
-                    PackageContainerConstraint(
-                        package: node.package,
-                        requirement: dep.requirement,
-                        products: node.productFilter
-                    )
-                )
-            }
-        }
-
-        return try constraints.flatMap { constraint -> [Incompatibility] in
-            // We only have version-based requirements at this point.
-            guard case .versionSet(let constraintRequirement) = constraint.requirement else {
-                throw InternalError("Unexpected unversioned requirement: \(constraint)")
-            }
-            return try constraint.nodes().compactMap { constraintNode in
-                // cycle
-                guard node != constraintNode else {
-                    return nil
-                }
-
-                var terms: OrderedCollections.OrderedSet<Term> = []
-                // the package version requirement
-                terms.append(Term(node, .exact(version)))
-                // the dependency's version requirement
-                terms.append(Term(not: constraintNode, constraintRequirement))
-
-                return try Incompatibility(terms, root: root, cause: .dependency(node: node))
-            }
-        }
-    }
-}
-
-/// An utility class around PackageContainerProvider that allows "prefetching" the containers
-/// in parallel. The basic idea is to kick off container fetching before starting the resolution
-/// by using the list of URLs from the Package.resolved file.
-private final class ContainerProvider {
-    /// The actual package container provider.
-    private let underlying: PackageContainerProvider
-
-    /// Whether to perform update (git fetch) on existing cloned repositories or not.
-    private let skipUpdate: Bool
-
-    /// Reference to the pins store.
-    private let pinsMap: PinsStore.PinsMap
-
-    /// Observability scope to emit diagnostics with
-    private let observabilityScope: ObservabilityScope
-
-    //// Store cached containers
-    private var containersCache = ThreadSafeKeyValueStore<PackageReference, PubGrubPackageContainer>()
-
-    //// Store prefetches synchronization
-    private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
-
-    init(
-        provider underlying: PackageContainerProvider,
-        skipUpdate: Bool,
-        pinsMap: PinsStore.PinsMap,
-        observabilityScope: ObservabilityScope
-    ) {
-        self.underlying = underlying
-        self.skipUpdate = skipUpdate
-        self.pinsMap = pinsMap
-        self.observabilityScope = observabilityScope
-    }
-
-    /// Get a cached container for the given identifier, asserting / throwing if not found.
-    func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
-        guard let container = self.containersCache[package] else {
-            throw InternalError("container for \(package.identity) expected to be cached")
-        }
-        return container
-    }
-
-    /// Get the container for the given identifier, loading it if necessary.
-    func getContainer(for package: PackageReference, completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void) {
-        // Return the cached container, if available.
-        if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
-            return completion(.success(container))
-        }
-
-        if let prefetchSync = self.prefetches[package] {
-            // If this container is already being prefetched, wait for that to complete
-            prefetchSync.notify(queue: .sharedConcurrent) {
-                if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
-                    // should be in the cache once prefetch completed
-                    return completion(.success(container))
-                } else {
-                    // if prefetch failed, remove from list of prefetches and try again
-                    self.prefetches[package] = nil
-                    return self.getContainer(for: package, completion: completion)
-                }
-            }
-        } else {
-            // Otherwise, fetch the container from the provider
-            self.underlying.getContainer(
-                for: package,
-                skipUpdate: self.skipUpdate,
-                observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
-                on: .sharedConcurrent
-            ) { result in
-                let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
-                    // only cache positive results
-                    self.containersCache[package] = pubGrubContainer
-                    return pubGrubContainer
-                }
-                completion(result)
-            }
-        }
-    }
-
-    /// Starts prefetching the given containers.
-    func prefetch(containers identifiers: [PackageReference]) {
-        // Process each container.
-        for identifier in identifiers {
-            var needsFetching = false
-            self.prefetches.memoize(identifier) {
-                let group = DispatchGroup()
-                group.enter()
-                needsFetching = true
-                return group
-            }
-            if needsFetching {
-                self.underlying.getContainer(
-                    for: identifier,
-                    skipUpdate: self.skipUpdate,
-                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
-                    on: .sharedConcurrent
-                ) { result in
-                    defer { self.prefetches[identifier]?.leave() }
-                    // only cache positive results
-                    if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
-                    }
-                }
-            }
-        }
-    }
-}
-
 internal enum LogLocation: String {
     case topLevel = "top level"
     case unitPropagation = "unit propagation"
@@ -1365,8 +719,8 @@ internal enum LogLocation: String {
     case conflictResolution = "conflict resolution"
 }
 
-extension PubgrubDependencyResolver {
-    public enum PubgrubError: Swift.Error, CustomStringConvertible {
+public extension PubGrubDependencyResolver {
+    enum PubgrubError: Swift.Error, CustomStringConvertible {
         case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
 
@@ -1399,7 +753,7 @@ extension PubgrubDependencyResolver {
     }
 }
 
-extension PubgrubDependencyResolver {
+extension PubGrubDependencyResolver {
     private struct VersionBasedConstraint {
         let node: DependencyResolutionNode
         let requirement: VersionSetSpecifier
@@ -1438,10 +792,3 @@ private extension PackageRequirement {
         }
     }
 }
-
-private extension DependencyResolutionNode {
-    var nameForDiagnostics: String {
-        return "'\(self.package.identity)'"
-    }
-}
-

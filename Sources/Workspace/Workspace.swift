@@ -297,7 +297,7 @@ public class Workspace {
     // state
 
     /// The active package resolver. This is set during a dependency resolution operation.
-    fileprivate var activeResolver: PubgrubDependencyResolver?
+    fileprivate var activeResolver: PubGrubDependencyResolver?
 
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
@@ -2659,7 +2659,7 @@ extension Workspace {
             constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
-        let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
+        let resolver = PubGrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
         let result = resolver.solve(constraints: computedConstraints)
 
         guard !observabilityScope.errorsReported else {
@@ -2907,7 +2907,7 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver(pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) throws -> PubgrubDependencyResolver {
+    fileprivate func createResolver(pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
         let observabilityDelegate = ObservabilityDependencyResolverDelegate(observabilityScope: observabilityScope)
         if let workspaceDelegate = self.delegate {
@@ -2919,7 +2919,7 @@ extension Workspace {
             delegate = observabilityDelegate
         }
 
-        return PubgrubDependencyResolver(
+        return PubGrubDependencyResolver(
             provider: packageContainerProvider,
             pinsMap: pinsMap,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
@@ -2931,7 +2931,7 @@ extension Workspace {
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        resolver: PubgrubDependencyResolver,
+        resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) -> [(package: PackageReference, binding: BoundVersion, products: ProductFilter)] {

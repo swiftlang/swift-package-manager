@@ -37,7 +37,7 @@ public struct PartialSolution {
 
     /// The current decision level.
     public var decisionLevel: Int {
-        return decisions.count - 1
+        decisions.count - 1
     }
 
     public init(assignments: [Assignment] = []) {
@@ -49,7 +49,7 @@ public struct PartialSolution {
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
     public var undecided: [Term] {
-        return _positive.values.filter { !decisions.keys.contains($0.node) }
+        _positive.values.filter { !decisions.keys.contains($0.node) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
@@ -80,7 +80,7 @@ public struct PartialSolution {
             return
         }
 
-        let newTerm = _negative[pkg].flatMap{ term.intersect(with: $0) } ?? term
+        let newTerm = _negative[pkg].flatMap { term.intersect(with: $0) } ?? term
 
         if newTerm.isPositive {
             _negative[pkg] = nil
@@ -99,7 +99,7 @@ public struct PartialSolution {
             guard assignment.term.node == term.node else {
                 continue
             }
-            assignedTerm = assignedTerm.flatMap{ $0.intersect(with: assignment.term) } ?? assignment.term
+            assignedTerm = assignedTerm.flatMap { $0.intersect(with: assignment.term) } ?? assignment.term
 
             if assignedTerm!.satisfies(term) {
                 return assignment
@@ -137,7 +137,7 @@ public struct PartialSolution {
 
     /// Returns true if the given term satisfies the partial solution.
     func satisfies(_ term: Term) -> Bool {
-        return self.relation(with: term) == .subset
+        self.relation(with: term) == .subset
     }
 
     /// Returns the set relation of the partial solution with the given term.

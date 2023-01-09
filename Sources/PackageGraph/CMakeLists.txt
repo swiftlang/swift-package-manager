@@ -21,11 +21,14 @@ add_library(PackageGraph
   PackageModel+Extensions.swift
   PackageRequirement.swift
   PinsStore.swift
-  Pubgrub/Assignment.swift
-  Pubgrub/Incompatibility.swift
-  Pubgrub/PartialSolution.swift
-  Pubgrub/PubgrubDependencyResolver.swift
-  Pubgrub/Term.swift
+  PubGrub/Assignment.swift
+  PubGrub/ContainerProvider.swift
+  PubGrub/DiagnosticReportBuilder.swift
+  PubGrub/Incompatibility.swift
+  PubGrub/PartialSolution.swift
+  PubGrub/PubGrubDependencyResolver.swift
+  PubGrub/PubGrubPackageContainer.swift
+  PubGrub/Term.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
