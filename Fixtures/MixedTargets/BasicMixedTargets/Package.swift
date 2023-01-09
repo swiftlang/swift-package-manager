@@ -32,13 +32,13 @@ let package = Package(
             dependencies: ["BasicMixedTarget"]
         ),
 
-        // MARK: - BasicMixedTargetWithNestedUmbrellaHeader
+        // MARK: - BasicMixedTargetWithManualBridgingHeader
         .target(
-            name: "BasicMixedTargetWithNestedUmbrellaHeader"
+            name: "BasicMixedTargetWithManualBridgingHeader"
         ),
         .testTarget(
-            name: "BasicMixedTargetWithNestedUmbrellaHeaderTests",
-            dependencies: ["BasicMixedTargetWithNestedUmbrellaHeader"]
+            name: "BasicMixedTargetWithManualBridgingHeaderTests",
+            dependencies: ["BasicMixedTargetWithManualBridgingHeader"]
         ),
 
         // MARK: - BasicMixedTargetWithUmbrellaHeader

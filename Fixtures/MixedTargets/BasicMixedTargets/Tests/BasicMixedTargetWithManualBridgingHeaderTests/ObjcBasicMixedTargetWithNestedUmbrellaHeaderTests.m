@@ -1,12 +1,12 @@
 #import <XCTest/XCTest.h>
 
-@import BasicMixedTargetWithNestedUmbrellaHeader;
+@import BasicMixedTargetWithManualBridgingHeader;
 
-@interface ObjcBasicMixedTargetWithNestedUmbrellaHeaderTests : XCTestCase
+@interface ObjcBasicMixedTargetWithManualBridgingHeaderTests : XCTestCase
 
 @end
 
-@implementation ObjcBasicMixedTargetWithNestedUmbrellaHeaderTests
+@implementation ObjcBasicMixedTargetWithManualBridgingHeaderTests
 
 - (void)testPublicSwiftAPI {
     // Check that Objective-C compatible Swift API surface is exposed...
