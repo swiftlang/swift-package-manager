@@ -97,6 +97,7 @@ public struct VFSOverlay: Encodable {
     }
 }
 
+// TODO(ncooke3): Is gating this API necessary?
 #if swift(>=5.4)
 @resultBuilder
 public struct VFSOverlayBuilder {
