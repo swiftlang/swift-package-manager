@@ -24,7 +24,7 @@ import struct TSCUtility.Version
 
 private class MinimalWorkspaceDelegate: WorkspaceDelegate {
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
+    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {}
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {}
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {}
@@ -35,9 +35,9 @@ private class MinimalWorkspaceDelegate: WorkspaceDelegate {
     func dependenciesUpToDate() {}
 
     func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
 
     func removing(package: PackageIdentity, packageLocation: String?) {}
 
