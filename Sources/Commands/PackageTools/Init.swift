@@ -20,7 +20,7 @@ extension SwiftPackageTool {
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
         @Option(

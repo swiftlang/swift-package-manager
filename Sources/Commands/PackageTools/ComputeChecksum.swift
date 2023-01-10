@@ -19,7 +19,7 @@ struct ComputeChecksum: SwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Compute the checksum for a binary artifact.")
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Argument(help: "The absolute or relative path to the binary artifact")

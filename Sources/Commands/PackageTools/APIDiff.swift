@@ -47,7 +47,7 @@ struct APIDiff: SwiftCommand {
         the comparison.
         """)
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Option(help: """

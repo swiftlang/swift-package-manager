@@ -21,7 +21,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Describe the current package")
         
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
         @Option(help: "json | text")

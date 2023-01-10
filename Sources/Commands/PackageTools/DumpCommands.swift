@@ -22,7 +22,7 @@ struct DumpSymbolGraph: SwiftCommand {
         abstract: "Dump Symbol Graph")
     static let defaultMinimumAccessLevel = SymbolGraphExtract.AccessLevel.public
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Flag(help: "Pretty-print the output JSON.")
@@ -90,7 +90,7 @@ struct DumpPackage: SwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Print parsed Package.swift as JSON")
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     func run(_ swiftTool: SwiftTool) throws {
@@ -118,7 +118,7 @@ struct DumpPackage: SwiftCommand {
 }
 
 struct DumpPIF: SwiftCommand {
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Flag(help: "Preserve the internal structure of PIF")

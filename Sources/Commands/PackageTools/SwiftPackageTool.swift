@@ -84,7 +84,7 @@ extension SwiftPackageTool {
             commandName: nil,
             shouldDisplay: false)
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @OptionGroup()

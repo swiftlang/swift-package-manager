@@ -33,7 +33,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Resolve package dependencies")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @OptionGroup()
@@ -64,7 +64,7 @@ extension SwiftPackageTool {
     struct Fetch: SwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @OptionGroup()

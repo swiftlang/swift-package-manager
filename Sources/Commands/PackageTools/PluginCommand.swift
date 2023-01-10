@@ -23,7 +23,7 @@ struct PluginCommand: SwiftCommand {
         abstract: "Invoke a command plugin or perform other actions on command plugins"
     )
 
-    @OptionGroup(_hiddenFromHelp: true)
+    @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
     @Flag(name: .customLong("list"),

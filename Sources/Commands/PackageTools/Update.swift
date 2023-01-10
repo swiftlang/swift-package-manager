@@ -21,7 +21,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Update package dependencies")
         
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
         
         @Flag(name: [.long, .customShort("n")],

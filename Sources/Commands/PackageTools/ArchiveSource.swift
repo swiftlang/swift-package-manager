@@ -22,7 +22,7 @@ extension SwiftPackageTool {
             abstract: "Create a source archive for the package"
         )
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(

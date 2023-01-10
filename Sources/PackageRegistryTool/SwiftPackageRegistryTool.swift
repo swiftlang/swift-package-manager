@@ -66,7 +66,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Set a custom registry")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")
@@ -106,7 +106,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove a configured registry")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")

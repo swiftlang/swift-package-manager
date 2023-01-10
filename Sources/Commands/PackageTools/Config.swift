@@ -29,7 +29,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Set a mirror for a dependency")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(help: "The package dependency url")
@@ -64,7 +64,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Remove an existing mirror")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(help: "The package dependency url")
@@ -99,7 +99,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Print mirror configuration for the given package dependency")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(help: "The package dependency url")

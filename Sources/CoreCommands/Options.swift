@@ -267,14 +267,14 @@ public struct BuildOptions: ParsableArguments {
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp(
                 "Pass flag through to the Xcode build system invocations",
-                shouldDisplay: false))
+                visibility: .hidden))
     public var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xmanifest", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
-                               shouldDisplay: false))
-    public var manifestFlags: [String] = []
+                               visibility: .hidden))
+    var manifestFlags: [String] = []
 
     public var buildFlags: BuildFlags {
         BuildFlags(
@@ -303,7 +303,7 @@ public struct BuildOptions: ParsableArguments {
       name: .customLong("arch"),
       help: ArgumentHelp(
         "Build the package for the these architectures",
-        shouldDisplay: false))
+        visibility: .hidden))
     public var architectures: [String] = []
 
     /// Path to the compilation destination describing JSON file.

@@ -21,7 +21,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             commandName: "_format")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Argument(parsing: .unconditionalRemaining,

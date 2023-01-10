@@ -42,8 +42,14 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testUsage() throws {
-        let stdout = try execute(["-help"]).stdout
-        XCTAssertMatch(stdout, .contains("USAGE: swift package"))
+        do {
+            _ = try execute(["-help"])
+            XCTFail("expecting `execute` to fail")
+        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertMatch(stderr, .contains("Usage: swift package"))
+        } catch {
+            throw error
+        }
     }
 
     func testSeeAlso() throws {
@@ -63,7 +69,7 @@ final class PackageToolTests: CommandsTestCase {
 	
 	func testInitUsage() throws {
 		let stdout = try execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init <options>"))
+		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] [--name <name>]"))
 	}
 	
 	func testInitOptionsHelp() throws {

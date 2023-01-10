@@ -20,7 +20,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Put a package in editable mode")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Option(help: "The revision to edit", transform: { Revision(identifier: $0) })
@@ -54,7 +54,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Remove a package from editable mode")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Flag(name: .customLong("force"),
