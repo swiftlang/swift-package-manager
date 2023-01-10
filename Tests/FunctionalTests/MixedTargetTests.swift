@@ -150,7 +150,11 @@ final class MixedTargetTests: XCTestCase {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
-                extraArgs: ["--target", "MixedTargetWithPublicCXXAPITests"]
+                extraArgs: ["--target", "MixedTargetWithPublicCXXAPI"]
+            )
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithPublicCXXAPITests"]
             )
         }
     }

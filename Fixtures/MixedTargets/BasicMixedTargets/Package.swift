@@ -102,8 +102,10 @@ let package = Package(
         // In order to import this target into downstream targets, two
         // additional things must be done (depending on whether the target is
         // being imported into a Clang vs. Swift context):
-        // - Clang context: The downstream target must pass `-fcxx-modules` 
-        //   and `-fmodules` as unsafe flags in the target's `cSettings`.
+        // - Clang context: If the client wants to import the module, client
+        //   must pass `-fcxx-modules` and `-fmodules` as unsafe flags in
+        //   the target's `cSettings`. Else, the client can just import
+        //   individual public headers without further configuring the target.
         // - Swift context: The mixed target needs to make a custom module
         //   map that only exposes public CXX headers in a non-Swift context.
         //   
