@@ -21,7 +21,8 @@ public struct HTTPClientResponse {
     public init(statusCode: Int,
                 statusText: String? = nil,
                 headers: HTTPClientHeaders = .init(),
-                body: Data? = nil) {
+                body: Data? = nil)
+    {
         self.statusCode = statusCode
         self.statusText = statusText
         self.headers = headers
@@ -33,21 +34,20 @@ public struct HTTPClientResponse {
     }
 }
 
-extension HTTPClientResponse {
-    public static func okay(body: String? = nil) -> HTTPClientResponse {
-        return .okay(body: body?.data(using: .utf8))
+public extension HTTPClientResponse {
+    static func okay(body: String? = nil) -> HTTPClientResponse {
+        .okay(body: body?.data(using: .utf8))
     }
 
-    public static func okay(body: Data?) -> HTTPClientResponse {
-        return HTTPClientResponse(statusCode: 200, body: body)
+    static func okay(body: Data?) -> HTTPClientResponse {
+        HTTPClientResponse(statusCode: 200, body: body)
     }
 
-    public static func notFound(reason: String? = nil) -> HTTPClientResponse {
-        return HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
+    static func notFound(reason: String? = nil) -> HTTPClientResponse {
+        HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
     }
 
-    public static func serverError(reason: String? = nil) -> HTTPClientResponse {
-        return HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
+    static func serverError(reason: String? = nil) -> HTTPClientResponse {
+        HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
     }
 }
-

@@ -76,13 +76,13 @@ public struct HTTPClientHeaders {
 
 extension HTTPClientHeaders: Sequence {
     public func makeIterator() -> IndexingIterator<[Item]> {
-        return self.items.makeIterator()
+        self.items.makeIterator()
     }
 }
 
 extension HTTPClientHeaders: Equatable {
     public static func == (lhs: HTTPClientHeaders, rhs: HTTPClientHeaders) -> Bool {
-        return lhs.headers == rhs.headers
+        lhs.headers == rhs.headers
     }
 }
 

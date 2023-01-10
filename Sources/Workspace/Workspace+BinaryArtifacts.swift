@@ -132,9 +132,12 @@ extension Workspace {
                 let jsonDecoder = JSONDecoder.makeWithDefaults()
                 for indexFile in indexFiles {
                     group.enter()
-                    var request = HTTPClient.Request(method: .get, url: indexFile.url)
-                    request.options.validResponseCodes = [200]
-                    request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+
+                    var options = HTTPClientRequest.Options()
+                    options.validResponseCodes = [200]
+                    options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                    let request = HTTPClient.Request(method: .get, url: indexFile.url, options: options)
+
                     self.httpClient.execute(request) { result in
                         defer { group.leave() }
 
@@ -198,10 +201,11 @@ extension Workspace {
                 group.enter()
                 var headers = HTTPClientHeaders()
                 headers.add(name: "Accept", value: "application/octet-stream")
-                var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
-                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-                request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-                request.options.validResponseCodes = [200]
+                var options = HTTPClientRequest.Options()
+                options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+                options.validResponseCodes = [200]
+                let request = HTTPClient.Request.download(url: artifact.url, headers: headers, options: options, fileSystem: self.fileSystem, destination: archivePath)
 
                 let downloadStart: DispatchTime = .now()
                 self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString)

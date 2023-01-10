@@ -194,8 +194,9 @@ final class HTTPClientTest: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.requestHeaders = globalHeaders
 
-        var request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders)
-        request.options.addUserAgent = true
+        var options = HTTPClientRequest.Options()
+        options.addUserAgent = true
+        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -222,8 +223,9 @@ final class HTTPClientTest: XCTestCase {
         }
 
         let httpClient = HTTPClient(handler: handler)
-        var request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders)
-        request.options.addUserAgent = true
+        var options = HTTPClientRequest.Options()
+        options.addUserAgent = true
+        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -250,8 +252,10 @@ final class HTTPClientTest: XCTestCase {
         }
 
         let httpClient = HTTPClient(handler: handler)
-        var request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders)
-        request.options.addUserAgent = false
+
+        var options = HTTPClientRequest.Options()
+        options.addUserAgent = false
+        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -278,11 +282,12 @@ final class HTTPClientTest: XCTestCase {
         }
 
         let httpClient = HTTPClient(handler: handler)
-        var request = HTTPClient.Request(method: .get, url: url)
 
-        request.options.authorizationProvider = { requestUrl in
+        var options = HTTPClientRequest.Options()
+        options.authorizationProvider = { requestUrl in
             requestUrl == url ? authorization : nil
         }
+        let request = HTTPClient.Request(method: .get, url: url, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -305,8 +310,9 @@ final class HTTPClientTest: XCTestCase {
         }
 
         let httpClient = HTTPClient(handler: brokenHandler)
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
-        request.options.validResponseCodes = [200]
+        var options = HTTPClientRequest.Options()
+        options.validResponseCodes = [200]
+        let request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -340,8 +346,9 @@ final class HTTPClientTest: XCTestCase {
         }
 
         let httpClient = HTTPClient(handler: brokenHandler)
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
-        request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
+        var options = HTTPClientRequest.Options()
+        options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
+        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -519,8 +526,9 @@ final class HTTPClientTest: XCTestCase {
             }
         })
 
-        var request = HTTPClient.Request(url: URL(string: "http://test")!)
-        request.options.maximumResponseSizeInBytes = 10
+        var options = HTTPClientRequest.Options()
+        options.maximumResponseSizeInBytes = 10
+        let request = HTTPClient.Request(url: URL(string: "http://test")!, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in

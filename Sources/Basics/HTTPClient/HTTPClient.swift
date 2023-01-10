@@ -53,8 +53,15 @@ public struct HTTPClient: Cancellable {
     /// OperationQueue to park pending requests
     private let requestsQueue: OperationQueue
 
+    private struct OutstandingRequest {
+        let url: URL
+        let completion: CompletionHandler
+        let progress: ProgressHandler?
+        let queue: DispatchQueue
+    }
+
     // tracks outstanding requests for cancellation
-    private var outstandingRequests = ThreadSafeKeyValueStore<UUID, (url: URL, completion: CompletionHandler, progress: ProgressHandler?, queue: DispatchQueue)>()
+    private var outstandingRequests = ThreadSafeKeyValueStore<UUID, OutstandingRequest>()
 
     // static to share across instances of the http client
     private static var hostsErrorsLock = NSLock()
@@ -66,7 +73,8 @@ public struct HTTPClient: Cancellable {
         self.underlying = handler ?? URLSessionHTTPClient().execute
 
         // this queue and semaphore is used to limit the amount of concurrent http requests taking place
-        // the default max number of request chosen to match Concurrency.maxOperations which is the number of active CPUs
+        // the default max number of request chosen to match Concurrency.maxOperations which is the number of active
+        // CPUs
         let maxConcurrentRequests = configuration.maxConcurrentRequests ?? Concurrency.maxOperations
         self.requestsQueue = OperationQueue()
         self.requestsQueue.name = "org.swift.swiftpm.http-client"
@@ -110,12 +118,6 @@ public struct HTTPClient: Cancellable {
                 request.headers.add($0)
             }
         }
-        if request.options.addUserAgent, !request.headers.contains("User-Agent") {
-            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
-        }
-        if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
-            request.headers.add(name: "Authorization", value: authorization)
-        }
         // execute
         guard let callbackQueue = request.options.callbackQueue else {
             return completion(.failure(InternalError("unknown callback queue")))
@@ -144,9 +146,9 @@ public struct HTTPClient: Cancellable {
     /// Cancel any outstanding requests
     public func cancel(deadline: DispatchTime) throws {
         let outstanding = self.outstandingRequests.clear()
-        for (_, callback, _, queue) in outstanding.values {
-            queue.async {
-                callback(.failure(CancellationError()))
+        for value in outstanding.values {
+            value.queue.async {
+                value.completion(.failure(CancellationError()))
             }
         }
     }
@@ -163,7 +165,8 @@ public struct HTTPClient: Cancellable {
             return completion(.failure(InternalError("unknown callback queue")))
         }
         let requestKey = UUID()
-        self.outstandingRequests[requestKey] = (url: request.url, completion: completion, progress: progress, queue: callbackQueue)
+        self.outstandingRequests[requestKey] =
+            .init(url: request.url, completion: completion, progress: progress, queue: callbackQueue)
 
         // wrap completion handler with concurrency control cleanup
         let originalCompletion = completion
@@ -173,9 +176,9 @@ public struct HTTPClient: Cancellable {
             // cancellation support
             // if the callback is no longer on the pending lists it has been canceled already
             // read + remove from outstanding requests atomically
-            if let (_, callback, _, queue) = self.outstandingRequests.removeValue(forKey: requestKey) {
+            if let outstandingRequest = self.outstandingRequests.removeValue(forKey: requestKey) {
                 // call back on the request queue
-                queue.async { callback(result) }
+                outstandingRequest.queue.async { outstandingRequest.completion(result) }
             }
         }
 
@@ -211,7 +214,11 @@ public struct HTTPClient: Cancellable {
                         // record host errors for circuit breaker
                         self.recordErrorIfNecessary(response: response, request: request)
                         // handle retry strategy
-                        if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
+                        if let retryDelay = self.shouldRetry(
+                            response: response,
+                            request: request,
+                            requestNumber: requestNumber
+                        ) {
                             observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                             // free concurrency control semaphore and outstanding request,
                             // since we re-submitting the request with the original completion handler
@@ -220,12 +227,14 @@ public struct HTTPClient: Cancellable {
                             self.outstandingRequests[requestKey] = nil
                             // TODO: dedicated retry queue?
                             return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
-                                self._execute(request: request, requestNumber: requestNumber + 1, observabilityScope: observabilityScope, progress: progress, completion: originalCompletion)
+                                self._execute(
+                                    request: request,
+                                    requestNumber: requestNumber + 1,
+                                    observabilityScope: observabilityScope,
+                                    progress: progress,
+                                    completion: originalCompletion
+                                )
                             }
-                        }
-                        // check for valid response codes
-                        if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
-                            return completion(.failure(HTTPClientError.badResponseStatusCode(response.statusCode)))
                         }
                         completion(.success(response))
                     }
@@ -293,24 +302,76 @@ public struct HTTPClient: Cancellable {
 }
 
 public extension HTTPClient {
-    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
+    func head(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none,
+        completion: @escaping (Result<Response, Error>) -> Void
+    ) {
+        self.execute(
+            Request(method: .head, url: url, headers: headers, body: nil, options: options),
+            observabilityScope: observabilityScope,
+            completion: completion
+        )
     }
 
-    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
+    func get(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none,
+        completion: @escaping (Result<Response, Error>) -> Void
+    ) {
+        self.execute(
+            Request(method: .get, url: url, headers: headers, body: nil, options: options),
+            observabilityScope: observabilityScope,
+            completion: completion
+        )
     }
 
-    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), observabilityScope: observabilityScope, completion: completion)
+    func put(
+        _ url: URL,
+        body: Data?,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none,
+        completion: @escaping (Result<Response, Error>) -> Void
+    ) {
+        self.execute(
+            Request(method: .put, url: url, headers: headers, body: body, options: options),
+            observabilityScope: observabilityScope,
+            completion: completion
+        )
     }
 
-    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), observabilityScope: observabilityScope, completion: completion)
+    func post(
+        _ url: URL,
+        body: Data?,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none,
+        completion: @escaping (Result<Response, Error>) -> Void
+    ) {
+        self.execute(
+            Request(method: .post, url: url, headers: headers, body: body, options: options),
+            observabilityScope: observabilityScope,
+            completion: completion
+        )
     }
 
-    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
+    func delete(
+        _ url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Request.Options = .init(),
+        observabilityScope: ObservabilityScope? = .none,
+        completion: @escaping (Result<Response, Error>) -> Void
+    ) {
+        self.execute(
+            Request(method: .delete, url: url, headers: headers, body: nil, options: options),
+            observabilityScope: observabilityScope,
+            completion: completion
+        )
     }
 }
 

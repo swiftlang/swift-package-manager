@@ -12,8 +12,8 @@
 
 import Foundation
 
-import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 
 public struct HTTPClientRequest {
     public let kind: Kind
@@ -22,38 +22,56 @@ public struct HTTPClientRequest {
     public var body: Data?
     public var options: Options
 
-    public init(kind: Kind,
-                url: URL,
-                headers: HTTPClientHeaders = .init(),
-                body: Data? = nil,
-                options: Options = .init()) {
+    public init(
+        kind: Kind,
+        url: URL,
+        headers: HTTPClientHeaders = .init(),
+        body: Data? = nil,
+        options: Options = .init()
+    ) {
         self.kind = kind
         self.url = url
         self.headers = headers
         self.body = body
         self.options = options
+
+        if options.addUserAgent, !self.headers.contains("User-Agent") {
+            self.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.current.displayString)")
+        }
+
+        if let authorization = options.authorizationProvider?(url),
+           !self.headers.contains("Authorization")
+        {
+            self.headers.add(name: "Authorization", value: authorization)
+        }
     }
 
     // generic request
-    public init(method: Method = .get,
-                url: URL,
-                headers: HTTPClientHeaders = .init(),
-                body: Data? = nil,
-                options: Options = .init()) {
+    public init(
+        method: Method = .get,
+        url: URL,
+        headers: HTTPClientHeaders = .init(),
+        body: Data? = nil,
+        options: Options = .init()
+    ) {
         self.init(kind: .generic(method), url: url, headers: headers, body: body, options: options)
     }
 
     // download request
-    public static func download(url: URL,
-                                headers: HTTPClientHeaders = .init(),
-                                options: Options = .init(),
-                                fileSystem: FileSystem,
-                                destination: AbsolutePath) -> HTTPClientRequest {
-        HTTPClientRequest(kind: .download(fileSystem: fileSystem, destination: destination),
+    public static func download(
+        url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Options = .init(),
+        fileSystem: FileSystem,
+        destination: AbsolutePath
+    ) -> HTTPClientRequest {
+        self.init(
+            kind: .download(fileSystem: fileSystem, destination: destination),
                           url: url,
                           headers: headers,
                           body: nil,
-                          options: options)
+                          options: options
+        )
     }
 
     public var method: Method {
