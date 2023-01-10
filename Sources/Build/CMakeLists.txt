@@ -7,6 +7,11 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Build
+  BuildDescription/ClangTargetBuildDescription.swift
+  BuildDescription/PluginDescription.swift
+  BuildDescription/ProductBuildDescription.swift
+  BuildDescription/SwiftTargetBuildDescription.swift
+  BuildDescription/TargetBuildDescription.swift
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan.swift
