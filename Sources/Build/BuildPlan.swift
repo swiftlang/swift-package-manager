@@ -1645,7 +1645,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         public var description: String {
             switch self {
             case .noBuildableTarget:
-                return "the package does not contain a buildable target"
+                return """
+                The package does not contain a buildable target. 
+                Add at least one `.target` or `.executableTarget` to your `Package.swift`.
+                """
             }
         }
     }
