@@ -267,7 +267,7 @@ fileprivate extension PackageManager {
 
 public enum PackageManagerProxyError: Error {
     /// Indicates that the functionality isn't implemented in the plugin host.
-    case unimlemented(_ message: String)
+    case unimplemented(_ message: String)
     
     /// An unspecified other kind of error from the Package Manager proxy.
     case unspecified(_ message: String)
