@@ -20,32 +20,40 @@ import protocol TSCUtility.DiagnosticLocationProviding
 
 // MARK: - GitShellHelper
 
-/// Abstracts `GitShellHelper` so that a stub can be injected in the tests. Marked internal for the same purpose.
-internal protocol ShellHelper {
+/// Abstracts `GitShellHelper`'s main behavior so that a stub can be injected in the tests. Marked internal for the same purpose.
+internal protocol ShellHelperStrategy {
+    var cancellator: Cancellator { get }
+
     func run(_ args: [String], environment: EnvironmentVariables, outputRedirection: TSCBasic.Process.OutputRedirection) throws -> String
 }
 
-private extension ShellHelper {
-    func run(_ args: [String]) throws -> String {
-        try run(args, environment: Git.environment)
-    }
-
-    func run(_ args: [String], environment: EnvironmentVariables) throws -> String {
-        try run(args, environment: environment, outputRedirection: .collect)
-    }
-}
-
-/// Helper for shelling out to `git`
-private struct GitShellHelper: ShellHelper {
-    private let cancellator: Cancellator
+/// Helper for shelling out to `git`. Marked internal for testing.
+internal struct GitShellHelper {
+    private let strategy: ShellHelperStrategy
 
     init(cancellator: Cancellator) {
-        self.cancellator = cancellator
+        strategy = GitShellHelperStrategy(cancellator: cancellator)
+    }
+
+    init(strategy: ShellHelperStrategy) {
+        self.strategy = strategy
     }
 
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
+    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: TSCBasic.Process.OutputRedirection = .collect) throws -> String {
+        try strategy.run(args, environment: environment, outputRedirection: outputRedirection)
+    }
+}
+
+private struct GitShellHelperStrategy: ShellHelperStrategy {
+    let cancellator: Cancellator
+
+    init(cancellator: Cancellator) {
+        self.cancellator = cancellator
+    }
+
     func run(_ args: [String], environment: EnvironmentVariables, outputRedirection: TSCBasic.Process.OutputRedirection) throws -> String {
         let process = TSCBasic.Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
@@ -79,7 +87,7 @@ private struct GitShellHelper: ShellHelper {
 /// A `git` repository provider.
 public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
-    private let git: ShellHelper
+    private let git: GitShellHelper
 
     public init() {
         // helper to cancel outstanding processes
@@ -90,7 +98,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     // Marked internal for testing.
-    internal init(cancellator: Cancellator, git: ShellHelper) {
+    internal init(cancellator: Cancellator, git: GitShellHelper) {
         self.cancellator = cancellator
         self.git = git
     }
@@ -351,7 +359,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public let path: AbsolutePath
 
     /// Concurrent queue to execute git cli on.
-    private let git: ShellHelper
+    private let git: GitShellHelper
 
     // lock top protect concurrent modifications to the repository
     private let lock = NSLock()
@@ -373,7 +381,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     // Marked internal for testing.
-    internal init(git: ShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
+    internal init(git: GitShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
         self.git = git
         self.path = path
         self.isWorkingRepo = isWorkingRepo
