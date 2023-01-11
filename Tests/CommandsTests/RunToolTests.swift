@@ -93,6 +93,15 @@ final class RunToolTests: CommandsTestCase {
         }
     }
 
+    func testHideBuildOption() throws {
+        try fixture(name: "Miscellaneous/FlatPackage") { fixturePath in
+            var (_, stderr) = try execute(["--hide-build"], packagePath: fixturePath)
+            XCTAssertNoMatch(stderr, .contains("[0/1] Planning build"))
+            XCTAssertNoMatch(stderr, .contains("Building for debugging..."))
+            XCTAssertNoMatch(stderr, .contains("Build complete!"))
+        }
+    }
+
     func testMutualExclusiveFlags() throws {
         try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             XCTAssertThrowsCommandExecutionError(try execute(["--build-tests", "--skip-build"], packagePath: fixturePath)) { error in
