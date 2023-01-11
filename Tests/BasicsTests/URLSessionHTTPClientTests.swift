@@ -755,7 +755,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
+        let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = "anonymous:qwerty".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
