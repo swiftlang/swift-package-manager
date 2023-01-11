@@ -249,7 +249,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
-            completion(.success(.init(statusCode: statusCode)))
+            completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
         }
 
         var httpClient = HTTPClient(handler: handler)
@@ -272,7 +272,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             case .head:
                 completion(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
             case .get:
-                completion(.success(.init(statusCode: statusCode)))
+                completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
             default:
                 XCTFail("method should match")
             }
@@ -294,7 +294,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
-            completion(.success(.init(statusCode: 404)))
+            completion(.failure(HTTPClientError.badResponseStatusCode(404)))
         }
 
         var httpClient = HTTPClient(handler: handler)
@@ -316,7 +316,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             case .head:
                 completion(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
             case .get:
-                completion(.success(.init(statusCode: 404)))
+                completion(.failure(HTTPClientError.badResponseStatusCode(404)))
             default:
                 XCTFail("method should match")
             }
