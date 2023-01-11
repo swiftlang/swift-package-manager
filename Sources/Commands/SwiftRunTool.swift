@@ -77,6 +77,10 @@ struct RunToolOptions: ParsableArguments {
     @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
     var shouldBuildTests: Bool = false
 
+    /// If the build log should be hidden.
+    @Flag(name: .customLong("hide-build"), help: "Hides the build log and displays only the runtime log")
+    var shouldHideBuildLog: Bool = false
+
     /// The executable product to run.
     @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
@@ -191,7 +195,10 @@ public struct SwiftRunTool: SwiftCommand {
             }
 
             do {
-                let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try swiftTool.createBuildSystem(
+                    explicitProduct: options.executable,
+                    customOutputStream: options.shouldHideBuildLog ? NullStream() : .none
+                )
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
@@ -299,5 +306,15 @@ private extension Basics.Diagnostic {
     static var runFileDeprecation: Self {
         .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
+}
+
+private final class NullStream: WritableByteStream {
+    var position: Int = 0
+
+    func write(_ byte: UInt8) {}
+
+    func write<C>(_ bytes: C) where C : Collection, C.Element == UInt8 {}
+
+    func flush() {}
 }
 
