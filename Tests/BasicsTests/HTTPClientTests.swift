@@ -306,7 +306,7 @@ final class HTTPClientTest: XCTestCase {
     func testValidResponseCodes() {
         let statusCode = Int.random(in: 201 ..< 500)
         let brokenHandler: HTTPClient.Handler = { _, _, completion in
-            completion(.success(HTTPClient.Response(statusCode: statusCode)))
+            completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
         }
 
         let httpClient = HTTPClient(handler: brokenHandler)

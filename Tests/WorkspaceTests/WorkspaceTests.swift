@@ -6307,7 +6307,7 @@ final class WorkspaceTests: XCTestCase {
                     atomically: true
                 )
 
-                completion(.success(.notFound()))
+                completion(.failure(HTTPClientError.badResponseStatusCode(404)))
             } catch {
                 completion(.failure(error))
             }
@@ -6358,7 +6358,7 @@ final class WorkspaceTests: XCTestCase {
 
                 switch request.url {
                 case URL(string: "https://a.com/a1.zip")!:
-                    completion(.success(.serverError()))
+                    completion(.failure(HTTPClientError.badResponseStatusCode(500)))
                 case URL(string: "https://a.com/a2.zip")!:
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
@@ -7902,7 +7902,7 @@ final class WorkspaceTests: XCTestCase {
 
         // returns a dummy files for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
-            completion(.success(.serverError()))
+            completion(.failure(HTTPClientError.badResponseStatusCode(500)))
         })
 
         let workspace = try MockWorkspace(
@@ -8163,7 +8163,7 @@ final class WorkspaceTests: XCTestCase {
                         completion(.success(.okay(body: contents)))
 
                 case .download:
-                    completion(.success(.notFound()))
+                    completion(.failure(HTTPClientError.badResponseStatusCode(404)))
                 }
             } catch {
                 completion(.failure(error))
