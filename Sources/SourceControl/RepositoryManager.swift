@@ -403,8 +403,12 @@ public class RepositoryManager: Cancellable {
     /// Reset the repository manager.
     ///
     /// Note: This also removes the cloned repositories from the disk.
-    public func reset() throws {
-        try self.fileSystem.removeFileTree(self.path)
+    public func reset(observabilityScope: ObservabilityScope) {
+        do {
+            try self.fileSystem.removeFileTree(self.path)
+        } catch {
+            observabilityScope.emit(error: "Error reseting repository manager at '\(self.path)': \(error)")
+        }
     }
 
     /// Sets up the cache directories if they don't already exist.
@@ -416,13 +420,29 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Purges the cached repositories from the cache.
-    public func purgeCache() throws {
-        guard let cachePath = self.cachePath else { return }
-        try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
-            let cachedRepositories = try self.fileSystem.getDirectoryContents(cachePath)
-            for repoPath in cachedRepositories {
-                try self.fileSystem.removeFileTree(cachePath.appending(component: repoPath))
+    public func purgeCache(observabilityScope: ObservabilityScope) {
+        guard let cachePath = self.cachePath else {
+            return
+        }
+
+        guard self.fileSystem.exists(cachePath) else {
+            return
+        }
+
+        do {
+            try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
+                let cachedRepositories = try self.fileSystem.getDirectoryContents(cachePath)
+                for repoPath in cachedRepositories {
+                    let pathToDelete = cachePath.appending(component: repoPath)
+                    do {
+                        try self.fileSystem.removeFileTree(pathToDelete)
+                    } catch {
+                        observabilityScope.emit(error: "Error removing cached repository at '\(pathToDelete)': \(error)")
+                    }
+                }
             }
+        } catch {
+            observabilityScope.emit(error: "Error purging repository cache at '\(cachePath)': \(error)")
         }
     }
 }

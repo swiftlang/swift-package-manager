@@ -708,7 +708,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             // Resetting the cache should allow us to remove the cache
             // directory without triggering assertions in sqlite.
-            try manifestLoader.purgeCache()
+            manifestLoader.purgeCache(observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
             try localFileSystem.removeFileTree(path)
         }
     }

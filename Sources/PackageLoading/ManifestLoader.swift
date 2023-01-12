@@ -89,10 +89,10 @@ public protocol ManifestLoaderProtocol {
     )
 
     /// Reset any internal cache held by the manifest loader.
-    func resetCache() throws
+    func resetCache(observabilityScope: ObservabilityScope)
 
     /// Reset any internal cache held by the manifest loader and purge any entries in a shared cache
-    func purgeCache() throws
+    func purgeCache(observabilityScope: ObservabilityScope)
 }
 
 public protocol ManifestLoaderDelegate {
@@ -834,15 +834,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// reset internal cache
-    public func resetCache() throws {
+    public func resetCache(observabilityScope: ObservabilityScope) {
         // nothing needed at this point
     }
 
     /// reset internal state and purge shared cache
-    public func purgeCache() throws {
-        try self.resetCache()
-        if let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) {
+    public func purgeCache(observabilityScope: ObservabilityScope) {
+        self.resetCache(observabilityScope: observabilityScope)
+
+        guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
+            return
+        }
+
+        guard localFileSystem.exists(manifestCacheDBPath) else {
+            return
+        }
+
+        do {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
+        } catch {
+            observabilityScope.emit(error: "Error purging manifests cache at '\(manifestCacheDBPath)': \(error))")
         }
     }
 }
