@@ -67,10 +67,10 @@ public struct HTTPClientRequest {
     ) -> HTTPClientRequest {
         self.init(
             kind: .download(fileSystem: fileSystem, destination: destination),
-                          url: url,
-                          headers: headers,
-                          body: nil,
-                          options: options
+            url: url,
+            headers: headers,
+            body: nil,
+            options: options
         )
     }
 
