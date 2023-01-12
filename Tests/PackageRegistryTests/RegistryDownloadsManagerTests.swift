@@ -231,7 +231,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
 
         do {
             try manager.remove(package: package)
-            try manager.purgeCache()
+            manager.purgeCache(observabilityScope: observability.topScope)
 
             delegate.prepare(fetchExpected: true)
             let path = try manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)

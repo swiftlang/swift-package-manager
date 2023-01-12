@@ -232,7 +232,9 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
 
-            try manager.reset()
+            manager.reset(observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            
             XCTAssertTrue(!fs.isDirectory(repos))
             try fs.createDirectory(repos, recursive: true)
 

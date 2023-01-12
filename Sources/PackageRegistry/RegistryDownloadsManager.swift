@@ -247,19 +247,37 @@ public class RegistryDownloadsManager: Cancellable {
         try self.fileSystem.removeFileTree(packagesPath)
     }
 
-    public func reset() throws {
-        try self.fileSystem.removeFileTree(self.path)
+    public func reset(observabilityScope: ObservabilityScope) {
+        do {
+            try self.fileSystem.removeFileTree(self.path)
+        } catch {
+            observabilityScope.emit(error: "Error resetting registry downloads at '\(self.path)': \(error)")
+        }
     }
 
-    public func purgeCache() throws {
-        guard let cachePath = self.cachePath, fileSystem.exists(cachePath) else {
+    public func purgeCache(observabilityScope: ObservabilityScope) {
+        guard let cachePath = self.cachePath else {
             return
         }
-        try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
-            let cachedPackages = try self.fileSystem.getDirectoryContents(cachePath)
-            for packagePath in cachedPackages {
-                try self.fileSystem.removeFileTree(cachePath.appending(component: packagePath))
+
+        guard self.fileSystem.exists(cachePath) else {
+            return
+        }
+
+        do {
+            try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
+                let cachedPackages = try self.fileSystem.getDirectoryContents(cachePath)
+                for packagePath in cachedPackages {
+                    let pathToDelete = cachePath.appending(component: packagePath)
+                    do {
+                        try self.fileSystem.removeFileTree(pathToDelete)
+                    } catch {
+                        observabilityScope.emit(error: "Error removing cached package at '\(pathToDelete)': \(error)")
+                    }
+                }
             }
+        } catch {
+            observabilityScope.emit(error: "Error purging registry downloads cache at '\(cachePath)': \(error)")
         }
     }
 
