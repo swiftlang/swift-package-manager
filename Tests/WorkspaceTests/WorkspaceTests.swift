@@ -9867,8 +9867,8 @@ final class WorkspaceTests: XCTestCase {
                 }
             }
 
-            func resetCache() throws {}
-            func purgeCache() throws {}
+            func resetCache(observabilityScope: ObservabilityScope) {}
+            func purgeCache(observabilityScope: ObservabilityScope) {}
         }
 
         let fs = InMemoryFileSystem()

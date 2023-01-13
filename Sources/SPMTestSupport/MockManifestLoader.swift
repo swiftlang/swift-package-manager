@@ -72,8 +72,8 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public func resetCache() throws {}
-    public func purgeCache() throws {}
+    public func resetCache(observabilityScope: ObservabilityScope) {}
+    public func purgeCache(observabilityScope: ObservabilityScope) {}
 }
 
 extension ManifestLoader {

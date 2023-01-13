@@ -835,11 +835,9 @@ extension Workspace {
     /// - Parameters:
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func purgeCache(observabilityScope: ObservabilityScope) {
-        observabilityScope.trap {
-            try self.repositoryManager.purgeCache()
-            try self.registryDownloadsManager.purgeCache()
-            try self.manifestLoader.purgeCache()
-        }
+        self.repositoryManager.purgeCache(observabilityScope: observabilityScope)
+        self.registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
+        self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
     }
 
     /// Resets the entire workspace by removing the data directory.
@@ -854,11 +852,18 @@ extension Workspace {
             return true
         }
 
-        guard (removed ?? false) else { return }
-        try? self.repositoryManager.reset()
-        try? self.registryDownloadsManager.reset()
-        try? self.manifestLoader.resetCache()
-        try? self.fileSystem.removeFileTree(self.location.scratchDirectory)
+        guard (removed ?? false) else {
+            return
+        }
+
+        self.repositoryManager.reset(observabilityScope: observabilityScope)
+        self.registryDownloadsManager.reset(observabilityScope: observabilityScope)
+        self.manifestLoader.resetCache(observabilityScope: observabilityScope)
+        do {
+            try self.fileSystem.removeFileTree(self.location.scratchDirectory)
+        } catch {
+            observabilityScope.emit(error: "Error removing scratch directory at '\(self.location.scratchDirectory)': \(error)")
+        }
     }
 
     // FIXME: @testable internal
@@ -3760,12 +3765,12 @@ extension Workspace {
             }
         }
 
-        func resetCache() throws {
-            try self.underlying.resetCache()
+        func resetCache(observabilityScope: ObservabilityScope) {
+            self.underlying.resetCache(observabilityScope: observabilityScope)
         }
 
-        func purgeCache() throws {
-            try self.underlying.purgeCache()
+        func purgeCache(observabilityScope: ObservabilityScope) {
+            self.underlying.purgeCache(observabilityScope: observabilityScope)
         }
 
         private func transformSourceControlDependenciesToRegistry(
