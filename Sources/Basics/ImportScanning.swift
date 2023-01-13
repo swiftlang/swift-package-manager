@@ -16,7 +16,8 @@ import class Foundation.JSONDecoder
 import struct TSCBasic.AbsolutePath
 import class TSCBasic.Process
 
-private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency", "_StringProcessing"]
+private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency",
+                              "_StringProcessing", "_SwiftConcurrencyShims"]
 
 private struct Imports: Decodable {
     let imports: [String]

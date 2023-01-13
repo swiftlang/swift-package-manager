@@ -455,7 +455,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
-            let allowedImports = ["PackageDescription", "Swift", "SwiftOnoneSupport"] + restrictImports.allowedImports
+            let allowedImports = ["PackageDescription", "Swift",
+                                  "SwiftOnoneSupport", "_SwiftConcurrencyShims"] + restrictImports.allowedImports
 
             // wrap the completion to free concurrency control semaphore
             let completion: (Result<Void, Error>) -> Void = { result in
