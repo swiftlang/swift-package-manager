@@ -7,5 +7,5 @@
 // Import the Swift part of the module.
 #import "MixedTargetWithCustomModuleMap-Swift.h"
 
-@implementation OldCar
+@implementation MyOldCar
 @end

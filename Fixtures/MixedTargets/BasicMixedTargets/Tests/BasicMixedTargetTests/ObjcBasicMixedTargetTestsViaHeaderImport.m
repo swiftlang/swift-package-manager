@@ -2,11 +2,11 @@
 
 @import BasicMixedTarget;
 
-@interface ObjcBasicMixedTargetTests : XCTestCase
+@interface ObjcBasicMixedTargetTestsViaHeaderImport : XCTestCase
 
 @end
 
-@implementation ObjcBasicMixedTargetTests
+@implementation ObjcBasicMixedTargetTestsViaHeaderImport
 
 - (void)testPublicSwiftAPI {
     // Check that Objective-C compatible Swift API surface is exposed...

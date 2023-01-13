@@ -6,9 +6,10 @@
 // must be forward declared in headers.
 @class Engine;
 
-@interface OldCar : NSObject
+// `My` prefix is to avoid naming collision in test bundle.
+@interface MyOldCar : NSObject
 // `Engine` is defined in Swift.
 @property(nullable) Engine *engine;
 // `Driver` is defined in Objective-C.
-@property(nullable) Driver *driver;
+@property(nullable) MyDriver *driver;
 @end

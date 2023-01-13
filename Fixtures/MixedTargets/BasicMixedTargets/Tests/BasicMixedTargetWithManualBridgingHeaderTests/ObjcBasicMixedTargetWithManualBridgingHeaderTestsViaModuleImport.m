@@ -1,12 +1,13 @@
 #import <XCTest/XCTest.h>
 
+// Import the target via a module import.
 @import BasicMixedTargetWithManualBridgingHeader;
 
-@interface ObjcBasicMixedTargetWithManualBridgingHeaderTests : XCTestCase
+@interface ObjcBasicMixedTargetWithManualBridgingHeaderTestsViaModuleImport : XCTestCase
 
 @end
 
-@implementation ObjcBasicMixedTargetWithManualBridgingHeaderTests
+@implementation ObjcBasicMixedTargetWithManualBridgingHeaderTestsViaModuleImport
 
 - (void)testPublicSwiftAPI {
     // Check that Objective-C compatible Swift API surface is exposed...

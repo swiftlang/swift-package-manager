@@ -1,8 +1,8 @@
 #import <Foundation/Foundation.h>
 
 // Both import statements should be supported.
-#import "Driver.h"
-#import "include/Driver.h"
+#import "Machine.h"
+#import "include/Machine.h"
 
-@implementation MyDriver
+@implementation MyMachine
 @end

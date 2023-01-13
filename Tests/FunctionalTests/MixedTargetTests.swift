@@ -72,6 +72,11 @@ final class MixedTargetTests: XCTestCase {
                 fixturePath,
                 extraArgs: ["--target", "MixedTargetWithCustomModuleMap"]
             )
+
+            XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "MixedTargetWithCustomModuleMapTests"]
+            )
         }
     }
 

@@ -66,6 +66,10 @@ let package = Package(
         .target(
             name: "MixedTargetWithCustomModuleMap"
         ),
+        .testTarget(
+            name: "MixedTargetWithCustomModuleMapTests",
+            dependencies: ["MixedTargetWithCustomModuleMap"]
+        ), 
 
         // MARK: - MixedTargetWithInvalidCustomModuleMap
         .target(

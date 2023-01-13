@@ -1338,6 +1338,7 @@ public final class MixedTargetBuildDescription {
 
     /// The path to the VFS overlay file that overlays the public headers of
     /// the Clang part of the target over the target's build directory.
+    // TODO(ncooke3): Review to see if it should be non-optional.
     let allProductHeadersOverlay: AbsolutePath?
 
     /// The modulemap file for this target.
@@ -1472,6 +1473,7 @@ public final class MixedTargetBuildDescription {
                 // include public headers so all other can be filtered out.
                 .filter { $0.isDescendant(of: mixedTarget.clangTarget.includeDir) }
                 // Filter out non-Objective-C/C headers.
+                // TODO(ncooke3): C++ headers can be ".h". How else can we rule them out?
                 .filter { $0.basename.hasSuffix(".h") }
                 // Add each remaining header to the generated umbrella header.
                 .forEach {
@@ -1545,6 +1547,17 @@ public final class MixedTargetBuildDescription {
                         externalContents: productModuleMapPath.pathString
                     )
 
+                    VFSOverlay.File(
+                        name: interopHeaderPath.basename,
+                        externalContents: interopHeaderPath.pathString
+                    )
+
+                    // TODO(ncooke3): Unfortunately, this can trigger an
+                    // umbrella header warning that the umbrella header does
+                    // not include the header in this directory. So this
+                    // overlay needs to be pulled out of the public header
+                    // path and placed elsewhere. This also means there will be
+                    // two public header search paths.
                     if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
                         VFSOverlay.Directory(name: mixedTarget.c99name) {
                             VFSOverlay.File(
@@ -1573,14 +1586,19 @@ public final class MixedTargetBuildDescription {
 
             // Set the generated module map as the module map for the target.
             self.moduleMap = productModuleMapPath
+            self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
 
-            if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
-                // If an umbrella header was generated, it needs to be
-                // overlayed within the public headers directory.
-                self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
 #if swift(>=5.4)
-                try VFSOverlay(roots: [
-                    VFSOverlay.Directory(name: mixedTarget.clangTarget.includeDir.pathString) {
+            try VFSOverlay(roots: [
+                VFSOverlay.Directory(name: mixedTarget.clangTarget.includeDir.pathString) {
+                    VFSOverlay.File(
+                        name: interopHeaderPath.basename,
+                        externalContents: interopHeaderPath.pathString
+                    )
+
+                    // If an umbrella header was generated, it needs to be
+                    // overlayed within the public headers directory.
+                    if let generatedUmbrellaHeaderPath = generatedUmbrellaHeaderPath {
                         VFSOverlay.Directory(name: mixedTarget.c99name) {
                             VFSOverlay.File(
                                 name: generatedUmbrellaHeaderPath.basename,
@@ -1588,12 +1606,9 @@ public final class MixedTargetBuildDescription {
                             )
                         }
                     }
-                ]).write(to: self.allProductHeadersOverlay!, fileSystem: fileSystem)
+                }
+            ]).write(to: self.allProductHeadersOverlay!, fileSystem: fileSystem)
 #endif
-            } else {
-                // Else, no product overlay is needed.
-                self.allProductHeadersOverlay = nil
-            }
         }
 
         // MARK: Generate intermediate artifacts used to build the target.
@@ -1618,6 +1633,7 @@ public final class MixedTargetBuildDescription {
         // Generating module maps that include non-Objective-C headers is not
         // supported.
         // FIXME(ncooke3): Link to evolution post.
+        // TODO(ncooke3): C++ headers can be ".h". How else can we rule them out?
         let nonObjcHeaders: [AbsolutePath] = mixedTarget.clangTarget.headers
             .filter { $0.extension != "h" }
         try moduleMapGenerator.generateModuleMap(
