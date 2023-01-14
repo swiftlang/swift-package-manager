@@ -131,6 +131,11 @@ public final class SwiftTargetBuildDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
+    /// Whether or not the target belongs to a mixed language target.
+    ///
+    /// Mixed language targets consist of an underlying Swift and Clang target.
+    let isWithinMixedTarget: Bool
+
     /// The swift version for this target.
     var swiftVersion: SwiftLanguageVersion {
         (self.target.underlyingTarget as! SwiftTarget).swiftVersion
@@ -241,7 +246,8 @@ public final class SwiftTargetBuildDescription {
         requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        isWithinMixedTarget: Bool = false
     ) throws {
         guard target.underlyingTarget is SwiftTarget else {
             throw InternalError("underlying target type mismatch \(target)")
@@ -265,6 +271,7 @@ public final class SwiftTargetBuildDescription {
         self.prebuildCommandResults = prebuildCommandResults
         self.requiredMacroProducts = requiredMacroProducts
         self.observabilityScope = observabilityScope
+        self.isWithinMixedTarget = isWithinMixedTarget
 
         (self.pluginDerivedSources, self.pluginDerivedResources) = SharedTargetBuildDescription.computePluginGeneratedFiles(
             target: target,
@@ -276,7 +283,10 @@ public final class SwiftTargetBuildDescription {
             observabilityScope: observabilityScope
         )
 
-        if self.shouldEmitObjCCompatibilityHeader {
+        // If building for a mixed target, the mixed target build
+        // description will create the module map and include the Swift
+        // interoptability header.
+        if self.shouldEmitObjCCompatibilityHeader, !isWithinMixedTarget {
             self.moduleMap = try self.generateModuleMap()
         }
 
@@ -379,7 +389,7 @@ public final class SwiftTargetBuildDescription {
             if packageAccess {
                 let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
                 return [flag, pkgID]
-            } 
+            }
         }
         return []
     }
@@ -599,7 +609,11 @@ public final class SwiftTargetBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.targetTriple.isDarwin() && self.target.type == .library
+        self.buildParameters.targetTriple.isDarwin() &&
+            // Emitting the interop header for mixed test targets enables the
+            // sharing of Objective-C compatible Swift test helpers between
+            // Swift and Objective-C test files.
+            (self.target.type == .library || self.target.type == .test && self.isWithinMixedTarget)
     }
 
     func writeOutputFileMap() throws -> AbsolutePath {
