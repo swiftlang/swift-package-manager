@@ -2,6 +2,7 @@
 
 #import "include/OldBoat.h"
 
+// Import the mixed target's module.
 @import BasicMixedTarget;
 
 @interface OldBoat ()

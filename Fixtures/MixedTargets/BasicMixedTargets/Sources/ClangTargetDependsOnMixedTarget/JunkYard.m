@@ -2,6 +2,7 @@
 
 #import "include/JunkYard.h"
 
+// Import the mixed target's module.
 @import BasicMixedTarget;
 
 @interface JunkYard ()
@@ -9,6 +10,7 @@
 @property(nullable) Engine *engine;
 @property(nullable) Driver *driver;
 @property(nullable) OldCar *oldCar;
+@property(nullable) CarPart *carPart;
 @end
 
 @implementation JunkYard
