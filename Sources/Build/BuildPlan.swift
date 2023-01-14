@@ -1498,10 +1498,6 @@ public final class MixedTargetBuildDescription {
             interopSupportDirectory = nil
         }
 
-        // TODO(ncooke3): Is there a way to remove the generated umbrella
-        // header when compiling individual clang files? This will reduce the
-        // misuse of importing the generated umbrella header.
-
         // Clients will later depend on the public header directory, and, if an
         // umbrella header was created, the header's root directory.
         self.publicHeaderPaths = interopSupportDirectory != nil ?

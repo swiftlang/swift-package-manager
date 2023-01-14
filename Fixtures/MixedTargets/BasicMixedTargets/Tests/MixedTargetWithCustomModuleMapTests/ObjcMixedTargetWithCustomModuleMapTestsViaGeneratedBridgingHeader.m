@@ -1,5 +1,7 @@
 #import <XCTest/XCTest.h>
 
+// IMPORTANT: The generated "bridging" header must be imported before the
+// generated interop header.
 #import "MixedTargetWithCustomModuleMap/MixedTargetWithCustomModuleMap.h"
 #import "MixedTargetWithCustomModuleMap-Swift.h"
 
