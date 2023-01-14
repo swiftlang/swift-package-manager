@@ -1554,22 +1554,25 @@ public final class MixedTargetBuildDescription {
             self.moduleMap = customModuleMapPath
             self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
 
-// TODO(ncooke3): Probably can remove the builder pattern now.
-#if swift(>=5.4)
             try VFSOverlay(roots: [
-                VFSOverlay.Directory(name: customModuleMapPath.parentDirectory.pathString) {
-                    VFSOverlay.File(
-                        name: moduleMapFilename,
-                        externalContents: productModuleMapPath.pathString
-                    )
-
-                    VFSOverlay.File(
-                        name: interopHeaderPath.basename,
-                        externalContents: interopHeaderPath.pathString
-                    )
-                }
+                VFSOverlay.Directory(
+                    name: customModuleMapPath.parentDirectory.pathString,
+                    contents: [
+                        // Redirect the custom `module.modulemap` to the
+                        // modified module map in the product directory.
+                        VFSOverlay.File(
+                            name: moduleMapFilename,
+                            externalContents: productModuleMapPath.pathString
+                        ),
+                        // Add a generated Swift header that redirects to the
+                        // generated header in the build directory's root.
+                        VFSOverlay.File(
+                            name: interopHeaderPath.basename,
+                            externalContents: interopHeaderPath.pathString
+                        )
+                    ]
+                )
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
-#endif
 
         // When the mixed target does not have a custom module map, one will be
         // generated as a product for use by clients.
@@ -1589,16 +1592,19 @@ public final class MixedTargetBuildDescription {
             self.moduleMap = productModuleMapPath
             self.allProductHeadersOverlay = productDirectory.appending(component: allProductHeadersFilename)
 
-#if swift(>=5.4)
             try VFSOverlay(roots: [
-                VFSOverlay.Directory(name: mixedTarget.clangTarget.includeDir.pathString) {
-                    VFSOverlay.File(
-                        name: interopHeaderPath.basename,
-                        externalContents: interopHeaderPath.pathString
-                    )
-                }
+                VFSOverlay.Directory(
+                    name: mixedTarget.clangTarget.includeDir.pathString,
+                    contents: [
+                        // Add a generated Swift header that redirects to the
+                        // generated header in the build directory's root.
+                        VFSOverlay.File(
+                            name: interopHeaderPath.basename,
+                            externalContents: interopHeaderPath.pathString
+                        )
+                    ]
+                )
             ]).write(to: self.allProductHeadersOverlay, fileSystem: fileSystem)
-#endif
         }
 
         // MARK: Generate intermediate artifacts used to build the target.
@@ -1652,38 +1658,40 @@ public final class MixedTargetBuildDescription {
         }
 
         let allProductHeadersPath = intermediatesDirectory.appending(component: allProductHeadersFilename)
-#if swift(>=5.4)
         try VFSOverlay(roots: [
-            VFSOverlay.Directory(name: rootOverlayResourceDirectory.pathString) {
-                // Redirect the `module.modulemap` to the modified
-                // module map in the intermediates directory.
-                VFSOverlay.File(
-                    name: moduleMapFilename,
-                    externalContents: intermediateModuleMapPath.pathString
-                )
-                // Add a generated Swift header that redirects to the
-                // generated header in the build directory's root.
-                VFSOverlay.File(
-                    name: interopHeaderPath.basename,
-                    externalContents: interopHeaderPath.pathString
-                )
-            }
+            VFSOverlay.Directory(
+                name: rootOverlayResourceDirectory.pathString,
+                contents: [
+                    // Redirect the `module.modulemap` to the modified
+                    // module map in the intermediates directory.
+                    VFSOverlay.File(
+                        name: moduleMapFilename,
+                        externalContents: intermediateModuleMapPath.pathString
+                    ),
+                    // Add a generated Swift header that redirects to the
+                    // generated header in the build directory's root.
+                    VFSOverlay.File(
+                        name: interopHeaderPath.basename,
+                        externalContents: interopHeaderPath.pathString
+                    )
+                ]
+            )
         ]).write(to: allProductHeadersPath, fileSystem: fileSystem)
-#endif
 
         let unextendedModuleMapOverlayPath = intermediatesDirectory.appending(component: unextendedModuleOverlayFilename)
-#if swift(>=5.4)
         try VFSOverlay(roots: [
-            VFSOverlay.Directory(name: rootOverlayResourceDirectory.pathString) {
-                // Redirect the `module.modulemap` to the *unextended*
-                // module map in the intermediates directory.
-                VFSOverlay.File(
-                    name: moduleMapFilename,
-                    externalContents: unextendedModuleMapPath.pathString
-                )
-            }
+            VFSOverlay.Directory(
+                name: rootOverlayResourceDirectory.pathString,
+                contents: [
+                    // Redirect the `module.modulemap` to the *unextended*
+                    // module map in the intermediates directory.
+                    VFSOverlay.File(
+                        name: moduleMapFilename,
+                        externalContents: unextendedModuleMapPath.pathString
+                    )
+                ]
+            )
         ]).write(to: unextendedModuleMapOverlayPath, fileSystem: fileSystem)
-#endif
 
         // 4. Tie everything together by passing build flags.
 
@@ -1719,7 +1727,7 @@ public final class MixedTargetBuildDescription {
             "-I", intermediatesDirectory.pathString
         ]
 
-        // If a generated umbrella header was created, add it's root directory
+        // If a generated umbrella header was created, add its root directory
         // as a header search path. This will resolve its import within the
         // generated interop header.
         if let interopSupportDirectory = interopSupportDirectory {

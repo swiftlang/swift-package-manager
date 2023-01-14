@@ -55,14 +55,12 @@ public struct VFSOverlay: Encodable {
             super.init(name: name, type: "directory")
         }
 
-#if swift(>=5.4)
         public convenience init(
             name: String,
-            @VFSOverlayBuilder contents: () -> [VFSOverlay.Resource]
+            contents: () -> [VFSOverlay.Resource]
         ) {
             self.init(name: name, contents: contents())
         }
-#endif
 
         public override func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
@@ -96,25 +94,3 @@ public struct VFSOverlay: Encodable {
         try JSONEncoder.makeWithDefaults(prettified: false).encode(path: path, fileSystem: fileSystem, self)
     }
 }
-
-// TODO(ncooke3): Is gating this API necessary?
-#if swift(>=5.4)
-@resultBuilder
-public struct VFSOverlayBuilder {
-    public static func buildBlock(_ components: [VFSOverlay.Resource]...) -> [VFSOverlay.Resource] {
-        return components.flatMap { $0 }
-    }
-
-    public static func buildExpression(_ expression: VFSOverlay.Resource) -> [VFSOverlay.Resource] {
-        return [expression]
-    }
-
-    public static func buildExpression(_ expression: [VFSOverlay.Resource]) -> [VFSOverlay.Resource] {
-        return expression
-    }
-
-    public static func buildOptional(_ components: [VFSOverlay.Resource]?) -> [VFSOverlay.Resource] {
-        return components ?? []
-    }
-}
-#endif
