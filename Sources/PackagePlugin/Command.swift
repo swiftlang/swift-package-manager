@@ -133,14 +133,14 @@ public extension Command {
     /// create an arbitrary set of output files based on the contents of the
     /// inputs.
     ///
-    /// Because prebuild commands are run on every build, they are can have
+    /// Because prebuild commands are run on every build, they can have a
     /// significant performance impact and should only be used when there is
     /// no way to know the names of the outputs before the command is run.
     ///
     /// The `outputFilesDirectory` parameter is the path of a directory into
     /// which the command will write its output files. Any files that are in
     /// that directory after the prebuild command finishes will be interpreted
-    /// according to same build rules as for sources.
+    /// according to the same build rules as for sources.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
@@ -178,14 +178,14 @@ public extension Command {
     /// create an arbitrary set of output files based on the contents of the
     /// inputs.
     ///
-    /// Because prebuild commands are run on every build, they are can have
+    /// Because prebuild commands are run on every build, they can have a
     /// significant performance impact and should only be used when there is
     /// no way to know the names of the outputs before the command is run.
     ///
     /// The `outputFilesDirectory` parameter is the path of a directory into
     /// which the command will write its output files. Any files that are in
     /// that directory after the prebuild command finishes will be interpreted
-    /// according to same build rules as for sources.
+    /// according to the same build rules as for sources.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
