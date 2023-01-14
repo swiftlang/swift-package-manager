@@ -25,7 +25,7 @@ case "swift-package":
     SwiftPackageTool.main()
 case "swift-build":
     SwiftBuildTool.main()
-case "swift-destination":
+case "swift-experimental-destination":
     SwiftDestinationTool.main()
 case "swift-test":
     SwiftTestTool.main()
