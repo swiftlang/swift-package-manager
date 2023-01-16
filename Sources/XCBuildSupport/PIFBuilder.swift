@@ -21,19 +21,19 @@ import PackageGraph
 import SPMBuildCore
 
 /// The parameters required by `PIFBuilder`.
-struct PIFBuilderParameters {
+public struct PIFBuilderParameters {
 
     /// Whether or not build for testability is enabled.
-    let enableTestability: Bool
+    public let enableTestability: Bool
 
     /// Whether to create dylibs for dynamic library products.
-    let shouldCreateDylibForDynamicProducts: Bool
+    public let shouldCreateDylibForDynamicProducts: Bool
 
     /// The path to the library directory of the active toolchain.
-    let toolchainLibDir: AbsolutePath
+    public let toolchainLibDir: AbsolutePath
 
     /// An array of paths to search for pkg-config `.pc` files.
-    let pkgConfigDirectories: [AbsolutePath]
+    public let pkgConfigDirectories: [AbsolutePath]
 }
 
 /// PIF object builder for a package graph.
@@ -65,7 +65,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    init(
+    public init(
         graph: PackageGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
