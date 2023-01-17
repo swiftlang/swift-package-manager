@@ -526,7 +526,7 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testTargetOnclyContainingHeaders() throws {
+    func testTargetOnlyContainingHeaders() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/Bar/include/bar.h"
         )
