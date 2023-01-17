@@ -82,7 +82,14 @@ packageCollectionsSigningTargets.append(
         ]
     )
 )
-packageCollectionsSigningDeps.append("PackageCollectionsSigningLibc")
+packageCollectionsSigningDeps.append(
+    .target(
+        name: "PackageCollectionsSigningLibc",
+        condition: .when(
+            platforms: [.linux, .android, .windows]
+        )
+    )
+)
 #endif
 // Define PackageCollectionsSigning target always
 packageCollectionsSigningTargets.append(
