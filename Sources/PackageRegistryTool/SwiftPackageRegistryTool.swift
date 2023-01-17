@@ -145,7 +145,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Argument(help: "The registry URL")
@@ -326,7 +326,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log out from a registry")
 
-        @OptionGroup(_hiddenFromHelp: true)
+        @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Argument(help: "The registry URL")
