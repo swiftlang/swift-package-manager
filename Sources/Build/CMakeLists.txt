@@ -12,6 +12,7 @@ add_library(Build
   BuildDescription/ProductBuildDescription.swift
   BuildDescription/SharedTargetBuildDescription.swift
   BuildDescription/SwiftTargetBuildDescription.swift
+  BuildDescription/MixedTargetBuildDescription.swift
   BuildDescription/TargetBuildDescription.swift
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
