@@ -402,6 +402,7 @@ public class Workspace {
         try self.init(
             fileSystem: fileSystem,
             location: location,
+            configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
             customManifestLoader: customManifestLoader,
