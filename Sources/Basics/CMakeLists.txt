@@ -17,7 +17,9 @@ add_library(Basics
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
   Errors.swift
-  FileSystem+Extensions.swift
+  FileSystem/AsyncFileSystem.swift
+  FileSystem/AsyncLocalFileSystem.swift
+  FileSystem/FileSystem+Extensions.swift
   HTTPClient+URLSession.swift
   HTTPClient.swift
   ImportScanning.swift
