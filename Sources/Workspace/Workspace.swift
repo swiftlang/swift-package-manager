@@ -402,6 +402,8 @@ public class Workspace {
         try self.init(
             fileSystem: fileSystem,
             location: location,
+            authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
