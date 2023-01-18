@@ -54,9 +54,12 @@ public class Target: PolymorphicCodableProtocol {
         public var identity: String {
             if let pkg = package {
                 return pkg.lowercased() + "_" + name
+            } else {
+                // this is hit only if this product is referenced `.byName(name)`
+                // which assumes the name of this product, its package, and its target
+                // all have the same name
+                return name.lowercased() + "_" + name
             }
-            // package ID won't be included for products referenced only by name
-            return name
         }
 
         /// Creates a product reference instance.

@@ -10612,25 +10612,36 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                   realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
-
         }
 
         // reset
@@ -10781,23 +10792,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -10925,23 +10948,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -11058,23 +11093,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -11092,6 +11139,14 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
+                    if ToolsVersion.current >= .v5_8 {
+                        result.check(
+                            diagnostic: .contains("""
+                            product 'FooProduct' required by package 'org.bar' target 'BarTarget' not found in package 'foo'.
+                            """),
+                            severity: .error
+                        )
+                    }
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
@@ -11202,23 +11257,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -11351,22 +11418,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'BazTarget' in: 'baz', 'org.baz'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                    multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                    """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -11384,13 +11464,23 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
+                    if ToolsVersion.current >= .v5_8 {
+                        result.check(
+                            diagnostic: .contains("""
+                        product 'BazProduct' required by package 'org.foo' target 'FooTarget' not found in package 'baz'.
+                        """),
+                            severity: .error
+                        )
+                    }
                 }
                 PackageGraphTester(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
                     result.check(targets: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
                     result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
-                    result.checkTarget("FooTarget") { result in result.check(dependencies: "BazProduct") }
+                    if ToolsVersion.current < .v5_8 {
+                        result.checkTarget("FooTarget") { result in result.check(dependencies: "BazProduct") }
+                    }
                     result.checkTarget("BarTarget") { result in result.check(dependencies: "BazProduct") }
                 }
             }
@@ -11516,23 +11606,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'BazTarget' in: 'baz', 'org.baz'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'BazProduct' in: 'baz', 'org.baz'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
@@ -11649,23 +11751,35 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
-
-            XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(
-                        diagnostic: .contains("""
+            if ToolsVersion.current < .v5_8 {
+                XCTAssertThrowsError(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
                         multiple targets named 'FooTarget' in: 'foo', 'org.foo'
                         """),
-                        severity: .error
-                    )
+                            severity: .error
+                        )
+                    }
+                }) { error in
+                    var diagnosed = false
+                    if let realError = error as? PackageGraphError,
+                       realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
+                        diagnosed = true
+                    }
+                    XCTAssertTrue(diagnosed)
                 }
-            }) { error in
-                var diagnosed = false
-                if let realError = error as? PackageGraphError,
-                    realError.description == "multiple products named 'FooProduct' in: 'foo', 'org.foo'" {
-                    diagnosed = true
-                }
-                XCTAssertTrue(diagnosed)
+            } else {
+                XCTAssertNoThrow(try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                    testDiagnostics(diagnostics) { result in
+                        result.check(
+                            diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                            severity: .error
+                        )
+                    }
+                })
             }
         }
 
