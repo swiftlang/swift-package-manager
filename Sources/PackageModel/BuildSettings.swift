@@ -38,11 +38,6 @@ public enum BuildSettings {
         private init(_ name: String) {
             self.name = name
         }
-
-        /// The list of settings that are considered as unsafe build settings.
-        public static let unsafeSettings: Set<Declaration> = [
-            OTHER_CFLAGS,  OTHER_CPLUSPLUSFLAGS, OTHER_SWIFT_FLAGS, OTHER_LDFLAGS,
-        ]
     }
 
     /// An individual build setting assignment.
