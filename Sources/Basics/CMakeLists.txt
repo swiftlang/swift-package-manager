@@ -27,10 +27,15 @@ add_library(Basics
   FileSystem/FileSystem+Extensions.swift
   FileSystem/VFSOverlay.swift
   HTTPClient/HTTPClient.swift
-  HTTPClient/HTTPClient+URLSession.swift
+  HTTPClient/HTTPClientConfiguration.swift
+  HTTPClient/HTTPClientError.swift
   HTTPClient/HTTPClientHeaders.swift
   HTTPClient/HTTPClientRequest.swift
   HTTPClient/HTTPClientResponse.swift
+  HTTPClient/HTTPMethod.swift
+  HTTPClient/LegacyHTTPClient.swift
+  HTTPClient/LegacyHTTPClientRequest.swift
+  HTTPClient/URLSessionHTTPClient.swift
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
@@ -38,6 +43,7 @@ add_library(Basics
   Observability.swift
   SQLite.swift
   Sandbox.swift
+  SendableTimeInterval.swift
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift

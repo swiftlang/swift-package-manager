@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct HTTPClientHeaders {
+public struct HTTPClientHeaders: Sendable {
     private var items: [Item]
     private var headers: [String: [String]]
 
@@ -63,7 +63,7 @@ public struct HTTPClientHeaders {
         self.headers[name.lowercased()] ?? []
     }
 
-    public struct Item: Equatable {
+    public struct Item: Equatable, Sendable {
         let name: String
         let value: String
 

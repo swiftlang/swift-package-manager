@@ -26,7 +26,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -60,7 +60,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -94,7 +94,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -131,7 +131,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -167,7 +167,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -222,17 +222,17 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let progress50Expectation = XCTestExpectation(description: "progress50")
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL(string: "https://downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
-            let request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
+            let destination = temporaryDirectory.appending(component: "download")
+            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
             httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -258,17 +258,18 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 }
             )
 
-            MockURLProtocol.onRequest(request) { _ in
+            MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 didStartLoadingExpectation.fulfill()
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: urlRequest)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: urlRequest)
             wait(for: [progress100Expectation], timeout: 1.0)
-            MockURLProtocol.sendCompletion(for: request)
+            MockURLProtocol.sendCompletion(for: urlRequest)
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
@@ -289,20 +290,20 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let progress50Expectation = XCTestExpectation(description: "progress50")
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
+            let destination = temporaryDirectory.appending(component: "download")
 
-            var options = HTTPClientRequest.Options()
+            var options = LegacyHTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
-            let request = HTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
+            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
 
             httpClient.execute(
                 request,
@@ -336,11 +337,12 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: urlRequest)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: urlRequest)
             wait(for: [progress100Expectation], timeout: 1.0)
-            MockURLProtocol.sendCompletion(for: request)
+            MockURLProtocol.sendCompletion(for: urlRequest)
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
@@ -361,19 +363,19 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let progress50Expectation = XCTestExpectation(description: "progress50")
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
-            var options = HTTPClientRequest.Options()
+            let destination = temporaryDirectory.appending(component: "download")
+            var options = LegacyHTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
-            let request = HTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
+            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
 
             httpClient.execute(
                 request,
@@ -407,11 +409,12 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: urlRequest)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: urlRequest)
             wait(for: [progress100Expectation], timeout: 1.0)
-            MockURLProtocol.sendCompletion(for: request)
+            MockURLProtocol.sendCompletion(for: urlRequest)
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
@@ -427,16 +430,16 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let progress50Expectation = XCTestExpectation(description: "progress50")
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let clientError = StringError("boom")
             let url = URL(string: "https://downloader-tests.com/testClientError.zip")!
-            let request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: tmpdir.appending(component: "download"))
+            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
             httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -471,9 +474,10 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(count: 512), for: request)
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendData(Data(count: 512), for: urlRequest)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendError(clientError, for: request)
+            MockURLProtocol.sendError(clientError, for: urlRequest)
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
@@ -489,17 +493,17 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL(string: "https://downloader-tests.com/testServerError.zip")!
 
-            var options = HTTPClientRequest.Options()
+            var options = LegacyHTTPClientRequest.Options()
             options.validResponseCodes = [200]
-            let request = HTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: tmpdir.appending(component: "download"))
+            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
 
             httpClient.execute(
                 request,
@@ -523,7 +527,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendCompletion(for: request)
+            MockURLProtocol.sendCompletion(for: URLRequest(request))
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
@@ -539,14 +543,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(handler: urlSession.execute)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { temporaryDirectory in
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let completionExpectation = XCTestExpectation(description: "error")
 
             let url = URL(string: "https://downloader-tests.com/testFileSystemError.zip")!
-            let request = HTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: tmpdir.appending(component: "download"))
+            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: temporaryDirectory.appending(component: "download"))
             httpClient.execute(request, progress: { _, _ in }, completion: { result in
                 switch result {
                 case .success:
@@ -563,18 +567,20 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: request)
-            MockURLProtocol.sendCompletion(for: request)
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: urlRequest)
+            MockURLProtocol.sendCompletion(for: urlRequest)
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
 
     // FIXME: remove this availability check when back-deployment is available on CI hosts.
-    @available(macOS 12, *)
+#if swift(>=5.5.2)
     func testAsyncHead() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
         let url = URL(string: "http://async-head-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -588,18 +594,18 @@ final class URLSessionHTTPClientTest: XCTestCase {
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
-        let response = try await client.execute(.init(method: .head, url: url, headers: requestHeaders))
+        let response = try await httpClient.execute(.init(method: .head, url: url, headers: requestHeaders))
 
         XCTAssertEqual(response.statusCode, responseStatus)
         self.assertResponseHeaders(response.headers, expected: responseHeaders)
         XCTAssertEqual(response.body, responseBody)
     }
 
-    @available(macOS 12, *)
     func testAsyncGet() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
         let url = URL(string: "http://async-get-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -613,17 +619,17 @@ final class URLSessionHTTPClientTest: XCTestCase {
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
-        let response = try await client.execute(.init(method: .get, url: url, headers: requestHeaders))
+        let response = try await httpClient.execute(.init(method: .get, url: url, headers: requestHeaders))
         XCTAssertEqual(response.statusCode, responseStatus)
         self.assertResponseHeaders(response.headers, expected: responseHeaders)
         XCTAssertEqual(response.body, responseBody)
     }
 
-    @available(macOS 12, *)
     func testAsyncPost() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
         let url = URL(string: "http://async-post-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -640,18 +646,18 @@ final class URLSessionHTTPClientTest: XCTestCase {
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
-        let response = try await client.execute(.init(method: .post, url: url, headers: requestHeaders, body: requestBody))
+        let response = try await httpClient.execute(.init(method: .post, url: url, headers: requestHeaders, body: requestBody))
 
         XCTAssertEqual(response.statusCode, responseStatus)
         self.assertResponseHeaders(response.headers, expected: responseHeaders)
         XCTAssertEqual(response.body, responseBody)
     }
 
-    @available(macOS 12, *)
     func testAsyncPut() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
         let url = URL(string: "http://async-put-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -667,18 +673,18 @@ final class URLSessionHTTPClientTest: XCTestCase {
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
-        let response = try await client.execute(.init(method: .put, url: url, headers: requestHeaders, body: requestBody))
+        let response = try await httpClient.execute(.init(method: .put, url: url, headers: requestHeaders, body: requestBody))
 
         XCTAssertEqual(response.statusCode, responseStatus)
         self.assertResponseHeaders(response.headers, expected: responseHeaders)
         XCTAssertEqual(response.body, responseBody)
     }
 
-    @available(macOS 12, *)
     func testAsyncDelete() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
         let url = URL(string: "http://async-delete-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -692,7 +698,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
         }
 
-        let response = try await client.execute(.init(method: .delete, url: url, headers: requestHeaders))
+        let response = try await httpClient.execute(.init(method: .delete, url: url, headers: requestHeaders))
 
         XCTAssertEqual(response.statusCode, responseStatus)
         self.assertResponseHeaders(response.headers, expected: responseHeaders)
@@ -701,7 +707,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     // MARK: - download
 
-    @available(macOS 12, *)
     func testAsyncDownloadSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -712,21 +717,26 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
-        try await testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
-            let request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
+            let destination = temporaryDirectory.appending(component: "download")
+            let request = HTTPClient.Request.download(
+                url: url,
+                fileSystem: AsyncFileSystem { localFileSystem },
+                destination: destination
+            )
 
-            MockURLProtocol.onRequest(request) { _ in
+            MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
-            _ = try await client.execute(
+            _ = try await httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     switch (bytesDownloaded, totalBytesToDownload) {
@@ -746,7 +756,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    @available(macOS 12, *)
     func testAsyncDownloadAuthenticatedSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -762,29 +771,30 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
-        try await testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-protected.downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
+            let destination = temporaryDirectory.appending(component: "download")
             var options = HTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
-                fileSystem: localFileSystem,
+                fileSystem: AsyncFileSystem { localFileSystem },
                 destination: destination
             )
 
-            MockURLProtocol.onRequest(request) { urlRequest in
-                XCTAssertEqual(urlRequest.allHTTPHeaderFields?["Authorization"], testAuthHeader)
+            MockURLProtocol.onRequest(request) { request in
+                XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
-            _ = try await client.execute(
+            _ = try await httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     switch (bytesDownloaded, totalBytesToDownload) {
@@ -804,7 +814,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    @available(macOS 12, *)
     func testAsyncDownloadDefaultAuthenticationSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -820,25 +829,31 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
-        try await testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-restricted.downloader-tests.com/testBasics.zip")!
-            let destination = tmpdir.appending(component: "download")
+            let destination = temporaryDirectory.appending(component: "download")
 
             var options = HTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
-            let request = HTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
+            let request = HTTPClient.Request.download(
+                url: url,
+                options: options,
+                fileSystem: AsyncFileSystem { localFileSystem },
+                destination: destination
+            )
 
-            MockURLProtocol.onRequest(request) { urlRequest in
-                XCTAssertEqual(urlRequest.allHTTPHeaderFields?["Authorization"], testAuthHeader)
+            MockURLProtocol.onRequest(request) { request in
+                XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
                 MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
-            _ = try await client.execute(
+            _ = try await httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     switch (bytesDownloaded, totalBytesToDownload) {
@@ -858,7 +873,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    @available(macOS 12, *)
     func testAsyncDownloadClientError() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -869,21 +883,26 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
-        try await testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let clientError = StringError("boom")
             let url = URL(string: "https://async-downloader-tests.com/testClientError.zip")!
-            let request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: tmpdir.appending(component: "download"))
+            let request = HTTPClient.Request.download(
+                url: url,
+                fileSystem: AsyncFileSystem { localFileSystem },
+                destination: temporaryDirectory.appending(component: "download")
+            )
 
-            MockURLProtocol.onRequest(request) { _ in
+            MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
                 MockURLProtocol.sendData(Data(count: 512), for: request)
                 MockURLProtocol.sendError(clientError, for: request)
             }
 
             do {
-                _ = try await client.execute(
+                _ = try await httpClient.execute(
                     request,
                     progress: { bytesDownloaded, totalBytesToDownload in
                         switch (bytesDownloaded, totalBytesToDownload) {
@@ -908,7 +927,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    @available(macOS 12, *)
     func testAsyncDownloadServerError() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -919,21 +937,27 @@ final class URLSessionHTTPClientTest: XCTestCase {
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
 
-        try await testWithTemporaryDirectory { tmpdir in
+        try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-downloader-tests.com/testServerError.zip")!
             var options = HTTPClientRequest.Options()
             options.validResponseCodes = [200]
-            let request = HTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: tmpdir.appending(component: "download"))
+            let request = HTTPClient.Request.download(
+                url: url,
+                options: options,
+                fileSystem: AsyncFileSystem { localFileSystem },
+                destination: temporaryDirectory.appending(component: "download")
+            )
 
-            MockURLProtocol.onRequest(request) { _ in
+            MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 500, for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
             do {
-                _ = try await client.execute(
+                _ = try await httpClient.execute(
                     request,
                     progress: { _, _ in
                         XCTFail("unexpected progress")
@@ -945,38 +969,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
         }
     }
-
-    @available(macOS 12, *)
-    func testAsyncDownloadFileSystemError() async throws {
-        #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
-        let configuration = URLSessionConfiguration.default
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let client = URLSessionHTTPClient(configuration: configuration)
-
-        try await testWithTemporaryDirectory { tmpdir in
-            let url = URL(string: "https://async-downloader-tests.com/testFileSystemError.zip")!
-            let request = HTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: tmpdir.appending(component: "download"))
-
-            MockURLProtocol.onRequest(request) { _ in
-                MockURLProtocol.sendResponse(statusCode: 200, for: request)
-                MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: request)
-                MockURLProtocol.sendCompletion(for: request)
-            }
-
-            do {
-                _ = try await client.execute(request)
-                XCTFail("expected previous statement to throw")
-            } catch {
-                XCTAssertEqual(error as? FileSystemError, FileSystemError(.unsupported))
-            }
-        }
-    }
+#endif // swift(>=5.5.2)
 }
 
 private class MockURLProtocol: URLProtocol {
@@ -985,8 +978,12 @@ private class MockURLProtocol: URLProtocol {
     private static var observers = ThreadSafeKeyValueStore<Key, Action>()
     private static var requests = ThreadSafeKeyValueStore<Key, URLProtocol>()
 
+    static func onRequest(_ request: LegacyHTTPClientRequest, completion: @escaping Action) {
+        self.onRequest(request.method.string, request.url, completion: completion)
+    }
+
     static func onRequest(_ request: HTTPClientRequest, completion: @escaping Action) {
-        self.onRequest(request.methodString(), request.url, completion: completion)
+        self.onRequest(request.method.string, request.url, completion: completion)
     }
 
     static func onRequest(_ method: String, _ url: URL, completion: @escaping Action) {
@@ -995,10 +992,6 @@ private class MockURLProtocol: URLProtocol {
             return XCTFail("does not support multiple observers for the same url")
         }
         self.observers[key] = completion
-    }
-
-    static func respond(_ request: HTTPClientRequest, statusCode: Int, headers: [String: String]? = nil, body: Data? = nil) {
-        self.respond(request.methodString(), request.url, statusCode: statusCode, headers: headers, body: body)
     }
 
     static func respond(_ request: URLRequest, statusCode: Int, headers: [String: String]? = nil, body: Data? = nil) {
@@ -1018,17 +1011,9 @@ private class MockURLProtocol: URLProtocol {
         self.sendResponse(request.httpMethod!, request.url!, statusCode: statusCode, headers: headers)
     }
 
-    static func sendResponse(statusCode: Int, headers: [String: String]? = nil, for request: HTTPClientRequest) {
-        self.sendResponse(request.methodString(), request.url, statusCode: statusCode, headers: headers)
-    }
-
     static func sendResponse(_ method: String, _ url: URL, statusCode: Int, headers: [String: String]? = nil) {
         let key = Key(method, url)
         self.sendResponse(statusCode: statusCode, headers: headers, for: key)
-    }
-
-    static func sendData(_ data: Data, for request: HTTPClientRequest) {
-        self.sendData(request.methodString(), request.url, data)
     }
 
     static func sendData(_ method: String, _ url: URL, _ data: Data) {
@@ -1036,17 +1021,9 @@ private class MockURLProtocol: URLProtocol {
         self.sendData(data, for: key)
     }
 
-    static func sendCompletion(for request: HTTPClientRequest) {
-        self.sendCompletion(request.methodString(), request.url)
-    }
-
     static func sendCompletion(_ method: String, _ url: URL) {
         let key = Key(method, url)
         self.sendCompletion(for: key)
-    }
-
-    static func sendError(_ error: Error, for request: HTTPClientRequest) {
-        self.sendError(request.methodString(), request.url, error)
     }
 
     static func sendError(_ method: String, _ url: URL, _ error: Error) {
@@ -1062,6 +1039,10 @@ private class MockURLProtocol: URLProtocol {
         request.client?.urlProtocol(request, didReceive: response, cacheStoragePolicy: .notAllowed)
     }
 
+    static func sendData(_ data: Data, for request: URLRequest) {
+        sendData(data, for: Key(request))
+    }
+
     private static func sendData(_ data: Data, for key: Key) {
         guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
@@ -1069,11 +1050,19 @@ private class MockURLProtocol: URLProtocol {
         request.client?.urlProtocol(request, didLoad: data)
     }
 
+    static func sendCompletion(for request: URLRequest) {
+        sendCompletion(for: Key(request))
+    }
+
     private static func sendCompletion(for key: Key) {
         guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocolDidFinishLoading(request)
+    }
+
+    static func sendError(_ error: Error, for request: URLRequest) {
+        sendError(error, for: Key(request))
     }
 
     private static func sendError(_ error: Error, for key: Key) {
@@ -1090,6 +1079,11 @@ private class MockURLProtocol: URLProtocol {
         init(_ method: String, _ url: URL) {
             self.method = method
             self.url = url
+        }
+
+        init(_ request: URLRequest) {
+            self.method = request.httpMethod!
+            self.url = request.url!
         }
     }
 

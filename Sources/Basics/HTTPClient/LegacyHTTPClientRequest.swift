@@ -15,7 +15,7 @@ import Foundation
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.FileSystem
 
-public struct HTTPClientRequest: Sendable {
+public struct LegacyHTTPClientRequest {
     public let kind: Kind
     public let url: URL
     public var headers: HTTPClientHeaders
@@ -52,7 +52,7 @@ public struct HTTPClientRequest: Sendable {
         url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Options = .init(),
-        fileSystem: AsyncFileSystem,
+        fileSystem: FileSystem,
         destination: AbsolutePath
     ) -> Self {
         self.init(
@@ -73,28 +73,43 @@ public struct HTTPClientRequest: Sendable {
         }
     }
 
-    public enum Kind: Sendable {
+    public typealias FileMoveCompletion = @Sendable (Error?) -> ()
+
+    public typealias FileSystemMove = (_ source: AbsolutePath, _ destination: AbsolutePath, @escaping FileMoveCompletion) -> ()
+
+    public enum Kind {
         case generic(HTTPMethod)
-        case download(fileSystem: AsyncFileSystem, destination: AbsolutePath)
+        case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
-    public struct Options: Sendable {
+    public struct Options {
+        public init(
+            addUserAgent: Bool = true,
+            validResponseCodes: [Int]? = nil,
+            timeout: DispatchTimeInterval? = nil,
+            maximumResponseSizeInBytes: Int64? = nil,
+            authorizationProvider: HTTPClientAuthorizationProvider? = nil,
+            retryStrategy: HTTPClientRetryStrategy? = nil,
+            circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy? = nil,
+            callbackQueue: DispatchQueue? = nil
+        ) {
+            self.addUserAgent = addUserAgent
+            self.validResponseCodes = validResponseCodes
+            self.timeout = timeout
+            self.maximumResponseSizeInBytes = maximumResponseSizeInBytes
+            self.authorizationProvider = authorizationProvider
+            self.retryStrategy = retryStrategy
+            self.circuitBreakerStrategy = circuitBreakerStrategy
+            self.callbackQueue = callbackQueue
+        }
+
         public var addUserAgent: Bool
         public var validResponseCodes: [Int]?
-        public var timeout: SendableTimeInterval?
+        public var timeout: DispatchTimeInterval?
         public var maximumResponseSizeInBytes: Int64?
         public var authorizationProvider: HTTPClientAuthorizationProvider?
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
-
-        public init() {
-            self.addUserAgent = true
-            self.validResponseCodes = .none
-            self.timeout = .none
-            self.maximumResponseSizeInBytes = .none
-            self.authorizationProvider = .none
-            self.retryStrategy = .none
-            self.circuitBreakerStrategy = .none
-        }
+        public var callbackQueue: DispatchQueue?
     }
 }

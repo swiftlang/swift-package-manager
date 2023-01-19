@@ -326,10 +326,10 @@ class RegistryPackageContainerTests: XCTestCase {
         packagePath: AbsolutePath,
         fileSystem: FileSystem,
         configuration: PackageRegistry.RegistryConfiguration? = .none,
-        releasesRequestHandler: HTTPClient.Handler? = .none,
-        versionMetadataRequestHandler: HTTPClient.Handler? = .none,
-        manifestRequestHandler: HTTPClient.Handler? = .none,
-        downloadArchiveRequestHandler: HTTPClient.Handler? = .none,
+        releasesRequestHandler: LegacyHTTPClient.Handler? = .none,
+        versionMetadataRequestHandler: LegacyHTTPClient.Handler? = .none,
+        manifestRequestHandler: LegacyHTTPClient.Handler? = .none,
+        downloadArchiveRequestHandler: LegacyHTTPClient.Handler? = .none,
         archiver: Archiver? = .none
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
@@ -433,7 +433,7 @@ class RegistryPackageContainerTests: XCTestCase {
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             authorizationProvider: .none,
-            customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
+            customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 var pathComponents = request.url.pathComponents
                 if pathComponents.first == "/" {
                     pathComponents = Array(pathComponents.dropFirst())

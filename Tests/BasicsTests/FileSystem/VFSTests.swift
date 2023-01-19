@@ -14,8 +14,8 @@ import Basics
 import TSCBasic
 import XCTest
 
-// FIXME: remove this availability check when back-deployment is available on CI hosts.
-@available(macOS 12, *)
+#if swift(>=5.5.2)
+
 func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: @escaping (AbsolutePath) async throws -> Void
@@ -136,3 +136,5 @@ class VFSTests: XCTestCase {
         }
     }
 }
+
+#endif

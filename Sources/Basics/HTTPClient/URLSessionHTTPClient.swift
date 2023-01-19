@@ -20,77 +20,75 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-public struct URLSessionHTTPClient {
+final class URLSessionHTTPClient {
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
-    public init(configuration: URLSessionConfiguration = .default) {
+    init(configuration: URLSessionConfiguration = .default) {
         self.dataTaskManager = DataTaskManager(configuration: configuration)
         self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
     }
 
-    // FIXME: remove this availability check when back-deployment is available on CI hosts.
-    @available(macOS 12, *)
-    public func execute(
+#if swift(>=5.5.2)
+
+    @Sendable
+    func execute(
         _ request: HTTPClient.Request,
-        observabilityScope: ObservabilityScope? = nil,
         progress: HTTPClient.ProgressHandler? = nil
-    ) async throws -> HTTPClient.Response {
+    ) async throws -> LegacyHTTPClient.Response {
         try await withCheckedThrowingContinuation { continuation in
-            execute(
-                request,
-                observabilityScope: observabilityScope,
-                progress: progress,
-                completion: continuation.resume(with:)
-            )
-        }
-    }
-
-    // This manual overload has to be present to satisfy `HTTPClient.Handler` closure requirements,
-    // even though `observabilityScope = nil` default argument on the other function creates an identical overload.
-    public func execute(
-        _ request: HTTPClient.Request,
-        progress: HTTPClient.ProgressHandler?,
-        completion: @escaping HTTPClient.CompletionHandler
-    ) {
-        self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
-    }
-
-    public func execute(_ request: HTTPClient.Request,
-                        observabilityScope: ObservabilityScope? = nil,
-                        progress: HTTPClient.ProgressHandler?,
-                        completion: @escaping HTTPClient.CompletionHandler)
-    {
-        let statusCodeCheckCompletion: HTTPClient.CompletionHandler = {
-            switch $0 {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let response):
-                // check for valid response codes
-                if let validResponseCodes = request.options.validResponseCodes,
-                   !validResponseCodes.contains(response.statusCode)
-                {
-                    return completion(.failure(HTTPClientError.badResponseStatusCode(response.statusCode)))
-                } else {
-                    return completion(.success(response))
-                }
+            let urlRequest = URLRequest(request)
+            let task: URLSessionTask
+            switch request.kind {
+            case .generic:
+                task = self.dataTaskManager.makeTask(
+                    urlRequest: urlRequest,
+                    authorizationProvider: request.options.authorizationProvider,
+                    progress: progress,
+                    completion: continuation.resume(with:)
+                )
+            case .download(_, let destination):
+                task = self.downloadTaskManager.makeTask(
+                    urlRequest: urlRequest,
+                    // FIXME: always using a synchronous filesystem, because `URLSessionDownloadDelegate`
+                    // needs temporary files to moved out of temporary locations synchronously in delegate callbacks.
+                    fileSystem: localFileSystem,
+                    destination: destination,
+                    progress: progress,
+                    completion: continuation.resume(with:)
+                )
             }
+            task.resume()
         }
+    }
 
+#endif
+
+    public func execute(
+        _ request: LegacyHTTPClient.Request,
+        progress: LegacyHTTPClient.ProgressHandler?,
+        completion: @escaping LegacyHTTPClient.CompletionHandler
+    ) {
+        let urlRequest = URLRequest(request)
+        let task: URLSessionTask
         switch request.kind {
         case .generic:
-            let task = self.dataTaskManager.makeTask(request: request, progress: progress, completion: statusCodeCheckCompletion)
-            task.resume()
+            task = self.dataTaskManager.makeTask(
+                urlRequest: urlRequest,
+                authorizationProvider: request.options.authorizationProvider,
+                progress: progress,
+                completion: completion
+            )
         case .download(let fileSystem, let destination):
-            let task = self.downloadTaskManager.makeTask(
-                request: request,
+            task = self.downloadTaskManager.makeTask(
+                urlRequest: urlRequest,
                 fileSystem: fileSystem,
                 destination: destination,
                 progress: progress,
-                completion: statusCodeCheckCompletion
+                completion: completion
             )
-            task.resume()
         }
+        task.resume()
     }
 }
 
@@ -108,16 +106,17 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
     }
 
     func makeTask(
-        request: HTTPClient.Request,
-        progress: HTTPClient.ProgressHandler?,
-        completion: @escaping HTTPClient.CompletionHandler
+        urlRequest: URLRequest,
+        authorizationProvider: HTTPClientAuthorizationProvider?,
+        progress: LegacyHTTPClient.ProgressHandler?,
+        completion: @escaping LegacyHTTPClient.CompletionHandler
     ) -> URLSessionDataTask {
-        let task = self.session.dataTask(with: request.urlRequest())
+        let task = self.session.dataTask(with: urlRequest)
         self.tasks[task.taskIdentifier] = DataTask(
             task: task,
             progressHandler: progress,
             completionHandler: completion,
-            authorizationProvider: request.options.authorizationProvider
+            authorizationProvider: authorizationProvider
         )
         return task
     }
@@ -187,8 +186,8 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
 
     class DataTask {
         let task: URLSessionDataTask
-        let completionHandler: HTTPClient.CompletionHandler
-        let progressHandler: HTTPClient.ProgressHandler?
+        let completionHandler: LegacyHTTPClient.CompletionHandler
+        let progressHandler: LegacyHTTPClient.ProgressHandler?
         let authorizationProvider: HTTPClientAuthorizationProvider?
 
         var response: HTTPURLResponse?
@@ -196,8 +195,8 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         var buffer: Data?
 
         init(task: URLSessionDataTask,
-             progressHandler: HTTPClient.ProgressHandler?,
-             completionHandler: @escaping HTTPClient.CompletionHandler,
+             progressHandler: LegacyHTTPClient.ProgressHandler?,
+             completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
              authorizationProvider: HTTPClientAuthorizationProvider?)
         {
             self.task = task
@@ -213,7 +212,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     private let delegateQueue: OperationQueue
     private var session: URLSession!
 
-    public init(configuration: URLSessionConfiguration) {
+    init(configuration: URLSessionConfiguration) {
         self.delegateQueue = OperationQueue()
         self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-download-delegate"
         self.delegateQueue.maxConcurrentOperationCount = 1
@@ -222,13 +221,13 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     }
 
     func makeTask(
-        request: HTTPClient.Request,
+        urlRequest: URLRequest,
         fileSystem: FileSystem,
         destination: AbsolutePath,
-        progress: HTTPClient.ProgressHandler?,
-        completion: @escaping HTTPClient.CompletionHandler
+        progress: LegacyHTTPClient.ProgressHandler?,
+        completion: @escaping LegacyHTTPClient.CompletionHandler
     ) -> URLSessionDownloadTask {
-        let task = self.session.downloadTask(with: request.urlRequest())
+        let task = self.session.downloadTask(with: urlRequest)
         self.tasks[task.taskIdentifier] = DownloadTask(
             task: task,
             fileSystem: fileSystem,
@@ -239,7 +238,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         return task
     }
 
-    public func urlSession(
+    func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
@@ -255,7 +254,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         task.progressHandler?(totalBytesWritten, totalBytesToDownload)
     }
 
-    public func urlSession(
+    func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
@@ -265,7 +264,12 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
 
         do {
-            try task.fileSystem.move(from: AbsolutePath(validating: location.path), to: task.destination)
+            let path = try AbsolutePath(validating: location.path)
+
+            // Always using synchronous `localFileSystem` here since `URLSession` requires temporary `location`
+            // to be moved from synchronously. Otherwise the file will be immediately cleaned up after returning
+            // from this delegate method.
+            try task.fileSystem.move(from: path, to: task.destination)
         } catch {
             task.moveFileError = error
         }
@@ -299,8 +303,8 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let task: URLSessionDownloadTask
         let fileSystem: FileSystem
         let destination: AbsolutePath
-        let completionHandler: HTTPClient.CompletionHandler
-        let progressHandler: HTTPClient.ProgressHandler?
+        let completionHandler: LegacyHTTPClient.CompletionHandler
+        let progressHandler: LegacyHTTPClient.ProgressHandler?
 
         var moveFileError: Error?
 
@@ -308,8 +312,8 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             task: URLSessionDownloadTask,
             fileSystem: FileSystem,
             destination: AbsolutePath,
-            progressHandler: HTTPClient.ProgressHandler?,
-            completionHandler: @escaping HTTPClient.CompletionHandler
+            progressHandler: LegacyHTTPClient.ProgressHandler?,
+            completionHandler: @escaping LegacyHTTPClient.CompletionHandler
         ) {
             self.task = task
             self.fileSystem = fileSystem
@@ -320,37 +324,33 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     }
 }
 
-extension HTTPClient.Request {
-    func urlRequest() -> URLRequest {
-        var request = URLRequest(url: self.url)
-        request.httpMethod = self.methodString()
-        self.headers.forEach { header in
-            request.addValue(header.value, forHTTPHeaderField: header.name)
+extension URLRequest {
+    init(_ request: LegacyHTTPClient.Request) {
+        self.init(url: request.url)
+        self.httpMethod = request.method.string
+        request.headers.forEach { header in
+            self.addValue(header.value, forHTTPHeaderField: header.name)
         }
-        request.httpBody = self.body
-        if let interval = self.options.timeout?.timeInterval() {
-            request.timeoutInterval = interval
+        self.httpBody = request.body
+        if let interval = request.options.timeout?.timeInterval() {
+            self.timeoutInterval = interval
         }
-        return request
     }
 
-    func methodString() -> String {
-        switch self.method {
-        case .head:
-            return "HEAD"
-        case .get:
-            return "GET"
-        case .post:
-            return "POST"
-        case .put:
-            return "PUT"
-        case .delete:
-            return "DELETE"
+    init(_ request: HTTPClient.Request) {
+        self.init(url: request.url)
+        self.httpMethod = request.method.string
+        request.headers.forEach { header in
+            self.addValue(header.value, forHTTPHeaderField: header.name)
+        }
+        self.httpBody = request.body
+        if let interval = request.options.timeout?.timeInterval() {
+            self.timeoutInterval = interval
         }
     }
 }
 
-extension HTTPURLResponse {
+private extension HTTPURLResponse {
     func response(body: Data?) -> HTTPClient.Response {
         let headers = HTTPClientHeaders(self.allHeaderFields.map { header in
             .init(name: "\(header.key)", value: "\(header.value)")

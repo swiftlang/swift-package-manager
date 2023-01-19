@@ -4997,9 +4997,9 @@ final class WorkspaceTests: XCTestCase {
         let a5FrameworkName = "A5.xcframework"
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -5011,7 +5011,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -5687,9 +5687,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -5705,7 +5705,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -5869,9 +5869,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -5891,7 +5891,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -6171,9 +6171,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -6185,7 +6185,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -6294,14 +6294,14 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
 
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
                 // mimics URLSession behavior which write the file even if sends an error message
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: "not found",
                     atomically: true
@@ -6350,9 +6350,9 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -6360,10 +6360,10 @@ final class WorkspaceTests: XCTestCase {
                 case URL(string: "https://a.com/a1.zip")!:
                     completion(.failure(HTTPClientError.badResponseStatusCode(500)))
                 case URL(string: "https://a.com/a2.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
                 case URL(string: "https://a.com/a3.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
+                    try fs.writeFileContents(destination, bytes: "different contents = different checksum")
                     completion(.success(.okay()))
                 default:
                     throw StringError("unexpected url")
@@ -6426,21 +6426,21 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
                 switch request.url {
                 case URL(string: "https://a.com/a1.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
                 case URL(string: "https://a.com/a2.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
                 case URL(string: "https://a.com/a3.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA3]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA3]))
                     completion(.success(.okay()))
                 default:
                     throw StringError("unexpected url")
@@ -6526,15 +6526,15 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
                 switch request.url {
                 case URL(string: "https://a.com/a1.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
                 default:
                     throw StringError("unexpected url")
@@ -6595,15 +6595,15 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
                 switch request.url {
                 case URL(string: "https://a.com/foo.zip")!:
-                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    try fs.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
                 default:
                     throw StringError("unexpected url")
@@ -6723,7 +6723,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             XCTFail("should not be called")
         })
 
@@ -6772,9 +6772,9 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -6788,7 +6788,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -6865,9 +6865,9 @@ final class WorkspaceTests: XCTestCase {
         var acceptHeaders: [String] = []
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
                 acceptHeaders.append(request.headers.get("accept").first!)
@@ -6880,7 +6880,7 @@ final class WorkspaceTests: XCTestCase {
                         throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -6945,9 +6945,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -6959,7 +6959,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -7118,9 +7118,9 @@ final class WorkspaceTests: XCTestCase {
         let expectedDownloadDestination = sandbox.appending(components: ".build", "artifacts", "root", "binary", "binary.zip")
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -7138,11 +7138,11 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 // in-memory fs does not check for this!
-                if fileSystem.exists(destination) {
+                if fs.exists(destination) {
                     throw StringError("\(destination) already exists")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -7226,9 +7226,9 @@ final class WorkspaceTests: XCTestCase {
         var concurrentRequests = 0
         let concurrentRequestsLock = NSLock()
 
-        var configuration = HTTPClient.Configuration()
+        var configuration = LegacyHTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
-        let httpClient = HTTPClient(configuration: configuration, handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(configuration: configuration, handler: { request, _, completion in
             defer {
                 concurrentRequestsLock.withLock {
                     concurrentRequests -= 1
@@ -7236,7 +7236,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -7248,7 +7248,7 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 // returns a dummy zipfile for the requested artifact
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: [0x01],
                     atomically: true
@@ -7341,9 +7341,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -7359,7 +7359,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -7494,9 +7494,9 @@ final class WorkspaceTests: XCTestCase {
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
-                guard case .download(let fileSystem, let destination) = request.kind else {
+                guard case .download(_, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
                 }
 
@@ -7510,7 +7510,7 @@ final class WorkspaceTests: XCTestCase {
                     throw StringError("unexpected url \(request.url)")
                 }
 
-                try fileSystem.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -7697,7 +7697,7 @@ final class WorkspaceTests: XCTestCase {
         let ariFilesChecksums = ariFiles.map { checksumAlgorithm.hash($0).hexadecimalRepresentation }
 
         // returns a dummy file for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             switch request.kind  {
             case .generic:
                 do {
@@ -7714,7 +7714,7 @@ final class WorkspaceTests: XCTestCase {
                 } catch {
                     completion(.failure(error))
                 }
-            case .download(let fileSystem, let destination):
+            case .download(_, let destination):
                 do {
                     let contents: [UInt8]
                     switch request.url.lastPathComponent {
@@ -7728,7 +7728,7 @@ final class WorkspaceTests: XCTestCase {
                         throw StringError("unexpected url \(request.url)")
                     }
 
-                    try fileSystem.writeFileContents(
+                    try fs.writeFileContents(
                         destination,
                         bytes: ByteString(contents),
                         atomically: true
@@ -7901,7 +7901,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             completion(.failure(HTTPClientError.badResponseStatusCode(500)))
         })
 
@@ -7949,7 +7949,7 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
@@ -8050,7 +8050,7 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
                 switch request.kind  {
                 case .generic:
@@ -8064,7 +8064,7 @@ final class WorkspaceTests: XCTestCase {
 
                     completion(.success(.okay(body: contents)))
 
-                case .download(let fileSystem, let destination):
+                case .download(_, let destination):
                     let contents: [UInt8]
                     switch request.url.lastPathComponent {
                     case "a.zip":
@@ -8073,7 +8073,7 @@ final class WorkspaceTests: XCTestCase {
                         throw StringError("unexpected url \(request.url)")
                     }
 
-                    try fileSystem.writeFileContents(
+                    try fs.writeFileContents(
                         destination,
                         bytes: ByteString(contents),
                         atomically: true
@@ -8149,7 +8149,7 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
                 switch request.kind  {
                 case .generic:
@@ -8217,7 +8217,7 @@ final class WorkspaceTests: XCTestCase {
         let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
@@ -12341,10 +12341,10 @@ final class WorkspaceTests: XCTestCase {
         fingerprintStorage: PackageFingerprintStorage? = .none,
         fingerprintCheckingMode: FingerprintCheckingMode = .strict,
         authorizationProvider: AuthorizationProvider? = .none,
-        releasesRequestHandler: HTTPClient.Handler? = .none,
-        versionMetadataRequestHandler: HTTPClient.Handler? = .none,
-        manifestRequestHandler: HTTPClient.Handler? = .none,
-        downloadArchiveRequestHandler: HTTPClient.Handler? = .none,
+        releasesRequestHandler: LegacyHTTPClient.Handler? = .none,
+        versionMetadataRequestHandler: LegacyHTTPClient.Handler? = .none,
+        manifestRequestHandler: LegacyHTTPClient.Handler? = .none,
+        downloadArchiveRequestHandler: LegacyHTTPClient.Handler? = .none,
         archiver: Archiver? = .none
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
@@ -12415,7 +12415,7 @@ final class WorkspaceTests: XCTestCase {
 
         let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
             switch request.kind {
-            case .download(let fileSystem, let destination):
+            case .download(_, let destination):
                 // creates a dummy zipfile which is required by the archiver step
                 try! fileSystem.createDirectory(destination.parentDirectory, recursive: true)
                 try! fileSystem.writeFileContents(destination, string: "")
@@ -12450,7 +12450,7 @@ final class WorkspaceTests: XCTestCase {
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
+            customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
                 // request to get package releases
                 case URL(string: "http://localhost/\(packageScope)/\(packageName)")!:

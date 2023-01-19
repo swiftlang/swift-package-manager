@@ -52,7 +52,7 @@ public class MockRegistry {
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             authorizationProvider: .none,
-            customHTTPClient: HTTPClient(handler: self.httpHandler),
+            customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
             customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }
         )
     }
@@ -82,7 +82,7 @@ public class MockRegistry {
         }
     }
 
-    func httpHandler(request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping (Result<HTTPClient.Response, Error>) -> Void) {
+    func httpHandler(request: LegacyHTTPClient.Request, progress: LegacyHTTPClient.ProgressHandler?, completion: @escaping (Result<LegacyHTTPClient.Response, Error>) -> Void) {
         do {
             guard request.url.absoluteString.hasPrefix(Self.mockRegistryURL.absoluteString) else {
                 throw StringError("url outside mock registry \(Self.mockRegistryURL)")
@@ -92,7 +92,7 @@ public class MockRegistry {
             case .generic:
                 let response = try self.handleRequest(request: request)
                 completion(.success(response))
-            case .download(let fileSystem, let destination):
+            case .download(_, let destination):
                 let response = try self.handleDownloadRequest(
                     request: request,
                     progress: progress,
@@ -106,7 +106,7 @@ public class MockRegistry {
         }
     }
 
-    private func handleRequest(request: HTTPClient.Request) throws -> HTTPClient.Response {
+    private func handleRequest(request: LegacyHTTPClient.Request) throws -> LegacyHTTPClient.Response {
         let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1).split(separator: "/")
         switch routeComponents.count {
         case _ where routeComponents[0].hasPrefix("identifiers?url="):
@@ -248,8 +248,8 @@ public class MockRegistry {
     }
 
     private func handleDownloadRequest(
-        request: HTTPClient.Request,
-        progress: HTTPClient.ProgressHandler?,
+        request: LegacyHTTPClient.Request,
+        progress: LegacyHTTPClient.ProgressHandler?,
         fileSystem: FileSystem,
         destination: AbsolutePath
     ) throws -> HTTPClientResponse {

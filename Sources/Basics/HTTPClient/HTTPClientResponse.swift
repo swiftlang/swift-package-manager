@@ -12,7 +12,7 @@
 
 import Foundation
 
-public struct HTTPClientResponse {
+public struct HTTPClientResponse : Sendable {
     public let statusCode: Int
     public let statusText: String?
     public let headers: HTTPClientHeaders

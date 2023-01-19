@@ -27,7 +27,7 @@ final class RegistryClientTests: XCTestCase {
         let (scope, name) = identity.scopeAndName!
         let releasesURL = URL(string: "\(registryURL)/\(scope)/\(name)")!
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, releasesURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -75,7 +75,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -117,7 +117,7 @@ final class RegistryClientTests: XCTestCase {
         )
         """
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
@@ -145,7 +145,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -175,7 +175,7 @@ final class RegistryClientTests: XCTestCase {
         let version = Version("1.1.1")
         let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
             let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
@@ -207,7 +207,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -255,7 +255,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -291,7 +291,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -320,7 +320,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -356,7 +356,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -388,7 +388,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -424,7 +424,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -472,13 +472,14 @@ final class RegistryClientTests: XCTestCase {
         let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
         let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let fileSystem = InMemoryFileSystem()
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(let fileSystem, let path), .get, downloadURL):
+            case (.download(_, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -500,7 +501,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -530,7 +531,6 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
-        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
@@ -552,11 +552,13 @@ final class RegistryClientTests: XCTestCase {
         let version = Version("1.1.1")
         let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
 
+        let fileSystem = InMemoryFileSystem()
+
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(let fileSystem, let path), .get, downloadURL):
+            case (.download(_, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -578,7 +580,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -608,7 +610,6 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
-        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         XCTAssertThrowsError(
@@ -637,9 +638,11 @@ final class RegistryClientTests: XCTestCase {
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let fileSystem = InMemoryFileSystem()
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(let fileSystem, let path), .get, downloadURL):
+            case (.download(_, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -661,7 +664,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -691,7 +694,6 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
-        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -723,12 +725,14 @@ final class RegistryClientTests: XCTestCase {
         let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
         let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
 
+        let fileSystem = InMemoryFileSystem()
+
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(let fileSystem, let path), .get, downloadURL):
+            case (.download(_, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -780,7 +784,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -806,7 +810,6 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
-        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
@@ -833,7 +836,7 @@ final class RegistryClientTests: XCTestCase {
         let packageURL = URL(string: "https://example.com/mona/LinkedList")!
         let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
@@ -860,7 +863,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -879,7 +882,7 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
@@ -907,7 +910,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -934,7 +937,7 @@ final class RegistryClientTests: XCTestCase {
         let user = "jappleseed"
         let password = "top-sekret"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
                 XCTAssertEqual(request.headers.get("Authorization").first, "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())")
@@ -962,7 +965,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -987,7 +990,7 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertEqual(request.headers.get("Authorization").first, "Bearer \(token)")
@@ -1003,7 +1006,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -1025,7 +1028,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL(string: "https://packages.example.com")!
         let loginURL = URL(string: "\(registryURL)/login")!
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertNil(request.headers.get("Authorization").first)
@@ -1041,7 +1044,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -1066,7 +1069,7 @@ final class RegistryClientTests: XCTestCase {
 
         let token = "top-sekret"
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.post, loginURL):
                 XCTAssertNotNil(request.headers.get("Authorization").first)
@@ -1082,7 +1085,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -1216,7 +1219,7 @@ private extension RegistryClient {
 
 private func makeRegistryClient(
     configuration: RegistryConfiguration,
-    httpClient: HTTPClient,
+    httpClient: LegacyHTTPClient,
     authorizationProvider: AuthorizationProvider? = .none,
     fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
     fingerprintCheckingMode: FingerprintCheckingMode = .strict

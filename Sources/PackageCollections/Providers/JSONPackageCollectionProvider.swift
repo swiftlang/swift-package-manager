@@ -40,7 +40,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let configuration: Configuration
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
     private let signatureValidator: PackageCollectionSignatureValidator
@@ -51,7 +51,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
-        customHTTPClient: HTTPClient? = nil,
+        customHTTPClient: LegacyHTTPClient? = nil,
         customSignatureValidator: PackageCollectionSignatureValidator? = nil
     ) {
         self.configuration = configuration
@@ -292,8 +292,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
     }
 
-    private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {
-        var options = HTTPClientRequest.Options()
+    private func makeRequestOptions(validResponseCodes: [Int]) -> LegacyHTTPClientRequest.Options {
+        var options = LegacyHTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
         return options
@@ -306,8 +306,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         return headers
     }
 
-    private static func makeDefaultHTTPClient() -> HTTPClient {
-        var client = HTTPClient()
+    private static func makeDefaultHTTPClient() -> LegacyHTTPClient {
+        let client = LegacyHTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(5)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

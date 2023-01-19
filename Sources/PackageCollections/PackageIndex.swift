@@ -18,7 +18,7 @@ import TSCBasic
 
 struct PackageIndex: PackageIndexProtocol, Closable {
     private let configuration: PackageIndexConfiguration
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     private let callbackQueue: DispatchQueue
     private let observabilityScope: ObservabilityScope
     
@@ -32,7 +32,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
 
     init(
         configuration: PackageIndexConfiguration,
-        customHTTPClient: HTTPClient? = nil,
+        customHTTPClient: LegacyHTTPClient? = nil,
         callbackQueue: DispatchQueue,
         observabilityScope: ObservabilityScope
     ) {
@@ -208,8 +208,8 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         )
     }
     
-    private static func makeDefaultHTTPClient() -> HTTPClient {
-        var client = HTTPClient()
+    private static func makeDefaultHTTPClient() -> LegacyHTTPClient {
+        let client = LegacyHTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

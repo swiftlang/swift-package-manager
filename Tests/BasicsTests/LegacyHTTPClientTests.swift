@@ -14,7 +14,7 @@
 import SPMTestSupport
 import XCTest
 
-final class HTTPClientTest: XCTestCase {
+final class LegacyHTTPClientTests: XCTestCase {
     func testHead() {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -22,14 +22,14 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.head(url, headers: requestHeaders) { result in
@@ -54,14 +54,14 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .get, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.get(url, headers: requestHeaders) { result in
@@ -87,15 +87,15 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .post, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
             XCTAssertEqual(request.body, requestBody, "body should match")
-            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.post(url, body: requestBody, headers: requestHeaders) { result in
@@ -121,15 +121,15 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .put, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
             XCTAssertEqual(request.body, requestBody, "body should match")
-            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.put(url, body: requestBody, headers: requestHeaders) { result in
@@ -154,14 +154,14 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .delete, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.delete(url, headers: requestHeaders) { result in
@@ -184,19 +184,18 @@ final class HTTPClientTest: XCTestCase {
         let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var expectedHeaders = globalHeaders
             expectedHeaders.merge(requestHeaders)
             self.assertRequestHeaders(request.headers, expected: expectedHeaders)
-            completion(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: 200)))
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.requestHeaders = globalHeaders
 
-        var options = HTTPClientRequest.Options()
-        options.addUserAgent = true
-        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
+        var request = LegacyHTTPClient.Request(method: .get, url: url, headers: requestHeaders)
+        request.options.addUserAgent = true
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -216,16 +215,15 @@ final class HTTPClientTest: XCTestCase {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertTrue(request.headers.contains("User-Agent"), "expecting User-Agent")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            completion(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: 200)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
-        var options = HTTPClientRequest.Options()
-        options.addUserAgent = true
-        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
+        let httpClient = LegacyHTTPClient(handler: handler)
+        var request = LegacyHTTPClient.Request(method: .get, url: url, headers: requestHeaders)
+        request.options.addUserAgent = true
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -245,17 +243,15 @@ final class HTTPClientTest: XCTestCase {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertFalse(request.headers.contains("User-Agent"), "expecting User-Agent")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            completion(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: 200)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
-
-        var options = HTTPClientRequest.Options()
-        options.addUserAgent = false
-        let request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders, options: options)
+        let httpClient = LegacyHTTPClient(handler: handler)
+        var request = LegacyHTTPClient.Request(method: .get, url: url, headers: requestHeaders)
+        request.options.addUserAgent = false
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -275,19 +271,18 @@ final class HTTPClientTest: XCTestCase {
         let url = URL(string: "http://test")!
         let authorization = UUID().uuidString
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
             XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
-            completion(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: 200)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
+        var request = LegacyHTTPClient.Request(method: .get, url: url)
 
-        var options = HTTPClientRequest.Options()
-        options.authorizationProvider = { requestUrl in
+        request.options.authorizationProvider = { requestUrl in
             requestUrl == url ? authorization : nil
         }
-        let request = HTTPClient.Request(method: .get, url: url, options: options)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -305,14 +300,13 @@ final class HTTPClientTest: XCTestCase {
 
     func testValidResponseCodes() {
         let statusCode = Int.random(in: 201 ..< 500)
-        let brokenHandler: HTTPClient.Handler = { _, _, completion in
+        let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
         }
 
-        let httpClient = HTTPClient(handler: brokenHandler)
-        var options = HTTPClientRequest.Options()
-        options.validResponseCodes = [200]
-        let request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!, options: options)
+        let httpClient = LegacyHTTPClient(handler: brokenHandler)
+        var request = LegacyHTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        request.options.validResponseCodes = [200]
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -333,22 +327,21 @@ final class HTTPClientTest: XCTestCase {
         let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5
         let errorCode = Int.random(in: 500 ..< 600)
-        let delay = DispatchTimeInterval.milliseconds(100)
+        let delay = SendableTimeInterval.milliseconds(100)
 
-        let brokenHandler: HTTPClient.Handler = { _, _, completion in
+        let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
             let expectedDelta = pow(2.0, Double(count.get(default: 0) - 1)) * delay.timeInterval()!
             let delta = lastCall.get().flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
             count.increment()
             lastCall.put(Date())
-            completion(.success(HTTPClient.Response(statusCode: errorCode)))
+            completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
         }
 
-        let httpClient = HTTPClient(handler: brokenHandler)
-        var options = HTTPClientRequest.Options()
-        options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!, options: options)
+        let httpClient = LegacyHTTPClient(handler: brokenHandler)
+        var request = LegacyHTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -369,11 +362,11 @@ final class HTTPClientTest: XCTestCase {
     func testHostCircuitBreaker() {
         let maxErrors = 5
         let errorCode = Int.random(in: 500 ..< 600)
-        let age = DispatchTimeInterval.seconds(5)
+        let age = SendableTimeInterval.seconds(5)
 
         let host = "http://tes-\(UUID().uuidString).com"
-        var httpClient = HTTPClient(handler: { _, _, completion in
-            completion(.success(HTTPClient.Response(statusCode: errorCode)))
+        let httpClient = LegacyHTTPClient(handler: { _, _, completion in
+            completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
         })
         httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
 
@@ -423,19 +416,22 @@ final class HTTPClientTest: XCTestCase {
     func testHostCircuitBreakerAging() {
         let maxErrors = 5
         let errorCode = Int.random(in: 500 ..< 600)
-        let age = DispatchTimeInterval.milliseconds(100)
+        let ageInMilliseconds = 100
 
         let host = "http://tes-\(UUID().uuidString).com"
-        var httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             if request.url.lastPathComponent == "error" {
-                completion(.success(HTTPClient.Response(statusCode: errorCode)))
+                completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
             } else if request.url.lastPathComponent == "okay" {
                 completion(.success(.okay()))
             } else {
                 completion(.failure(StringError("unknown request \(request.url)")))
             }
         })
-        httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
+        httpClient.configuration.circuitBreakerStrategy = .hostErrors(
+            maxErrors: maxErrors,
+            age: .milliseconds(ageInMilliseconds)
+        )
 
 
         // make the initial errors
@@ -467,7 +463,7 @@ final class HTTPClientTest: XCTestCase {
         (0 ..< total).forEach { index in
             sync.enter()
             // age it
-            DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + age) {
+            DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + .milliseconds(ageInMilliseconds)) {
                 httpClient.get(URL(string: "\(host)/\(index)/okay")!) { result in
                     defer { sync.leave() }
                     count.increment()
@@ -481,7 +477,7 @@ final class HTTPClientTest: XCTestCase {
             }
         }
 
-        let timeout = DispatchTime.now() + .seconds(1) + .milliseconds(age.milliseconds()! * maxErrors)
+        let timeout = DispatchTime.now() + .seconds(1) + .milliseconds(ageInMilliseconds * maxErrors)
         XCTAssertEqual(sync.wait(timeout: timeout), .success, "should not timeout")
         XCTAssertEqual(count.get(), total, "expected results count to match")
     }
@@ -512,7 +508,7 @@ final class HTTPClientTest: XCTestCase {
     func testExceedsDownloadSizeLimitProgress() throws {
         let maxSize: Int64 = 50
 
-        let httpClient = HTTPClient(handler: { request, progress, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, progress, completion in
             switch request.method {
             case .head:
                 completion(.success(.init(
@@ -526,9 +522,8 @@ final class HTTPClientTest: XCTestCase {
             }
         })
 
-        var options = HTTPClientRequest.Options()
-        options.maximumResponseSizeInBytes = 10
-        let request = HTTPClient.Request(url: URL(string: "http://test")!, options: options)
+        var request = LegacyHTTPClient.Request(url: URL(string: "http://test")!)
+        request.options.maximumResponseSizeInBytes = 10
 
         let promise = XCTestExpectation(description: "completed")
         httpClient.execute(request) { result in
@@ -549,9 +544,9 @@ final class HTTPClientTest: XCTestCase {
         var concurrentRequests = 0
         let concurrentRequestsLock = NSLock()
 
-        var configuration = HTTPClient.Configuration()
+        var configuration = LegacyHTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
-        let httpClient = HTTPClient(configuration: configuration, handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(configuration: configuration, handler: { request, _, completion in
             defer {
                 concurrentRequestsLock.withLock {
                     concurrentRequests -= 1
@@ -570,7 +565,7 @@ final class HTTPClientTest: XCTestCase {
 
         let total = 1000
         let sync = DispatchGroup()
-        let results = ThreadSafeArrayStore<Result<HTTPClient.Response, Error>>()
+        let results = ThreadSafeArrayStore<Result<LegacyHTTPClient.Response, Error>>()
         for _ in 0 ..< total {
             sync.enter()
             httpClient.get(URL(string: "http://localhost/test")!) { result in
@@ -602,7 +597,7 @@ final class HTTPClientTest: XCTestCase {
         // this DispatchGroup is used to monitor the outstanding threads that would be cancelled and completion handlers thrown away
         let outstandingGroup = DispatchGroup()
 
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        let httpClient = LegacyHTTPClient(handler: { request, _, completion in
             print("handling \(request.url)")
             if Int(request.url.lastPathComponent)! < total / 2 {
                 DispatchQueue.sharedConcurrent.async {
@@ -625,7 +620,7 @@ final class HTTPClientTest: XCTestCase {
         cancellator.register(name: "http client", handler: httpClient)
 
         let finishGroup = DispatchGroup()
-        let results = ThreadSafeKeyValueStore<URL, Result<HTTPClient.Response, Error>>()
+        let results = ThreadSafeKeyValueStore<URL, Result<LegacyHTTPClient.Response, Error>>()
         for index in 0 ..< total {
             startGroup.enter()
             finishGroup.enter()

@@ -23,10 +23,10 @@ import PackageLoading
 extension Workspace {
     // marked public for testing
     public struct CustomBinaryArtifactsManager {
-        let httpClient: HTTPClient?
+        let httpClient: LegacyHTTPClient?
         let archiver: Archiver?
 
-        public init(httpClient: HTTPClient? = .none, archiver: Archiver? = .none) {
+        public init(httpClient: LegacyHTTPClient? = .none, archiver: Archiver? = .none) {
             self.httpClient = httpClient
             self.archiver = archiver
         }
@@ -39,7 +39,7 @@ extension Workspace {
         private let fileSystem: FileSystem
         private let authorizationProvider: AuthorizationProvider?
         private let hostToolchain: UserToolchain
-        private let httpClient: HTTPClient
+        private let httpClient: LegacyHTTPClient
         private let archiver: Archiver
         private let checksumAlgorithm: HashAlgorithm
         private let delegate: Delegate?
@@ -49,7 +49,7 @@ extension Workspace {
             authorizationProvider: AuthorizationProvider?,
             hostToolchain: UserToolchain,
             checksumAlgorithm: HashAlgorithm,
-            customHTTPClient: HTTPClient?,
+            customHTTPClient: LegacyHTTPClient?,
             customArchiver: Archiver?,
             delegate: Delegate?
         ) {
@@ -57,7 +57,7 @@ extension Workspace {
             self.authorizationProvider = authorizationProvider
             self.hostToolchain = hostToolchain
             self.checksumAlgorithm = checksumAlgorithm
-            self.httpClient = customHTTPClient ?? HTTPClient()
+            self.httpClient = customHTTPClient ?? LegacyHTTPClient()
             self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
             self.delegate = delegate
         }
@@ -132,12 +132,9 @@ extension Workspace {
                 let jsonDecoder = JSONDecoder.makeWithDefaults()
                 for indexFile in indexFiles {
                     group.enter()
-
-                    var options = HTTPClientRequest.Options()
-                    options.validResponseCodes = [200]
-                    options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-                    let request = HTTPClient.Request(method: .get, url: indexFile.url, options: options)
-
+                    var request = LegacyHTTPClient.Request(method: .get, url: indexFile.url)
+                    request.options.validResponseCodes = [200]
+                    request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
                     self.httpClient.execute(request) { result in
                         defer { group.leave() }
 
@@ -201,11 +198,10 @@ extension Workspace {
                 group.enter()
                 var headers = HTTPClientHeaders()
                 headers.add(name: "Accept", value: "application/octet-stream")
-                var options = HTTPClientRequest.Options()
-                options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-                options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-                options.validResponseCodes = [200]
-                let request = HTTPClient.Request.download(url: artifact.url, headers: headers, options: options, fileSystem: self.fileSystem, destination: archivePath)
+                var request = LegacyHTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
+                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+                request.options.validResponseCodes = [200]
 
                 let downloadStart: DispatchTime = .now()
                 self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString)

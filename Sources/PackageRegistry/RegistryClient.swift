@@ -25,7 +25,7 @@ public final class RegistryClient: Cancellable {
 
     private let configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
@@ -36,7 +36,7 @@ public final class RegistryClient: Cancellable {
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
-        customHTTPClient: HTTPClient? = .none,
+        customHTTPClient: LegacyHTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
     ) {
         self.configuration = configuration
@@ -65,7 +65,7 @@ public final class RegistryClient: Cancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient()
+        self.httpClient = customHTTPClient ?? LegacyHTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -106,7 +106,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .get,
             url: url,
             headers: [
@@ -170,7 +170,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .get,
             url: url,
             headers: [
@@ -241,7 +241,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .get,
             url: url,
             headers: [
@@ -297,7 +297,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .get,
             url: url,
             headers: [
@@ -406,7 +406,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(error))
         }
 
-        let request = HTTPClient.Request.download(
+        let request = LegacyHTTPClient.Request.download(
             url: url,
             headers: [
                 "Accept": self.acceptHeader(mediaType: .zip),
@@ -530,7 +530,7 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .get,
             url: url,
             headers: [
@@ -564,7 +564,7 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        let request = HTTPClient.Request(
+        let request = LegacyHTTPClient.Request(
             method: .post,
             url: url,
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
@@ -595,8 +595,8 @@ public final class RegistryClient: Cancellable {
     private func defaultRequestOptions(
         timeout: DispatchTimeInterval? = .none,
         callbackQueue: DispatchQueue
-    ) -> HTTPClient.Request.Options {
-        var options = HTTPClient.Request.Options()
+    ) -> LegacyHTTPClient.Request.Options {
+        var options = LegacyHTTPClient.Request.Options()
         options.timeout = timeout
         options.callbackQueue = callbackQueue
         options.authorizationProvider = self.authorizationProvider
@@ -702,7 +702,7 @@ private extension RegistryClient {
         "application/vnd.swift.registry.v\(self.apiVersion.rawValue)+\(mediaType)"
     }
 
-    func checkResponseStatusAndHeaders(_ response: HTTPClient.Response, expectedStatusCode: Int, expectedContentType: ContentType) throws {
+    func checkResponseStatusAndHeaders(_ response: LegacyHTTPClient.Response, expectedStatusCode: Int, expectedContentType: ContentType) throws {
         guard response.statusCode == expectedStatusCode else {
             throw RegistryError.invalidResponseStatus(expected: expectedStatusCode, actual: response.statusCode)
         }
