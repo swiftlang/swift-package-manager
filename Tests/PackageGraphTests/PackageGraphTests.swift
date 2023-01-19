@@ -2282,6 +2282,69 @@ class PackageGraphTests: XCTestCase {
             }
         }
     }
+
+    func testDependencyOnUpcomingFeatures() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo2/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Bar/Sources/Bar2/bar.swift",
+            "/Bar/Sources/Bar3/bar.swift",
+            "/Bar/Sources/TransitiveBar/bar.swift",
+            "<end>"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Foo",
+                    path: .init(path: "/Foo"),
+                    dependencies: [
+                        .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo2", dependencies: ["TransitiveBar"]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar"),
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
+                        ProductDescription(name: "TransitiveBar", type: .library(.automatic), targets: ["TransitiveBar"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Bar",
+                            settings: [
+                                .init(tool: .swift, kind: .upcomingFeatures(["ConciseMagicFile"])),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar2",
+                            settings: [
+                                .init(tool: .swift, kind: .upcomingFeatures(["UnknownToTheseTools"])),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar3",
+                            settings: [
+                                .init(tool: .swift, kind: .upcomingFeatures(["ExistentialAny", "UnknownToTheseTools"])),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "TransitiveBar",
+                            dependencies: ["Bar2"]
+                        ),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0, "unexpected diagnostics: \(observability.diagnostics.map { $0.description })")
+    }
 }
 
 
