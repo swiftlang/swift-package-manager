@@ -18,7 +18,6 @@ add_library(Basics
   EnvironmentVariables.swift
   Errors.swift
   FileSystem/AsyncFileSystem.swift
-  FileSystem/AsyncLocalFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
   HTTPClient+URLSession.swift
   HTTPClient.swift
