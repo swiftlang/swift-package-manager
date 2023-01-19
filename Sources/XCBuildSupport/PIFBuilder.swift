@@ -1421,10 +1421,6 @@ extension Target {
     var isCxx: Bool {
         (self as? ClangTarget)?.isCXX ?? false
     }
-
-    var usesUnsafeFlags: Bool {
-        Set(buildSettings.assignments.keys).contains(where: BuildSettings.Declaration.unsafeSettings.contains)
-    }
 }
 
 extension ProductType {

@@ -25,7 +25,8 @@ private extension ResolvedTarget {
                 path: .root,
                 sources: Sources(paths: [], root: AbsolutePath(path: "/")),
                 dependencies: [],
-                swiftVersion: .v4
+                swiftVersion: .v4,
+                usesUnsafeFlags: false
             ),
             dependencies: deps.map { .target($0, conditions: []) },
             defaultLocalization: nil,

@@ -867,7 +867,8 @@ public final class PackageBuilder {
                 others: others,
                 dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
-                buildSettings: buildSettings
+                buildSettings: buildSettings,
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
@@ -899,7 +900,8 @@ public final class PackageBuilder {
                 resources: resources,
                 ignored: ignored,
                 dependencies: dependencies,
-                buildSettings: buildSettings
+                buildSettings: buildSettings,
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
             )
         }
     }
@@ -1474,7 +1476,8 @@ extension PackageBuilder {
                     sources: sources,
                     dependencies: dependencies,
                     swiftVersion: try swiftVersion(),
-                    buildSettings: buildSettings
+                    buildSettings: buildSettings,
+                    usesUnsafeFlags: false
                 )
             }
     }
@@ -1497,5 +1500,11 @@ fileprivate extension Sequence {
             results.append(element)
         }
         return results
+    }
+}
+
+fileprivate extension TargetDescription {
+    var usesUnsafeFlags: Bool {
+        return settings.filter { $0.kind.isUnsafeFlags }.isEmpty == false
     }
 }
