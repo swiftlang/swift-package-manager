@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+#if swift(>=5.5.2)
 import _Concurrency
 
 import class TSCBasic.BufferedOutputByteStream
@@ -172,3 +173,4 @@ public extension AsyncFileSystem {
         throw FileSystemError(.unsupported, path)
     }
 }
+#endif
