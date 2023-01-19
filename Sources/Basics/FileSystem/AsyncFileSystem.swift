@@ -231,6 +231,8 @@ extension AsyncFileSystem {
     }
 }
 
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
+        throw FileSystemError(.unsupported, path)
 extension AsyncFileSystem {
     public func forceCreateDirectory(at path: AbsolutePath) throws {
         try self.createDirectory(path.parentDirectory, recursive: true)
