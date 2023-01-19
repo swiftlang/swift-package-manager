@@ -88,14 +88,16 @@ class ModuleAliasTracker {
     }
 
     func validateAndApplyAliases(product: Product,
-                                 package: PackageIdentity) throws {
+                                 package: PackageIdentity,
+                                 observabilityScope: ObservabilityScope) throws {
         guard let targets = idToProductToAllTargets[package]?[product.identity] else { return }
         let targetsWithAliases = targets.filter{ $0.moduleAliases != nil }
-        for target in targetsWithAliases {
-            if target.sources.containsNonSwiftFiles {
-                throw PackageGraphError.invalidSourcesForModuleAliasing(target: target.name, product: product.name, package: package.description)
+        for targetWithAlias in targetsWithAliases {
+            if targetWithAlias.sources.containsNonSwiftFiles {
+                let aliasesMsg = targetWithAlias.moduleAliases?.map{"'\($0.key)' as '\($0.value)'"}.joined(separator: ", ") ?? ""
+                observabilityScope.emit(warning: "target '\(targetWithAlias.name)' for product '\(product.name)' from package '\(package.description)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
             }
-            target.applyAlias()
+            targetWithAlias.applyAlias()
         }
     }
 
