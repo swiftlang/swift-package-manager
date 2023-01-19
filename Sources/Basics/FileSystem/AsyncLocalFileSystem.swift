@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+#if swift(>=5.5.2)
 import Foundation
 import TSCBasic
 
@@ -262,3 +263,4 @@ private actor LocalFileSystem: AsyncFileSystem {
         try FileLock.withLock(fileToLock: path, type: type, body: body)
     }
 }
+#endif
