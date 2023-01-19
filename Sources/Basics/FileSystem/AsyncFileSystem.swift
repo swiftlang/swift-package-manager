@@ -37,7 +37,7 @@ public actor AsyncFileSystem: Actor {
     }
 
     /// Check whether the given path exists and is accessible.
-    func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
+    func exists(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
         implementation.exists(path, followSymlink: followSymlink)
     }
 
@@ -167,7 +167,7 @@ public actor AsyncFileSystem: Actor {
     }
 
     /// Change file mode.
-    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option> = .init()) throws {
         try implementation.chmod(mode, path: path, options: options)
     }
 
@@ -194,19 +194,8 @@ public actor AsyncFileSystem: Actor {
     }
 }
 
-/// Convenience implementations (default arguments aren't permitted in protocol
-/// methods).
+/// Convenience implementations
 public extension AsyncFileSystem {
-    /// exists override with default value.
-    func exists(_ path: AbsolutePath) -> Bool {
-        exists(path, followSymlink: true)
-    }
-
-    // Change file mode.
-    func chmod(_ mode: FileMode, path: AbsolutePath) throws {
-        try chmod(mode, path: path, options: [])
-    }
-
     /// Write to a file from a stream producer.
     func writeFileContents(_ path: AbsolutePath, body: (WritableByteStream) -> Void) throws {
         let contents = BufferedOutputByteStream()
