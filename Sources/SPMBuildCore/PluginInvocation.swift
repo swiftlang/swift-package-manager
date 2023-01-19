@@ -333,7 +333,8 @@ extension PackageGraph {
         pkgConfigDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
     ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
         for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
@@ -373,7 +374,11 @@ extension PackageGraph {
                 var builtToolNames: [String] = []
                 let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
                     builtToolNames.append(name)
-                    return builtToolsDir.appending(path)
+                    if let result = try builtToolHandler(name, path) {
+                        return result
+                    } else {
+                        return builtToolsDir.appending(path)
+                    }
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
