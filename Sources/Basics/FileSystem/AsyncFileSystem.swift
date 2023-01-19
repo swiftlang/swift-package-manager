@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import _Concurrency
+
 import class TSCBasic.BufferedOutputByteStream
 import class TSCBasic.FileLock
 import enum TSCBasic.FileMode
