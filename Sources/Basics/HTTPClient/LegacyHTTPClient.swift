@@ -375,9 +375,11 @@ public extension LegacyHTTPClient {
 // MARK: - LegacyHTTPClientConfiguration
 
 public struct LegacyHTTPClientConfiguration {
+    public typealias AuthorizationProvider = (URL) -> String?
+
     public var requestHeaders: HTTPClientHeaders?
     public var requestTimeout: DispatchTimeInterval?
-    public var authorizationProvider: HTTPClientAuthorizationProvider?
+    public var authorizationProvider: AuthorizationProvider?
     public var retryStrategy: HTTPClientRetryStrategy?
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
     public var maxConcurrentRequests: Int?

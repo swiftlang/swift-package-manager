@@ -10,15 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+// `Sendable` conformance on contained types requires Swift Concurrency back-deployment.
+#if swift(>=5.5.2)
+
 import Foundation
 
-public typealias HTTPClientAuthorizationProvider = @Sendable (URL) -> String?
-
 public struct HTTPClientConfiguration: Sendable {
+    public typealias AuthorizationProvider = @Sendable (URL) -> String?
+
     public init(
         requestHeaders: HTTPClientHeaders? = nil,
         requestTimeout: SendableTimeInterval? = nil,
-        authorizationProvider: HTTPClientAuthorizationProvider? = nil,
+        authorizationProvider: AuthorizationProvider? = nil,
         retryStrategy: HTTPClientRetryStrategy? = nil,
         circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy? = nil,
         maxConcurrentRequests: Int? = nil
@@ -34,7 +37,7 @@ public struct HTTPClientConfiguration: Sendable {
     public var requestHeaders: HTTPClientHeaders?
     // FIXME: replace with `Duration` when that's available for back-deployment or minimum macOS is bumped to 13.0+
     public var requestTimeout: SendableTimeInterval?
-    public var authorizationProvider: HTTPClientAuthorizationProvider?
+    public var authorizationProvider: AuthorizationProvider?
     public var retryStrategy: HTTPClientRetryStrategy?
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
     public var maxConcurrentRequests: Int?
@@ -47,3 +50,5 @@ public enum HTTPClientRetryStrategy: Sendable {
 public enum HTTPClientCircuitBreakerStrategy: Sendable {
     case hostErrors(maxErrors: Int, age: SendableTimeInterval)
 }
+
+#endif

@@ -86,7 +86,7 @@ public struct HTTPClientRequest: Sendable {
         public var validResponseCodes: [Int]?
         public var timeout: SendableTimeInterval?
         public var maximumResponseSizeInBytes: Int64?
-        public var authorizationProvider: HTTPClientAuthorizationProvider?
+        public var authorizationProvider: HTTPClientConfiguration.AuthorizationProvider?
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
 

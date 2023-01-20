@@ -88,7 +88,7 @@ public struct LegacyHTTPClientRequest {
             validResponseCodes: [Int]? = nil,
             timeout: DispatchTimeInterval? = nil,
             maximumResponseSizeInBytes: Int64? = nil,
-            authorizationProvider: HTTPClientAuthorizationProvider? = nil,
+            authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider? = nil,
             retryStrategy: HTTPClientRetryStrategy? = nil,
             circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy? = nil,
             callbackQueue: DispatchQueue? = nil
@@ -107,7 +107,7 @@ public struct LegacyHTTPClientRequest {
         public var validResponseCodes: [Int]?
         public var timeout: DispatchTimeInterval?
         public var maximumResponseSizeInBytes: Int64?
-        public var authorizationProvider: HTTPClientAuthorizationProvider?
+        public var authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
         public var callbackQueue: DispatchQueue?

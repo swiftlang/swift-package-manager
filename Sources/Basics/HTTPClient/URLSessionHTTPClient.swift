@@ -107,7 +107,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
 
     func makeTask(
         urlRequest: URLRequest,
-        authorizationProvider: HTTPClientAuthorizationProvider?,
+        authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?,
         progress: LegacyHTTPClient.ProgressHandler?,
         completion: @escaping LegacyHTTPClient.CompletionHandler
     ) -> URLSessionDataTask {
@@ -188,7 +188,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         let task: URLSessionDataTask
         let completionHandler: LegacyHTTPClient.CompletionHandler
         let progressHandler: LegacyHTTPClient.ProgressHandler?
-        let authorizationProvider: HTTPClientAuthorizationProvider?
+        let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
         var response: HTTPURLResponse?
         var expectedContentLength: Int64?
@@ -197,8 +197,8 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         init(task: URLSessionDataTask,
              progressHandler: LegacyHTTPClient.ProgressHandler?,
              completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
-             authorizationProvider: HTTPClientAuthorizationProvider?)
-        {
+             authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+        ) {
             self.task = task
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
