@@ -10,12 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.5.2)
+
 import XCTest
 import TSCBasic
 
 import Basics
 
-@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 class TemporaryAsyncFileTests: XCTestCase {
     func testBasicTemporaryDirectory() async throws {
         // Test can create and remove temp directory.
@@ -91,3 +92,5 @@ class TemporaryAsyncFileTests: XCTestCase {
         } catch {}
     }
 }
+
+#endif
