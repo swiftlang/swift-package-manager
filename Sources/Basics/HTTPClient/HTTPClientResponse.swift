@@ -12,6 +12,10 @@
 
 import Foundation
 
+#if swift(<5.6)
+extension Data: UnsafeSendable {}
+#endif
+
 public struct HTTPClientResponse : Sendable {
     public let statusCode: Int
     public let statusText: String?
