@@ -460,10 +460,10 @@ private extension Result {
 
 private extension LegacyHTTPClient {
     static func makeDefault(callbackQueue: DispatchQueue) -> LegacyHTTPClient {
-        let httpClientConfig = LegacyHTTPClientConfiguration()
+        var httpClientConfig = LegacyHTTPClientConfiguration()
         httpClientConfig.callbackQueue = callbackQueue
         httpClientConfig.requestTimeout = .seconds(1)
-        return HTTPClient(configuration: httpClientConfig)
+        return LegacyHTTPClient(configuration: httpClientConfig)
     }
 }
 #endif
