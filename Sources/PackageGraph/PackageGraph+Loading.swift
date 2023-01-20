@@ -522,18 +522,20 @@ private class DuplicateProductsChecker {
     init(packageBuilders: [ResolvedPackageBuilder]) {
         for packageBuilder in packageBuilders {
             let pkgID = packageBuilder.package.identity.description.lowercased()
-            packageIDToBuilder[pkgID] = packageBuilder
+            self.packageIDToBuilder[pkgID] = packageBuilder
         }
     }
 
     func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
         var productToPkgMap = [String: [String]]()
-        for (_, pkgBuilder) in packageIDToBuilder {
+        for (pkgID, pkgBuilder) in packageIDToBuilder {
             let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
             let depProductRefs = pkgBuilder.package.targets.map{$0.dependencies}.flatMap{$0}.compactMap{$0.product}
             for depRef in depProductRefs {
                 if let depPkg = depRef.package?.lowercased() {
-                    checkedPkgIDs.append(depPkg)
+                    if !checkedPkgIDs.contains(depPkg) {
+                        checkedPkgIDs.append(depPkg)
+                    }
                     let depProductIDs = packageIDToBuilder[depPkg]?.package.products.filter { $0.identity == depRef.identity }.map { useProductIDs && $0.isDefaultLibrary ? $0.identity : $0.name } ?? []
                     for depID in depProductIDs {
                         productToPkgMap[depID, default: []].append(depPkg)
@@ -543,6 +545,9 @@ private class DuplicateProductsChecker {
                     productToPkgMap[depRef.name, default: []].append(contentsOf: depPkgs)
                     checkedPkgIDs.append(contentsOf: depPkgs)
                 }
+                if !checkedPkgIDs.contains(pkgID.lowercased()) {
+                    checkedPkgIDs.append(pkgID.lowercased())
+                }
             }
             for (depIDOrName, depPkgs) in productToPkgMap.filter({Set($0.value).count > 1}) {
                 let name = depIDOrName.components(separatedBy: "_").dropFirst().joined(separator: "_")
@@ -550,11 +555,20 @@ private class DuplicateProductsChecker {
             }
         }
 
-        let uncheckedPkgs = packageIDToBuilder.filter{!checkedPkgIDs.contains($0.key)}
-        for (pkgID, pkgBuilder) in uncheckedPkgs {
-            let productIDOrNames = pkgBuilder.products.map { pkgBuilder.package.manifest.disambiguateByProductIDs && $0.product.isDefaultLibrary ? $0.product.identity : $0.product.name }
-            for productIDOrName in productIDOrNames {
-                productToPkgMap[productIDOrName, default: []].append(pkgID)
+        // Check packages that exist but are not in a dependency graph
+        let untrackedPkgs = packageIDToBuilder.filter{!checkedPkgIDs.contains($0.key.lowercased())}
+        for (pkgID, pkgBuilder) in untrackedPkgs {
+            for product in pkgBuilder.products {
+                // Check if checking product ID only is safe
+                let useIDOnly = lookupByProductIDs && product.product.isDefaultLibrary
+                if !useIDOnly {
+                    // This untracked pkg could have a product name conflicting with a
+                    // product name from another package, but since it's not depended on
+                    // by other packages, keep track of both this product's name and ID
+                    // just in case other packages are < .v5_8
+                    productToPkgMap[product.product.name, default: []].append(pkgID)
+                }
+                productToPkgMap[product.product.identity, default: []].append(pkgID)
             }
         }
 
