@@ -337,6 +337,8 @@ extension URLRequest {
         }
     }
 
+// For `HTTPClient` to be available we need Swift Concurrency back-deployment.
+#if swift(>=5.5.2)
     init(_ request: HTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string
@@ -348,14 +350,15 @@ extension URLRequest {
             self.timeoutInterval = interval
         }
     }
+#endif
 }
 
 private extension HTTPURLResponse {
-    func response(body: Data?) -> HTTPClient.Response {
+    func response(body: Data?) -> HTTPClientResponse {
         let headers = HTTPClientHeaders(self.allHeaderFields.map { header in
             .init(name: "\(header.key)", value: "\(header.value)")
         })
-        return HTTPClient.Response(statusCode: self.statusCode,
+        return HTTPClientResponse(statusCode: self.statusCode,
                                    statusText: Self.localizedString(forStatusCode: self.statusCode),
                                    headers: headers,
                                    body: body)
