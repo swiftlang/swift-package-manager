@@ -26,7 +26,7 @@ public final class RegistryClient: Cancellable {
     private let configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
-    private let authorizationProvider: HTTPClientAuthorizationProvider?
+    private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
