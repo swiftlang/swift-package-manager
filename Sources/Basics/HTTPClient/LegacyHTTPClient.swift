@@ -11,10 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import struct Foundation.Data
-import struct Foundation.Date
 import class Foundation.NSLock
 import class Foundation.OperationQueue
+import func Foundation.pow
+import struct Foundation.Data
+import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
 import TSCBasic
