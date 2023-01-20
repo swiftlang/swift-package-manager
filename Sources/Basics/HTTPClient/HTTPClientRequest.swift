@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// `AsyncFileSystem` used by `HTTPClientRequest` requires Swift Concurrency back-deployment.
+#if swift(>=5.5.2)
+
 import Foundation
 
 import struct TSCBasic.AbsolutePath
@@ -98,3 +101,5 @@ public struct HTTPClientRequest: Sendable {
         }
     }
 }
+
+#endif
