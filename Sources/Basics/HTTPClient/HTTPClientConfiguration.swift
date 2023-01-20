@@ -43,6 +43,8 @@ public struct HTTPClientConfiguration: Sendable {
     public var maxConcurrentRequests: Int?
 }
 
+#endif
+
 public enum HTTPClientRetryStrategy: Sendable {
     case exponentialBackoff(maxAttempts: Int, baseDelay: SendableTimeInterval)
 }
@@ -50,5 +52,3 @@ public enum HTTPClientRetryStrategy: Sendable {
 public enum HTTPClientCircuitBreakerStrategy: Sendable {
     case hostErrors(maxErrors: Int, age: SendableTimeInterval)
 }
-
-#endif
