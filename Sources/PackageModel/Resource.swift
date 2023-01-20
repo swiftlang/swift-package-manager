@@ -44,5 +44,6 @@ public struct Resource: Codable, Equatable {
     public enum Rule: Codable, Equatable {
         case process(localization: String?)
         case copy
+        case embedInCode
     }
 }

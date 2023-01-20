@@ -422,6 +422,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
+        case .embedInCode:
+            self.init(enum: "embedInCode", subnodes: params)
         }
     }
 

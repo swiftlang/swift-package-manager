@@ -362,6 +362,8 @@ enum ManifestJSONParser {
                 return .init(rule: .process(localization: localization), path: path.pathString)
             case "copy":
                 return .init(rule: .copy, path: path.pathString)
+            case "embedInCode":
+                return .init(rule: .embedInCode, path: path.pathString)
             default:
                 throw InternalError("invalid resource rule \(rule)")
             }

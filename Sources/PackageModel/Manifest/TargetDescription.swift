@@ -42,6 +42,7 @@ public struct TargetDescription: Equatable, Encodable {
         public enum Rule: Encodable, Equatable {
             case process(localization: Localization?)
             case copy
+            case embedInCode
         }
 
         public enum Localization: String, Encodable {

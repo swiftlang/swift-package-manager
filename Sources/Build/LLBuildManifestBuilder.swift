@@ -174,9 +174,14 @@ extension LLBuildManifestBuilder {
 
         // Create a copy command for each resource file.
         for resource in target.resources {
-            let destination = bundlePath.appending(resource.destination)
-            let (_, output) = addCopyCommand(from: resource.path, to: destination)
-            outputs.append(output)
+            switch resource.rule {
+            case .copy, .process:
+                let destination = bundlePath.appending(resource.destination)
+                let (_, output) = addCopyCommand(from: resource.path, to: destination)
+                outputs.append(output)
+            case .embedInCode:
+                break
+            }
         }
 
         // Create a copy command for the Info.plist if a resource with the same name doesn't exist yet.
