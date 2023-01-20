@@ -28,7 +28,7 @@ public final class LegacyHTTPClient: Cancellable {
     public typealias Request = LegacyHTTPClientRequest
     public typealias Response = HTTPClientResponse
     public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
-    public typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void
+    public typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) throws -> Void
     public typealias CompletionHandler = (Result<HTTPClientResponse, Error>) -> Void
 
     public var configuration: LegacyHTTPClientConfiguration
@@ -123,7 +123,11 @@ public final class LegacyHTTPClient: Cancellable {
                 { received, expected in
                     // call back on the requested queue
                     callbackQueue.async {
-                        handler(received, expected)
+                        do {
+                            try handler(received, expected)
+                        } catch {
+                            completion(.failure(error))
+                        }
                     }
                 }
             },
@@ -192,11 +196,12 @@ public final class LegacyHTTPClient: Cancellable {
                 { received, expected in
                     if let max = request.options.maximumResponseSizeInBytes {
                         guard received < max else {
-                            // FIXME: cancel the request?
-                            return completion(.failure(HTTPClientError.responseTooLarge(received)))
+                            // It's a responsibility of the underlying client implementation to cancel the request
+                            // when this closure throws an error
+                            throw HTTPClientError.responseTooLarge(received)
                         }
                     }
-                    progress?(received, expected)
+                    try progress?(received, expected)
                 },
                 { result in
                     // handle result

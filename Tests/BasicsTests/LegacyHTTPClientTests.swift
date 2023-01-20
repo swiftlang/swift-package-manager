@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -482,29 +482,6 @@ final class LegacyHTTPClientTests: XCTestCase {
         XCTAssertEqual(count.get(), total, "expected results count to match")
     }
 
-    func testHTTPClientHeaders() {
-        var headers = HTTPClientHeaders()
-
-        let items = (1 ... Int.random(in: 10 ... 20)).map { index in HTTPClientHeaders.Item(name: "header-\(index)", value: UUID().uuidString) }
-        headers.add(items)
-
-        XCTAssertEqual(headers.count, items.count, "headers count should match")
-        items.forEach { item in
-            XCTAssertEqual(headers.get(item.name).first, item.value, "headers value should match")
-        }
-
-        headers.add(items.first!)
-        XCTAssertEqual(headers.count, items.count, "headers count should match (no duplicates)")
-
-        let name = UUID().uuidString
-        let values = (1 ... Int.random(in: 10 ... 20)).map { "value-\($0)" }
-        values.forEach { value in
-            headers.add(name: name, value: value)
-        }
-        XCTAssertEqual(headers.count, items.count + 1, "headers count should match (no duplicates)")
-        XCTAssertEqual(values, headers.get(name), "multiple headers value should match")
-    }
-
     func testExceedsDownloadSizeLimitProgress() throws {
         let maxSize: Int64 = 50
 
@@ -516,7 +493,11 @@ final class LegacyHTTPClientTests: XCTestCase {
                     headers: .init([.init(name: "Content-Length", value: "0")])
                 )))
             case .get:
-                progress?(Int64(maxSize * 2), 0)
+                do {
+                    try progress?(Int64(maxSize * 2), 0)
+                } catch {
+                    completion(.failure(error))
+                }
             default:
                 XCTFail("method should match")
             }

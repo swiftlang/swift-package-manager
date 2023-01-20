@@ -225,7 +225,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 completion(.success(.init(statusCode: 200,
                                           headers: .init([.init(name: "Content-Length", value: "0")]))))
             case .get:
-                progress?(Int64(maxSize * 2), 0)
+                do {
+                    try progress?(Int64(maxSize * 2), 0)
+                } catch {
+                    completion(.failure(error))
+                }
             default:
                 XCTFail("method should match")
             }

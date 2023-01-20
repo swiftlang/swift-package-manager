@@ -982,9 +982,11 @@ private class MockURLProtocol: URLProtocol {
         self.onRequest(request.method.string, request.url, completion: completion)
     }
 
+#if swift(>=5.5.2)
     static func onRequest(_ request: HTTPClientRequest, completion: @escaping Action) {
         self.onRequest(request.method.string, request.url, completion: completion)
     }
+#endif
 
     static func onRequest(_ method: String, _ url: URL, completion: @escaping Action) {
         let key = Key(method, url)

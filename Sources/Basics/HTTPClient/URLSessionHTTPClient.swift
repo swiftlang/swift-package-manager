@@ -131,8 +131,12 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         }
         task.response = response as? HTTPURLResponse
         task.expectedContentLength = response.expectedContentLength
-        task.progressHandler?(0, response.expectedContentLength)
-        completionHandler(.allow)
+        do {
+            try task.progressHandler?(0, response.expectedContentLength)
+            completionHandler(.allow)
+        } catch {
+            completionHandler(.cancel)
+        }
     }
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
@@ -144,9 +148,13 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         } else {
             task.buffer = data
         }
-        task
-            .progressHandler?(Int64(task.buffer?.count ?? 0),
-                              task.expectedContentLength) // safe since created in the line above
+
+        do {
+            // safe since created in the line above
+            try task.progressHandler?(Int64(task.buffer?.count ?? 0), task.expectedContentLength)
+        } catch {
+            task.task.cancel()
+        }
     }
 
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
@@ -251,7 +259,12 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 
         let totalBytesToDownload = totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown ?
             totalBytesExpectedToWrite : nil
-        task.progressHandler?(totalBytesWritten, totalBytesToDownload)
+
+        do {
+            try task.progressHandler?(totalBytesWritten, totalBytesToDownload)
+        } catch {
+            task.task.cancel()
+        }
     }
 
     func urlSession(
