@@ -16,3 +16,4 @@ Package.resolved
 /build
 *.pyc
 .docc-build
+.vscode
