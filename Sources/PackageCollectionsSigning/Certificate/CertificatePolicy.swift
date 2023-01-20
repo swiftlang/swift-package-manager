@@ -322,7 +322,7 @@ private struct BoringSSLOCSPClient {
             }
             headers.add(name: "Host", value: host)
 
-            var options = HTTPClientRequest.Options()
+            var options = LegacyHTTPClientRequest.Options()
             options.validResponseCodes = [200]
 
             group.enter()
