@@ -699,7 +699,8 @@ private func resolveModuleAliases(packageBuilders: [ResolvedPackageBuilder],
     for packageBuilder in packageBuilders {
         for product in packageBuilder.package.products {
             try aliasTracker.validateAndApplyAliases(product: product,
-                                                     package: packageBuilder.package.identity)
+                                                     package: packageBuilder.package.identity,
+                                                     observabilityScope: observabilityScope)
         }
     }
     return true
