@@ -65,14 +65,23 @@ public actor HTTPClient {
     public typealias ProgressHandler = @Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) throws -> Void
     public typealias Implementation = @Sendable (Request, ProgressHandler?) async throws -> Response
 
+    /// Record of errors that occurred when querying a host applied in a circuit-breaking strategy.
+    private struct HostErrors {
+        let numberOfErrors: Int
+        let lastError: Date
+    }
+
     /// Configuration used by ``HTTPClient`` when handling requests.
     private let configuration: HTTPClientConfiguration
 
     /// Underlying implementation of ``HTTPClient``.
     private let implementation: Implementation
 
-    ///
+    /// An `async`-friendly semaphore to handle limits on the number of concurrent requests.
     private let tokenBucket: TokenBucket
+
+    /// Arrays of
+    private var hostsErrors = [String: HostErrors]()
 
     public init(configuration: HTTPClientConfiguration = .init(), implementation: Implementation? = nil) {
         self.configuration = configuration
@@ -129,6 +138,59 @@ public actor HTTPClient {
             throw HTTPClientError.badResponseStatusCode(response.statusCode)
         } else {
             return response
+        }
+    }
+
+    private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> DispatchTimeInterval? {
+        guard let strategy = request.options.retryStrategy, response.statusCode >= 500 else {
+            return .none
+        }
+
+        switch strategy {
+        case .exponentialBackoff(let maxAttempts, let delay):
+            guard requestNumber < maxAttempts - 1 else {
+                return .none
+            }
+            let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
+            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
+            let jitterMilli = Int.random(in: 1 ... 10)
+            return .milliseconds(delayMilli + jitterMilli)
+        }
+    }
+
+    private func recordErrorIfNecessary(response: Response, request: Request) {
+        guard let strategy = request.options.circuitBreakerStrategy, response.statusCode >= 500 else {
+            return
+        }
+
+        switch strategy {
+        case .hostErrors:
+            guard let host = request.url.host else {
+                return
+            }
+            // Avoid copy-on-write: remove entry from dictionary before mutating
+            var errors = hostsErrors.removeValue(forKey: host) ?? []
+            errors.append(Date())
+            hostsErrors[host] = errors
+        }
+    }
+
+    private func shouldCircuitBreak(request: Request) -> Bool {
+        guard let strategy = request.options.circuitBreakerStrategy else {
+            return false
+        }
+
+        switch strategy {
+        case .hostErrors(let maxErrors, let age):
+            if let host = request.url.host, let errors = hostsErrors[host] {
+                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
+                    return Date().timeIntervalSince(lastError) <= age
+                } else if errors.count >= maxErrors {
+                    // reset aged errors
+                    hostsErrors[host] = nil
+                }
+            }
+            return false
         }
     }
 }
