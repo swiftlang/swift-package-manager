@@ -501,10 +501,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) throws {
         let manifestPreamble: ByteString
-        switch toolsVersion {
-        case .vNext:
+        if toolsVersion >= .v5_8 {
             manifestPreamble = ByteString()
-        default:
+        } else {
             manifestPreamble = ByteString("import Foundation\n")
         }
 
