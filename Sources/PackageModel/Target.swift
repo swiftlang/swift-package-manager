@@ -228,6 +228,9 @@ public class Target: PolymorphicCodableProtocol {
     /// The usages of package plugins by this target.
     public let pluginUsages: [PluginUsage]
 
+    /// Whether or not this target uses any custom unsafe flags.
+    public let usesUnsafeFlags: Bool
+
     fileprivate init(
         name: String,
         potentialBundleName: String? = nil,
@@ -239,7 +242,8 @@ public class Target: PolymorphicCodableProtocol {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency],
         buildSettings: BuildSettings.AssignmentTable,
-        pluginUsages: [PluginUsage]
+        pluginUsages: [PluginUsage],
+        usesUnsafeFlags: Bool
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -253,10 +257,11 @@ public class Target: PolymorphicCodableProtocol {
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
         self.pluginUsages = pluginUsages
+        self.usesUnsafeFlags = usesUnsafeFlags
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages
+        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages, usesUnsafeFlags
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -275,6 +280,7 @@ public class Target: PolymorphicCodableProtocol {
         try container.encode(buildSettings, forKey: .buildSettings)
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
+        try container.encode(usesUnsafeFlags, forKey: .usesUnsafeFlags)
     }
 
     required public init(from decoder: Decoder) throws {
@@ -295,6 +301,7 @@ public class Target: PolymorphicCodableProtocol {
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
         self.pluginUsages = []
+        self.usesUnsafeFlags = try container.decode(Bool.self, forKey: .usesUnsafeFlags)
     }
 }
 
@@ -334,7 +341,8 @@ public final class SwiftTarget: Target {
             sources: testDiscoverySrc,
             dependencies: dependencies,
             buildSettings: .init(),
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: false
         )
     }
 
@@ -353,7 +361,8 @@ public final class SwiftTarget: Target {
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init(),
-        pluginUsages: [PluginUsage] = []
+        pluginUsages: [PluginUsage] = [],
+        usesUnsafeFlags: Bool
     ) {
         self.swiftVersion = swiftVersion
         super.init(
@@ -367,7 +376,8 @@ public final class SwiftTarget: Target {
             others: others,
             dependencies: dependencies,
             buildSettings: buildSettings,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            usesUnsafeFlags: usesUnsafeFlags
         )
     }
 
@@ -395,7 +405,8 @@ public final class SwiftTarget: Target {
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: false
         )
     }
 
@@ -446,7 +457,8 @@ public final class SystemLibraryTarget: Target {
             sources: sources,
             dependencies: [],
             buildSettings: .init(),
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: false
         )
     }
 
@@ -511,7 +523,8 @@ public final class ClangTarget: Target {
         ignored: [AbsolutePath] = [],
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        usesUnsafeFlags: Bool
     ) throws {
         guard includeDir.isDescendantOfOrEqual(to: sources.root) else {
             throw StringError("\(includeDir) should be contained in the source root \(sources.root)")
@@ -533,7 +546,8 @@ public final class ClangTarget: Target {
             others: others,
             dependencies: dependencies,
             buildSettings: buildSettings,
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: usesUnsafeFlags
         )
     }
 
@@ -592,7 +606,8 @@ public final class BinaryTarget: Target {
             sources: sources,
             dependencies: [],
             buildSettings: .init(),
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: false
         )
     }
 
@@ -711,7 +726,8 @@ public final class PluginTarget: Target {
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init(),
-            pluginUsages: []
+            pluginUsages: [],
+            usesUnsafeFlags: false
         )
     }
 

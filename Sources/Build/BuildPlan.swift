@@ -2473,7 +2473,8 @@ private extension PackageModel.SwiftTarget {
             path: .root,
             sources: sources,
             dependencies: dependencies,
-            swiftVersion: .v5
+            swiftVersion: .v5,
+            usesUnsafeFlags: false
         )
     }
 }
