@@ -80,7 +80,7 @@ public actor HTTPClient {
     /// An `async`-friendly semaphore to handle limits on the number of concurrent requests.
     private let tokenBucket: TokenBucket
 
-    /// Arrays of
+    /// Array of `HostErrors` values, which is used for applying a circuit-breaking strategy.
     private var hostsErrors = [String: HostErrors]()
 
     public init(configuration: HTTPClientConfiguration = .init(), implementation: Implementation? = nil) {

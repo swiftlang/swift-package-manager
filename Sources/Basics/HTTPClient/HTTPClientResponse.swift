@@ -12,7 +12,7 @@
 
 import Foundation
 
-#if swift(<5.6)
+#if swift(<5.7)
 extension Data: UnsafeSendable {}
 #endif
 
@@ -22,11 +22,12 @@ public struct HTTPClientResponse : Sendable {
     public let headers: HTTPClientHeaders
     public let body: Data?
 
-    public init(statusCode: Int,
-                statusText: String? = nil,
-                headers: HTTPClientHeaders = .init(),
-                body: Data? = nil)
-    {
+    public init(
+        statusCode: Int,
+        statusText: String? = nil,
+        headers: HTTPClientHeaders = .init(),
+        body: Data? = nil
+    ) {
         self.statusCode = statusCode
         self.statusText = statusText
         self.headers = headers
