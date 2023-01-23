@@ -67,8 +67,8 @@ public actor HTTPClient {
 
     /// Record of errors that occurred when querying a host applied in a circuit-breaking strategy.
     private struct HostErrors {
-        let numberOfErrors: Int
-        let lastError: Date
+        var numberOfErrors: Int
+        var lastError: Date
     }
 
     /// Configuration used by ``HTTPClient`` when handling requests.
@@ -101,6 +101,15 @@ public actor HTTPClient {
     ) async throws -> Response {
         // merge configuration
         var request = request
+        if request.options.retryStrategy == nil {
+            request.options.retryStrategy = self.configuration.retryStrategy
+        }
+        if request.options.circuitBreakerStrategy == nil {
+            request.options.circuitBreakerStrategy = self.configuration.circuitBreakerStrategy
+        }
+        if request.options.timeout == nil {
+            request.options.timeout = self.configuration.requestTimeout
+        }
         if request.options.authorizationProvider == nil {
             request.options.authorizationProvider = self.configuration.authorizationProvider
         }
@@ -117,11 +126,23 @@ public actor HTTPClient {
         if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
             request.headers.add(name: "Authorization", value: authorization)
         }
-        let finalRequest = request
 
-        let response = try await tokenBucket.withToken {
-            try await self.implementation(finalRequest) { received, expected in
-                if let max = finalRequest.options.maximumResponseSizeInBytes {
+        return try await executeWithStrategies(request: request, progress: progress, requestNumber: 0)
+    }
+
+    private func executeWithStrategies(
+        request: Request,
+        progress: ProgressHandler?,
+        requestNumber: Int
+    ) async throws -> Response {
+        // apply circuit breaker if necessary
+        if self.shouldCircuitBreak(request: request) {
+            throw HTTPClientError.circuitBreakerTriggered
+        }
+
+        let response = try await self.tokenBucket.withToken {
+            try await self.implementation(request) { received, expected in
+                if let max = request.options.maximumResponseSizeInBytes {
                     guard received < max else {
                         // It's a responsibility of the underlying client implementation to cancel the request
                         // when this closure throws an error
@@ -133,6 +154,22 @@ public actor HTTPClient {
             }
         }
 
+        self.recordErrorIfNecessary(response: response, request: request)
+
+        // handle retry strategy
+        if let retryDelayInNanoseconds = self.shouldRetry(
+            response: response,
+            request: request,
+            requestNumber: requestNumber
+        )?.nanoseconds() {
+            try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
+
+            return try await self.executeWithStrategies(
+                request: request,
+                progress: progress,
+                requestNumber: requestNumber + 1
+            )
+        }
         // check for valid response codes
         if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
             throw HTTPClientError.badResponseStatusCode(response.statusCode)
@@ -141,15 +178,15 @@ public actor HTTPClient {
         }
     }
 
-    private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> DispatchTimeInterval? {
+    private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> SendableTimeInterval? {
         guard let strategy = request.options.retryStrategy, response.statusCode >= 500 else {
-            return .none
+            return nil
         }
 
         switch strategy {
         case .exponentialBackoff(let maxAttempts, let delay):
             guard requestNumber < maxAttempts - 1 else {
-                return .none
+                return nil
             }
             let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
             let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
@@ -169,9 +206,15 @@ public actor HTTPClient {
                 return
             }
             // Avoid copy-on-write: remove entry from dictionary before mutating
-            var errors = hostsErrors.removeValue(forKey: host) ?? []
-            errors.append(Date())
-            hostsErrors[host] = errors
+            let hostErrors: HostErrors
+            if var errors = self.hostsErrors.removeValue(forKey: host)  {
+                errors.numberOfErrors += 1
+                errors.lastError = Date()
+                hostErrors = errors
+            } else {
+                hostErrors = HostErrors(numberOfErrors: 1, lastError: Date())
+            }
+            self.hostsErrors[host] = hostErrors
         }
     }
 
@@ -182,12 +225,12 @@ public actor HTTPClient {
 
         switch strategy {
         case .hostErrors(let maxErrors, let age):
-            if let host = request.url.host, let errors = hostsErrors[host] {
-                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
-                    return Date().timeIntervalSince(lastError) <= age
-                } else if errors.count >= maxErrors {
+            if let host = request.url.host, let errors = self.hostsErrors[host] {
+                if errors.numberOfErrors >= maxErrors, let age = age.timeInterval() {
+                    return Date().timeIntervalSince(errors.lastError) <= age
+                } else if errors.numberOfErrors >= maxErrors {
                     // reset aged errors
-                    hostsErrors[host] = nil
+                    self.hostsErrors[host] = nil
                 }
             }
             return false

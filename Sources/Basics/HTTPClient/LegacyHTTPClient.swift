@@ -158,12 +158,12 @@ public final class LegacyHTTPClient: Cancellable {
         completion: @escaping CompletionHandler
     ) {
         // records outstanding requests for cancellation purposes
-//        guard let callbackQueue = request.options.callbackQueue else {
-//            return completion(.failure(InternalError("unknown callback queue")))
-//        }
+        guard let callbackQueue = request.options.callbackQueue else {
+            return completion(.failure(InternalError("unknown callback queue")))
+        }
         let requestKey = UUID()
         self.outstandingRequests[requestKey] =
-            .init(url: request.url, completion: completion, progress: progress, queue: configuration.callbackQueue)
+            .init(url: request.url, completion: completion, progress: progress, queue: callbackQueue)
 
         // wrap completion handler with concurrency control cleanup
         let originalCompletion = completion
