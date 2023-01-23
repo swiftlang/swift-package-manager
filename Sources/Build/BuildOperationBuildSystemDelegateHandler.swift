@@ -514,6 +514,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
     private let observabilityScope: ObservabilityScope
+    private var cancelled: Bool = false
 
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
@@ -631,6 +632,11 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         guard !swiftParsers.keys.contains(command.name) else { return }
 
         queue.async {
+            if result == .cancelled {
+                self.cancelled = true
+                self.delegate?.buildSystemDidCancel(self.buildSystem)
+            }
+
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
 
             if !self.logLevel.isVerbose {
@@ -697,7 +703,12 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 self.nonSwiftMessageBuffers[command.name] = nil
             }
         }
-        if result.result == .failed {
+
+        switch result.result {
+        case .cancelled:
+            self.cancelled = true
+            self.delegate?.buildSystemDidCancel(self.buildSystem)
+        case .failed:
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the target to provide advice about.
             queue.async {
                 guard let target = self.swiftParsers[command.name]?.targetName else { return }
@@ -710,6 +721,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                     }
                 }
             }
+        case .succeeded, .skipped:
+            break
+        @unknown default:
+            break
         }
     }
 
@@ -806,8 +821,9 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.sync {
             self.progressAnimation.complete(success: success)
             if success {
+                let message = cancelled ? "Build cancelled!" : "Build complete!"
                 self.progressAnimation.clear()
-                self.outputStream <<< "Build complete! (\(duration.descriptionInSeconds))\n"
+                self.outputStream <<< "\(message) (\(duration.descriptionInSeconds))\n"
                 self.outputStream.flush()
             }
         }
