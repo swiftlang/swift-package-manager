@@ -16,7 +16,7 @@ import DequeModule
 
 /// Type modeled after a "token bucket" pattern, which is similar to a semaphore, but is built with
 /// Swift Concurrency primitives.
-private actor TokenBucket {
+actor TokenBucket {
     private var tokens: Int
     private var waiters: Deque<CheckedContinuation<Void, Never>>
 
