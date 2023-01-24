@@ -802,7 +802,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     "/fooPkg/Sources/Logging/include/fileLogging.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        let _ = try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -832,13 +832,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Utils' from package 'foopkg'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "target 'Logging' for product 'Utils' from package 'foopkg' has module aliases: ['Logging' as 'FooLogging'] but may contain non-Swift sources; there might be a conflict among non-Swift symbols", severity: .warning)
         }
     }
 
@@ -852,7 +849,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadPackageGraph(
+        let _ = try loadPackageGraph(
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
@@ -894,13 +891,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     ]),
             ],
             observabilityScope: observability.topScope
-        )) { error in
-            var diagnosed = false
-            if let realError = error as? PackageGraphError,
-                    realError.description == "module aliasing can only be used for Swift based targets; non-Swift sources found in target 'Logging' for product 'Logging' from package 'barpkg'" {
-                diagnosed = true
-            }
-            XCTAssertTrue(diagnosed)
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "target 'Logging' for product 'Logging' from package 'barpkg' has module aliases: ['Logging' as 'FooLogging'] but may contain non-Swift sources; there might be a conflict among non-Swift symbols", severity: .warning)
         }
     }
 
