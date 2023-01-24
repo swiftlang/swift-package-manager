@@ -82,8 +82,8 @@ public final class ThreadSafeBox<Value> {
     }
 }
 
-public extension ThreadSafeBox where Value == Int {
-    func increment() {
+extension ThreadSafeBox where Value == Int {
+    public func increment() {
         self.lock.withLock {
             if let value = self.underlying {
                 self.underlying = value + 1
@@ -91,7 +91,7 @@ public extension ThreadSafeBox where Value == Int {
         }
     }
 
-    func decrement() {
+    public func decrement() {
         self.lock.withLock {
             if let value = self.underlying {
                 self.underlying = value - 1
