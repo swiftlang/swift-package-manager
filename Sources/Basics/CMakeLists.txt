@@ -12,7 +12,13 @@ add_library(Basics
   AuthorizationProvider.swift
   ByteString+Extensions.swift
   Cancellator.swift
-  ConcurrencyHelpers.swift
+  Concurrency/AsyncBox.swift
+  Concurrency/ConcurrencyHelpers.swift
+  Concurrency/NSLock+Extensions.swift
+  Concurrency/ThreadSafeArrayStore.swift
+  Concurrency/ThreadSafeBox.swift
+  Concurrency/ThreadSafeKeyValueStore.swift
+  Concurrency/TokenBucket.swift
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
@@ -26,7 +32,6 @@ add_library(Basics
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
   Netrc.swift
-  NSLock+Extensions.swift
   Observability.swift
   SQLite.swift
   Sandbox.swift
