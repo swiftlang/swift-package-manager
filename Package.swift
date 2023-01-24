@@ -182,6 +182,7 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "SPMSQLite3",
+                .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
