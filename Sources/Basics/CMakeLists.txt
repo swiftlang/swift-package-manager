@@ -19,6 +19,7 @@ add_library(Basics
   Errors.swift
   FileSystem/AsyncFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/VFSOverlay.swift
   HTTPClient+URLSession.swift
   HTTPClient.swift
   ImportScanning.swift
@@ -33,7 +34,6 @@ add_library(Basics
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift
-  VFSOverlay.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC
   SwiftCollections::OrderedCollections
