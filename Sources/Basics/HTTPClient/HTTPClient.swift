@@ -16,46 +16,6 @@ import _Concurrency
 import Foundation
 import DequeModule
 
-/// Type modeled after a "token bucket" pattern, which is similar to a semaphore, but is built with
-/// Swift Concurrency primitives.
-private actor TokenBucket {
-    private var tokens: Int
-    private var waiters: Deque<CheckedContinuation<Void, Never>>
-
-    init(tokens: Int) {
-        self.tokens = tokens
-        self.waiters = Deque()
-    }
-
-    func withToken<ReturnType>(_ body: @Sendable () async throws -> ReturnType) async rethrows -> ReturnType {
-        await self.getToken()
-        defer {
-            self.returnToken()
-        }
-
-        return try await body()
-    }
-
-    private func getToken() async {
-        if self.tokens > 0 {
-            self.tokens -= 1
-            return
-        }
-
-        await withCheckedContinuation {
-            self.waiters.append($0)
-        }
-    }
-
-    private func returnToken() {
-        if let nextWaiter = self.waiters.popFirst() {
-            nextWaiter.resume()
-        } else {
-            self.tokens += 1
-        }
-    }
-}
-
 /// `async`-friendly wrapper for HTTP clients. It allows a specific client implementation (either Foundation or
 /// NIO-based) to be hidden from users of the wrapper.
 public actor HTTPClient {
