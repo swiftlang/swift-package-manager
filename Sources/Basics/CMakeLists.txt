@@ -41,6 +41,7 @@ add_library(Basics
   Version+Extensions.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC
+  SwiftCollections::DequeModule
   SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage
   TSCBasic
