@@ -48,7 +48,7 @@ public final class ThreadSafeBox<Value> {
         }
     }
 
-    public func get(`default`: Value) -> Value {
+    public func get(default: Value) -> Value {
         self.lock.withLock {
             self.underlying ?? `default`
         }
@@ -82,15 +82,16 @@ public final class ThreadSafeBox<Value> {
     }
 }
 
-extension ThreadSafeBox where Value == Int {
-    public func increment() {
+public extension ThreadSafeBox where Value == Int {
+    func increment() {
         self.lock.withLock {
             if let value = self.underlying {
                 self.underlying = value + 1
             }
         }
     }
-    public func decrement() {
+
+    func decrement() {
         self.lock.withLock {
             if let value = self.underlying {
                 self.underlying = value - 1
