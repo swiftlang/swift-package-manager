@@ -10,5 +10,6 @@
 --stripunusedargs unnamed-only
 --ifdef no-indent
 --maxwidth 120
+--extensionacl on-declarations
 
 # rules
