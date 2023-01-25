@@ -12,9 +12,9 @@ add_library(Basics
   AuthorizationProvider.swift
   ByteString+Extensions.swift
   Cancellator.swift
-  Concurrency/AsyncBox.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
+  Concurrency/SendableBox.swift
   Concurrency/ThreadSafeArrayStore.swift
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift

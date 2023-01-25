@@ -15,7 +15,7 @@
 import struct Foundation.Date
 
 /// A `Sendable` storage that allows access from concurrently running tasks in an `async` closure.
-public actor AsyncBox<Value: Sendable> {
+public actor SendableBox<Value: Sendable> {
     init(_ value: Value? = nil) {
         self.value = value
     }
@@ -23,7 +23,7 @@ public actor AsyncBox<Value: Sendable> {
     var value: Value?
 }
 
-extension AsyncBox where Value == Int {
+extension SendableBox where Value == Int {
     func increment() {
         if let value = self.value {
             self.value = value + 1
@@ -37,7 +37,7 @@ extension AsyncBox where Value == Int {
     }
 }
 
-extension AsyncBox where Value == Date {
+extension SendableBox where Value == Date {
     func resetDate() {
         value = Date()
     }
