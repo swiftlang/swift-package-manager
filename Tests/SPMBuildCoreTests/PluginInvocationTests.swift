@@ -418,11 +418,11 @@ class PluginInvocationTests: XCTestCase {
                     let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                     let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                     let hasExpectedDiagnosticsCount = diagnosticsSet.diagnostics.count == 1
-                    let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
-                    let hasExpectedWarningText = warningDiagnostic.text.hasPrefix("variable \'unused\' was never used")
+                    let warningDiagnosticText = diagnosticsSet.diagnostics.first?.text ?? ""
+                    let hasExpectedWarningText = warningDiagnosticText.hasPrefix("variable \'unused\' was never used")
                     if hasExpectedDiagnosticsCount && hasExpectedWarningText {
                         XCTAssertTrue(hasExpectedDiagnosticsCount, "unexpected diagnostics count in \(diagnosticsSet.diagnostics) from \(result.diagnosticsFile.pathString)")
-                        XCTAssertTrue(hasExpectedWarningText, "\(warningDiagnostic)")
+                        XCTAssertTrue(hasExpectedWarningText, "\(warningDiagnosticText)")
                     } else {
                         print("bytes of serialized diagnostics file `\(result.diagnosticsFile.pathString)`: \(diaFileContents.contents)")
                         try XCTSkipIf(true, "skipping because of unknown serialized diagnostics issue")
