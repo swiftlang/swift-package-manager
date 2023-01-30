@@ -16,6 +16,8 @@ import class TSCBasic.FileLock
 import enum TSCBasic.FileMode
 import protocol TSCBasic.FileSystem
 import protocol TSCBasic.WritableByteStream
+import struct Foundation.Data
+import struct Foundation.UUID
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import struct TSCBasic.FileInfo
@@ -32,8 +34,8 @@ public actor AsyncFileSystem: Actor {
 
     /// Initialize a new instance of the actor.
     /// - Parameter implementation: an underlying synchronous filesystem.
-    public init(implementation: FileSystem) {
-        self.implementation = implementation
+    public init(_ implementationInitializer: @Sendable () -> FileSystem) {
+        self.implementation = implementationInitializer()
     }
 
     /// Check whether the given path exists and is accessible.
@@ -204,4 +206,61 @@ public extension AsyncFileSystem {
         try writeFileContents(path, bytes: contents.bytes)
     }
 }
+
+// MARK: - AsyncUtilities
+
+extension AsyncFileSystem {
+    public func readFileContents(_ path: AbsolutePath) throws -> Data {
+        return try Data(self.readFileContents(path).contents)
+    }
+
+    public func readFileContents(_ path: AbsolutePath) throws -> String {
+        return try String(decoding: self.readFileContents(path), as: UTF8.self)
+    }
+
+    public func writeFileContents(_ path: AbsolutePath, data: Data) throws {
+        return try self.writeFileContents(path, bytes: .init(data))
+    }
+
+    public func writeFileContents(_ path: AbsolutePath, string: String) throws {
+        return try self.writeFileContents(path, bytes: .init(encodingAsUTF8: string))
+    }
+
+    public func writeFileContents(_ path: AbsolutePath, provider: () -> String) throws {
+        return try self.writeFileContents(path, string: provider())
+    }
+}
+
+extension AsyncFileSystem {
+    public func forceCreateDirectory(at path: AbsolutePath) throws {
+        try self.createDirectory(path.parentDirectory, recursive: true)
+        if self.exists(path) {
+            try self.removeFileTree(path)
+        }
+        try self.createDirectory(path, recursive: true)
+    }
+}
+
+extension AsyncFileSystem {
+    public func stripFirstLevel(of path: AbsolutePath) throws {
+        let topLevelDirectories = try self.getDirectoryContents(path)
+            .map{ path.appending(component: $0) }
+            .filter{ self.isDirectory($0) }
+
+        guard topLevelDirectories.count == 1, let rootDirectory = topLevelDirectories.first else {
+            throw StringError("stripFirstLevel requires single top level directory")
+        }
+
+        let tempDirectory = path.parentDirectory.appending(component: UUID().uuidString)
+        try self.move(from: rootDirectory, to: tempDirectory)
+
+        let rootContents = try self.getDirectoryContents(tempDirectory)
+        for entry in rootContents {
+            try self.move(from: tempDirectory.appending(component: entry), to: path.appending(component: entry))
+        }
+
+        try self.removeFileTree(tempDirectory)
+    }
+}
+
 #endif
