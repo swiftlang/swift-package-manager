@@ -128,7 +128,6 @@ enum ManifestJSONParser {
                 let identity: String = try kindJSON.get("identity")
                 let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try PackageDependency.Registry.Requirement(v4: requirementJSON)
-                //return .registry(identity: .plain(identity), requirement: requirement, productFilter: .everything)
                 return try Self.parseRegistryDependency(
                     identity: .plain(identity),
                     requirement: requirement,
@@ -207,7 +206,7 @@ enum ManifestJSONParser {
             let registryRequirement: PackageDependency.Registry.Requirement
             switch requirement {
             case .branch, .revision:
-                throw StringError("invalid mapping of source control to registry, requirement information mismatch.")
+                throw StringError("invalid mapping of source control to registry, requirement information mismatch: cannot map branch or revision based dependencies to registry.")
             case .exact(let value):
                 registryRequirement = .exact(value)
             case .range(let value):
