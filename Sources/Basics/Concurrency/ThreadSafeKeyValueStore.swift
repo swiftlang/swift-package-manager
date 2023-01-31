@@ -91,12 +91,6 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
             try self.underlying.mapValues(transform)
         }
     }
-
-    public func forEach(_ iterate: ((Key, Value)) throws -> ()) rethrows {
-        try self.lock.withLock {
-            try self.underlying.forEach(iterate)
-        }
-    }
 }
 
 #if swift(<5.7)
