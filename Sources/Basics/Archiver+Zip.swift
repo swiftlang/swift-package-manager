@@ -20,7 +20,7 @@ public struct ZipArchiver: Archiver, Cancellable {
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
 
-    /// Helper for cancelling in-fligh requests
+    /// Helper for cancelling in-flight requests
     private let cancellator: Cancellator
 
     /// Creates a `ZipArchiver`.
