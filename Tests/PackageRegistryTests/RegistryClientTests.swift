@@ -637,11 +637,9 @@ final class RegistryClientTests: XCTestCase {
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
-        let fileSystem = InMemoryFileSystem()
-
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(_, let path), .get, downloadURL):
+            case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -693,6 +691,7 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
+        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -724,14 +723,12 @@ final class RegistryClientTests: XCTestCase {
         let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
         let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
 
-        let fileSystem = InMemoryFileSystem()
-
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
-            case (.download(_, let path), .get, downloadURL):
+            case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
@@ -809,6 +806,7 @@ final class RegistryClientTests: XCTestCase {
             }
         )
 
+        let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath(path: "/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(

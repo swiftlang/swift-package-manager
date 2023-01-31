@@ -6307,7 +6307,7 @@ final class WorkspaceTests: XCTestCase {
                     atomically: true
                 )
 
-                completion(.failure(HTTPClientError.badResponseStatusCode(404)))
+                completion(.success(.notFound()))
             } catch {
                 completion(.failure(error))
             }
@@ -6358,7 +6358,7 @@ final class WorkspaceTests: XCTestCase {
 
                 switch request.url {
                 case URL(string: "https://a.com/a1.zip")!:
-                    completion(.failure(HTTPClientError.badResponseStatusCode(500)))
+                    completion(.success(.serverError()))
                 case URL(string: "https://a.com/a2.zip")!:
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
@@ -8163,7 +8163,7 @@ final class WorkspaceTests: XCTestCase {
                         completion(.success(.okay(body: contents)))
 
                 case .download:
-                    completion(.failure(HTTPClientError.badResponseStatusCode(404)))
+                    completion(.success(.notFound()))
                 }
             } catch {
                 completion(.failure(error))
