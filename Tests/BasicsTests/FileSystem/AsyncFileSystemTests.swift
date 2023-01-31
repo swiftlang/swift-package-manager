@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.5.2)
+import _Concurrency
 
 @testable import Basics
 import TSCBasic
@@ -105,3 +107,5 @@ final class AsyncFileSystemTests: XCTestCase {
         }
     }
 }
+
+#endif // swift(>=5.5.2)
