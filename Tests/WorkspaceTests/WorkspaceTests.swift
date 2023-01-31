@@ -7902,7 +7902,7 @@ final class WorkspaceTests: XCTestCase {
 
         // returns a dummy files for the requested artifact
         let httpClient = LegacyHTTPClient(handler: { request, _, completion in
-            completion(.failure(HTTPClientError.badResponseStatusCode(500)))
+            completion(.success(.serverError()))
         })
 
         let workspace = try MockWorkspace(
