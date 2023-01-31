@@ -300,10 +300,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
             let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
             let destination = temporaryDirectory.appending(component: "download")
-
-            var options = LegacyHTTPClientRequest.Options()
-            options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
-            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
+            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
+            request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
 
             httpClient.execute(
                 request,
@@ -373,9 +371,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
             let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
             let destination = temporaryDirectory.appending(component: "download")
-            var options = LegacyHTTPClientRequest.Options()
-            options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
-            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: destination)
+            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
+            request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
 
             httpClient.execute(
                 request,
@@ -500,10 +497,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL(string: "https://downloader-tests.com/testServerError.zip")!
-
-            var options = LegacyHTTPClientRequest.Options()
-            options.validResponseCodes = [200]
-            let request = LegacyHTTPClient.Request.download(url: url, options: options, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
+            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
+            request.options.validResponseCodes = [200]
 
             httpClient.execute(
                 request,
