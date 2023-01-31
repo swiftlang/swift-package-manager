@@ -263,4 +263,4 @@ extension AsyncFileSystem {
     }
 }
 
-#endif
+#endif // swift(>=5.5.2)
