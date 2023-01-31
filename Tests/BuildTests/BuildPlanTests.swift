@@ -3285,7 +3285,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-enable-upcoming-feature", "BestFeature", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-enable-future-feature", "BestFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
@@ -3301,7 +3301,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-enable-future-feature", "BestFeature", "-enable-future-feature", "WorstFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])

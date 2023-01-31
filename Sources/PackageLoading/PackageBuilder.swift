@@ -983,13 +983,13 @@ public final class PackageBuilder {
             case .upcomingFeatures(let _values):
                 switch setting.tool {
                 case .c, .cxx, .linker:
-                    throw InternalError("only Swift supports upcoming features")
+                    throw InternalError("only Swift supports future features")
 
                 case .swift:
                     decl = .OTHER_SWIFT_FLAGS
                 }
 
-                values = _values.precedeElements(with: "-enable-upcoming-feature")
+                values = _values.precedeElements(with: "-enable-future-feature")
 
             case .experimentalFeatures(let _values):
                 switch setting.tool {
