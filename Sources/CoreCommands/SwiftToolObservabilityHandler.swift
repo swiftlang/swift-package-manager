@@ -140,6 +140,12 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
     }
 }
 
+#if swift(<5.7)
+extension SwiftToolObservabilityHandler.OutputHandler: UnsafeSendable {}
+#else
+extension SwiftToolObservabilityHandler.OutputHandler: @unchecked Sendable {}
+#endif
+
 /// This type is used to write on the underlying stream.
 ///
 /// If underlying stream is a not tty, the string will be written in without any

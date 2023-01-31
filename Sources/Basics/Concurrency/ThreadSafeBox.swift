@@ -99,3 +99,9 @@ extension ThreadSafeBox where Value == Int {
         }
     }
 }
+
+#if swift(<5.7)
+extension ThreadSafeBox: UnsafeSendable {}
+#else
+extension ThreadSafeBox: @unchecked Sendable {}
+#endif
