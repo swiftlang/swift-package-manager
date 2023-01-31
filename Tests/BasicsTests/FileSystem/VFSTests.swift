@@ -34,6 +34,8 @@ func testWithTemporaryDirectory(
     }.value
 }
 
+#endif
+
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
         // tiny PE binary from: https://archive.is/w01DO
@@ -136,5 +138,3 @@ class VFSTests: XCTestCase {
         }
     }
 }
-
-#endif
