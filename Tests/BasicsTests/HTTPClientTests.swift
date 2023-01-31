@@ -211,8 +211,8 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testExponentialBackoff() async throws {
-        let counter = AsyncBox(0)
-        let lastCall = AsyncBox<Date>()
+        let counter = SendableBox(0)
+        let lastCall = SendableBox<Date>()
         let maxAttempts = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let delay = SendableTimeInterval.milliseconds(100)
@@ -249,7 +249,7 @@ final class HTTPClientTests: XCTestCase {
 
         // make the initial errors
         do {
-            let counter = AsyncBox(0)
+            let counter = SendableBox(0)
             for index in (0 ..< maxErrors) {
                 let response = try await httpClient.get(URL(string: "\(host)/\(index)/foo")!)
                 await counter.increment()
@@ -260,7 +260,7 @@ final class HTTPClientTests: XCTestCase {
         }
 
         // these should all circuit break
-        let counter = AsyncBox(0)
+        let counter = SendableBox(0)
         let total = Int.random(in: 10 ..< 20)
         for index in (0 ..< total) {
             do {
@@ -301,7 +301,7 @@ final class HTTPClientTests: XCTestCase {
 
         // make the initial errors
         do {
-            let counter = AsyncBox(0)
+            let counter = SendableBox(0)
             for index in (0 ..< maxErrors) {
                 let response = try await httpClient.get(URL(string: "\(host)/\(index)/error")!)
                 await counter.increment()
@@ -382,7 +382,7 @@ final class HTTPClientTests: XCTestCase {
 
     func testMaxConcurrency() async throws {
         let maxConcurrentRequests = 2
-        let concurrentRequests = AsyncBox(0)
+        let concurrentRequests = SendableBox(0)
 
         var configuration = HTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
