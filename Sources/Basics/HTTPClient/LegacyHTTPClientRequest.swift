@@ -75,8 +75,6 @@ public struct LegacyHTTPClientRequest {
 
     public typealias FileMoveCompletion = @Sendable (Error?) -> ()
 
-    public typealias FileSystemMove = (_ source: AbsolutePath, _ destination: AbsolutePath, @escaping FileMoveCompletion) -> ()
-
     public enum Kind {
         case generic(HTTPMethod)
         case download(fileSystem: FileSystem, destination: AbsolutePath)
