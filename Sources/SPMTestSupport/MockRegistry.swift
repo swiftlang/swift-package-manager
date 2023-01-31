@@ -92,7 +92,7 @@ public class MockRegistry {
             case .generic:
                 let response = try self.handleRequest(request: request)
                 completion(.success(response))
-            case .download(_, let destination):
+            case .download(let fileSystem, let destination):
                 let response = try self.handleDownloadRequest(
                     request: request,
                     progress: progress,
