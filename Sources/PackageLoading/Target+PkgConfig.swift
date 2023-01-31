@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -98,10 +98,10 @@ public func pkgConfigArgs(
             // Remove any default flags which compiler adds automatically.
             let (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
 
-            // Set the error if there are any unallowed flags.
+            // Set the error if there are any disallowed flags.
             var error: Swift.Error?
-            if !filtered.unallowed.isEmpty {
-                error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
+            if !filtered.disallowed.isEmpty {
+                error = PkgConfigError.prohibitedFlags(filtered.disallowed.joined(separator: ", "))
             }
 
             result = PkgConfigResult(
@@ -220,21 +220,21 @@ extension SystemPackageProviderDescription {
 public func allowlist(
     pcFile: String,
     flags: (cFlags: [String], libs: [String])
-) throws -> (cFlags: [String], libs: [String], unallowed: [String]) {
-    // Returns a tuple with the array of allowed flag and the array of unallowed flags.
-    func filter(flags: [String], filters: [String]) throws -> (allowed: [String], unallowed: [String]) {
+) throws -> (cFlags: [String], libs: [String], disallowed: [String]) {
+    // Returns a tuple with the array of allowed flag and the array of disallowed flags.
+    func filter(flags: [String], filters: [String]) throws -> (allowed: [String], disallowed: [String]) {
         var allowed = [String]()
-        var unallowed = [String]()
+        var disallowed = [String]()
         var it = flags.makeIterator()
         while let flag = it.next() {
             guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
-                unallowed += [flag]
+                disallowed += [flag]
                 continue
             }
 
           // Warning suppression flag has no arguments and is not suffixed.
           guard !flag.hasPrefix("-w") || flag == "-w" else {
-            unallowed += [flag]
+            disallowed += [flag]
             continue
           }
 
@@ -250,13 +250,13 @@ public func allowlist(
             }
             allowed += [flag]
         }
-        return (allowed, unallowed)
+        return (allowed, disallowed)
     }
 
     let filteredCFlags = try filter(flags: flags.cFlags, filters: ["-I", "-F"])
     let filteredLibs = try filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
 
-    return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.unallowed + filteredLibs.unallowed)
+    return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.disallowed + filteredLibs.disallowed)
 }
 
 /// Remove the default flags which are already added by the compiler.
