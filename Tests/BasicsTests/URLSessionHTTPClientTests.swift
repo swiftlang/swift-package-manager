@@ -575,7 +575,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         let url = URL(string: "http://async-head-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -600,7 +600,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         let url = URL(string: "http://async-get-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -624,7 +624,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         let url = URL(string: "http://async-post-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -652,7 +652,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         let url = URL(string: "http://async-put-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -679,7 +679,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         let url = URL(string: "http://async-delete-test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -713,7 +713,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-downloader-tests.com/testBasics.zip")!
@@ -767,7 +767,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-protected.downloader-tests.com/testBasics.zip")!
@@ -825,7 +825,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-restricted.downloader-tests.com/testBasics.zip")!
@@ -879,7 +879,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let clientError = StringError("boom")
@@ -933,7 +933,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
-        let httpClient = HTTPClient(implementation: urlSession.execute)
+        let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL(string: "https://async-downloader-tests.com/testServerError.zip")!
