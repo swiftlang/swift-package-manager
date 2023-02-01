@@ -84,7 +84,7 @@ public final class ThreadSafeArrayStore<Value> {
 }
 
 #if swift(<5.7)
-extension ThreadSafeArrayStore: UnsafeSendable {}
+extension ThreadSafeArrayStore: UnsafeSendable where Value: Sendable {}
 #else
-extension ThreadSafeArrayStore: @unchecked Sendable {}
+extension ThreadSafeArrayStore: @unchecked Sendable where Value: Sendable {}
 #endif

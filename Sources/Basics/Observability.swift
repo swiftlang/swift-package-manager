@@ -567,11 +567,11 @@ extension ObservabilityMetadata {
         }
     }
 
-    private enum LegacyLocationKey: Key {
+    private enum LegacyLocationKey: Key, Sendable {
         typealias Value = DiagnosticLocationWrapper
     }
 
-    public struct DiagnosticLocationWrapper: CustomStringConvertible {
+    public struct DiagnosticLocationWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticLocation
 
         public init (_ underlying: DiagnosticLocation) {
@@ -595,11 +595,11 @@ extension ObservabilityMetadata {
         }
     }
 
-    private enum LegacyDataKey: Key {
+    private enum LegacyDataKey: Key, Sendable {
         typealias Value = DiagnosticDataWrapper
     }
 
-    struct DiagnosticDataWrapper: CustomStringConvertible {
+    struct DiagnosticDataWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticData
 
         public init (_ underlying: DiagnosticData) {
