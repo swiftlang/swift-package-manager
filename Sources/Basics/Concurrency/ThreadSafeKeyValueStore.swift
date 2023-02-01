@@ -94,7 +94,7 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
 }
 
 #if swift(<5.7)
-extension ThreadSafeKeyValueStore: UnsafeSendable {}
+extension ThreadSafeKeyValueStore: UnsafeSendable where Key: Sendable, Value: Sendable {}
 #else
-extension ThreadSafeKeyValueStore: @unchecked Sendable {}
+extension ThreadSafeKeyValueStore: @unchecked Sendable where Key: Sendable, Value: Sendable {}
 #endif
