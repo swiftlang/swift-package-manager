@@ -24,6 +24,40 @@ import SPMBuildCore
 import TSCBasic
 import Workspace
 
+#if os(Windows)
+import WinSDK
+
+private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
+    struct StaticStorage {
+        static var buffer: UnsafeMutableBufferPointer<CChar> =
+                .allocate(capacity: 255)
+    }
+
+    let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
+    if hStdIn == INVALID_HANDLE_VALUE {
+        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+    }
+
+    var dwMode: DWORD = 0
+    guard GetConsoleMode(hStdIn, &dwMode) else {
+        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+    }
+
+    print(prompt, terminator: "")
+
+    guard SetConsoleMode(hStdIn, ENABLE_LINE_INPUT) else {
+        return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+    }
+    defer { SetConsoleMode(hStdIn, dwMode) }
+
+    var dwNumberOfCharsRead: DWORD = 0
+    _ = ReadConsoleA(hStdIn, StaticStorage.buffer.baseAddress,
+                     DWORD(StaticStorage.buffer.count), &dwNumberOfCharsRead,
+                     nil)
+    return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
+}
+#endif
+
 private enum RegistryConfigurationError: Swift.Error {
     case missingScope(PackageIdentity.Scope? = nil)
     case invalidURL(String)
