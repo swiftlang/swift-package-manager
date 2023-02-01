@@ -15,7 +15,7 @@ import TSCBasic
 import Basics
 
 /// Specifies a repository address.
-public struct RepositorySpecifier: Hashable {
+public struct RepositorySpecifier: Hashable, Sendable {
     public let location: Location
 
     public init(location: Location) {
@@ -49,7 +49,7 @@ public struct RepositorySpecifier: Hashable {
         return basename
     }
 
-    public enum Location: Hashable, CustomStringConvertible {
+    public enum Location: Hashable, Sendable, CustomStringConvertible {
         case path(AbsolutePath)
         case url(URL)
 
