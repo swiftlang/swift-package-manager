@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Represents a manifest condition.
-public struct PackageConditionDescription: Codable, Equatable {
+public struct PackageConditionDescription: Codable, Equatable, Sendable {
     public let platformNames: [String]
     public let config: String?
 

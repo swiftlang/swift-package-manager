@@ -14,45 +14,45 @@ import Foundation
 import TSCBasic
 
 /// Represents a package dependency.
-public enum PackageDependency: Equatable, Hashable {
+public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
     
-    public struct FileSystem: Equatable, Hashable, Encodable {
+    public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
     }
 
-    public struct SourceControl: Equatable, Hashable, Encodable {
+    public struct SourceControl: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
         public let location: Location
         public let requirement: Requirement
         public let productFilter: ProductFilter
 
-        public enum Requirement: Equatable, Hashable {
+        public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
             case range(Range<Version>)
             case revision(String)
             case branch(String)
         }
 
-        public enum Location: Equatable, Hashable {
+        public enum Location: Equatable, Hashable, Sendable {
             case local(AbsolutePath)
             case remote(URL)
         }
     }
 
-    public struct Registry: Equatable, Hashable, Encodable {
+    public struct Registry: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let requirement: Requirement
         public let productFilter: ProductFilter
 
         /// The dependency requirement.
-        public enum Requirement: Equatable, Hashable {
+        public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
             case range(Range<Version>)
         }

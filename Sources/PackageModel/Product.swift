@@ -71,10 +71,10 @@ extension Product: Hashable {
 }
 
 /// The type of product.
-public enum ProductType: Equatable, Hashable {
+public enum ProductType: Equatable, Hashable, Sendable {
 
     /// The type of library.
-    public enum LibraryType: String, Codable {
+    public enum LibraryType: String, Codable, Sendable {
 
         /// Static library.
         case `static`
@@ -113,7 +113,7 @@ public enum ProductType: Equatable, Hashable {
 /// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ignored.
 ///
 /// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fulfill the request; packages that do not know what it is will simply ignore it.
-public enum ProductFilter: Equatable, Hashable {
+public enum ProductFilter: Equatable, Hashable, Sendable {
 
     /// All products, targets, and tests are requested.
     ///

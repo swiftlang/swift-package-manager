@@ -14,7 +14,7 @@ add_library(PackageModel
   Destination.swift
   Diagnostics.swift
   IdentityResolver.swift
-  Manifest.swift
+  Manifest/Manifest.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
   Manifest/PlatformDescription.swift
