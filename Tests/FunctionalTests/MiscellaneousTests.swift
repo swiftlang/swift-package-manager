@@ -388,11 +388,6 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testTestsCanLinkAgainstExecutable() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
-
         try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let (stdout, stderr) = try executeSwiftTest(fixturePath)

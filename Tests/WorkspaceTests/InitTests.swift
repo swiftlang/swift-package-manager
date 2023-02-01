@@ -95,9 +95,6 @@ class InitTests: XCTestCase {
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
-            
-            // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
-            #if swift(>=5.5)
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.triple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent(), "debug")
@@ -107,7 +104,6 @@ class InitTests: XCTestCase {
             XCTAssertFileExists(binPath.appending(component: "Foo"))
 #endif
             XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
-            #endif
         }
     }
 
