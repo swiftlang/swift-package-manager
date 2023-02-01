@@ -45,7 +45,7 @@ private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
 
     print(prompt, terminator: "")
 
-    guard SetConsoleMode(hStdIn, ENABLE_LINE_INPUT) else {
+    guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
         return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
     }
     defer { SetConsoleMode(hStdIn, dwMode) }
