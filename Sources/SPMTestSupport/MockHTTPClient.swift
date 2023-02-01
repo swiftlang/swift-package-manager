@@ -19,7 +19,7 @@ extension LegacyHTTPClient {
             switch request.kind {
             case.generic:
                 completion(.success(.okay(body: request.url.absoluteString)))
-            case .download(_, let destination):
+            case .download(let fileSystem, let destination):
                 do {
                     try fileSystem.writeFileContents(
                         destination,

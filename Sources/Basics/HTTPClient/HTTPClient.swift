@@ -121,7 +121,7 @@ public actor HTTPClient {
         self.recordErrorIfNecessary(response: response, request: request)
 
         // handle retry strategy
-        if let retryDelay = self.shouldRetry(
+        if let retryDelay = self.calculateRetry(
             response: response,
             request: request,
             requestNumber: requestNumber
@@ -144,7 +144,7 @@ public actor HTTPClient {
         }
     }
 
-    private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> SendableTimeInterval? {
+    private func calculateRetry(response: Response, request: Request, requestNumber: Int) -> SendableTimeInterval? {
         guard let strategy = request.options.retryStrategy, response.statusCode >= 500 else {
             return nil
         }
