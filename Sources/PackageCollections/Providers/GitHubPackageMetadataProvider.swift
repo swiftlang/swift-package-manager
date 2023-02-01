@@ -25,12 +25,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
 
     let configuration: Configuration
     private let observabilityScope: ObservabilityScope
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     private let decoder: JSONDecoder
 
     private let cache: SQLiteBackedCache<CacheValue>?
 
-    init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope, httpClient: HTTPClient? = nil) {
+    init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope, httpClient: LegacyHTTPClient? = nil) {
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
@@ -258,8 +258,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         }
     }
 
-    private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {
-        var options = HTTPClientRequest.Options()
+    private func makeRequestOptions(validResponseCodes: [Int]) -> LegacyHTTPClientRequest.Options {
+        var options = LegacyHTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
@@ -273,8 +273,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         return options
     }
 
-    private static func makeDefaultHTTPClient() -> HTTPClient {
-        var client = HTTPClient()
+    private static func makeDefaultHTTPClient() -> LegacyHTTPClient {
+        let client = LegacyHTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

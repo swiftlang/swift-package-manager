@@ -27,7 +27,7 @@ class PackageIndexTests: XCTestCase {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let packageIdentity = PackageIdentity(url: repoURL)
         let package = makeMockPackage(id: "test-package")
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, url.appendingPathComponent("packages").appendingPathComponent(packageIdentity.description)):
                 let data = try! JSONEncoder.makeWithDefaults().encode(package)
@@ -39,7 +39,7 @@ class PackageIndexTests: XCTestCase {
             }
         }
         
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
                 
@@ -88,7 +88,7 @@ class PackageIndexTests: XCTestCase {
             makeMockPackage(id: "package-\(packageIndex)")
         }
         let query = "foobar"
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, URL(string: url.appendingPathComponent("search").absoluteString + "?q=\(query)")!):
                 let data = try! JSONEncoder.makeWithDefaults().encode(packages)
@@ -100,7 +100,7 @@ class PackageIndexTests: XCTestCase {
             }
         }
         
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
                 
@@ -126,7 +126,7 @@ class PackageIndexTests: XCTestCase {
             makeMockPackage(id: "package-\(packageIndex)")
         }
         let query = "foobar"
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, URL(string: url.appendingPathComponent("search").absoluteString + "?q=\(query)")!):
                 let data = try! JSONEncoder.makeWithDefaults().encode(packages)
@@ -138,7 +138,7 @@ class PackageIndexTests: XCTestCase {
             }
         }
         
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
                 
@@ -190,7 +190,7 @@ class PackageIndexTests: XCTestCase {
         let packages = (0..<limit).map { packageIndex -> PackageCollectionsModel.Package in
             makeMockPackage(id: "package-\(packageIndex)")
         }
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, URL(string: url.appendingPathComponent("packages").absoluteString + "?offset=\(offset)&limit=\(limit)")!):
                 let response = PackageIndex.ListResponse(items: packages, total: total)
@@ -203,7 +203,7 @@ class PackageIndexTests: XCTestCase {
             }
         }
         
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
                 
@@ -250,7 +250,7 @@ class PackageIndexTests: XCTestCase {
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
         let packageIdentity = PackageIdentity(url: repoURL)
         let package = makeMockPackage(id: "test-package")
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, url.appendingPathComponent("packages").appendingPathComponent(packageIdentity.description)):
                 let data = try! JSONEncoder.makeWithDefaults().encode(package)
@@ -262,7 +262,7 @@ class PackageIndexTests: XCTestCase {
             }
         }
         
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
                 

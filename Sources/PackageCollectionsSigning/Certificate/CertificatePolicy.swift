@@ -122,7 +122,7 @@ extension CertificatePolicy {
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]? = nil,
                 verifyDate: Date? = nil,
-                httpClient: HTTPClient?,
+                httpClient: LegacyHTTPClient?,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 callback: @escaping (Result<Void, Error>) -> Void) {
@@ -253,7 +253,7 @@ private struct BoringSSLOCSPClient {
     func checkStatus(certificate: Certificate,
                      issuer: Certificate,
                      anchorCerts: [Certificate]?,
-                     httpClient: HTTPClient,
+                     httpClient: LegacyHTTPClient,
                      callbackQueue: DispatchQueue,
                      callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
@@ -322,7 +322,7 @@ private struct BoringSSLOCSPClient {
             }
             headers.add(name: "Host", value: host)
 
-            var options = HTTPClientRequest.Options()
+            var options = LegacyHTTPClientRequest.Options()
             options.validResponseCodes = [200]
 
             group.enter()
@@ -357,7 +357,7 @@ private struct BoringSSLOCSPClient {
             wrappedCallback(.success(()))
         }
                     
-        func processResponse(_ response: HTTPClient.Response, cacheKey: CacheKey) {
+        func processResponse(_ response: LegacyHTTPClient.Response, cacheKey: CacheKey) {
             guard let responseData = response.body else {
                 results.append(.failure(OCSPError.emptyResponseBody))
                 return
@@ -458,12 +458,12 @@ private extension Result {
     }
 }
 
-private extension HTTPClient {
-    static func makeDefault(callbackQueue: DispatchQueue) -> HTTPClient {
-        var httpClientConfig = HTTPClientConfiguration()
+private extension LegacyHTTPClient {
+    static func makeDefault(callbackQueue: DispatchQueue) -> LegacyHTTPClient {
+        var httpClientConfig = LegacyHTTPClientConfiguration()
         httpClientConfig.callbackQueue = callbackQueue
         httpClientConfig.requestTimeout = .seconds(1)
-        return HTTPClient(configuration: httpClientConfig)
+        return LegacyHTTPClient(configuration: httpClientConfig)
     }
 }
 #endif
@@ -611,7 +611,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
 
     #if os(Linux) || os(Windows) || os(Android)
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     #endif
 
     private let observabilityScope: ObservabilityScope
@@ -643,7 +643,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
 
         #if os(Linux) || os(Windows) || os(Android)
-        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        self.httpClient = LegacyHTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
 
@@ -703,7 +703,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
 
     #if os(Linux) || os(Windows) || os(Android)
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     #endif
 
     private let observabilityScope: ObservabilityScope
@@ -735,7 +735,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
 
         #if os(Linux) || os(Windows) || os(Android)
-        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        self.httpClient = LegacyHTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
 
@@ -807,7 +807,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
 
     #if os(Linux) || os(Windows) || os(Android)
-    private let httpClient: HTTPClient
+    private let httpClient: LegacyHTTPClient
     #endif
 
     private let observabilityScope: ObservabilityScope
@@ -839,7 +839,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
 
         #if os(Linux) || os(Windows) || os(Android)
-        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        self.httpClient = LegacyHTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
 

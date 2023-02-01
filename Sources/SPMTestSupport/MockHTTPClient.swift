@@ -13,9 +13,9 @@
 import Basics
 import TSCBasic
 
-extension HTTPClient {
-    public static func mock(fileSystem: FileSystem) -> HTTPClient {
-        let handler: HTTPClient.Handler = { request, _, completion in
+extension LegacyHTTPClient {
+    public static func mock(fileSystem: FileSystem) -> LegacyHTTPClient {
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch request.kind {
             case.generic:
                 completion(.success(.okay(body: request.url.absoluteString)))
@@ -32,6 +32,6 @@ extension HTTPClient {
                 }
             }
         }
-        return HTTPClient(handler: handler)
+        return LegacyHTTPClient(handler: handler)
     }
 }

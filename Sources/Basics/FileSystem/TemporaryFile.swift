@@ -18,6 +18,8 @@ import Foundation
 import TSCBasic
 #endif
 
+#if swift(>=5.5.2)
+
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when
 /// the cleanup closure is called. This allows the temporary directory to have an arbitrary lifetime.
@@ -34,7 +36,6 @@ import TSCBasic
 ///           The cleanup block should be called when the temporary directory is no longer needed.
 ///
 /// - Throws: An error when creating directory and rethrows all errors from `body`.
-@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     dir: AbsolutePath? = nil,
@@ -72,7 +73,6 @@ public func withTemporaryDirectory<Result>(
 ///             return value for the `withTemporaryDirectory` function.
 ///
 /// - Throws: An error when creating directory and rethrows all errors from `body`.
-@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     dir: AbsolutePath? = nil,
@@ -85,6 +85,8 @@ public func withTemporaryDirectory<Result>(
         return try await body(path)
     }
 }
+
+#endif
 
 private func createTemporaryDirectory(fileSystem: FileSystem, dir: AbsolutePath?, prefix: String) throws -> AbsolutePath {
     // This random generation is needed so that

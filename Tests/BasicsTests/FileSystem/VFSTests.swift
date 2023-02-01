@@ -14,6 +14,28 @@ import Basics
 import TSCBasic
 import XCTest
 
+#if swift(>=5.5.2)
+
+func testWithTemporaryDirectory(
+    function: StaticString = #function,
+    body: @escaping (AbsolutePath) async throws -> Void
+) async throws {
+    let cleanedFunction = function.description
+        .replacingOccurrences(of: "(", with: "")
+        .replacingOccurrences(of: ")", with: "")
+        .replacingOccurrences(of: ".", with: "")
+    try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+        defer {
+            // Unblock and remove the tmp dir on deinit.
+            try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+            try? localFileSystem.removeFileTree(tmpDirPath)
+        }
+        try await  body(tmpDirPath)
+    }.value
+}
+
+#endif
+
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
         // tiny PE binary from: https://archive.is/w01DO

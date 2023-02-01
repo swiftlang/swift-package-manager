@@ -28,7 +28,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -43,7 +43,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -88,7 +88,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
 
-            var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
+            let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -130,7 +130,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testInvalidURL() throws {
         let url = URL(string: "ftp://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
+        let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -147,14 +147,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
             completion(.success(.init(statusCode: 200,
                                       headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")]))))
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
@@ -169,7 +169,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
@@ -183,7 +183,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
@@ -197,13 +197,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertTrue([.head, .get].contains(request.method), "method should match")
             completion(.success(.init(statusCode: 200)))
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
@@ -218,20 +218,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, progress, completion in
+        let handler: LegacyHTTPClient.Handler = { request, progress, completion in
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
                 completion(.success(.init(statusCode: 200,
                                           headers: .init([.init(name: "Content-Length", value: "0")]))))
             case .get:
-                progress?(Int64(maxSize * 2), 0)
+                do {
+                    try progress?(Int64(maxSize * 2), 0)
+                } catch {
+                    completion(.failure(error))
+                }
             default:
                 XCTFail("method should match")
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
@@ -246,13 +250,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
             completion(.success(.init(statusCode: statusCode)))
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -266,7 +270,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
@@ -278,7 +282,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -291,13 +295,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
             completion(.success(.init(statusCode: 404)))
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -310,7 +314,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
@@ -322,7 +326,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -335,7 +339,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let url = URL(string: "https://www.test.com/collection.json")!
         let data = "blah".data(using: .utf8)!
 
-        let handler: HTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
@@ -349,7 +353,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        var httpClient = HTTPClient(handler: handler)
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -367,7 +371,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -382,7 +386,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -436,7 +440,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -451,7 +455,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -503,7 +507,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -518,7 +522,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -545,7 +549,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -560,7 +564,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -586,7 +590,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
 
-            var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
+            let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -635,7 +639,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -650,7 +654,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -705,7 +709,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -720,7 +724,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -780,7 +784,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
@@ -795,7 +799,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
 
@@ -832,7 +836,7 @@ private extension XCTestCase {
 internal extension JSONPackageCollectionProvider {
     init(
         configuration: Configuration = .init(),
-        httpClient: HTTPClient? = nil,
+        httpClient: LegacyHTTPClient? = nil,
         signatureValidator: PackageCollectionSignatureValidator? = nil,
         sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
         fileSystem: FileSystem = localFileSystem

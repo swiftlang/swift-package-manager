@@ -79,7 +79,7 @@ public final class MockWorkspace {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
-            httpClient: HTTPClient.mock(fileSystem: fileSystem),
+            httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
         )
         try self.create()

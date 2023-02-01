@@ -49,7 +49,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
 
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-                let handler: HTTPClient.Handler = { request, _, completion in
+                let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
                         let path = fixturePath.appending(components: "GitHub", "metadata.json")
@@ -92,7 +92,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     }
                 }
 
-                var httpClient = HTTPClient(handler: handler)
+                let httpClient = LegacyHTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
                 httpClient.configuration.retryStrategy = .none
                 var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -126,11 +126,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
 
-            let handler: HTTPClient.Handler = { _, _, completion in
+            let handler: LegacyHTTPClient.Handler = { _, _, completion in
                 completion(.success(.init(statusCode: 404)))
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -152,7 +152,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
-                let handler: HTTPClient.Handler = { request, _, completion in
+                let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
                         completion(.success(.init(statusCode: 200,
@@ -163,7 +163,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     }
                 }
 
-                var httpClient = HTTPClient(handler: handler)
+                let httpClient = LegacyHTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
                 httpClient.configuration.retryStrategy = .none
                 var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -187,11 +187,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
-            let handler: HTTPClient.Handler = { _, _, completion in
+            let handler: LegacyHTTPClient.Handler = { _, _, completion in
                 completion(.success(.init(statusCode: 401)))
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -211,7 +211,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
             let authTokens = [AuthTokenType.github("github.com"): "foo"]
 
-            let handler: HTTPClient.Handler = { request, _, completion in
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
                 if request.headers.get("Authorization").first == "token \(authTokens.first!.value)" {
                     completion(.success(.init(statusCode: 401)))
                 } else {
@@ -220,7 +220,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 }
             }
 
-            var httpClient = HTTPClient(handler: handler)
+            let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -246,7 +246,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
-                let handler: HTTPClient.Handler = { request, _, completion in
+                let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     var headers = HTTPClientHeaders()
                     headers.add(name: "X-RateLimit-Limit", value: "\(total)")
                     headers.add(name: "X-RateLimit-Remaining", value: "\(remaining)")
@@ -266,7 +266,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 // Disable cache so we hit the API
                 let configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true)
 
-                var httpClient = HTTPClient(handler: handler)
+                let httpClient = LegacyHTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
                 httpClient.configuration.retryStrategy = .none
 
@@ -328,7 +328,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
         let repoURL = URL(string: "https://github.com/apple/swift-numerics.git")!
 
-        var httpClient = HTTPClient()
+        let httpClient = LegacyHTTPClient()
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         httpClient.configuration.requestHeaders = .init()
@@ -353,7 +353,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 }
 
 internal extension GitHubPackageMetadataProvider {
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
+    init(configuration: Configuration = .init(), httpClient: LegacyHTTPClient? = nil) {
         self.init(
             configuration: configuration,
             observabilityScope: ObservabilitySystem.NOOP,

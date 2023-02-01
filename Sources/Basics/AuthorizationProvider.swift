@@ -19,6 +19,7 @@ import Security
 import TSCBasic
 
 public protocol AuthorizationProvider {
+    @Sendable
     func authentication(for url: URL) -> (user: String, password: String)?
 }
 
@@ -36,6 +37,7 @@ public enum AuthorizationProviderError: Error {
 }
 
 public extension AuthorizationProvider {
+    @Sendable
     func httpAuthorizationHeader(for url: URL) -> String? {
         guard let (user, password) = self.authentication(for: url) else {
             return nil
