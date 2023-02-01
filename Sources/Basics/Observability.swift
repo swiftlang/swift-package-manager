@@ -412,7 +412,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
     ///
     /// - Parameter body: The closure to be invoked for each item stored in this `ObservabilityMetadata`,
     /// passing the type-erased key and the associated value.
-    public func forEach(_ body: (AnyKey, Any) throws -> Void) rethrows {
+    public func forEach(_ body: (AnyKey, Sendable) throws -> Void) rethrows {
         try self._storage.forEach { key, value in
             try body(key, value)
         }
@@ -483,7 +483,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
 
 public protocol ObservabilityMetadataKey {
     /// The type of value uniquely identified by this key.
-    associatedtype Value
+    associatedtype Value: Sendable
 }
 
 extension ObservabilityMetadata.AnyKey: Hashable {
