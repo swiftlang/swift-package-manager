@@ -62,17 +62,12 @@ final class BuildToolTests: CommandsTestCase {
 
     func testCreatingSanitizers() throws {
         for sanitizer in Sanitizer.allCases {
-            XCTAssertEqual(sanitizer, try Sanitizer(argument: sanitizer.shortName))
+            XCTAssertEqual(sanitizer, Sanitizer(argument: sanitizer.shortName))
         }
     }
 
     func testInvalidSanitizer() throws {
-        do {
-            _ = try Sanitizer(argument: "invalid")
-            XCTFail("Should have failed to create Sanitizer")
-        } catch let error as StringError {
-            XCTAssertEqual(error.description, "valid sanitizers: address, thread, undefined, scudo")
-        }
+        XCTAssertNil(Sanitizer(argument: "invalid"))
     }
 
     func testImportOfMissedDepWarning() throws {
