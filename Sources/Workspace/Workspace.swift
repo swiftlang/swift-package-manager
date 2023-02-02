@@ -3719,7 +3719,7 @@ extension Workspace {
         private let transformationMode: TransformationMode
 
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
-        private let identitiesCache = ThreadSafeKeyValueStore<URL, (identity: PackageIdentity, expirationTime: DispatchTime)>()
+        private let identityLookupCache = ThreadSafeKeyValueStore<URL, (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)>()
 
         init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
             self.underlying = underlying
@@ -3950,18 +3950,25 @@ extension Workspace {
             callbackQueue: DispatchQueue,
             completion: @escaping (Result<PackageIdentity?, Error>) -> Void
         ) {
-            if let cached = self.identitiesCache[url], cached.expirationTime > .now() {
-                return completion(.success(cached.identity))
+            if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
+                switch cached.result {
+                case .success(let identity):
+                    return completion(.success(identity))
+                case .failure:
+                    // server error, do not try again
+                    return completion(.success(.none))
+                }
             }
 
             self.registryClient.lookupIdentities(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
                 switch result {
                 case .failure(let error):
+                    self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
                     completion(.failure(error))
                 case .success(let identities):
                     // FIXME: returns first result... need to consider how to address multiple ones
                     let identity = identities.first
-                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now() + self.cacheTTL) }
+                    self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
                     completion(.success(identity))
                 }
             }

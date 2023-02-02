@@ -75,7 +75,7 @@ public final class RegistryClient: Cancellable {
     }
 
     public var configured: Bool {
-        return !self.configuration.isEmpty
+        !self.configuration.isEmpty
     }
 
     /// Cancel any outstanding requests
@@ -120,7 +120,11 @@ public final class RegistryClient: Cancellable {
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
-                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .json
+                    )
 
                     guard let data = response.body else {
                         throw RegistryError.invalidResponse
@@ -136,7 +140,7 @@ public final class RegistryClient: Cancellable {
                     return PackageMetadata(
                         registry: registry,
                         versions: versions,
-                        alternateLocations: alternateLocations?.map { $0.url }
+                        alternateLocations: alternateLocations?.map(\.url)
                     )
                 }.mapError {
                     RegistryError.failedRetrievingReleases($0)
@@ -184,7 +188,11 @@ public final class RegistryClient: Cancellable {
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
-                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .swift
+                    )
 
                     guard let data = response.body else {
                         throw RegistryError.invalidResponse
@@ -199,7 +207,8 @@ public final class RegistryClient: Cancellable {
 
                     let alternativeManifests = try response.headers.parseManifestLinks()
                     for alternativeManifest in alternativeManifests {
-                        result[alternativeManifest.filename] = (toolsVersion: alternativeManifest.toolsVersion, content: .none)
+                        result[alternativeManifest.filename] = (toolsVersion: alternativeManifest.toolsVersion,
+                                                                content: .none)
                     }
                     return result
                 }.mapError {
@@ -255,7 +264,11 @@ public final class RegistryClient: Cancellable {
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response -> String in
-                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .swift
+                    )
 
                     guard let data = response.body else {
                         throw RegistryError.invalidResponse
@@ -312,14 +325,19 @@ public final class RegistryClient: Cancellable {
             switch result {
             case .success(let response):
                 do {
-                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .json
+                    )
 
                     guard let data = response.body else {
                         throw RegistryError.invalidResponse
                     }
 
                     let versionMetadata = try self.jsonDecoder.decode(Serialization.VersionMetadata.self, from: data)
-                    guard let sourceArchive = versionMetadata.resources.first(where: { $0.name == "source-archive" }) else {
+                    guard let sourceArchive = versionMetadata.resources.first(where: { $0.name == "source-archive" })
+                    else {
                         throw RegistryError.missingSourceArchive
                     }
 
@@ -332,16 +350,21 @@ public final class RegistryClient: Cancellable {
                                                version: version,
                                                fingerprint: .init(origin: .registry(registry.url), value: checksum),
                                                observabilityScope: observabilityScope,
-                                               callbackQueue: callbackQueue) { storageResult in
+                                               callbackQueue: callbackQueue)
+                        { storageResult in
                             switch storageResult {
                             case .success:
                                 completion(.success(checksum))
                             case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
                                 switch self.fingerprintCheckingMode {
                                 case .strict:
-                                    completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
+                                    completion(.failure(RegistryError
+                                            .checksumChanged(latest: checksum, previous: existing.value)))
                                 case .warn:
-                                    observabilityScope.emit(warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))")
+                                    observabilityScope
+                                        .emit(
+                                            warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
+                                        )
                                     completion(.success(checksum))
                                 }
                             case .failure(let error):
@@ -437,9 +460,13 @@ public final class RegistryClient: Cancellable {
                             if expectedChecksum != actualChecksum {
                                 switch self.fingerprintCheckingMode {
                                 case .strict:
-                                    return completion(.failure(RegistryError.invalidChecksum(expected: expectedChecksum, actual: actualChecksum)))
+                                    return completion(.failure(RegistryError
+                                            .invalidChecksum(expected: expectedChecksum, actual: actualChecksum)))
                                 case .warn:
-                                    observabilityScope.emit(warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)")
+                                    observabilityScope
+                                        .emit(
+                                            warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)"
+                                        )
                                 }
                             }
                             // validate that the destination does not already exist (again, as this is async)
@@ -480,13 +507,17 @@ public final class RegistryClient: Cancellable {
                                        version: version,
                                        kind: .registry,
                                        observabilityScope: observabilityScope,
-                                       callbackQueue: callbackQueue) { result in
+                                       callbackQueue: callbackQueue)
+                { result in
                     switch result {
                     case .success(let fingerprint):
                         body(.success(fingerprint.value))
                     case .failure(let error):
                         if error as? PackageFingerprintStorageError != .notFound {
-                            observabilityScope.emit(error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)")
+                            observabilityScope
+                                .emit(
+                                    error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)"
+                                )
                         }
                         // Try fetching checksum from registry again no matter which kind of error it is
                         self.fetchSourceArchiveChecksum(package: package,
@@ -543,6 +574,11 @@ public final class RegistryClient: Cancellable {
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(result.tryMap { response in
+                // 404 is valid, no identities mapped
+                if response.statusCode == 404 {
+                    return []
+                }
+
                 try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
 
                 guard let data = response.body else {
@@ -590,7 +626,9 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void, on queue: DispatchQueue) -> (Result<T, Error>) -> Void {
+    private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void,
+                              on queue: DispatchQueue) -> (Result<T, Error>) -> Void
+    {
         { result in queue.async { closure(result) } }
     }
 
@@ -681,30 +719,34 @@ public enum RegistryError: Error, CustomStringConvertible {
     }
 }
 
-private extension RegistryClient {
-    enum APIVersion: String {
+extension RegistryClient {
+    fileprivate enum APIVersion: String {
         case v1 = "1"
     }
 }
 
-private extension RegistryClient {
-    enum MediaType: String {
+extension RegistryClient {
+    fileprivate enum MediaType: String {
         case json
         case swift
         case zip
     }
 
-    enum ContentType: String {
+    fileprivate enum ContentType: String {
         case json = "application/json"
         case swift = "text/x-swift"
         case zip = "application/zip"
     }
 
-    func acceptHeader(mediaType: MediaType) -> String {
+    private func acceptHeader(mediaType: MediaType) -> String {
         "application/vnd.swift.registry.v\(self.apiVersion.rawValue)+\(mediaType)"
     }
 
-    func checkResponseStatusAndHeaders(_ response: LegacyHTTPClient.Response, expectedStatusCode: Int, expectedContentType: ContentType) throws {
+    private func checkResponseStatusAndHeaders(
+        _ response: LegacyHTTPClient.Response,
+        expectedStatusCode: Int,
+        expectedContentType: ContentType
+    ) throws {
         guard response.statusCode == expectedStatusCode else {
             throw RegistryError.invalidResponseStatus(expected: expectedStatusCode, actual: response.statusCode)
         }
@@ -729,8 +771,8 @@ extension RegistryClient {
     }
 }
 
-private extension RegistryClient {
-    struct AlternativeLocationLink {
+extension RegistryClient {
+    fileprivate struct AlternativeLocationLink {
         let url: URL
         let kind: Kind
 
@@ -741,21 +783,21 @@ private extension RegistryClient {
     }
 }
 
-private extension RegistryClient {
-    struct ManifestLink {
+extension RegistryClient {
+    fileprivate struct ManifestLink {
         let url: URL
         let filename: String
         let toolsVersion: ToolsVersion
     }
 }
 
-private extension HTTPClientHeaders {
+extension HTTPClientHeaders {
     /*
      <https://github.com/mona/LinkedList>; rel="canonical",
      <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
       */
-    func parseAlternativeLocationLinks() throws -> [RegistryClient.AlternativeLocationLink]? {
-        return try self.get("Link").map { header -> [RegistryClient.AlternativeLocationLink] in
+    fileprivate func parseAlternativeLocationLinks() throws -> [RegistryClient.AlternativeLocationLink]? {
+        try self.get("Link").map { header -> [RegistryClient.AlternativeLocationLink] in
             let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
                 try parseAlternativeLocationLine(linkLine)
@@ -772,11 +814,15 @@ private extension HTTPClientHeaders {
             return nil
         }
 
-        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }), let url = URL(string: link) else {
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }),
+              let url = URL(string: link)
+        else {
             return nil
         }
 
-        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel) else {
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }),
+              let kind = RegistryClient.AlternativeLocationLink.Kind(rawValue: rel)
+        else {
             return nil
         }
 
@@ -787,12 +833,12 @@ private extension HTTPClientHeaders {
     }
 }
 
-private extension HTTPClientHeaders {
+extension HTTPClientHeaders {
     /*
      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0"
      */
-    func parseManifestLinks() throws -> [RegistryClient.ManifestLink] {
-        return try self.get("Link").map { header -> [RegistryClient.ManifestLink] in
+    fileprivate func parseManifestLinks() throws -> [RegistryClient.ManifestLink] {
+        try self.get("Link").map { header -> [RegistryClient.ManifestLink] in
             let linkLines = header.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
                 try parseManifestLinkLine(linkLine)
@@ -809,19 +855,26 @@ private extension HTTPClientHeaders {
             return nil
         }
 
-        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }), let url = URL(string: link) else {
+        guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }),
+              let url = URL(string: link)
+        else {
             return nil
         }
 
-        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }), rel == "alternate" else {
+        guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }),
+              rel == "alternate"
+        else {
             return nil
         }
 
-        guard let filename = fields.first(where: { $0.hasPrefix("filename=") }).flatMap({ parseLinkFieldValue($0) }) else {
+        guard let filename = fields.first(where: { $0.hasPrefix("filename=") }).flatMap({ parseLinkFieldValue($0) })
+        else {
             return nil
         }
 
-        guard let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") }).flatMap({ parseLinkFieldValue($0) }) else {
+        guard let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") })
+            .flatMap({ parseLinkFieldValue($0) })
+        else {
             return nil
         }
 
@@ -837,8 +890,8 @@ private extension HTTPClientHeaders {
     }
 }
 
-private extension HTTPClientHeaders {
-    func parseLinkFieldValue(_ field: String) -> String? {
+extension HTTPClientHeaders {
+    private func parseLinkFieldValue(_ field: String) -> String? {
         let parts = field.split(separator: "=")
             .map(String.init)
             .map { $0.spm_chuzzle() ?? $0 }
@@ -854,8 +907,8 @@ private extension HTTPClientHeaders {
 // MARK: - Serialization
 
 // marked public for cross module visibility
-public extension RegistryClient {
-    enum Serialization {
+extension RegistryClient {
+    public enum Serialization {
         public struct PackageMetadata: Codable {
             public let releases: [String: Release]
 
@@ -939,16 +992,16 @@ public extension RegistryClient {
 
 // MARK: - Utilities
 
-private extension AbsolutePath {
-    func withExtension(_ extension: String) -> AbsolutePath {
+extension AbsolutePath {
+    fileprivate func withExtension(_ extension: String) -> AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
         return self.parentDirectory.appending(component: "\(basename).\(`extension`)")
     }
 }
 
-private extension URLComponents {
-    mutating func appendPathComponents(_ components: String...) {
+extension URLComponents {
+    fileprivate mutating func appendPathComponents(_ components: String...) {
         path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
     }
 }
