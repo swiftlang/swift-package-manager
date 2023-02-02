@@ -52,7 +52,7 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.wait(timeout: timeout)
     }
 
-    struct OutputHandler: DiagnosticsHandler {
+    struct OutputHandler {
         private let logLevel: Diagnostic.Severity
         internal let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
@@ -146,6 +146,8 @@ extension SwiftToolObservabilityHandler.OutputHandler: UnsafeSendable {}
 extension SwiftToolObservabilityHandler.OutputHandler: @unchecked Sendable {}
 #endif
 
+extension SwiftToolObservabilityHandler.OutputHandler: DiagnosticsHandler {}
+
 /// This type is used to write on the underlying stream.
 ///
 /// If underlying stream is a not tty, the string will be written in without any
@@ -155,10 +157,10 @@ private struct InteractiveWriter {
     let term: TerminalController?
 
     /// The output byte stream reference.
-    let stream: OutputByteStream
+    let stream: ThreadSafeOutputByteStream
 
     /// Create an instance with the given stream.
-    init(stream: OutputByteStream) {
+    init(stream: ThreadSafeOutputByteStream) {
         self.term = TerminalController(stream: stream)
         self.stream = stream
     }
