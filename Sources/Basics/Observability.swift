@@ -485,7 +485,7 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible, Sendable {
 
 public protocol ObservabilityMetadataKey {
     /// The type of value uniquely identified by this key.
-    associatedtype Value
+    associatedtype Value: Sendable
 }
 
 extension ObservabilityMetadata.AnyKey: Hashable {
@@ -512,7 +512,7 @@ extension ObservabilityMetadata {
         typealias Value = Error
     }
 
-    public struct UnderlyingError: CustomStringConvertible {
+    public struct UnderlyingError: CustomStringConvertible, Sendable {
         let underlying: Error
 
         public init (_ underlying: Error) {
@@ -573,7 +573,7 @@ extension ObservabilityMetadata {
         typealias Value = DiagnosticLocationWrapper
     }
 
-    public struct DiagnosticLocationWrapper: CustomStringConvertible {
+    public struct DiagnosticLocationWrapper: CustomStringConvertible, Sendable {
         let underlying: DiagnosticLocation
 
         public init (_ underlying: DiagnosticLocation) {
@@ -601,7 +601,7 @@ extension ObservabilityMetadata {
         typealias Value = DiagnosticDataWrapper
     }
 
-    struct DiagnosticDataWrapper: CustomStringConvertible {
+    struct DiagnosticDataWrapper: CustomStringConvertible, Sendable {
         let underlying: DiagnosticData
 
         public init (_ underlying: DiagnosticData) {
