@@ -17,12 +17,12 @@ import enum TSCUtility.Git
 
 let sdkRoot: AbsolutePath? = {
     if let environmentPath = ProcessInfo.processInfo.environment["SDK_ROOT"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
   #if os(macOS)
     let result = try! Process.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
-    let sdkRoot = try! AbsolutePath(result.utf8Output().spm_chomp())
+    let sdkRoot = try! AbsolutePath(validating: result.utf8Output().spm_chomp())
     return sdkRoot
   #else
     return nil
@@ -31,13 +31,13 @@ let sdkRoot: AbsolutePath? = {
 
 let toolchainPath: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["TOOLCHAIN_PATH"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
   #if os(macOS)
-    let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
+    let swiftcPath = try! AbsolutePath(validating: sh("xcrun", "--find", "swift").stdout.spm_chomp())
   #else
-    let swiftcPath = try! AbsolutePath(sh("which", "swift").stdout.spm_chomp())
+    let swiftcPath = try! AbsolutePath(validating: sh("which", "swift").stdout.spm_chomp())
   #endif
     let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
     return toolchainPath
@@ -45,7 +45,7 @@ let toolchainPath: AbsolutePath = {
 
 let clang: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["CLANG_PATH"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
     let clangPath = toolchainPath.appending(components: "usr", "bin", "clang")
@@ -54,7 +54,7 @@ let clang: AbsolutePath = {
 
 let xcodebuild: AbsolutePath = {
     #if os(macOS)
-      let xcodebuildPath = try! AbsolutePath(sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp())
+      let xcodebuildPath = try! AbsolutePath(validating: sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp())
       return xcodebuildPath
     #else
       fatalError("should not be used on other platforms than macOS")
@@ -63,7 +63,7 @@ let xcodebuild: AbsolutePath = {
 
 let swift: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["SWIFT_PATH"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
     let swiftPath = toolchainPath.appending(components: "usr", "bin", "swift")
@@ -72,7 +72,7 @@ let swift: AbsolutePath = {
 
 let swiftc: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["SWIFTC_PATH"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
     let swiftcPath = toolchainPath.appending(components: "usr", "bin", "swiftc")
@@ -81,7 +81,7 @@ let swiftc: AbsolutePath = {
 
 let lldb: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["LLDB_PATH"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
     // We check if it exists because lldb doesn't exist in Xcode's default toolchain.
@@ -91,7 +91,7 @@ let lldb: AbsolutePath = {
     }
 
   #if os(macOS)
-    let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
+    let lldbPath = try! AbsolutePath(validating: sh("xcrun", "--find", "lldb").stdout.spm_chomp())
     return lldbPath
   #else
     fatalError("LLDB_PATH environment variable required")
@@ -100,7 +100,7 @@ let lldb: AbsolutePath = {
 
 let swiftpmBinaryDirectory: AbsolutePath = {
     if let environmentPath = ProcessInfo.processInfo.environment["SWIFTPM_BIN_DIR"] {
-        return AbsolutePath(environmentPath)
+        return try! AbsolutePath(validating: environmentPath)
     }
 
     return swift.parentDirectory
@@ -209,7 +209,10 @@ func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures/\(name)", relativeTo: AbsolutePath(#file))
+            let fixtureDir = try AbsolutePath(
+                validating: "../../../Fixtures/\(name)",
+                relativeTo: AbsolutePath(validating: #file)
+            )
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
@@ -317,7 +320,10 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
             let subpath = inputsPath.appending(component: "SwiftFramework")
             let projectPath = subpath.appending(component: "SwiftFramework.xcodeproj")
             try sh(xcodebuild, "-project", projectPath, "-scheme", "SwiftFramework", "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO")
-            let frameworkPath = AbsolutePath("Build/Products/Debug/SwiftFramework.framework", relativeTo: tmpDir)
+            let frameworkPath = try AbsolutePath(
+                validating: "Build/Products/Debug/SwiftFramework.framework",
+                relativeTo: tmpDir
+            )
             let xcframeworkPath = packagePath.appending(component: "SwiftFramework.xcframework")
             try sh(xcodebuild, "-create-xcframework", "-framework", frameworkPath, "-output", xcframeworkPath)
         }

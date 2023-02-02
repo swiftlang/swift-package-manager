@@ -62,24 +62,30 @@ final class SwiftPMTests: XCTestCase {
             for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources", "foo")) {
                 try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", "foo", entry))
             }
-            try localFileSystem.writeFileContents(AbsolutePath("Sources/foo/main.m", relativeTo: packagePath)) {
+            try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/foo/main.m", relativeTo: packagePath)) {
                 $0 <<< "int main() {}"
             }
             let archs = ["x86_64", "arm64"]
 
             for arch in archs {
                 try sh(swiftBuild, "--package-path", packagePath, "--arch", arch)
-                let fooPath = AbsolutePath(".build/\(arch)-apple-macosx/debug/foo", relativeTo: packagePath)
+                let fooPath = try AbsolutePath(
+                    validating: ".build/\(arch)-apple-macosx/debug/foo",
+                    relativeTo: packagePath
+                )
                 XCTAssertFileExists(fooPath)
             }
 
             let args = [swiftBuild.pathString, "--package-path", packagePath.pathString] + archs.flatMap{ ["--arch", $0] }
             try _sh(args)
 
-            let fooPath = AbsolutePath(".build/apple/Products/Debug/foo", relativeTo: packagePath)
+            let fooPath = try AbsolutePath(validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath)
             XCTAssertFileExists(fooPath)
 
-            let objectsDir = AbsolutePath(".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal", relativeTo: packagePath)
+            let objectsDir = try AbsolutePath(
+                validating: ".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal",
+                relativeTo: packagePath
+            )
             for arch in archs {
                 XCTAssertDirectoryExists(objectsDir.appending(component: arch))
             }
