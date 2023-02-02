@@ -66,7 +66,7 @@ extension SwiftPackageRegistryTool {
             }
 
             // compute and validate registry URL
-            let registryURL = self.registryURL ?? {
+            let registryURL: URL? = self.registryURL ?? {
                 if let registry = configuration.registry(for: packageScopeAndName.scope) {
                     return registry.url
                 }
