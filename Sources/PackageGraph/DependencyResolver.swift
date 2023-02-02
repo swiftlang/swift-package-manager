@@ -15,6 +15,8 @@ import Dispatch
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 public protocol DependencyResolver {
     typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)
     typealias Delegate = DependencyResolverDelegate

@@ -18,6 +18,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()

@@ -18,6 +18,8 @@ import PackageLoading
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
 public final class RegistryClient: Cancellable {

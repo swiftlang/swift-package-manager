@@ -16,6 +16,8 @@ import struct Foundation.URL
 import PackageModel
 import SourceControl
 
+import struct TSCUtility.Version
+
 extension PackageCollectionsModel {
     /// Package metadata
     public struct Package: Codable, Equatable {

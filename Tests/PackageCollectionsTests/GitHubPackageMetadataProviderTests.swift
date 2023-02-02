@@ -20,6 +20,8 @@ import SourceControl
 import SPMTestSupport
 import TSCBasic
 
+import struct TSCUtility.Version
+
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")

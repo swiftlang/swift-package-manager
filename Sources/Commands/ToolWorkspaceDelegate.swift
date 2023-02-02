@@ -22,6 +22,7 @@ import Workspace
 
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.OutputByteStream
+import struct TSCUtility.Version
 
 class ToolWorkspaceDelegate: WorkspaceDelegate {
     private struct DownloadProgress {

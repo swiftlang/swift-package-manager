@@ -19,6 +19,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
         let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()

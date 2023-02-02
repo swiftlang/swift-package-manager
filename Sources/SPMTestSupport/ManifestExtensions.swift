@@ -13,6 +13,7 @@
 import Foundation
 import PackageModel
 import TSCBasic
+import struct TSCUtility.Version
 
 public extension Manifest {
 

@@ -21,6 +21,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
     let isTrusted: [Bool?] = [true, false, nil]
     return (0 ..< count).map { index in

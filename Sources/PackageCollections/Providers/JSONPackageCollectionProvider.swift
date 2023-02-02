@@ -24,6 +24,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 private typealias JSONModel = PackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {

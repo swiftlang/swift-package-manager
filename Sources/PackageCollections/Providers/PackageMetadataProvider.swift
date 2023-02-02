@@ -16,6 +16,8 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider {
     /// Retrieves metadata for a package with the given identity and repository address.

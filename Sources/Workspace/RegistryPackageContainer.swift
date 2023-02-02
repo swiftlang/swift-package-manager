@@ -18,6 +18,8 @@ import PackageModel
 import PackageRegistry
 import TSCBasic
 
+import struct TSCUtility.Version
+
 public class RegistryPackageContainer: PackageContainer {
     public let package: PackageReference
 

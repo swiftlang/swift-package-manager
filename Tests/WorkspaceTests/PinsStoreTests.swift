@@ -19,6 +19,8 @@ import SPMTestSupport
 import SourceControl
 import Workspace
 
+import struct TSCUtility.Version
+
 final class PinsStoreTests: XCTestCase {
 
     let v1: Version = "1.0.0"

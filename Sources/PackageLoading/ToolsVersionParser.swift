@@ -15,6 +15,8 @@ import Basics
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Protocol for the manifest loader interface.
 public struct ToolsVersionParser {
     // designed to be used as a static utility

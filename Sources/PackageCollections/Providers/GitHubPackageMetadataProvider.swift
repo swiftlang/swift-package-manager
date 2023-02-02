@@ -20,6 +20,8 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
 
