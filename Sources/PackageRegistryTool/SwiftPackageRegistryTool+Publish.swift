@@ -76,7 +76,7 @@ extension SwiftPackageRegistryTool {
                 return .none
             }()
 
-            guard let registryURL else {
+            guard let registryURL = registryURL else {
                 throw ConfigurationError.unknownRegistry
             }
 
