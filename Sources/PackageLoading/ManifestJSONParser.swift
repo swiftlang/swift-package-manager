@@ -425,12 +425,18 @@ enum ManifestJSONParser {
                 throw InternalError("invalid (empty) build settings value")
             }
             kind = .linkedFramework(value)
+        case "enableUpcomingFeature":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .enableUpcomingFeature(value)
+        case "enableExperimentalFeature":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .enableExperimentalFeature(value)
         case "unsafeFlags":
             kind = .unsafeFlags(values)
-        case "upcomingFeatures":
-            kind = .upcomingFeatures(values)
-        case "experimentalFeatures":
-            kind = .experimentalFeatures(values)
         default:
             throw InternalError("invalid build setting \(name)")
         }
