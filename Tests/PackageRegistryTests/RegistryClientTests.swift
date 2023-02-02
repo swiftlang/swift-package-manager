@@ -177,7 +177,8 @@ final class RegistryClientTests: XCTestCase {
 
         let handler: HTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }.flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+                .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
             let urlWithoutQuery = components.url
@@ -299,15 +300,22 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
         let fingerprintStorage = MockPackageFingerprintStorage()
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient, fingerprintStorage: fingerprintStorage)
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage
+        )
 
         let checksumResponse = try registryClient.fetchSourceArchiveChecksum(package: identity, version: version)
         XCTAssertEqual(checksum, checksumResponse)
 
         // Checksum should have been saved to storage
-        let fingerprint = try tsc_await { callback in fingerprintStorage.get(package: identity, version: version, kind: .registry,
-                                                                             observabilityScope: ObservabilitySystem.NOOP, callbackQueue: .sharedConcurrent,
-                                                                             callback: callback) }
+        let fingerprint = try tsc_await { callback in
+            fingerprintStorage.get(package: identity, version: version, kind: .registry,
+                                   observabilityScope: ObservabilitySystem
+                                       .NOOP, callbackQueue: .sharedConcurrent,
+                                   callback: callback)
+        }
         XCTAssertEqual(registryURL, fingerprint.origin.url?.absoluteString)
         XCTAssertEqual(checksum, fingerprint.value)
     }
@@ -365,7 +373,8 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!), value: "non-matching checksum")],
+                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!),
+                                                 value: "non-matching checksum")],
             ],
         ])
         let registryClient = makeRegistryClient(configuration: configuration,
@@ -373,11 +382,12 @@ final class RegistryClientTests: XCTestCase {
                                                 fingerprintStorage: fingerprintStorage,
                                                 fingerprintCheckingMode: .strict) // intended for this test; don't change
 
-        XCTAssertThrowsError(try registryClient.fetchSourceArchiveChecksum(package: identity, version: version)) { error in
-            guard case RegistryError.checksumChanged = error else {
-                return XCTFail("Expected RegistryError.checksumChanged, got \(error)")
+        XCTAssertThrowsError(try registryClient
+            .fetchSourceArchiveChecksum(package: identity, version: version)) { error in
+                guard case RegistryError.checksumChanged = error else {
+                    return XCTFail("Expected RegistryError.checksumChanged, got \(error)")
+                }
             }
-        }
     }
 
     func testFetchSourceArchiveChecksum_storageConflict_fingerprintChecking_warn() throws {
@@ -459,9 +469,12 @@ final class RegistryClientTests: XCTestCase {
         }
 
         // Storage should NOT be updated
-        let fingerprint = try tsc_await { callback in fingerprintStorage.get(package: identity, version: version, kind: .registry,
-                                                                             observabilityScope: ObservabilitySystem.NOOP, callbackQueue: .sharedConcurrent,
-                                                                             callback: callback) }
+        let fingerprint = try tsc_await { callback in
+            fingerprintStorage.get(package: identity, version: version, kind: .registry,
+                                   observabilityScope: ObservabilitySystem
+                                       .NOOP, callbackQueue: .sharedConcurrent,
+                                   callback: callback)
+        }
         XCTAssertEqual(registryURL, fingerprint.origin.url?.absoluteString)
         XCTAssertEqual(storedChecksum, fingerprint.value)
     }
@@ -491,7 +504,10 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Type", value: "application/zip"),
                         .init(name: "Content-Version", value: "1"),
                         .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
                     ]),
                     body: nil
                 )))
@@ -569,7 +585,10 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Type", value: "application/zip"),
                         .init(name: "Content-Version", value: "1"),
                         .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
                     ]),
                     body: nil
                 )))
@@ -587,7 +606,8 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!), value: "non-matching checksum")],
+                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!),
+                                                 value: "non-matching checksum")],
             ],
         ])
         let registryClient = RegistryClient(
@@ -618,7 +638,8 @@ final class RegistryClientTests: XCTestCase {
                 fileSystem: fileSystem,
                 destinationPath: path,
                 checksumAlgorithm: checksumAlgorithm
-            )) { error in
+            )
+        ) { error in
             guard case RegistryError.invalidChecksum = error else {
                 return XCTFail("Expected RegistryError.invalidChecksum, got \(error)")
             }
@@ -652,7 +673,10 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Type", value: "application/zip"),
                         .init(name: "Content-Version", value: "1"),
                         .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
                     ]),
                     body: nil
                 )))
@@ -670,7 +694,8 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!), value: "non-matching checksum")],
+                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!),
+                                                 value: "non-matching checksum")],
             ],
         ])
         let registryClient = RegistryClient(
@@ -741,7 +766,10 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Type", value: "application/zip"),
                         .init(name: "Content-Version", value: "1"),
                         .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
                     ]),
                     body: nil
                 )))
@@ -821,9 +849,12 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(contents, ["Package.swift"])
 
         // Expected checksum is not found in storage so the metadata API will be called
-        let fingerprint = try tsc_await { callback in fingerprintStorage.get(package: identity, version: version, kind: .registry,
-                                                                             observabilityScope: ObservabilitySystem.NOOP, callbackQueue: .sharedConcurrent,
-                                                                             callback: callback) }
+        let fingerprint = try tsc_await { callback in
+            fingerprintStorage.get(package: identity, version: version, kind: .registry,
+                                   observabilityScope: ObservabilitySystem
+                                       .NOOP, callbackQueue: .sharedConcurrent,
+                                   callback: callback)
+        }
         XCTAssertEqual(registryURL, fingerprint.origin.url?.absoluteString)
         XCTAssertEqual(checksum, fingerprint.value)
     }
@@ -870,6 +901,63 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let identities = try registryClient.lookupIdentities(url: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
+    }
+
+    func testLookupIdentities404() throws {
+        let registryURL = "https://packages.example.com"
+        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
+        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+                completion(.success(.notFound()))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        let identities = try registryClient.lookupIdentities(url: packageURL)
+        XCTAssertEqual([], identities)
+    }
+
+    func testLookupIdentities500() throws {
+        let registryURL = "https://packages.example.com"
+        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
+        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+                completion(.success(.serverError()))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        XCTAssertThrowsError(try registryClient.lookupIdentities(url: packageURL)) { error in
+            guard case RegistryError.invalidResponseStatus(expected: 200, actual: 500) = error else {
+                return XCTFail("Expected RegistryError.invalidResponse, got \(error)")
+            }
+        }
     }
 
     func testRequestAuthorization_token() throws {
@@ -937,7 +1025,10 @@ final class RegistryClientTests: XCTestCase {
         let handler: HTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, identifiersURL):
-                XCTAssertEqual(request.headers.get("Authorization").first, "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())")
+                XCTAssertEqual(
+                    request.headers.get("Authorization").first,
+                    "Basic \("\(user):\(password)".data(using: .utf8)!.base64EncodedString())"
+                )
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
@@ -1108,9 +1199,9 @@ final class RegistryClientTests: XCTestCase {
 
 // MARK: - Sugar
 
-private extension RegistryClient {
-    func getPackageMetadata(package: PackageIdentity) throws -> RegistryClient.PackageMetadata {
-        return try tsc_await {
+extension RegistryClient {
+    fileprivate func getPackageMetadata(package: PackageIdentity) throws -> RegistryClient.PackageMetadata {
+        try tsc_await {
             self.getPackageMetadata(
                 package: package,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -1120,11 +1211,11 @@ private extension RegistryClient {
         }
     }
 
-    func getAvailableManifests(
+    fileprivate func getAvailableManifests(
         package: PackageIdentity,
         version: Version
     ) throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
-        return try tsc_await {
+        try tsc_await {
             self.getAvailableManifests(
                 package: package,
                 version: version,
@@ -1135,12 +1226,12 @@ private extension RegistryClient {
         }
     }
 
-    func getManifestContent(
+    fileprivate func getManifestContent(
         package: PackageIdentity,
         version: Version,
         customToolsVersion: ToolsVersion?
     ) throws -> String {
-        return try tsc_await {
+        try tsc_await {
             self.getManifestContent(
                 package: package,
                 version: version,
@@ -1152,12 +1243,12 @@ private extension RegistryClient {
         }
     }
 
-    func fetchSourceArchiveChecksum(
+    fileprivate func fetchSourceArchiveChecksum(
         package: PackageIdentity,
         version: Version,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws -> String {
-        return try tsc_await {
+        try tsc_await {
             self.fetchSourceArchiveChecksum(
                 package: package,
                 version: version,
@@ -1168,7 +1259,7 @@ private extension RegistryClient {
         }
     }
 
-    func downloadSourceArchive(
+    fileprivate func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
         fileSystem: FileSystem,
@@ -1176,7 +1267,7 @@ private extension RegistryClient {
         checksumAlgorithm: HashAlgorithm,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws {
-        return try tsc_await {
+        try tsc_await {
             self.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -1191,8 +1282,8 @@ private extension RegistryClient {
         }
     }
 
-    func lookupIdentities(url: URL) throws -> Set<PackageIdentity> {
-        return try tsc_await {
+    fileprivate func lookupIdentities(url: URL) throws -> Set<PackageIdentity> {
+        try tsc_await {
             self.lookupIdentities(
                 url: url,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -1202,8 +1293,8 @@ private extension RegistryClient {
         }
     }
 
-    func login(url: URL) throws {
-        return try tsc_await {
+    fileprivate func login(url: URL) throws {
+        try tsc_await {
             self.login(
                 url: url,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -1235,6 +1326,6 @@ private struct TestProvider: AuthorizationProvider {
     let map: [String: (user: String, password: String)]
 
     func authentication(for url: URL) -> (user: String, password: String)? {
-        return self.map[url.host!]
+        self.map[url.host!]
     }
 }
