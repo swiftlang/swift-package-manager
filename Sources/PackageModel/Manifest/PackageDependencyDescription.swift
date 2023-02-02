@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import Basics
 import TSCBasic
 
 /// Represents a package dependency.
