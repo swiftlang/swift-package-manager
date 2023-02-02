@@ -16,6 +16,8 @@ import class Foundation.NSLock
 import PackageFingerprint
 import PackageModel
 
+import struct TSCUtility.Version
+
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]]
     private let lock = NSLock()

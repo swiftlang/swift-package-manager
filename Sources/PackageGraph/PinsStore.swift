@@ -15,6 +15,8 @@ import Foundation
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
 

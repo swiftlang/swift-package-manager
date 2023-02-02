@@ -20,6 +20,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 // There's some useful helper utilities defined below for easier testing:
 //
 // Terms conform to ExpressibleByStringLiteral in this test module and their

@@ -16,6 +16,8 @@ import Basics
 import PackageCollectionsModel
 import PackageModel
 
+import struct TSCUtility.Version
+
 // MARK: - Model validations
 
 extension Model.CollectionSource {

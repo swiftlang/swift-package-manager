@@ -20,6 +20,8 @@ import TSCBasic
 import Workspace
 import XCTest
 
+import struct TSCUtility.Version
+
 public typealias Diagnostic = TSCBasic.Diagnostic
 
 public final class MockWorkspace {

@@ -20,6 +20,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata() throws {
         let registryURL = "https://packages.example.com"

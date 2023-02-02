@@ -18,6 +18,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() throws {
         let observability = ObservabilitySystem.makeForTesting()

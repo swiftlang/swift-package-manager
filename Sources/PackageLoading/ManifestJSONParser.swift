@@ -15,6 +15,8 @@ import Basics
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
 

@@ -16,6 +16,7 @@ import Dispatch
 import PackageModel
 import TSCBasic
 import enum TSCUtility.Diagnostics
+import struct TSCUtility.Version
 
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest is empty, or at least from SwiftPM's perspective it is.

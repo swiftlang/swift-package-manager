@@ -21,6 +21,8 @@ import TSCBasic
 @testable import Workspace
 import XCTest
 
+import struct TSCUtility.Version
+
 class RegistryPackageContainerTests: XCTestCase {
 
     func testToolsVersionCompatibleVersions() throws {

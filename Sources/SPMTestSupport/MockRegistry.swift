@@ -19,6 +19,8 @@ import PackageModel
 import PackageRegistry
 import TSCBasic
 
+import struct TSCUtility.Version
+
 public class MockRegistry {
     private static let mockRegistryURL = URL(string: "http://localhost/registry/mock")!
 

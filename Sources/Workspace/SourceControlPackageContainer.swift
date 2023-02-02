@@ -21,6 +21,7 @@ import SourceControl
 import TSCBasic
 
 import enum TSCUtility.Git
+import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
 internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {

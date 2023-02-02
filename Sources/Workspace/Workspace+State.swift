@@ -17,6 +17,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Represents the workspace internal state persisted on disk.
 public final class WorkspaceState {
     /// The dependencies managed by the Workspace.

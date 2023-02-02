@@ -18,6 +18,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()

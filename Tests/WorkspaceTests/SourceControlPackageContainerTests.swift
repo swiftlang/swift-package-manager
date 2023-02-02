@@ -22,6 +22,7 @@ import TSCBasic
 import XCTest
 
 import enum TSCUtility.Git
+import struct TSCUtility.Version
 
 private class MockRepository: Repository {
     /// The fake location of the repository.

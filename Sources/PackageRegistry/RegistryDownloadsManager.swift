@@ -17,6 +17,8 @@ import PackageModel
 import TSCBasic
 import PackageLoading
 
+import struct TSCUtility.Version
+
 public class RegistryDownloadsManager: Cancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
 
