@@ -157,10 +157,10 @@ private struct InteractiveWriter {
     let term: TerminalController?
 
     /// The output byte stream reference.
-    let stream: ThreadSafeOutputByteStream
+    let stream: OutputByteStream
 
     /// Create an instance with the given stream.
-    init(stream: ThreadSafeOutputByteStream) {
+    init(stream: OutputByteStream) {
         self.term = TerminalController(stream: stream)
         self.stream = stream
     }
