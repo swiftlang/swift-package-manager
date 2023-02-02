@@ -52,7 +52,7 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.wait(timeout: timeout)
     }
 
-    struct OutputHandler: DiagnosticsHandler {
+    struct OutputHandler {
         private let logLevel: Diagnostic.Severity
         internal let outputStream: ThreadSafeOutputByteStream
         private let writer: InteractiveWriter
@@ -139,6 +139,14 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         }
     }
 }
+
+#if swift(<5.7)
+extension SwiftToolObservabilityHandler.OutputHandler: UnsafeSendable {}
+#else
+extension SwiftToolObservabilityHandler.OutputHandler: @unchecked Sendable {}
+#endif
+
+extension SwiftToolObservabilityHandler.OutputHandler: DiagnosticsHandler {}
 
 /// This type is used to write on the underlying stream.
 ///

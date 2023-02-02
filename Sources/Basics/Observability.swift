@@ -254,7 +254,7 @@ public struct DiagnosticsEmitter: DiagnosticsEmitterProtocol {
     }
 }
 
-public struct Diagnostic: CustomStringConvertible {
+public struct Diagnostic: CustomStringConvertible, Sendable {
     public let severity: Severity
     public let message: String
     public internal (set) var metadata: ObservabilityMetadata?
