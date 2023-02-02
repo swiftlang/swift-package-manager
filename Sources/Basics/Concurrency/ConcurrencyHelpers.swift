@@ -13,6 +13,7 @@
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import struct Foundation.URL
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.tsc_await
 
@@ -44,3 +45,10 @@ extension DispatchQueue {
         attributes: .concurrent
     )
 }
+
+#if swift(<5.7)
+extension URL: UnsafeSendable {}
+#elseif !canImport(Darwin)
+// As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
+extension URL: @unchecked Sendable {}
+#endif

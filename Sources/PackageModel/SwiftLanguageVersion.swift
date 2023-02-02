@@ -15,7 +15,7 @@ import TSCBasic
 import Foundation
 
 /// Represents a Swift language version.
-public struct SwiftLanguageVersion {
+public struct SwiftLanguageVersion: Sendable {
 
     /// Swift language version 3.
     public static let v3 = SwiftLanguageVersion(uncheckedString: "3")

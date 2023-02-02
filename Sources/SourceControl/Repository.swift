@@ -299,7 +299,3 @@ public protocol FetchProgress {
     /// The current download speed including the unit
     var downloadSpeed: String? { get }
 }
-
-#if swift(<5.7)
-extension URL: UnsafeSendable {}
-#endif
