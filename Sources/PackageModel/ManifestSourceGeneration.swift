@@ -470,7 +470,7 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         switch setting.kind {
-        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value):
+        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -487,7 +487,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .unsafeFlags(let values), .upcomingFeatures(let values), .experimentalFeatures(let values):
+        case .unsafeFlags(let values):
             params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -639,10 +639,10 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedFramework"
         case .unsafeFlags:
             return "unsafeFlags"
-        case .upcomingFeatures:
-            return "upcomingFeatures"
-        case .experimentalFeatures:
-            return "experimentalFeatures"
+        case .enableUpcomingFeature:
+            return "enableUpcomingFeature"
+        case .enableExperimentalFeature:
+            return "enableExperimentalFeature"
         }
     }
 }

@@ -980,7 +980,7 @@ public final class PackageBuilder {
                     decl = .OTHER_LDFLAGS
                 }
 
-            case .upcomingFeatures(let _values):
+            case .enableUpcomingFeature(let value):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError("only Swift supports upcoming features")
@@ -989,9 +989,9 @@ public final class PackageBuilder {
                     decl = .OTHER_SWIFT_FLAGS
                 }
 
-                values = _values.precedeElements(with: "-enable-upcoming-feature")
+                values = ["-enable-upcoming-feature", value]
 
-            case .experimentalFeatures(let _values):
+            case .enableExperimentalFeature(let value):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError(
@@ -1001,8 +1001,7 @@ public final class PackageBuilder {
                     decl = .OTHER_SWIFT_FLAGS
                 }
 
-                values = _values.precedeElements(
-                    with: "-enable-experimental-feature")
+                values = ["-enable-experimental-feature", value]
             }
 
             // Create an assignment for this setting.
