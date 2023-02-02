@@ -2290,19 +2290,20 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(
                             name: "Bar",
                             settings: [
-                                .init(tool: .swift, kind: .upcomingFeatures(["ConciseMagicFile"])),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("ConciseMagicFile")),
                             ]
                         ),
                         TargetDescription(
                             name: "Bar2",
                             settings: [
-                                .init(tool: .swift, kind: .upcomingFeatures(["UnknownToTheseTools"])),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("UnknownToTheseTools")),
                             ]
                         ),
                         TargetDescription(
                             name: "Bar3",
                             settings: [
-                                .init(tool: .swift, kind: .upcomingFeatures(["ExistentialAny", "UnknownToTheseTools"])),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("ExistentialAny")),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("UnknownToTheseTools")),
                             ]
                         ),
                         TargetDescription(
