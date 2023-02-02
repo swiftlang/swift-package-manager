@@ -14,6 +14,7 @@ import Foundation
 
 import PackageModel
 import SourceControl
+import TSCUtility
 
 extension PackageCollectionsModel {
     public typealias TargetListResult = [TargetListItem]

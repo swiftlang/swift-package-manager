@@ -19,6 +19,7 @@ import class Foundation.NSRegularExpression
 import struct Foundation.URL
 import PackageModel
 import TSCBasic
+import TSCUtility
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."

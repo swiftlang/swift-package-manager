@@ -15,6 +15,7 @@ import struct Foundation.URL
 
 import PackageModel
 import SourceControl
+import TSCUtility
 
 extension PackageCollectionsModel {
     /// Package metadata

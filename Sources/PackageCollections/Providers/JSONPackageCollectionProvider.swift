@@ -23,6 +23,7 @@ import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
+import TSCUtility
 
 private typealias JSONModel = PackageCollectionModel.V1
 

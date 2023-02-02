@@ -15,6 +15,7 @@ import TSCBasic
 import Basics
 import PackageCollectionsModel
 import PackageModel
+import TSCUtility
 
 // MARK: - Model validations
 

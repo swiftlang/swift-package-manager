@@ -35,17 +35,19 @@ public class ObservabilitySystem {
         )
     }
 
+    public typealias HandlerClosure = @Sendable (ObservabilityScope, Diagnostic) -> Void
+
     /// Create an ObservabilitySystem with a single diagnostics handler.
-    public convenience init(_ handler: @escaping (ObservabilityScope, Diagnostic) -> Void) {
+    public convenience init(_ handler: @escaping HandlerClosure) {
         self.init(SingleDiagnosticsHandler(handler))
     }
 
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler  { self }
 
-        let underlying: (ObservabilityScope, Diagnostic) -> Void
+        let underlying: HandlerClosure
 
-        init(_ underlying: @escaping (ObservabilityScope, Diagnostic) -> Void) {
+        init(_ underlying: @escaping HandlerClosure) {
             self.underlying = underlying
         }
 
@@ -61,12 +63,12 @@ public protocol ObservabilityHandlerProvider {
 
 // MARK: - ObservabilityScope
 
-public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringConvertible {
+public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringConvertible, Sendable {
     public let description: String
     private let parent: ObservabilityScope?
     private let metadata: ObservabilityMetadata?
 
-    private var diagnosticsHandler: DiagnosticsHandlerWrapper
+    private let diagnosticsHandler: DiagnosticsHandlerWrapper
 
     fileprivate init(
         description: String,
@@ -150,7 +152,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
 
 // MARK: - Diagnostics
 
-public protocol DiagnosticsHandler {
+public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
@@ -322,7 +324,7 @@ public struct Diagnostic: CustomStringConvertible {
         Self(severity: .debug, message: message.description, metadata: metadata)
     }
 
-    public enum Severity: Comparable {
+    public enum Severity: Comparable, Sendable {
         case error
         case warning
         case info
@@ -378,10 +380,10 @@ public struct Diagnostic: CustomStringConvertible {
 // FIXME: we currently require that Value conforms to CustomStringConvertible which sucks
 // ideally Value would conform to Equatable but that has generic requirement
 // luckily, this is about to change so we can clean this up soon
-public struct ObservabilityMetadata: CustomDebugStringConvertible {
+public struct ObservabilityMetadata: CustomDebugStringConvertible, Sendable {
     public typealias Key = ObservabilityMetadataKey
 
-    private var _storage = [AnyKey: Any]()
+    private var _storage = [AnyKey: Sendable]()
 
     public init() {}
 
@@ -471,7 +473,7 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible {
     }
 
     /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
-    public struct AnyKey {
+    public struct AnyKey: Sendable {
         /// The key's type represented erased to an `Any.Type`.
         public let keyType: Any.Type
 
