@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageGraph
 import PackageModel
 
 public struct MockTarget {
@@ -43,12 +44,12 @@ public struct MockTarget {
         self.checksum = checksum
     }
 
-    func convert() throws -> TargetDescription {
+    func convert(identityResolver: IdentityResolver) throws -> TargetDescription {
         switch self.type {
         case .regular:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -59,7 +60,7 @@ public struct MockTarget {
         case .test:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -70,7 +71,7 @@ public struct MockTarget {
         case .binary:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 url: self.url,
                 exclude: [],
@@ -80,6 +81,22 @@ public struct MockTarget {
                 settings: [],
                 checksum: self.checksum
             )
+        }
+    }
+}
+
+extension TargetDescription.Dependency {
+    func convert(identityResolver: IdentityResolver) throws -> Self {
+        switch self {
+        case .product(let name, let package, let moduleAliases, let condition):
+            return .product(
+                name: name,
+                package: try package.flatMap { try identityResolver.mappedIdentity(for: .plain($0)).description },
+                moduleAliases: moduleAliases,
+                condition: condition
+            )
+        default:
+            return self
         }
     }
 }

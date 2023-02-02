@@ -54,8 +54,13 @@ enum ManifestJSONParser {
         manifest.swiftLanguageVersions = try Self.parseSwiftLanguageVersion(package)
         manifest.products = try package.getArray("products").map(ProductDescription.init(v4:))
         manifest.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
-        manifest.targets = try package.getArray("targets").map(Self.parseTarget(json:))
-        manifest.dependencies = try package.getArray("dependencies").map{
+        manifest.targets = try package.getArray("targets").map {
+            try Self.parseTarget(
+                json: $0,
+                identityResolver: identityResolver
+            )
+        }
+        manifest.dependencies = try package.getArray("dependencies").map {
             try Self.parseDependency(
                 json: $0,
                 toolsVersion: toolsVersion,
@@ -97,29 +102,35 @@ enum ManifestJSONParser {
             if type == "fileSystem" {
                 let name: String? = kindJSON.get("name")
                 let path: String = try kindJSON.get("path")
-                return try Self.makeFileSystemDependency(
+                return try Self.parseFileSystemDependency(
                     packageKind: packageKind,
                     at: path,
                     name: name,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
+                    fileSystem: fileSystem
+                )
             } else if type == "sourceControl" {
                 let name: String? = kindJSON.get("name")
                 let location: String = try kindJSON.get("location")
                 let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
-                return try Self.makeSourceControlDependency(
+                return try Self.parseSourceControlDependency(
                     packageKind: packageKind,
                     at: location,
                     name: name,
                     requirement: requirement,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
+                    fileSystem: fileSystem
+                )
             } else if type == "registry" {
                 let identity: String = try kindJSON.get("identity")
                 let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try PackageDependency.Registry.Requirement(v4: requirementJSON)
-                return .registry(identity: .plain(identity), requirement: requirement, productFilter: .everything)
+                return try Self.parseRegistryDependency(
+                    identity: .plain(identity),
+                    requirement: requirement,
+                    identityResolver: identityResolver
+                )
             } else {
                 throw InternalError("Unknown dependency type \(kindJSON)")
             }
@@ -133,27 +144,28 @@ enum ManifestJSONParser {
             let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
             switch requirementType {
             case "localPackage":
-                return try Self.makeFileSystemDependency(
+                return try Self.parseFileSystemDependency(
                     packageKind: packageKind,
                     at: url,
                     name: name,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
-
+                    fileSystem: fileSystem
+                )
             default:
                 let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
-                return try Self.makeSourceControlDependency(
+                return try Self.parseSourceControlDependency(
                     packageKind: packageKind,
                     at: url,
                     name: name,
                     requirement: requirement,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
+                    fileSystem: fileSystem
+                )
             }
         }
     }
 
-    private static func makeFileSystemDependency(
+    private static func parseFileSystemDependency(
         packageKind: PackageReference.Kind,
         at location: String,
         name: String?,
@@ -174,7 +186,7 @@ enum ManifestJSONParser {
                            productFilter: .everything)
     }
 
-    private static func makeSourceControlDependency(
+    private static func parseSourceControlDependency(
         packageKind: PackageReference.Kind,
         at location: String,
         name: String?,
@@ -186,8 +198,25 @@ enum ManifestJSONParser {
         var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         // location mapping (aka mirrors) if any
         location = identityResolver.mappedLocation(for: location)
-        // a package in a git location, may be a remote URL or on disk
-        if let localPath = try? AbsolutePath(validating: location) {
+        if PackageIdentity.plain(location).scopeAndName != nil {
+            // re-mapped to registry
+            let identity = PackageIdentity.plain(location)
+            let registryRequirement: PackageDependency.Registry.Requirement
+            switch requirement {
+            case .branch, .revision:
+                throw StringError("invalid mapping of source control to registry, requirement information mismatch: cannot map branch or revision based dependencies to registry.")
+            case .exact(let value):
+                registryRequirement = .exact(value)
+            case .range(let value):
+                registryRequirement = .range(value)
+            }
+            return .registry(
+                identity: identity,
+                requirement: registryRequirement,
+                productFilter: .everything
+            )
+        } else if let localPath = try? AbsolutePath(validating: location) {
+            // a package in a git location, may be a remote URL or on disk
             // in the future this will check with the registries for the identity of the URL
             let identity = try identityResolver.resolveIdentity(for: localPath)
             return .localSourceControl(
@@ -205,6 +234,43 @@ enum ManifestJSONParser {
                 nameForTargetDependencyResolutionOnly: name,
                 url: url,
                 requirement: requirement,
+                productFilter: .everything
+            )
+        } else {
+            throw StringError("invalid location: \(location)")
+        }
+    }
+
+    private static func parseRegistryDependency(
+        identity: PackageIdentity,
+        requirement: PackageDependency.Registry.Requirement,
+        identityResolver: IdentityResolver
+    ) throws -> PackageDependency {
+        // location mapping (aka mirrors) if any
+        let location = identityResolver.mappedLocation(for: identity.description)
+        if PackageIdentity.plain(location).scopeAndName != nil {
+            // re-mapped to registry
+            let identity = PackageIdentity.plain(location)
+            return .registry(
+                identity: identity,
+                requirement: requirement,
+                productFilter: .everything
+            )
+        } else if let url = URL(string: location){
+            // in the future this will check with the registries for the identity of the URL
+            let identity = try identityResolver.resolveIdentity(for: url)
+            let sourceControlRequirement: PackageDependency.SourceControl.Requirement
+            switch requirement {
+            case .exact(let value):
+                sourceControlRequirement = .exact(value)
+            case .range(let value):
+                sourceControlRequirement = .range(value)
+            }
+            return .remoteSourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: identity.description,
+                url: url,
+                requirement: sourceControlRequirement,
                 productFilter: .everything
             )
         } else {
@@ -310,7 +376,10 @@ enum ManifestJSONParser {
         return platforms
     }
 
-    private static func parseTarget(json: JSON) throws -> TargetDescription {
+    private static func parseTarget(
+        json: JSON,
+        identityResolver: IdentityResolver
+    ) throws -> TargetDescription {
         let providers = try? json
             .getArray("providers")
             .map(SystemPackageProviderDescription.init(v4:))
@@ -319,7 +388,12 @@ enum ManifestJSONParser {
 
         let dependencies = try json
             .getArray("dependencies")
-            .map(TargetDescription.Dependency.init(v4:))
+            .map {
+                try TargetDescription.Dependency.init(
+                    v4: $0,
+                    identityResolver: identityResolver
+                )
+            }
 
         let sources: [String]? = try? json.get("sources")
         try sources?.forEach{ _ = try RelativePath(validating: $0) }
@@ -620,7 +694,7 @@ extension TargetDescription.TargetType {
 }
 
 extension TargetDescription.Dependency {
-    fileprivate init(v4 json: JSON) throws {
+    fileprivate init(v4 json: JSON, identityResolver: IdentityResolver) throws {
         let type = try json.get(String.self, forKey: "type")
         let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
 
@@ -631,7 +705,16 @@ extension TargetDescription.Dependency {
         case "product":
             let name = try json.get(String.self, forKey: "name")
             let moduleAliases: [String: String]? = try? json.get("moduleAliases")
-            self = .product(name: name, package: json.get("package"), moduleAliases: moduleAliases, condition: condition)
+            var package: String? = json.get("package")
+            if let packageName = package {
+                package = try identityResolver.mappedIdentity(for: .plain(packageName)).description
+            }
+            self = .product(
+                name: name,
+                package: package,
+                moduleAliases: moduleAliases,
+                condition: condition
+            )
 
         case "byname":
             self = try .byName(name: json.get("name"), condition: condition)

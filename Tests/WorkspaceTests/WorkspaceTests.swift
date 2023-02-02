@@ -1325,9 +1325,9 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fileSystem: fs,
             roots: [
-                .genericPackage1(named: "A"),
-                .genericPackage1(named: "B"),
-                .genericPackage1(named: "C"),
+                .genericPackage(named: "A"),
+                .genericPackage(named: "B"),
+                .genericPackage(named: "C"),
             ],
             packages: []
         )
@@ -1745,8 +1745,8 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                .genericPackage1(named: "Foo"),
-                .genericPackage1(named: "Bar"),
+                .genericPackage(named: "Foo"),
+                .genericPackage(named: "Bar"),
             ]
         )
 
@@ -1822,7 +1822,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                .genericPackage1(named: "Bar"),
+                .genericPackage(named: "Bar"),
                 MockPackage(
                     name: "Baz",
                     targets: [
@@ -1836,7 +1836,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                .genericPackage1(named: "Bam"),
+                .genericPackage(named: "Bam"),
             ]
         )
 
@@ -2008,7 +2008,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                .genericPackage1(named: "Foo"),
+                .genericPackage(named: "Foo"),
             ]
         )
 
@@ -3794,13 +3794,13 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPackageMirror() throws {
+    func testPackageSimpleMirrorPath() throws {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
-        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "BazMirror").pathString, forURL: sandbox.appending(components: "pkgs", "Baz").pathString)
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -3809,22 +3809,111 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Dep"]),
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Dep", package: "dep"),
+                        ]),
                     ],
                     products: [
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
                         .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    toolsVersion: .v5
-                ),
+                    ]
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Dep",
                     targets: [
-                        MockTarget(name: "Dep", dependencies: ["Bar"]),
+                        MockTarget(name: "Dep", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                            .product(name: "Baz", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Dep", targets: ["Dep"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.4.0"]
+                ),
+                MockPackage(
+                    name: "BarMirror",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "BazMirror",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.6.0"]
+                )
+            ],
+            mirrors: mirrors
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
+                result.check(targets: "Bar", "Baz", "Foo", "Dep")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "dep", at: .checkout(.version("1.4.0")))
+            result.check(dependency: "barmirror", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "bazmirror", at: .checkout(.version("1.6.0")))
+            result.check(notPresent: "bar")
+            result.check(notPresent: "baz")
+        }
+    }
+
+    func testPackageMirrorPath() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString, forURL: sandbox.appending(components: "pkgs", "Baz").pathString)
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Dep", package: "dep"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Dep",
+                    targets: [
+                        MockTarget(name: "Dep", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                        ]),
                     ],
                     products: [
                         MockProduct(name: "Dep", targets: ["Dep"]),
@@ -3832,8 +3921,7 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .sourceControl(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"],
-                    toolsVersion: .v5
+                    versions: ["1.0.0", "1.4.0"]
                 ),
                 MockPackage(
                     name: "Bar",
@@ -3851,17 +3939,17 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "Baz"),
                     ],
                     products: [
-                        MockProduct(name: "Bar", targets: ["Baz"]),
+                        MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
-                    versions: ["1.0.0", "1.4.0"]
+                    versions: ["1.0.0", "1.6.0"]
                 ),
                 MockPackage(
-                    name: "Bam",
+                    name: "BarMirror",
                     targets: [
-                        MockTarget(name: "Bam"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
-                        MockProduct(name: "Bar", targets: ["Bam"]),
+                        MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -3870,22 +3958,352 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
+            .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Baz"])),
         ]
 
         try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "Foo", "Dep", "Baz")
-                result.check(targets: "Foo", "Dep", "Baz")
+                result.check(packages: "BarMirror", "Foo", "Dep")
+                result.check(targets: "Bar", "Foo", "Dep")
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
-            result.check(dependency: "dep", at: .checkout(.version("1.5.0")))
-            result.check(dependency: "baz", at: .checkout(.version("1.4.0")))
+            result.check(dependency: "dep", at: .checkout(.version("1.4.0")))
+            result.check(dependency: "barmirror", at: .checkout(.version("1.5.0")))
+            result.check(notPresent: "baz")
             result.check(notPresent: "bar")
-            result.check(notPresent: "bam")
+        }
+    }
+
+    func testPackageSimpleMirrorURL() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/bar")
+        mirrors.set(mirrorURL: "https://scm.com/org/baz-mirror", forURL: "https://scm.com/org/baz")
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Dep", package: "dep"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Dep",
+                    url: "https://scm.com/org/dep",
+                    targets: [
+                        MockTarget(name: "Dep", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                            .product(name: "Baz", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Dep", targets: ["Dep"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.4.0"]
+                ),
+                MockPackage(
+                    name: "BarMirror",
+                    url: "https://scm.com/org/bar-mirror",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "BazMirror",
+                    url: "https://scm.com/org/baz-mirror",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.6.0"]
+                )
+            ],
+            mirrors: mirrors
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
+                result.check(targets: "Bar", "Baz", "Foo", "Dep")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "dep", at: .checkout(.version("1.4.0")))
+            result.check(dependency: "bar-mirror", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "baz-mirror", at: .checkout(.version("1.6.0")))
+            result.check(notPresent: "bar")
+            result.check(notPresent: "baz")
+        }
+    }
+
+    func testPackageMirrorURL() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/bar")
+        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/baz")
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Dep", package: "dep"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Dep",
+                    url: "https://scm.com/org/dep",
+                    targets: [
+                        MockTarget(name: "Dep", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Dep", targets: ["Dep"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.4.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://scm.com/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://scm.com/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.6.0"]
+                ),
+                MockPackage(
+                    name: "BarMirror",
+                    url: "https://scm.com/org/bar-mirror",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            mirrors: mirrors
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(url: "https://scm.com/org/baz", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Baz"])),
+        ]
+
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "BarMirror", "Foo", "Dep")
+                result.check(targets: "Bar", "Foo", "Dep")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "dep", at: .checkout(.version("1.4.0")))
+            result.check(dependency: "bar-mirror", at: .checkout(.version("1.5.0")))
+            result.check(notPresent: "bar")
+            result.check(notPresent: "baz")
+        }
+    }
+
+    func testPackageMirrorURLToRegistry() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: "org.bar-mirror", forURL: "https://scm.com/org/bar")
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                            .product(name: "Baz", package: "baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "BarMirror",
+                    identity: "org.bar-mirror",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://scm.com/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.6.0"]
+                )
+            ],
+            mirrors: mirrors
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(targets: "Bar", "Baz", "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.bar-mirror", at: .registryDownload("1.5.0"))
+            result.check(dependency: "baz", at: .checkout(.version("1.6.0")))
+            result.check(notPresent: "bar")
+        }
+    }
+
+    func testPackageMirrorRegistryToURL() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "org.bar")
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Bar", package: "org.bar"),
+                            .product(name: "Baz", package: "org.baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "BarMirror",
+                    url: "https://scm.com/org/bar-mirror",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    identity: "org.baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.6.0"]
+                )
+            ],
+            mirrors: mirrors
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "BarMirror", "Baz", "Foo")
+                result.check(targets: "Bar", "Baz", "Foo")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "bar-mirror", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "org.baz", at:  .registryDownload("1.6.0"))
+            result.check(notPresent: "org.bar")
         }
     }
 
