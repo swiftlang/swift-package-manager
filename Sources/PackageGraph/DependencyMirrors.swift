@@ -157,17 +157,17 @@ public final class DependencyMirrors: Equatable {
         })
 
         return mirrorIndex[identity] ?? identity
+    }
 
-        func parseLocation(_ location: String) throws -> PackageIdentity {
-            if PackageIdentity.plain(location).scopeAndName != nil {
-                return PackageIdentity.plain(location)
-            } else if let path = try? AbsolutePath(validating: location)  {
-                return PackageIdentity(path: path)
-            } else if let url = URL(string: location) {
-                return PackageIdentity(url: url)
-            } else {
-                throw StringError("invalid location \(location), cannot extract identity")
-            }
+    private func parseLocation(_ location: String) throws -> PackageIdentity {
+        if PackageIdentity.plain(location).scopeAndName != nil {
+            return PackageIdentity.plain(location)
+        } else if let path = try? AbsolutePath(validating: location)  {
+            return PackageIdentity(path: path)
+        } else if let url = URL(string: location) {
+            return PackageIdentity(url: url)
+        } else {
+            throw StringError("invalid location \(location), cannot extract identity")
         }
     }
 }
