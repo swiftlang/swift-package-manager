@@ -19,13 +19,19 @@ public protocol IdentityResolver {
     func resolveIdentity(for url: URL) throws -> PackageIdentity
     func resolveIdentity(for path: AbsolutePath) throws -> PackageIdentity
     func mappedLocation(for location: String) -> String
+    func mappedIdentity(for identity: PackageIdentity) throws -> PackageIdentity
 }
 
 public struct DefaultIdentityResolver: IdentityResolver {
     let locationMapper: (String) -> String
+    let identityMapper: (PackageIdentity) throws -> PackageIdentity
 
-    public init(locationMapper: @escaping (String) -> String = { $0 }) {
+    public init(
+        locationMapper: @escaping (String) -> String = { $0 },
+        identityMapper: @escaping (PackageIdentity) throws -> PackageIdentity = { $0 }
+    ) {
         self.locationMapper = locationMapper
+        self.identityMapper = identityMapper
     }
 
     public func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity {
@@ -66,6 +72,10 @@ public struct DefaultIdentityResolver: IdentityResolver {
     }
 
     public func mappedLocation(for location: String) -> String {
-        return self.locationMapper(location)
+        self.locationMapper(location)
+    }
+
+    public func mappedIdentity(for identity: PackageIdentity) throws -> PackageIdentity {
+        try self.identityMapper(identity)
     }
 }

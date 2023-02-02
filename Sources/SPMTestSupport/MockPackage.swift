@@ -94,7 +94,7 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public static func genericPackage1(named name: String) throws -> MockPackage {
+    public static func genericPackage(named name: String) throws -> MockPackage {
         return MockPackage(
             name: name,
             targets: [
