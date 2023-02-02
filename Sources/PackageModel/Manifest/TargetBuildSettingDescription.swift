@@ -28,16 +28,17 @@ public enum TargetBuildSettingDescription {
         case linkedLibrary(String)
         case linkedFramework(String)
 
+        case enableUpcomingFeature(String)
+        case enableExperimentalFeature(String)
+
         case unsafeFlags([String])
-        case upcomingFeatures([String])
-        case experimentalFeatures([String])
 
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .upcomingFeatures, .experimentalFeatures:
+            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .enableUpcomingFeature, .enableExperimentalFeature:
                 return false
             }
         }

@@ -319,7 +319,7 @@ public struct SwiftSetting: Encodable {
         _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "upcomingFeatures", value: [name], condition: condition)
+            name: "enableUpcomingFeature", value: [name], condition: condition)
     }
 
     /// Enable an experimental feature with the given name.
@@ -343,7 +343,7 @@ public struct SwiftSetting: Encodable {
         _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "experimentalFeatures", value: [name], condition: condition)
+            name: "enableExperimentalFeature", value: [name], condition: condition)
     }
 }
 
