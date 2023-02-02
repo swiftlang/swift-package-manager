@@ -88,18 +88,18 @@ extension SwiftPackageRegistryTool {
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
-                throw ConfigurationError.unknownRegistry
+                throw ValidationError.unknownRegistry
             }
 
             try registryURL.validateRegistryURL()
 
             guard let host = registryURL.host?.lowercased() else {
-                throw ConfigurationError.invalidURL(registryURL)
+                throw ValidationError.invalidURL(registryURL)
             }
 
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
-                throw StringError("No credential store available")
+                throw ValidationError.unknownCredentialStore
             }
 
             let authenticationType: RegistryConfiguration.AuthenticationType
@@ -169,7 +169,7 @@ extension SwiftPackageRegistryTool {
 
             // Login URL must be HTTPS
             guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
-                throw ConfigurationError.invalidURL(registryURL)
+                throw ValidationError.invalidURL(registryURL)
             }
 
             // Build a RegistryConfiguration with the given authentication settings
@@ -271,18 +271,18 @@ extension SwiftPackageRegistryTool {
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
-                throw ConfigurationError.unknownRegistry
+                throw ValidationError.unknownRegistry
             }
 
             try registryURL.validateRegistryURL()
 
             guard let host = registryURL.host?.lowercased() else {
-                throw ConfigurationError.invalidURL(registryURL)
+                throw ValidationError.invalidURL(registryURL)
             }
 
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
-                throw StringError("No credential store available")
+                throw ValidationError.unknownCredentialStore
             }
 
             let authorizationWriter = authorizationProvider as? AuthorizationWriter

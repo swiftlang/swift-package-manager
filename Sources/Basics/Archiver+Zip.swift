@@ -27,9 +27,10 @@ public struct ZipArchiver: Archiver, Cancellable {
     ///
     /// - Parameters:
     ///   - fileSystem: The file-system to used by the `ZipArchiver`.
-    public init(fileSystem: FileSystem) {
+    ///   - cancellator: Cancellation handler
+    public init(fileSystem: FileSystem, cancellator: Cancellator? = .none) {
         self.fileSystem = fileSystem
-        self.cancellator = Cancellator(observabilityScope: .none)
+        self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
     }
 
     public func extract(
@@ -51,6 +52,48 @@ public struct ZipArchiver: Archiver, Cancellable {
 #else
             let process = TSCBasic.Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
 #endif
+            guard let registrationKey = self.cancellator.register(process) else {
+                throw StringError("cancellation")
+            }
+
+            DispatchQueue.sharedConcurrent.async {
+                defer { self.cancellator.deregister(registrationKey) }
+                completion(.init(catching: {
+                    try process.launch()
+                    let processResult = try process.waitUntilExit()
+                    guard processResult.exitStatus == .terminated(code: 0) else {
+                        throw try StringError(processResult.utf8stderrOutput())
+                    }
+                }))
+            }
+        } catch {
+            return completion(.failure(error))
+        }
+    }
+
+    public func compress(
+        directory: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        do {
+            guard self.fileSystem.isDirectory(directory) else {
+                throw FileSystemError(.notDirectory, directory)
+            }
+
+#if os(Windows)
+            let process = TSCBasic.Process(
+                // FIXME: are these the right arguments?
+                arguments: ["tar.exe", "-a", "-c", "-f", destinationPath.pathString, directory.basename],
+                workingDirectory: directory.parentDirectory
+            )
+#else
+            let process = TSCBasic.Process(
+                arguments: ["zip", "-r", destinationPath.pathString, directory.basename],
+                workingDirectory: directory.parentDirectory
+            )
+#endif
+
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")
             }

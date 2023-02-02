@@ -128,9 +128,13 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
     enum ConfigurationError: Swift.Error {
         case missingScope(PackageIdentity.Scope? = nil)
+    }
+
+    enum ValidationError: Swift.Error {
         case invalidURL(URL)
         case invalidPackageIdentity(PackageIdentity)
         case unknownRegistry
+        case unknownCredentialStore
     }
 
     static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
@@ -146,7 +150,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 extension URL {
     func validateRegistryURL() throws {
         guard self.scheme == "https" else {
-            throw SwiftPackageRegistryTool.ConfigurationError.invalidURL(self)
+            throw SwiftPackageRegistryTool.ValidationError.invalidURL(self)
         }
     }
 }
@@ -158,12 +162,21 @@ extension SwiftPackageRegistryTool.ConfigurationError: CustomStringConvertible {
             return "no existing entry for scope: \(scope)"
         case .missingScope:
             return "no existing entry for default scope"
+        }
+    }
+}
+
+extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
+    var description: String {
+        switch self {
         case .invalidURL(let url):
             return "invalid URL: \(url)"
         case .invalidPackageIdentity(let identity):
             return "invalid package identity: \(identity)"
         case .unknownRegistry:
             return "unknown registry, is one configured?"
+        case .unknownCredentialStore:
+            return "No credential store available"
         }
     }
 }
