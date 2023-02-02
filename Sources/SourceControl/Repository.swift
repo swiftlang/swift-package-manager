@@ -15,7 +15,7 @@ import TSCBasic
 import Basics
 
 /// Specifies a repository address.
-public struct RepositorySpecifier: Hashable {
+public struct RepositorySpecifier: Hashable, Sendable {
     public let location: Location
 
     public init(location: Location) {
@@ -49,7 +49,7 @@ public struct RepositorySpecifier: Hashable {
         return basename
     }
 
-    public enum Location: Hashable, CustomStringConvertible {
+    public enum Location: Hashable, CustomStringConvertible, Sendable {
         case path(AbsolutePath)
         case url(URL)
 
@@ -299,3 +299,7 @@ public protocol FetchProgress {
     /// The current download speed including the unit
     var downloadSpeed: String? { get }
 }
+
+#if swift(<5.7)
+extension URL: UnsafeSendable {}
+#endif
