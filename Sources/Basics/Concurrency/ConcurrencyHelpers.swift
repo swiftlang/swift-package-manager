@@ -47,7 +47,7 @@ extension DispatchQueue {
 }
 
 #if swift(<5.7)
-public extension URL: UnsafeSendable {}
+extension URL: UnsafeSendable {}
 #elseif !canImport(Darwin)
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
 extension URL: @unchecked Sendable {}
