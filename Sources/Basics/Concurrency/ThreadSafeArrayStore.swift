@@ -82,3 +82,5 @@ public final class ThreadSafeArrayStore<Value> {
         }
     }
 }
+
+extension ThreadSafeArrayStore: @unchecked Sendable where Value: Sendable {}
