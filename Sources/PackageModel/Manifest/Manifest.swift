@@ -16,7 +16,7 @@ import Foundation
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
-public final class Manifest {
+public final class Manifest: Sendable {
 
     /// The standard filename for the manifest.
     public static let filename = basename + ".swift"
@@ -94,10 +94,10 @@ public final class Manifest {
     public let providers: [SystemPackageProviderDescription]?
 
     /// Targets required for building particular product filters.
-    private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
+    private let _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
     /// Dependencies required for building particular product filters.
-    private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
+    private let _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
 
     public init(
         displayName: String,
