@@ -14,7 +14,7 @@ import PackageModel
 import Basics
 
 // This is a helper class that tracks module aliases in a package dependency graph
-// and handles overriding upstream aliases where alises themselves conflict
+// and handles overriding upstream aliases where aliases themselves conflict.
 class ModuleAliasTracker {
     var aliasMap = [String: [ModuleAliasModel]]()
     var idToAliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
