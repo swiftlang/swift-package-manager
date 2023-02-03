@@ -49,7 +49,7 @@ extension Toolset {
     /// - Parameters:
     ///   - path: absolute path on the `fileSystem`.
     ///   - fileSystem: file system from which the toolset should be read.
-    ///   - observability: an instance of `ObservabilityScope` to log warnings about unknown tools.
+    ///   - observability: an instance of `ObservabilityScope` to log warnings about unknown or invalid tools.
     public init(from toolsetPath: AbsolutePath, at fileSystem: FileSystem, _ observability: ObservabilityScope) throws {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(path: toolsetPath, fileSystem: fileSystem, as: DecodedToolset.self)
@@ -180,6 +180,9 @@ extension DecodedToolset: Decodable {
     }
 }
 
+/// Custom `CodingKey` implementation for `DecodedToolset`, which allows us to resiliently decode unknown tools and emit
+/// multiple diagnostic messages about them separately from the decoding process, instead of emitting a single error
+/// that will disrupt whole decoding at once.
 extension DecodedToolset.CodingKeys: CodingKey {
     var stringValue: String {
         switch self {
