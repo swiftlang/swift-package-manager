@@ -569,7 +569,11 @@ public class Workspace {
             sharedMirrorsFile: location.sharedMirrorsConfigurationFile
         ).mirrors
 
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(
+            locationMapper: mirrors.effectiveURL(for:),
+            identityMapper: mirrors.effectiveIdentity(for:)
+        )
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()

@@ -63,7 +63,10 @@ public final class MockWorkspace {
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
         self.mirrors = customMirrors ?? DependencyMirrors()
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
+        self.identityResolver = DefaultIdentityResolver(
+            locationMapper: self.mirrors.effectiveURL(for:),
+            identityMapper: self.mirrors.effectiveIdentity(for:)
+        )
         self.manifestLoader = MockManifestLoader(manifests: [:])
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryProvider = InMemoryGitRepositoryProvider()
@@ -208,7 +211,7 @@ public final class MockWorkspace {
                     toolsVersion: packageToolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
-                    targets: try package.targets.map { try $0.convert() }
+                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) }
                 )
             }
 

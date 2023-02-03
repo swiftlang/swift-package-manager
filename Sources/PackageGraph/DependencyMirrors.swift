@@ -12,6 +12,7 @@
 
 import Foundation
 import OrderedCollections
+import PackageModel
 import TSCBasic
 
 /// A collection of dependency mirrors.
@@ -146,6 +147,27 @@ public final class DependencyMirrors: Equatable {
                 }
             })
             return sorted?.first
+        }
+    }
+
+    public func effectiveIdentity(for identity: PackageIdentity) throws -> PackageIdentity {
+        // TODO: cache
+        let mirrorIndex = try self.mapping.reduce(into: [PackageIdentity: PackageIdentity](), { partial, item in
+            try partial[parseLocation(item.key)] = parseLocation(item.value)
+        })
+
+        return mirrorIndex[identity] ?? identity
+    }
+
+    private func parseLocation(_ location: String) throws -> PackageIdentity {
+        if PackageIdentity.plain(location).scopeAndName != nil {
+            return PackageIdentity.plain(location)
+        } else if let path = try? AbsolutePath(validating: location)  {
+            return PackageIdentity(path: path)
+        } else if let url = URL(string: location) {
+            return PackageIdentity(url: url)
+        } else {
+            throw StringError("invalid location \(location), cannot extract identity")
         }
     }
 }
