@@ -15,8 +15,8 @@ import Basics
 import SPMTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.InMemoryFileSystem
 
 private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
     ($0, try! AbsolutePath(validating: "/usr/bin/\($0.rawValue)"))
@@ -166,7 +166,10 @@ final class ToolsetTests: XCTestCase {
         )
         XCTAssertEqual(
             otherToolsToolset.knownTools[.cCompiler],
-            Toolset.ToolProperties(path: usrBinTools[.cCompiler]!, extraCLIOptions: cCompilerOptions + newCCompilerOptions)
+            Toolset.ToolProperties(
+                path: usrBinTools[.cCompiler]!,
+                extraCLIOptions: cCompilerOptions + newCCompilerOptions
+            )
         )
         XCTAssertEqual(
             otherToolsToolset.knownTools[.cxxCompiler],
@@ -184,6 +187,5 @@ final class ToolsetTests: XCTestCase {
             otherToolsToolset.knownTools[.debugger],
             Toolset.ToolProperties(path: usrBinTools[.debugger]!)
         )
-
     }
 }

@@ -84,8 +84,7 @@ extension Toolset {
                     """
                     Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \
                     `extraCLIOptions` properties specified with valid values, skipping it.
-                    """
-                )
+                    """)
                 continue
             }
 

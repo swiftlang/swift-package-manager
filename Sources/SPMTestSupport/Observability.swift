@@ -12,8 +12,8 @@
 
 import Basics
 import struct TSCBasic.StringError
-import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual
+import func XCTest.XCTFail
 
 extension ObservabilitySystem {
     public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
@@ -23,7 +23,7 @@ extension ObservabilitySystem {
     }
 
     public static var NOOP: ObservabilityScope {
-        ObservabilitySystem({ _, _ in }).topScope
+        ObservabilitySystem { _, _ in }.topScope
     }
 }
 
@@ -57,7 +57,7 @@ public struct TestingObservability {
     }
 
     final class Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
-        var diagnosticsHandler: DiagnosticsHandler { return self }
+        var diagnosticsHandler: DiagnosticsHandler { self }
 
         let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
         private let verbose: Bool
@@ -76,11 +76,11 @@ public struct TestingObservability {
         }
 
         var hasErrors: Bool {
-            return self.diagnostics.get().hasErrors
+            self.diagnostics.get().hasErrors
         }
 
         var hasWarnings: Bool {
-            return self.diagnostics.get().hasWarnings
+            self.diagnostics.get().hasWarnings
         }
 
         var description: String {
@@ -90,10 +90,15 @@ public struct TestingObservability {
     }
 }
 
-public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], problemsOnly: Bool = true, file: StaticString = #file, line: UInt = #line) {
-    let diagnostics = problemsOnly ? diagnostics.filter({ $0.severity >= .warning }) : diagnostics
+public func XCTAssertNoDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    problemsOnly: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    let diagnostics = problemsOnly ? diagnostics.filter { $0.severity >= .warning } : diagnostics
     if diagnostics.isEmpty { return }
-    let description = diagnostics.map({ "- " + $0.description }).joined(separator: "\n")
+    let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
 
@@ -104,7 +109,13 @@ public func testDiagnostics(
     line: UInt = #line,
     handler: (DiagnosticsTestResult) throws -> Void
 ) {
-    testDiagnostics(diagnostics, minSeverity: problemsOnly ? .warning : .debug, file: file, line: line, handler: handler)
+    testDiagnostics(
+        diagnostics,
+        minSeverity: problemsOnly ? .warning : .debug,
+        file: file,
+        line: line,
+        handler: handler
+    )
 }
 
 public func testDiagnostics(
@@ -114,7 +125,7 @@ public func testDiagnostics(
     line: UInt = #line,
     handler: (DiagnosticsTestResult) throws -> Void
 ) {
-    let diagnostics = diagnostics.filter{ $0.severity >= minSeverity }
+    let diagnostics = diagnostics.filter { $0.severity >= minSeverity }
     let testResult = DiagnosticsTestResult(diagnostics)
 
     do {
@@ -173,7 +184,8 @@ public class DiagnosticsTestResult {
             return nil
         }
 
-        let matching = self.uncheckedDiagnostics.indices.filter { diagnosticPattern ~= self.uncheckedDiagnostics[$0].message }
+        let matching = self.uncheckedDiagnostics.indices
+            .filter { diagnosticPattern ~= self.uncheckedDiagnostics[$0].message }
         if matching.isEmpty {
             XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
             return nil
