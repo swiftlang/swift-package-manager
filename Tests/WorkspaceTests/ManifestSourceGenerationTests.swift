@@ -505,4 +505,26 @@ class ManifestSourceGenerationTests: XCTestCase {
 
         try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_8)
     }
+
+    func testUpcomingAndExperimentalFeatures() throws {
+        let manifestContents = """
+            // swift-tools-version:5.8
+            import PackageDescription
+
+            let package = Package(
+                name: "UpcomingAndExperimentalFeatures",
+                targets: [
+                    .target(
+                        name: "MyTool",
+                        swiftSettings: [
+                            .enableUpcomingFeature("UpcomingFeatureOne"),
+                            .enableUpcomingFeature("UpcomingFeatureTwo"),
+                            .enableExperimentalFeature("ExperimentalFeature")
+                        ]
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
+    }
 }
