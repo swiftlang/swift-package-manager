@@ -125,7 +125,7 @@ extension SwiftPackageTool {
             else if matchingPlugins.count > 1 {
                 throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
             }
-            
+
             // At this point we know we found exactly one command plugin, so we run it.
             try PluginCommand.run(
                 plugin: matchingPlugins[0],

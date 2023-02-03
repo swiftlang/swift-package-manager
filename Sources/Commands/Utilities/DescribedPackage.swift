@@ -186,14 +186,38 @@ struct DescribedPackage: Encodable {
         }
 
         struct Permission: Encodable {
+            enum NetworkScope: Encodable {
+                case none
+                case local(ports: [UInt8])
+                case all(ports: [UInt8])
+                case docker
+                case unixDomainSocket
+
+                init(_ scope: PluginNetworkPermissionScope) {
+                    switch scope {
+                    case .none: self = .none
+                    case .local(let ports): self = .local(ports: ports)
+                    case .all(let ports): self = .all(ports: ports)
+                    case .docker: self = .docker
+                    case .unixDomainSocket: self = .unixDomainSocket
+                    }
+                }
+            }
+
             let type: String
             let reason: String
+            let networkScope: NetworkScope
             
             init(from permission: PackageModel.PluginPermission) {
                 switch permission {
                 case .writeToPackageDirectory(let reason):
                     self.type = "writeToPackageDirectory"
                     self.reason = reason
+                    self.networkScope = .none
+                case .allowNetworkConnections(let scope, let reason):
+                    self.type = "allowNetworkConnections"
+                    self.reason = reason
+                    self.networkScope = .init(scope)
                 }
             }
         }

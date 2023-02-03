@@ -1852,6 +1852,109 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .target(name: "MyLibrary"),
+                            .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(permissionsManifestFragment))),
+                        ]
+                    )
+                    """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                    """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(context: PluginContext, arguments: [String]) throws {
+                            print("hello world")
+                        }
+                    }
+                    """
+            }
+
+            #if os(macOS)
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "Network"], packagePath: packageDir)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertNoMatch(try result.utf8Output(), .contains("hello world"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ wants permission to allow \(permissionError)."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Stated reason: “\(reason)”."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Use `\(remedy.joined(separator: " "))` to allow this."))
+            }
+            #endif
+
+            // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin"] + remedy + ["Network"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("hello world"))
+            }
+        }
+    }
+
+    func testCommandPluginNetworkingPermissions() throws {
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(), reason: \"internet good\")]",
+            permissionError: "all network connections on all ports",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 23, 42",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: 1..<4), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 1, 2, 3",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(), reason: \"localhost good\")]",
+            permissionError: "local network connections on all ports",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42]), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 23, 42",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: 1..<4), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 1, 2, 3",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .docker, reason: \"docker good\")]",
+            permissionError: "docker unix domain socket connections",
+            reason: "docker good",
+            remedy: ["--allow-network-connections", "docker"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .unixDomainSocket, reason: \"unix sockets good\")]",
+            permissionError: "unix domain socket connections",
+            reason: "unix sockets good",
+            remedy: ["--allow-network-connections", "unixDomainSocket"])
+    }
+
     func testCommandPluginPermissions() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")

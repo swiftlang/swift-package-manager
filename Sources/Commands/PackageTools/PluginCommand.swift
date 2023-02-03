@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import Dispatch
 import PackageGraph
@@ -38,6 +39,17 @@ struct PluginCommand: SwiftCommand {
         @Option(name: .customLong("allow-writing-to-directory"),
                 help: "Allow the plugin to write to an additional directory")
         var additionalAllowedWritableDirectories: [String] = []
+
+        enum NetworkPermission: String, EnumerableFlag, ExpressibleByArgument {
+            case none
+            case local
+            case all
+            case docker
+            case unixDomainSocket
+        }
+
+        @Option(name: .customLong("allow-network-connections"))
+        var allowNetworkConnections: NetworkPermission = .none
     }
 
     @OptionGroup()
@@ -116,38 +128,73 @@ struct PluginCommand: SwiftCommand {
         // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
         let outputDir = pluginsDir.appending(component: "outputs")
 
+        var allowNetworkConnections = [SandboxNetworkPermission.init(options.allowNetworkConnections)]
         // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
         var writableDirectories = [outputDir]
         if options.allowWritingToPackageDirectory {
             writableDirectories.append(package.path)
         }
-        else {
-            // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
-            if case .command(_, let permissions) = plugin.capability {
-                for case PluginPermission.writeToPackageDirectory(let reason) in permissions {
-                    let problem = "Plugin ‘\(plugin.name)’ wants permission to write to the package directory."
-                    let reason = "Stated reason: “\(reason)”."
-                    if swiftTool.outputStream.isTTY {
-                        // We can ask the user directly, so we do so.
-                        let query = "Allow this plugin to write to the package directory?"
-                        swiftTool.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
-                        swiftTool.outputStream.flush()
-                        let answer = readLine(strippingNewline: true)
-                        // Throw an error if we didn't get permission.
-                        if answer?.lowercased() != "yes" {
-                            throw ValidationError("Plugin was denied permission to write to the package directory.")
-                        }
-                        // Otherwise append the directory to the list of allowed ones.
-                        writableDirectories.append(package.path)
+
+        // If the plugin requires permissions, we ask the user for approval.
+        if case .command(_, let permissions) = plugin.capability {
+            try permissions.forEach {
+                let permissionString: String
+                let reasonString: String
+                let remedyOption: String
+
+                switch $0 {
+                case .writeToPackageDirectory(let reason):
+                    guard !options.allowWritingToPackageDirectory else { return } // permission already granted
+                    permissionString = "write to the package directory"
+                    reasonString = reason
+                    remedyOption = "--allow-writing-to-package-directory"
+                case .allowNetworkConnections(let scope, let reason):
+                    guard scope != .none else { return } // no need to prompt
+                    guard options.allowNetworkConnections != .init(scope) else { return } // permission already granted
+
+                    switch scope {
+                    case .all, .local:
+                        let portsString = scope.ports.isEmpty ? "on all ports" : "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
+                        permissionString = "allow \(scope.label) network connections \(portsString)"
+                    case .docker, .unixDomainSocket:
+                        permissionString = "allow \(scope.label) connections"
+                    case .none:
+                        permissionString = "" // should not be reached
                     }
-                    else {
-                        // We can't ask the user, so emit an error suggesting passing the flag.
-                        let remedy = "Use `--allow-writing-to-package-directory` to allow this."
-                        throw ValidationError([problem, reason, remedy].joined(separator: "\n"))
+
+                    reasonString = reason
+                    remedyOption = "--allow-network-connections \(PluginCommand.PluginOptions.NetworkPermission.init(scope).defaultValueDescription)"
+                }
+
+                let problem = "Plugin ‘\(plugin.name)’ wants permission to \(permissionString)."
+                let reason = "Stated reason: “\(reasonString)”."
+                if swiftTool.outputStream.isTTY {
+                    // We can ask the user directly, so we do so.
+                    let query = "Allow this plugin to \(permissionString)?"
+                    swiftTool.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
+                    swiftTool.outputStream.flush()
+                    let answer = readLine(strippingNewline: true)
+                    // Throw an error if we didn't get permission.
+                    if answer?.lowercased() != "yes" {
+                        throw StringError("Plugin was denied permission to \(permissionString).")
                     }
+                } else {
+                    // We can't ask the user, so emit an error suggesting passing the flag.
+                    let remedy = "Use `\(remedyOption)` to allow this."
+                    throw StringError([problem, reason, remedy].joined(separator: "\n"))
+                }
+
+                switch $0 {
+                case .writeToPackageDirectory:
+                    // Otherwise append the directory to the list of allowed ones.
+                    writableDirectories.append(package.path)
+                case .allowNetworkConnections(let scope, _):
+                    allowNetworkConnections.append(.init(scope))
+                    break
                 }
             }
         }
+
         for pathString in options.additionalAllowedWritableDirectories {
             writableDirectories.append(try AbsolutePath(validating: pathString, relativeTo: swiftTool.originalWorkingDirectory))
         }
@@ -187,6 +234,7 @@ struct PluginCommand: SwiftCommand {
             accessibleTools: accessibleTools,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections,
             pkgConfigDirectories: swiftTool.options.locations.pkgConfigDirectories,
             fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope,
@@ -220,6 +268,42 @@ extension PluginCommandIntent {
             return "format-source-code"
         case .custom(let verb, _):
             return verb
+        }
+    }
+}
+
+extension SandboxNetworkPermission {
+    init(_ scope: PluginNetworkPermissionScope) {
+        switch scope {
+        case .none: self = .none
+        case .local(let ports): self = .local(ports: ports)
+        case .all(let ports): self = .all(ports: ports)
+        case .docker: self = .docker
+        case .unixDomainSocket: self = .unixDomainSocket
+        }
+    }
+}
+
+extension PluginCommand.PluginOptions.NetworkPermission {
+    fileprivate init(_ scope: PluginNetworkPermissionScope) {
+        switch scope {
+        case .unixDomainSocket: self = .unixDomainSocket
+        case .docker: self = .docker
+        case .none: self = .none
+        case .all: self = .all
+        case .local: self = .local
+        }
+    }
+}
+
+extension SandboxNetworkPermission {
+    init(_ permission: PluginCommand.PluginOptions.NetworkPermission) {
+        switch permission {
+        case .none: self = .none
+        case .local: self = .local(ports: [])
+        case .all: self = .all(ports: [])
+        case .docker: self = .docker
+        case .unixDomainSocket: self = .unixDomainSocket
         }
     }
 }

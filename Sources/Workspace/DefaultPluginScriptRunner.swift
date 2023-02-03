@@ -49,6 +49,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -74,6 +75,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                             workingDirectory: workingDirectory,
                             writableDirectories: writableDirectories,
                             readOnlyDirectories: readOnlyDirectories,
+                            allowNetworkConnections: allowNetworkConnections,
                             initialMessage: initialMessage,
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue,
@@ -405,6 +407,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
         initialMessage: Data,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -422,7 +425,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
             do {
-                command = try Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+                command = try Sandbox.apply(
+                    command: command,
+                    strictness: .writableTemporaryDirectory,
+                    writableDirectories: writableDirectories + [self.cacheDir],
+                    readOnlyDirectories: readOnlyDirectories,
+                    allowNetworkConnections: allowNetworkConnections
+                )
             } catch {
                 return callbackQueue.async {
                     completion(.failure(error))

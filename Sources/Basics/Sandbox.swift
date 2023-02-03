@@ -13,6 +13,30 @@
 import Foundation
 import TSCBasic
 
+public enum SandboxNetworkPermission: Equatable {
+    case none
+    case local(ports: [UInt8])
+    case all(ports: [UInt8])
+    case docker
+    case unixDomainSocket
+
+    fileprivate var domain: String? {
+        switch self {
+        case .none, .docker, .unixDomainSocket: return nil
+        case .local: return "local"
+        case .all: return "*"
+        }
+    }
+
+    fileprivate var ports: [UInt8] {
+        switch self {
+        case .all(let ports): return ports
+        case .local(let ports): return ports
+        case .none, .docker, .unixDomainSocket: return []
+        }
+    }
+}
+
 public enum Sandbox {
     /// Applies a sandbox invocation to the given command line (if the platform supports it),
     /// and returns the modified command line. On platforms that don't support sandboxing, the
@@ -27,10 +51,11 @@ public enum Sandbox {
         command: [String],
         strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],
-        readOnlyDirectories: [AbsolutePath] = []
+        readOnlyDirectories: [AbsolutePath] = [],
+        allowNetworkConnections: [SandboxNetworkPermission] = []
     ) throws -> [String] {
         #if os(macOS)
-        let profile = try macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories)
+        let profile = try macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories, allowNetworkConnections: allowNetworkConnections)
         return ["/usr/bin/sandbox-exec", "-p", profile] + command
         #else
         // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
@@ -78,7 +103,8 @@ fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
 fileprivate func macOSSandboxProfile(
     strictness: Sandbox.Strictness,
     writableDirectories: [AbsolutePath],
-    readOnlyDirectories: [AbsolutePath]
+    readOnlyDirectories: [AbsolutePath],
+    allowNetworkConnections: [SandboxNetworkPermission]
 ) throws -> String {
     var contents = "(version 1)\n"
 
@@ -94,6 +120,44 @@ fileprivate func macOSSandboxProfile(
 
     // This is needed to launch any processes.
     contents += "(allow process*)\n"
+
+    if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
+        // this is used by the system for caching purposes and will lead to log spew if not allowed
+        contents += "(allow file-write* (regex \"/Users/*/Library/Caches/*/Cache.db*\"))"
+
+        // this allows the specific network connections, as well as resolving DNS
+        contents += """
+        (system-network)
+        (allow network-outbound
+            (literal "/private/var/run/mDNSResponder")
+        """
+
+        allowNetworkConnections.forEach {
+            if let domain = $0.domain {
+                $0.ports.forEach { port in
+                    contents += "(remote ip \"\(domain):\(port)\")"
+                }
+
+                // empty list of ports means all are permitted
+                if $0.ports.isEmpty {
+                    contents += "(remote ip \"\(domain):*\")"
+                }
+            }
+
+            switch $0 {
+            case .docker:
+                // specifically allow Docker by basename of the socket
+                contents += "(remote unix-socket (regex \"*/docker.sock\"))"
+            case .unixDomainSocket:
+                // this allows unix domain sockets
+                contents += "(remote unix-socket)"
+            default:
+                break
+            }
+        }
+
+        contents += "\n)\n"
+    }
 
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
     if strictness == .manifest_pre_53 {

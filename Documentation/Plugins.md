@@ -67,7 +67,7 @@ To list the plugins that are available within the context of a package, use the 
 ❯ swift package plugin --list
 ```
 
-Command plugins that need to write to the file system will cause SwiftPM to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment.
+Command plugins that need to write to the file system will cause SwiftPM to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment. Similarly, the `--allow-network-connections` flag can be used to allow network connections without showing a prompt.
 
 ## Writing a Plugin
 
