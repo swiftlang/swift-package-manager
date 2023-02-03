@@ -421,7 +421,12 @@ public final class MixedTargetBuildDescription {
             // Adding the root of the target's source as a header search
             // path allows for importing headers using paths relative to
             // the root.
-            "-I", mixedTarget.path.pathString
+            "-I", mixedTarget.path.pathString,
+            // TODO(ncooke3): When there are no public headers, what happens?
+            // What is exposed outside of the module?
+            // TODO(ncooke3): Add comment about below line.
+            // TODO(ncooke3): Think hard about further edge cases.
+            "-I", mixedTarget.clangTarget.includeDir.pathString
         )
 
         self.clangTargetBuildDescription.additionalFlags += [
