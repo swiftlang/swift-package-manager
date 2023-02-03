@@ -40,6 +40,14 @@ public struct TestingObservability {
         self.collector.diagnostics.get()
     }
 
+    public var errors: [Basics.Diagnostic] {
+        self.diagnostics.filter { $0.severity == .error }
+    }
+
+    public var warnings: [Basics.Diagnostic] {
+        self.diagnostics.filter { $0.severity == .warning }
+    }
+
     public var hasErrorDiagnostics: Bool {
         self.collector.hasErrors
     }

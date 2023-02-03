@@ -42,6 +42,7 @@ add_library(PackageModel
   Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift
+  Toolset.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift
   UserToolchain.swift

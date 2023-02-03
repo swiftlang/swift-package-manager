@@ -1,0 +1,189 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
+import Basics
+@testable import PackageModel
+import SPMTestSupport
+import XCTest
+
+import class TSCBasic.InMemoryFileSystem
+import struct TSCBasic.AbsolutePath
+
+private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
+    ($0, try! AbsolutePath(validating: "/usr/bin/\($0.rawValue)"))
+})
+
+private let cCompilerOptions = ["-fopenmp"]
+private let newCCompilerOptions = ["-pedantic"]
+private let cxxCompilerOptions = ["-nostdinc++"]
+
+private let compilersNoRoot = (
+    path: try! AbsolutePath(validating: "/tools/compilersNoRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "swiftCompiler": { "path": "\#(usrBinTools[.swiftCompiler]!)" },
+        "cCompiler": { "path": "\#(usrBinTools[.cCompiler]!)", "extraCLIOptions": \#(cCompilerOptions) },
+        "cxxCompiler": { "path": "\#(usrBinTools[.cxxCompiler]!)", "extraCLIOptions": \#(cxxCompilerOptions) },
+    }
+    """#
+)
+
+private let noValidToolsNoRoot = (
+    path: try! AbsolutePath(validating: "/tools/noValidToolsNoRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "cCompiler": {}
+    }
+    """#
+)
+
+private let unknownToolsNoRoot = (
+    path: try! AbsolutePath(validating: "/tools/unknownToolsNoRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "foo": {},
+        "bar": {}
+    }
+    """#
+)
+
+private let otherToolsNoRoot = (
+    path: try! AbsolutePath(validating: "/tools/otherToolsNoRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "librarian": { "path": "\#(usrBinTools[.librarian]!)" },
+        "linker": { "path": "\#(usrBinTools[.linker]!)" },
+        "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
+    }
+    """#
+)
+
+private let someToolsWithRoot = (
+    path: try! AbsolutePath(validating: "/tools/someToolsWithRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "rootPath": "/custom",
+        "cCompiler": { "extraCLIOptions": \#(newCCompilerOptions) },
+        "linker": { "path": "ld" },
+        "librarian": { "path": "llvm-ar" },
+        "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
+    }
+    """#
+)
+
+final class ToolsetTests: XCTestCase {
+    func testToolset() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.createDirectory(.init(validating: "/tools"))
+        for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot] {
+            try fileSystem.writeFileContents(testFile.path, data: .init(testFile.json.utf8))
+        }
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let compilersToolset = try Toolset(from: compilersNoRoot.path, at: fileSystem, observability.topScope)
+
+        XCTAssertEqual(
+            compilersToolset.knownTools[.swiftCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.swiftCompiler]!)
+        )
+        XCTAssertEqual(
+            compilersToolset.knownTools[.cCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cCompiler]!, extraCLIOptions: cCompilerOptions)
+        )
+        XCTAssertEqual(
+            compilersToolset.knownTools[.cxxCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cxxCompiler]!, extraCLIOptions: cxxCompilerOptions)
+        )
+
+        let noValidToolsToolset = try Toolset(from: noValidToolsNoRoot.path, at: fileSystem, observability.topScope)
+
+        XCTAssertTrue(noValidToolsToolset.knownTools.isEmpty)
+        XCTAssertEqual(observability.warnings.count, 1)
+
+        let unknownToolsToolset = try Toolset(from: unknownToolsNoRoot.path, at: fileSystem, observability.topScope)
+
+        XCTAssertTrue(unknownToolsToolset.knownTools.isEmpty)
+        // +2 warnings for each unknown tool
+        XCTAssertEqual(observability.warnings.count, 3)
+
+        var otherToolsToolset = try Toolset(from: otherToolsNoRoot.path, at: fileSystem, observability.topScope)
+
+        XCTAssertEqual(otherToolsToolset.knownTools.count, 3)
+        // no new warnings emitted
+        XCTAssertEqual(observability.warnings.count, 3)
+
+        otherToolsToolset.merge(with: compilersToolset)
+
+        XCTAssertEqual(
+            compilersToolset.knownTools[.swiftCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.swiftCompiler]!)
+        )
+        XCTAssertEqual(
+            compilersToolset.knownTools[.cCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cCompiler]!, extraCLIOptions: cCompilerOptions)
+        )
+        XCTAssertEqual(
+            compilersToolset.knownTools[.cxxCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cxxCompiler]!, extraCLIOptions: cxxCompilerOptions)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.librarian],
+            Toolset.ToolProperties(path: usrBinTools[.librarian]!)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.linker],
+            Toolset.ToolProperties(path: usrBinTools[.linker]!)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.debugger],
+            Toolset.ToolProperties(path: usrBinTools[.debugger]!)
+        )
+
+        let someToolsWithRoot = try Toolset(from: someToolsWithRoot.path, at: fileSystem, observability.topScope)
+
+        XCTAssertEqual(someToolsWithRoot.knownTools.count, 4)
+        // no new warnings emitted
+        XCTAssertEqual(observability.warnings.count, 3)
+
+        otherToolsToolset.merge(with: someToolsWithRoot)
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.swiftCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.swiftCompiler]!)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.cCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cCompiler]!, extraCLIOptions: cCompilerOptions + newCCompilerOptions)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.cxxCompiler],
+            Toolset.ToolProperties(path: usrBinTools[.cxxCompiler]!, extraCLIOptions: cxxCompilerOptions)
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.librarian],
+            Toolset.ToolProperties(path: try! AbsolutePath(validating: "/custom/llvm-ar"))
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.linker],
+            Toolset.ToolProperties(path: try! AbsolutePath(validating: "/custom/ld"))
+        )
+        XCTAssertEqual(
+            otherToolsToolset.knownTools[.debugger],
+            Toolset.ToolProperties(path: usrBinTools[.debugger]!)
+        )
+
+    }
+}
