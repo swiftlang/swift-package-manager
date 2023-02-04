@@ -149,7 +149,7 @@ import PackagePlugin
 struct MyPlugin: BuildToolPlugin {
     
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-        guard let target = target as? SourceModuleTarget else { return [] }
+        guard let target = target.sourceModule else { return [] }
         let inputFiles = target.sourceFiles.filter({ $0.path.extension == "dat" })
         return try inputFiles.map {
             let inputFile = $0
@@ -300,7 +300,7 @@ struct MyCommandPlugin: CommandPlugin {
         for target in targets {
             // Skip any type of target that doesn't have source files.
             // Note: We could choose to instead emit a warning or error here.
-            guard let target = target as? SourceModuleTarget else { continue }
+            guard let target = target.sourceModule else { continue }
 
             // Invoke `sometool` on the target directory, passing a configuration
             // file from the package directory.
