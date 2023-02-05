@@ -120,39 +120,44 @@ public final class UserToolchain: Toolchain {
 
     if useXcrun {
       #if os(Windows)
-      func getHostTriple(from destination: Destination, swiftCompilerPath: AbsolutePath?) -> Triple? {
-        if let triple = destination.hostTriple {
-          return triple
-        } else if let swiftCompilerPath = swiftCompilerPath {
-          return .getHostTriple(usingSwiftCompiler: swiftCompilerPath)
-        } else {
-          return nil
-        }
-      }
-      if let hostTriple = getHostTriple(from: destination, swiftCompilerPath: swiftCompilerPath) {
-        func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
-          switch triple.arch {
-          case .x86_64: return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
-          case .i686: return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
-          case .arm64, .arm64e, .aarch64: return("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
-          case .arm, .armv5, .armv6, .armv7: return("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
-          default: return nil
+        func getHostTriple(from destination: Destination, swiftCompilerPath: AbsolutePath?) -> Triple? {
+          if let triple = destination.hostTriple {
+            return triple
+          } else if let swiftCompilerPath = swiftCompilerPath {
+            return .getHostTriple(usingSwiftCompiler: swiftCompilerPath)
+          } else {
+            return nil
           }
         }
-        if let (_, vcHost, _) = vcArchNames(triple: hostTriple),
-           let (vcTools, _, vcTarget) = vcArchNames(triple: destination.targetTriple ?? hostTriple),
-           let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"] {
-          if let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
-            "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
-            "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"
-          ]).spm_chomp(),
-             let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt").spm_chomp(),
-             let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(vcHost)\\\(vcTarget)"),
-             let toolPath = try? getTool(name, binDir: vcToolsDir) {
-            return toolPath
+        if let hostTriple = getHostTriple(from: destination, swiftCompilerPath: swiftCompilerPath),
+           case let targetTriple = destination.targetTriple ?? hostTriple, targetTriple.isWindows() {
+          func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
+            switch triple.arch {
+            case .x86_64:
+              return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
+            case .i686:
+              return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
+            case .arm64, .arm64e, .aarch64:
+              return ("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
+            case .arm, .armv5, .armv6, .armv7:
+              return ("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
+            default: return nil
+            }
+          }
+          if let (_, vcHost, _) = vcArchNames(triple: hostTriple),
+             let (vcTools, _, vcTarget) = vcArchNames(triple: targetTriple),
+             let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"] {
+            if let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
+                 "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+                 "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"
+               ]).spm_chomp(),
+               let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt").spm_chomp(),
+               let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(vcHost)\\\(vcTarget)"),
+               let toolPath = try? getTool(name, binDir: vcToolsDir) {
+              return toolPath
+            }
           }
         }
-      }
       #endif
     }
 
