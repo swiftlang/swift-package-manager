@@ -100,7 +100,7 @@ public final class UserToolchain: Toolchain {
     return toolPath
   }
 
-  private static func findTool(_ name: String, envSearchPaths: [AbsolutePath], useXcrun: Bool)
+  private static func findTool(_ name: String, destination: Destination, envSearchPaths: [AbsolutePath], useXcrun: Bool)
     throws -> AbsolutePath
   {
     if useXcrun {
@@ -120,17 +120,27 @@ public final class UserToolchain: Toolchain {
 
     if useXcrun {
       #if os(Windows)
-        if let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
-           let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
-            "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
-            "-latest", "-products", "*",
-            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            "-property", "installationPath"
-           ]).spm_chomp(),
-           let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"),
-           let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\HostX64\\x64"),
-           let toolPath = try? getTool(name, binDir: vcToolsDir) {
-          return toolPath
+        func vcArchNames(triple: Triple?) -> (product: String, host: String, target: String)? {
+          switch triple?.arch {
+          case .x86_64: return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
+          case .i686: return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
+          case .arm64, .arm64e, .aarch64: return("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
+          case .arm, .armv5, .armv6, .armv7: return("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
+          default: return nil
+          }
+        }
+      if let (_, vcHost, _) = vcArchNames(triple: destination.hostTriple),
+         let (vcTools, _, vcTarget) = vcArchNames(triple: destination.targetTriple),
+         let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"] {
+          if let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
+              "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+              "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"
+             ]).spm_chomp(),
+             let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"),
+             let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(vcHost)\\\(vcTarget)"),
+             let toolPath = try? getTool(name, binDir: vcToolsDir) {
+            return toolPath
+          }
         }
       #endif
     }
@@ -141,7 +151,7 @@ public final class UserToolchain: Toolchain {
   // MARK: - public API
 
   public static func determineLibrarian(
-    triple: Triple, binDir: AbsolutePath,
+    triple: Triple, destination: Destination, binDir: AbsolutePath,
     useXcrun: Bool,
     environment: EnvironmentVariables,
     searchPaths: [AbsolutePath]
@@ -181,12 +191,12 @@ public final class UserToolchain: Toolchain {
     if let librarian = try? UserToolchain.getTool(tool, binDir: binDir) {
       return librarian
     }
-    return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+    return try UserToolchain.findTool(tool, destination: destination, envSearchPaths: searchPaths, useXcrun: useXcrun)
   }
 
   /// Determines the Swift compiler paths for compilation and manifest parsing.
   public static func determineSwiftCompilers(
-    binDir: AbsolutePath, useXcrun: Bool, environment: EnvironmentVariables,
+    binDir: AbsolutePath, destination: Destination, useXcrun: Bool, environment: EnvironmentVariables,
     searchPaths: [AbsolutePath]
   ) throws -> SwiftCompilers {
     func validateCompiler(at path: AbsolutePath?) throws {
@@ -219,7 +229,7 @@ public final class UserToolchain: Toolchain {
       // Try to lookup swift compiler on the system which is possible when
       // we're built outside of the Swift toolchain.
       resolvedBinDirCompiler = try UserToolchain.findTool(
-        "swiftc", envSearchPaths: searchPaths, useXcrun: useXcrun)
+        "swiftc", destination: destination, envSearchPaths: searchPaths, useXcrun: useXcrun)
     }
 
     // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -254,7 +264,7 @@ public final class UserToolchain: Toolchain {
 
     // Otherwise, lookup it up on the system.
     let toolPath = try UserToolchain.findTool(
-      "clang", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+      "clang", destination: destination, envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
     self._clangCompiler = toolPath
     return toolPath
   }
@@ -279,7 +289,7 @@ public final class UserToolchain: Toolchain {
     }
     // If that fails, fall back to xcrun, PATH, etc.
     return try UserToolchain.findTool(
-      "lldb", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+      "lldb", destination: destination, envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
   }
 
   /// Returns the path to llvm-cov tool.
@@ -448,7 +458,7 @@ public final class UserToolchain: Toolchain {
     let binDir = destination.toolchainBinDir
 
     let swiftCompilers = try UserToolchain.determineSwiftCompilers(
-      binDir: binDir, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
+      binDir: binDir, destination: destination, useXcrun: useXcrun, environment: environment, searchPaths: envSearchPaths)
     self.swiftCompilerPath = swiftCompilers.compile
     self.architectures = destination.architectures
 
@@ -457,7 +467,7 @@ public final class UserToolchain: Toolchain {
       destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
     self.librarianPath = try UserToolchain.determineLibrarian(
-      triple: triple, binDir: binDir, useXcrun: useXcrun, environment: environment,
+      triple: triple, destination: destination, binDir: binDir, useXcrun: useXcrun, environment: environment,
       searchPaths: envSearchPaths)
 
     // Change the triple to the specified arch if there's exactly one of them.
