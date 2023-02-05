@@ -56,7 +56,7 @@ public final class UserToolchain: Toolchain {
   /// Search paths from the PATH environment variable.
   let envSearchPaths: [AbsolutePath]
 
-  /// Only use search paths, do not fall back to `xcrun`.
+  /// Only use search paths, do not fall back to `xcrun` or `vswhere`.
   let useXcrun: Bool
 
   private var _clangCompiler: AbsolutePath?
@@ -117,6 +117,24 @@ public final class UserToolchain: Toolchain {
         return toolPath
       }
     }
+
+    if useXcrun {
+      #if os(Windows)
+        if let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
+           let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
+            "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+            "-latest", "-products", "*",
+            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-property", "installationPath"
+           ]).spm_chomp(),
+           let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"),
+           let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\HostX64\\x64"),
+           let toolPath = try? getTool(name, binDir: vcToolsDir) {
+          return toolPath
+        }
+      #endif
+    }
+
     throw InvalidToolchainDiagnostic("could not find \(name)")
   }
 
