@@ -8,19 +8,16 @@
 # Configure the placement of an extension's access control keyword.
 --extensionacl on-declarations
 
-# Wrap @attributes onto a separate line.
---funcattributes prev-line
-
 # #if indenting
 --ifdef no-indent
 
 # Wrap lines that exceed the specified maximum width.
 --maxwidth 120
 
-# Reposition let or var bindings within pattern.
+# Reposition `let` or `var` bindings within pattern.
 --patternlet inline
 
-# Insert explicit self where applicable.
+# Insert explicit `self` where applicable.
 --self insert
 
 # Mark unused function arguments with `_`.
@@ -30,6 +27,7 @@
 --trimwhitespace always
 
 # Wrap `@attributes` onto a separate line.
+--funcattributes prev-line
 --typeattributes prev-line
 --varattributes prev-line
 
@@ -41,5 +39,5 @@
 
 ## Rules
 
-# Prefer && over comma in if, guard or while conditions.
+# Prefer `&&` over `,` comma in `if`, `guard` or `while` conditions.
 --disable andOperator
