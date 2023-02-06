@@ -139,6 +139,7 @@ public final class UserToolchain: Toolchain {
   }
 
   private static func findToolInVisualStudio(_ name: String, triple: Triple?, hostTriple: Triple) -> AbsolutePath? {
+    // Returns MSVC names for the triple arch
     func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
       guard triple.isWindows() else { return nil }
       switch triple.arch {
@@ -153,6 +154,7 @@ public final class UserToolchain: Toolchain {
       default: return nil
       }
     }
+    // Try to locate the tool from MSVC toolset
     func getVCTool(_ name: String, vcToolsVersion: String? = nil, vcInstallDir: String, hostName: String, targetName: String) -> AbsolutePath? {
       guard let vcToolsVersion = vcToolsVersion ?? (try? String(contentsOfFile: "\(vcInstallDir)\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt").spm_chomp()),
             let vcToolsDir = try? AbsolutePath(validating: "\(vcInstallDir)\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(hostName)\\\(targetName)")
@@ -161,17 +163,17 @@ public final class UserToolchain: Toolchain {
       }
       return try? getTool(name, binDir: vcToolsDir)
     }
-    // Ignore unsupported triples
+    // Parse and ignore unsupported triples
     guard let (_, vcHost, _) = vcArchNames(triple: hostTriple),
           let (vcTools, _, vcTarget) = vcArchNames(triple: triple ?? hostTriple)
     else {
       return nil
     }
-    // First, look in %VCINSTALLDIR%
+    // First let's look in %VCINSTALLDIR% set by `vcvars*` script
     if let vcInstallDir = TSCBasic.ProcessEnv.vars["VCINSTALLDIR"] {
       return getVCTool(name, vcToolsVersion: TSCBasic.ProcessEnv.vars["VCToolsVersion"], vcInstallDir: vcInstallDir, hostName: vcHost, targetName: vcTarget)
     }
-    // If not in developer environment, try to locate with vswhere
+    // If not in developer environment, try to locate latest toolset with `vswhere`
     guard let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
           let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
             "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
