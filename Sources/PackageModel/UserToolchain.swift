@@ -130,38 +130,57 @@ public final class UserToolchain: Toolchain {
           }
         }
         if let hostTriple = getHostTriple(from: destination, swiftCompilerPath: swiftCompilerPath),
-           case let targetTriple = destination.targetTriple ?? hostTriple, targetTriple.isWindows() {
-          func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
-            switch triple.arch {
-            case .x86_64:
-              return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
-            case .i686:
-              return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
-            case .arm64, .arm64e, .aarch64:
-              return ("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
-            case .arm, .armv5, .armv6, .armv7:
-              return ("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
-            default: return nil
-            }
-          }
-          if let (_, vcHost, _) = vcArchNames(triple: hostTriple),
-             let (vcTools, _, vcTarget) = vcArchNames(triple: targetTriple),
-             let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"] {
-            if let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
-                 "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
-                 "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"
-               ]).spm_chomp(),
-               let vcToolsVersion = try? String(contentsOfFile: "\(visualStudio)\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt").spm_chomp(),
-               let vcToolsDir = try? AbsolutePath(validating: "\(visualStudio)\\VC\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(vcHost)\\\(vcTarget)"),
-               let toolPath = try? getTool(name, binDir: vcToolsDir) {
-              return toolPath
-            }
-          }
+           let tool = findToolInVisualStudio(name, triple: destination.targetTriple, hostTriple: hostTriple) {
+          return tool
         }
       #endif
     }
-
     throw InvalidToolchainDiagnostic("could not find \(name)")
+  }
+
+  private static func findToolInVisualStudio(_ name: String, triple: Triple?, hostTriple: Triple) -> AbsolutePath? {
+    func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
+      guard triple.isWindows() else { return nil }
+      switch triple.arch {
+      case .x86_64:
+        return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
+      case .i686:
+        return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
+      case .arm64, .arm64e, .aarch64:
+        return ("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
+      case .arm, .armv5, .armv6, .armv7:
+        return ("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
+      default: return nil
+      }
+    }
+    func getVCTool(_ name: String, vcToolsVersion: String? = nil, vcInstallDir: String, hostName: String, targetName: String) -> AbsolutePath? {
+      guard let vcToolsVersion = vcToolsVersion ?? (try? String(contentsOfFile: "\(vcInstallDir)\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt").spm_chomp()),
+            let vcToolsDir = try? AbsolutePath(validating: "\(vcInstallDir)\\Tools\\MSVC\\\(vcToolsVersion)\\bin\\\(hostName)\\\(targetName)")
+      else {
+        return nil
+      }
+      return try? getTool(name, binDir: vcToolsDir)
+    }
+    // Ignore unsupported triples
+    guard let (_, vcHost, _) = vcArchNames(triple: hostTriple),
+          let (vcTools, _, vcTarget) = vcArchNames(triple: triple ?? hostTriple)
+    else {
+      return nil
+    }
+    // First, look in %VCINSTALLDIR%
+    if let vcInstallDir = TSCBasic.ProcessEnv.vars["VCINSTALLDIR"] {
+      return getVCTool(name, vcToolsVersion: TSCBasic.ProcessEnv.vars["VCToolsVersion"], vcInstallDir: vcInstallDir, hostName: vcHost, targetName: vcTarget)
+    }
+    // If not in developer environment, try to locate with vswhere
+    guard let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
+          let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
+            "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+            "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"
+          ]).spm_chomp()
+    else {
+      return nil
+    }
+    return getVCTool(name, vcInstallDir: "\(visualStudio)\\VC\\", hostName: vcHost, targetName: vcTarget)
   }
 
   // MARK: - public API
