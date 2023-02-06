@@ -29,6 +29,7 @@ public struct Toolset {
         case linker
         case librarian
         case debugger
+        case testRunner
     }
 
     /// Properties of a known tool in a ``Toolset``.
@@ -60,6 +61,7 @@ extension Toolset {
         }
 
         var knownTools = [KnownTool: ToolProperties]()
+        var hasEmptyToolConfiguration = false
         for (tool, properties) in decoded.tools {
             guard let knownTool = KnownTool(rawValue: tool) else {
                 observability.emit(warning: "Unknown tool `\(tool)` in toolset configuration at `\(toolsetPath)`")
@@ -80,11 +82,12 @@ extension Toolset {
 
             guard toolPath != nil || !(properties.extraCLIOptions?.isEmpty ?? true) else {
                 // don't keep track of a tool with no path and CLI options specified.
-                observability.emit(warning:
+                observability.emit(error:
                     """
                     Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \
                     `extraCLIOptions` properties specified with valid values, skipping it.
                     """)
+                hasEmptyToolConfiguration = true
                 continue
             }
 
@@ -92,6 +95,10 @@ extension Toolset {
                 path: toolPath,
                 extraCLIOptions: properties.extraCLIOptions
             )
+        }
+
+        guard !hasEmptyToolConfiguration else {
+            throw StringError("Toolset configuration at `\(toolsetPath)` has at least one tool with no properties.")
         }
 
         self.init(knownTools: knownTools)

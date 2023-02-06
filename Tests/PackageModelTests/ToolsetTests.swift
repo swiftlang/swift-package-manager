@@ -109,22 +109,24 @@ final class ToolsetTests: XCTestCase {
             Toolset.ToolProperties(path: usrBinTools[.cxxCompiler]!, extraCLIOptions: cxxCompilerOptions)
         )
 
-        let noValidToolsToolset = try Toolset(from: noValidToolsNoRoot.path, at: fileSystem, observability.topScope)
+        XCTAssertThrowsError(try Toolset(from: noValidToolsNoRoot.path, at: fileSystem, observability.topScope))
 
-        XCTAssertTrue(noValidToolsToolset.knownTools.isEmpty)
-        XCTAssertEqual(observability.warnings.count, 1)
+        XCTAssertEqual(observability.errors.count, 1)
+        XCTAssertEqual(observability.warnings.count, 0)
 
         let unknownToolsToolset = try Toolset(from: unknownToolsNoRoot.path, at: fileSystem, observability.topScope)
 
         XCTAssertTrue(unknownToolsToolset.knownTools.isEmpty)
-        // +2 warnings for each unknown tool
-        XCTAssertEqual(observability.warnings.count, 3)
+        // +2 warnings for each unknown tool, no new errors
+        XCTAssertEqual(observability.errors.count, 1)
+        XCTAssertEqual(observability.warnings.count, 2)
 
         var otherToolsToolset = try Toolset(from: otherToolsNoRoot.path, at: fileSystem, observability.topScope)
 
         XCTAssertEqual(otherToolsToolset.knownTools.count, 3)
-        // no new warnings emitted
-        XCTAssertEqual(observability.warnings.count, 3)
+        // no new warnings and errors were emitted
+        XCTAssertEqual(observability.errors.count, 1)
+        XCTAssertEqual(observability.warnings.count, 2)
 
         otherToolsToolset.merge(with: compilersToolset)
 
@@ -156,8 +158,9 @@ final class ToolsetTests: XCTestCase {
         let someToolsWithRoot = try Toolset(from: someToolsWithRoot.path, at: fileSystem, observability.topScope)
 
         XCTAssertEqual(someToolsWithRoot.knownTools.count, 4)
-        // no new warnings emitted
-        XCTAssertEqual(observability.warnings.count, 3)
+        // no new warnings and errors emitted
+        XCTAssertEqual(observability.errors.count, 1)
+        XCTAssertEqual(observability.warnings.count, 2)
 
         otherToolsToolset.merge(with: someToolsWithRoot)
         XCTAssertEqual(
