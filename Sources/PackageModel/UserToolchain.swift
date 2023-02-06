@@ -140,7 +140,7 @@ public final class UserToolchain: Toolchain {
 
   private static func findToolInVisualStudio(_ name: String, triple: Triple?, hostTriple: Triple) -> AbsolutePath? {
     // Returns MSVC names for the triple arch
-    func vcArchNames(triple: Triple) -> (product: String, host: String, target: String)? {
+    func vcArchNames(triple: Triple) -> (component: String, host: String, target: String)? {
       guard triple.isWindows() else { return nil }
       switch triple.arch {
       case .x86_64:
