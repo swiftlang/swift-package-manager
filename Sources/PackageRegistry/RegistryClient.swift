@@ -626,9 +626,83 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void,
-                              on queue: DispatchQueue) -> (Result<T, Error>) -> Void
-    {
+    public func getPublishRequirements(
+        registryURL: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PublishRequirements, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+        components.appendPathComponents("publish-requirements")
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+
+        let request = LegacyHTTPClient.Request(
+            method: .get,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .json),
+            ],
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .json
+                    )
+
+                    guard let data = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+
+                    let publishRequirements = try self.jsonDecoder.decode(
+                        Serialization.PublishRequirements.self,
+                        from: data
+                    )
+
+                    return PublishRequirements(
+                        metadata: .init(
+                            location: publishRequirements.metadata.location.map {
+                                switch $0 {
+                                case .archive:
+                                    return .archive
+                                case .request:
+                                    return .request
+                                }
+                            }
+                        ),
+                        signing: .init(
+                            required: publishRequirements.signing.required,
+                            acceptedSignatureFormats: publishRequirements.signing.acceptedSignatureFormats.map {
+                                switch $0 {
+                                case .CMS_1_0_0:
+                                    return .CMS_1_0_0
+                                }
+                            },
+                            trustedRootCertificates: publishRequirements.signing.trustedRootCertificates
+                        )
+                    )
+                }.mapError {
+                    RegistryError.failedRetrievingRegistryPublishRequirements($0)
+                }
+            )
+        }
+    }
+
+    private func makeAsync<T>(
+        _ closure: @escaping (Result<T, Error>) -> Void,
+        on queue: DispatchQueue
+    ) -> (Result<T, Error>) -> Void {
         { result in queue.async { closure(result) } }
     }
 
@@ -664,6 +738,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingReleaseChecksum(Error)
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
+    case failedRetrievingRegistryPublishRequirements(Error)
     case unauthorized
     case authenticationMethodNotSupported
 
@@ -711,6 +786,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Failed retrieving manifest from registry: \(error)"
         case .failedDownloadingSourceArchive(let error):
             return "Failed downloading source archive from registry: \(error)"
+        case .failedRetrievingRegistryPublishRequirements(let error):
+            return "Failed retrieving registry publishing requirements: \(error)"
         case .unauthorized:
             return "Missing or invalid authentication credentials"
         case .authenticationMethodNotSupported:
@@ -788,6 +865,34 @@ extension RegistryClient {
         let url: URL
         let filename: String
         let toolsVersion: ToolsVersion
+    }
+}
+
+extension RegistryClient {
+    enum SignatureFormat {
+        case CMS_1_0_0
+    }
+}
+
+extension RegistryClient {
+    public struct PublishRequirements {
+        let metadata: Metadata
+        let signing: Signing
+
+        struct Metadata {
+            let location: [MetadataLocation]
+        }
+
+        enum MetadataLocation {
+            case request
+            case archive
+        }
+
+        struct Signing {
+            let required: Bool
+            let acceptedSignatureFormats: [SignatureFormat]
+            let trustedRootCertificates: [String]
+        }
     }
 }
 
@@ -985,6 +1090,31 @@ extension RegistryClient {
 
             public init(identifiers: [String]) {
                 self.identifiers = identifiers
+            }
+        }
+
+        // marked public for cross module visibility
+        public struct PublishRequirements: Codable {
+            let metadata: Metadata
+            let signing: Signing
+
+            struct Metadata: Codable {
+                let location: [MetadataLocation]
+            }
+
+            enum MetadataLocation: String, Codable {
+                case request = "in-request"
+                case archive = "in-archive"
+            }
+
+            struct Signing: Codable {
+                let required: Bool
+                let acceptedSignatureFormats: [SignatureFormat]
+                let trustedRootCertificates: [String]
+            }
+
+            enum SignatureFormat: String, Codable {
+                case CMS_1_0_0 = "cms-1.0.0"
             }
         }
     }

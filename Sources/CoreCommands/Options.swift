@@ -12,18 +12,24 @@
 
 import ArgumentParser
 
+import struct Foundation.URL
+
 import enum PackageFingerprint.FingerprintCheckingMode
+
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
 import struct PackageModel.EnabledSanitizers
+import struct PackageModel.PackageIdentity
 import enum PackageModel.Sanitizer
 
 import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.AbsolutePath
-import struct TSCBasic.StringError
-import struct TSCUtility.Triple
 import var TSCBasic.localFileSystem
+import struct TSCBasic.StringError
+
+import struct TSCUtility.Triple
+import struct TSCUtility.Version
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}
@@ -53,20 +59,36 @@ public struct GlobalOptions: ParsableArguments {
 public struct LocationOptions: ParsableArguments {
     public init() {}
 
-    @Option(name: .customLong("package-path"), help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation", completion: .directory)
+    @Option(
+        name: .customLong("package-path"),
+        help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation",
+        completion: .directory
+    )
     public var packageDirectory: AbsolutePath?
 
     @Option(name: .customLong("cache-path"), help: "Specify the shared cache directory path", completion: .directory)
     public var cacheDirectory: AbsolutePath?
 
-    @Option(name: .customLong("config-path"), help: "Specify the shared configuration directory path", completion: .directory)
+    @Option(
+        name: .customLong("config-path"),
+        help: "Specify the shared configuration directory path",
+        completion: .directory
+    )
     public var configurationDirectory: AbsolutePath?
 
-    @Option(name: .customLong("security-path"), help: "Specify the shared security directory path", completion: .directory)
+    @Option(
+        name: .customLong("security-path"),
+        help: "Specify the shared security directory path",
+        completion: .directory
+    )
     public var securityDirectory: AbsolutePath?
 
     /// The custom .build directory, if provided.
-    @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
+    @Option(
+        name: .customLong("scratch-path"),
+        help: "Specify a custom scratch directory path (default .build)",
+        completion: .directory
+    )
     var _scratchDirectory: AbsolutePath?
 
     @Option(name: .customLong("build-path"), help: .hidden)
@@ -90,11 +112,12 @@ public struct LocationOptions: ParsableArguments {
     @Option(
         name: .customLong("pkg-config-path"),
         help:
-            """
-            Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
-            specify more than one path.
-            """,
-        completion: .directory)
+        """
+        Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
+        specify more than one path.
+        """,
+        completion: .directory
+    )
     public var pkgConfigDirectories: [AbsolutePath] = []
 }
 
@@ -102,7 +125,11 @@ public struct CachingOptions: ParsableArguments {
     public init() {}
 
     /// Disables package caching.
-    @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
+    @Flag(
+        name: .customLong("dependency-cache"),
+        inversion: .prefixedEnableDisable,
+        help: "Use a shared cache when fetching dependencies"
+    )
     public var useDependenciesCache: Bool = true
 
     /// Disables manifest caching.
@@ -114,7 +141,10 @@ public struct CachingOptions: ParsableArguments {
     public var cacheBuildManifest: Bool = true
 
     /// Disables manifest caching.
-    @Option(name: .customLong("manifest-cache"), help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled")
+    @Option(
+        name: .customLong("manifest-cache"),
+        help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled"
+    )
     public var manifestCachingMode: ManifestCachingMode = .shared
 
     public enum ManifestCachingMode: String, ExpressibleByArgument {
@@ -167,7 +197,8 @@ public struct SecurityOptions: ParsableArguments {
     @Option(
         name: .customLong("netrc-file"),
         help: "Specify the netrc file path",
-        completion: .file())
+        completion: .file()
+    )
     public var netrcFilePath: AbsolutePath?
 
     /// Whether to use keychain for authenticating with remote servers
@@ -197,7 +228,10 @@ public struct ResolverOptions: ParsableArguments {
     public var shouldEnableResolverPrefetching: Bool = true
 
     /// Use Package.resolved file for resolving dependencies.
-    @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
+    @Flag(
+        name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")],
+        help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date"
+    )
     public var forceResolvedVersions: Bool = false
 
     /// Skip updating dependencies from their remote during a resolution.
@@ -205,7 +239,8 @@ public struct ResolverOptions: ParsableArguments {
     public var skipDependencyUpdate: Bool = false
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .swizzle
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
+        .swizzle
 
     public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
         case disabled
@@ -267,7 +302,8 @@ public struct BuildOptions: ParsableArguments {
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp(
                 "Pass flag through to the Xcode build system invocations",
-                visibility: .hidden))
+                visibility: .hidden
+            ))
     public var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xmanifest", withSingleDash: true),
@@ -300,10 +336,12 @@ public struct BuildOptions: ParsableArguments {
 
     /// The architectures to compile for.
     @Option(
-      name: .customLong("arch"),
-      help: ArgumentHelp(
-        "Build the package for the these architectures",
-        visibility: .hidden))
+        name: .customLong("arch"),
+        help: ArgumentHelp(
+            "Build the package for the these architectures",
+            visibility: .hidden
+        )
+    )
     public var architectures: [String] = []
 
     /// Path to the compilation destination describing JSON file.
@@ -311,9 +349,10 @@ public struct BuildOptions: ParsableArguments {
     public var crossCompilationDestinationSelector: String?
 
     /// Which compile-time sanitizers should be enabled.
-    @Option(name: .customLong("sanitize"),
-            help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)",
-            transform: { try Sanitizer(argument: $0) })
+    @Option(
+        name: .customLong("sanitize"),
+        help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)"
+    )
     public var sanitizers: [Sanitizer] = []
 
     public var enabledSanitizers: EnabledSanitizers {
@@ -395,7 +434,8 @@ public struct LinkerOptions: ParsableArguments {
     @Flag(
         name: .customLong("dead-strip"),
         inversion: .prefixedEnableDisable,
-        help: "Disable/enable dead code stripping by the linker")
+        help: "Disable/enable dead code stripping by the linker"
+    )
     public var linkerDeadStrip: Bool = true
 
     /// If should link the Swift stdlib statically.
@@ -439,8 +479,8 @@ extension FingerprintCheckingMode: ExpressibleByArgument {
     }
 }
 
-public extension Sanitizer {
-    init(argument: String) throws {
+extension Sanitizer: ExpressibleByArgument {
+    public init?(argument: String) {
         if let sanitizer = Sanitizer(rawValue: argument) {
             self = sanitizer
             return
@@ -451,13 +491,27 @@ public extension Sanitizer {
             return
         }
 
-        throw StringError("valid sanitizers: \(Sanitizer.formattedValues)")
+        return nil
     }
 
     /// All sanitizer options in a comma separated string
     fileprivate static var formattedValues: String {
-        return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
+        Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
     }
 }
 
 extension BuildSystemProvider.Kind: ExpressibleByArgument {}
+
+extension Version: ExpressibleByArgument {}
+
+extension PackageIdentity: ExpressibleByArgument {
+    public init?(argument: String) {
+        self = .plain(argument)
+    }
+}
+
+extension URL: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(string: argument)
+    }
+}

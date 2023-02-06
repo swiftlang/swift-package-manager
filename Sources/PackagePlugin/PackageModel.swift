@@ -43,6 +43,12 @@ public struct Package {
     public let targets: [Target]
 }
 
+public extension Package {
+    var sourceModules: [SourceModuleTarget] {
+        return targets.compactMap { $0.sourceModule }
+    }
+}
+
 /// Represents the origin of a package as it appears in the graph.
 public enum PackageOrigin {
     /// A root package (unversioned).
@@ -105,6 +111,12 @@ public protocol Product {
     /// example, an executable product must have one and only one target that
     /// defines the main entry point for an executable).
     var targets: [Target] { get }
+}
+
+public extension Product {
+    var sourceModules: [SourceModuleTarget] {
+        return targets.compactMap { $0.sourceModule }
+    }
 }
 
 /// Represents an executable product defined in a package.
@@ -385,6 +397,13 @@ public struct SystemLibraryTarget: Target {
   
     /// Flags from `pkg-config` to pass to the platform linker.
     public let linkerFlags: [String]
+}
+
+public extension Target {
+    /// Convenience accessor which casts the receiver to`SourceModuleTarget` if possible.
+    var sourceModule: SourceModuleTarget? {
+        return self as? SourceModuleTarget
+    }
 }
 
 /// Provides information about a list of files. The order is not defined

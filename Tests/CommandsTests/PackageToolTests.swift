@@ -1465,7 +1465,7 @@ final class PackageToolTests: CommandsTestCase {
                             }
 
                             // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
-                            let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
+                            let fooFiles = target.sourceModule?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
                             return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: fooFiles, inputFiles: fooFiles) ]
                         }
 
@@ -1751,7 +1751,7 @@ final class PackageToolTests: CommandsTestCase {
                         let targets = try context.package.targets(named: targetNames)
 
                         // Print out the source files so that we can check them.
-                        if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
+                        if let sourceFiles = targets.first(where: { $0.name == "MyLibrary" })?.sourceModule?.sourceFiles {
                             for file in sourceFiles {
                                 print("  \\(file.path): \\(file.type)")
                             }
@@ -2467,9 +2467,14 @@ final class PackageToolTests: CommandsTestCase {
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
                         print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
 
-                        if let target = target as? SourceModuleTarget {
+                        if let target = target.sourceModule {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
                         }
+
+                        var sourceModules = context.package.sourceModules
+                        print("sourceModules in package: \\(sourceModules.map { $0.name })")
+                        sourceModules = context.package.products.first?.sourceModules ?? []
+                        print("sourceModules in first product: \\(sourceModules.map { $0.name })")
                     }
                 }
                 extension String: Error {}
