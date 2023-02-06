@@ -8,7 +8,7 @@
 # Configure the placement of an extension's access control keyword.
 --extensionacl on-declarations
 
-# Wrap @attributes onto a separate line
+# Wrap @attributes onto a separate line.
 --funcattributes prev-line
 
 # #if indenting
@@ -29,7 +29,7 @@
 # Remove trailing space at end of a line.
 --trimwhitespace always
 
-# Wrap `@attributes` onto a separate line
+# Wrap `@attributes` onto a separate line.
 --typeattributes prev-line
 --varattributes prev-line
 
