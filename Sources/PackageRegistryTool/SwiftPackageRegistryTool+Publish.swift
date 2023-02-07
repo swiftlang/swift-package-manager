@@ -19,6 +19,8 @@ import PackageModel
 import PackageRegistry
 import TSCBasic
 
+import struct TSCUtility.Version
+
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
         static let configuration = CommandConfiguration(
