@@ -193,3 +193,12 @@ extension Basics.Diagnostic.Severity {
         return self <= .info
     }
 }
+
+extension ObservabilitySystem {
+    public static func swiftTool(
+        outputStream: OutputByteStream = stdoutStream,
+        logLevel: Basics.Diagnostic.Severity = .warning
+    ) -> ObservabilitySystem {
+        .init(SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .warning))
+    }
+}

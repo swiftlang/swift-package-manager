@@ -55,9 +55,7 @@ public struct InstallDestination: AsyncParsableCommand {
             destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
         }
 
-        let observabilitySystem = ObservabilitySystem(
-            SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .warning)
-        )
+        let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
 
         if

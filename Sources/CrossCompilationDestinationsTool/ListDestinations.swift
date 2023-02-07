@@ -33,9 +33,7 @@ public struct ListDestinations: ParsableCommand {
 
     public func run() throws {
         let fileSystem = localFileSystem
-        let observabilitySystem = ObservabilitySystem(
-            SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .warning)
-        )
+        let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
 
         guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
