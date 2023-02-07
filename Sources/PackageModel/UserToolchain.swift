@@ -149,7 +149,7 @@ public final class UserToolchain: Toolchain {
         return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
       case .arm64, .arm64e, .aarch64:
         return ("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
-      case .arm, .armv5, .armv6, .armv7:
+      case .arm, .armv7:
         return ("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
       default: return nil
       }
@@ -169,7 +169,11 @@ public final class UserToolchain: Toolchain {
     else {
       return nil
     }
-    // First let's look in %VCINSTALLDIR% set by `vcvars*` script
+    // First let's look in environment variables set by `vcvarsall` script
+    if let vcToolsInstallDir = TSCBasic.ProcessEnv.vars["VCToolsInstallDir"],
+       let binDir = try? AbsolutePath(validating: vcToolsInstallDir) {
+      return try? getTool(name, binDir: binDir)
+    }
     if let vcInstallDir = TSCBasic.ProcessEnv.vars["VCINSTALLDIR"] {
       return getVCTool(name, vcToolsVersion: TSCBasic.ProcessEnv.vars["VCToolsVersion"], vcInstallDir: vcInstallDir, hostName: vcHost, targetName: vcTarget)
     }
