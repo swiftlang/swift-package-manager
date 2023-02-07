@@ -295,11 +295,13 @@ extension LLBuildManifestBuilder {
             }
 
             let moduleName = targetDescription.target.c99name
+            let packageName = targetDescription.package.identity.description.spm_mangledToC99ExtendedIdentifier()
             let description = job.description
             if job.kind.isSwiftFrontend {
                 manifest.addSwiftFrontendCmd(
                     name: firstJobOutput.name,
                     moduleName: moduleName,
+                    packageName: packageName,
                     description: description,
                     inputs: manifestNodeInputs,
                     outputs: jobOutputs,
@@ -521,6 +523,7 @@ extension LLBuildManifestBuilder {
             inputs: inputs,
             outputs: cmdOutputs,
             executable: buildParameters.toolchain.swiftCompilerPath,
+            packageName: target.package.identity.description.spm_mangledToC99ExtendedIdentifier(),
             moduleName: target.target.c99name,
             moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
