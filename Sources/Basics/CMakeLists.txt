@@ -9,6 +9,7 @@
 add_library(Basics
   Archiver.swift
   Archiver+Zip.swift
+  Archiver+Libzip.swift
   AuthorizationProvider.swift
   ByteString+Extensions.swift
   Cancellator.swift
