@@ -242,6 +242,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
+                packageVersion: "1.3.5",
                 packageDirectory: packageDirectory,
                 metadataPath: .none,
                 customWorkingDirectory: .none,
@@ -268,6 +269,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
+                packageVersion: "1.5.4",
                 packageDirectory: packageDirectory,
                 metadataPath: .none,
                 customWorkingDirectory: .none,
@@ -300,6 +302,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
+                packageVersion: "0.3.1",
                 packageDirectory: packageDirectory,
                 metadataPath: .none,
                 customWorkingDirectory: .none,
@@ -331,6 +334,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
+                packageVersion: "2.5.2",
                 packageDirectory: packageDirectory,
                 metadataPath: customMetadataFilePath,
                 customWorkingDirectory: .none,
@@ -360,6 +364,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
+                packageVersion: "0.1.5",
                 packageDirectory: packageDirectory,
                 metadataPath: .none,
                 customWorkingDirectory: customWorkingDirectory,

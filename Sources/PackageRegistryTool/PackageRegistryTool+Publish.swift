@@ -20,6 +20,8 @@ import PackageRegistry
 import TSCBasic
 import Workspace
 
+import struct TSCUtility.Version
+
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
         static let metadataFilename = "package-metadata.json"
@@ -34,8 +36,8 @@ extension SwiftPackageRegistryTool {
         @Option(name: .customLong("id"), help: "The package identity")
         var packageIdentity: PackageIdentity
 
-        @Option(help: "The package version")
-        var version: Version
+        @Option(name: .customLong("version"), help: "The package version")
+        var packageVersion: Version
 
         @Option(name: .customLong("url"), help: "The registry URL")
         var registryURL: URL?
@@ -52,7 +54,7 @@ extension SwiftPackageRegistryTool {
         )
         var customMetadataPath: AbsolutePath?
 
-        @Option(help: "Signature format identifier. Defaults to 'cms-1.0.0'.")
+        @Option(help: .hidden) // help: "Signature format identifier. Defaults to 'cms-1.0.0'.
         var signatureFormat: SignatureFormat = .CMS_1_0_0
 
         @Option(help: "The label of the signing identity to be retrieved from the system's secrets store if supported")
@@ -141,6 +143,7 @@ extension SwiftPackageRegistryTool {
             swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
             let archivePath = try self.archiveSource(
                 packageIdentity: self.packageIdentity,
+                packageVersion: self.packageVersion,
                 packageDirectory: packageDirectory,
                 metadataPath: publishRequirements.metadata.location.contains(.archive) ? metadataPath : .none,
                 customWorkingDirectory: self.customWorkingDirectory,
@@ -188,6 +191,7 @@ extension SwiftPackageRegistryTool {
 
         func archiveSource(
             packageIdentity: PackageIdentity,
+            packageVersion: Version,
             packageDirectory: AbsolutePath,
             metadataPath: AbsolutePath?,
             customWorkingDirectory: AbsolutePath?,
@@ -197,14 +201,14 @@ extension SwiftPackageRegistryTool {
             let workingDirectory = customWorkingDirectory ?? Workspace.DefaultLocations
                 .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
 
-            let archivePath = workingDirectory.appending(component: "\(packageIdentity).zip")
+            let archivePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).zip")
 
             // create temp location for sources
             let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")
             try localFileSystem.createDirectory(sourceDirectory, recursive: true)
 
             // TODO: filter other unnecessary files, and/or .swiftpmignore file
-            let ignoredContent = [".build", ".git"]
+            let ignoredContent = [".build", ".git", ".gitignore", ".swiftpm"]
             let packageContent = try localFileSystem.getDirectoryContents(packageDirectory)
             for item in (packageContent.filter { !ignoredContent.contains($0) }) {
                 try localFileSystem.copy(
