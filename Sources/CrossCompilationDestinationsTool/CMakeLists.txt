@@ -10,7 +10,7 @@ add_library(CrossCompilationDestinationsTool
   InstallDestination.swift
   ListDestinations.swift
   SwiftDestinationTool.swift)
-target_link_libraries(CoreCommands PUBLIC
+target_link_libraries(CrossCompilationDestinationsTool PUBLIC
   ArgumentParser
   Basics
   CoreCommands
