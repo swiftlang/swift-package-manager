@@ -14,6 +14,7 @@ add_library(PackageLoading
   ModuleMapGenerator.swift
   PackageBuilder.swift
   ManifestJSONParser.swift
+  Platform.swift
   PkgConfig.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
