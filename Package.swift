@@ -177,11 +177,13 @@ let package = Package(
         // MARK: SwiftPM specific support libraries
 
         .systemLibrary(name: "SPMSQLite3", pkgConfig: "sqlite3"),
+        .systemLibrary(name: "SPMLibzip", pkgConfig: "libzip"),
 
         .target(
             name: "Basics",
             dependencies: [
                 "SPMSQLite3",
+                "SPMLibzip",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),

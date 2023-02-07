@@ -1,0 +1,5 @@
+module SPMLibzip [system] {
+  header "libzip.h"
+  link "libzip"
+  export *
+}

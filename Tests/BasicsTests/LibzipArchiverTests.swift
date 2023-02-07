@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,10 +15,10 @@ import TSCBasic
 import TSCTestSupport
 import XCTest
 
-class ZipArchiverTests: XCTestCase {
+class LibzipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "archive.zip")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
@@ -30,7 +30,7 @@ class ZipArchiverTests: XCTestCase {
 
     func testZipArchiverArchiveDoesntExist() {
         let fileSystem = InMemoryFileSystem()
-        let archiver = ZipArchiver(fileSystem: fileSystem)
+        let archiver = LibzipArchiver(fileSystem: fileSystem)
         let archive = AbsolutePath(path: "/archive.zip")
         XCTAssertThrowsError(try archiver.extract(from: archive, to: AbsolutePath(path: "/"))) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, archive))
@@ -39,7 +39,7 @@ class ZipArchiverTests: XCTestCase {
 
     func testZipArchiverDestinationDoesntExist() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip")
-        let archiver = ZipArchiver(fileSystem: fileSystem)
+        let archiver = LibzipArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath(path: "/destination")
         XCTAssertThrowsError(try archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
@@ -48,7 +48,7 @@ class ZipArchiverTests: XCTestCase {
 
     func testZipArchiverDestinationIsFile() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip", "/destination")
-        let archiver = ZipArchiver(fileSystem: fileSystem)
+        let archiver = LibzipArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath(path: "/destination")
         XCTAssertThrowsError(try archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
@@ -57,18 +57,11 @@ class ZipArchiverTests: XCTestCase {
 
     func testZipArchiverInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-                #if os(Windows)
-                XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
-                #else
-                XCTAssertMatch(
-                    (error as? StringError)?.description,
-                    .contains("End-of-central-directory signature not found")
-                )
-                #endif
+                XCTAssertMatch("\(error)", .contains("Not a zip archive"))
             }
         }
     }
@@ -76,21 +69,21 @@ class ZipArchiverTests: XCTestCase {
     func testValidation() throws {
         // valid
         try testWithTemporaryDirectory { _ in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "archive.zip")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { _ in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertFalse(try archiver.validate(path: path))
         }
         // error
         try testWithTemporaryDirectory { _ in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath.root.appending(component: "does_not_exist.zip")
             XCTAssertThrowsError(try archiver.validate(path: path)) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
@@ -100,7 +93,7 @@ class ZipArchiverTests: XCTestCase {
 
     func testCompress() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = LibzipArchiver(fileSystem: localFileSystem)
 
             let rootDir = tmpdir.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(rootDir)

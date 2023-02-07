@@ -15,6 +15,7 @@ import TSCBasic
 
 public class MockArchiver: Archiver {
     public typealias ExtractionHandler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) throws -> Void
+    public typealias CompressionHandler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) throws -> Void
     public typealias ValidationHandler = (MockArchiver, AbsolutePath, (Result<Bool, Error>) -> Void) throws -> Void
 
     public struct Extraction: Equatable {
@@ -27,17 +28,34 @@ public class MockArchiver: Archiver {
         }
     }
 
-    public let supportedExtensions: Set<String> = ["zip"]
-    public let extractions = ThreadSafeArrayStore<Extraction>()
-    public let extractionHandler: ExtractionHandler?
-    public let validationHandler: ValidationHandler?
+    public struct Compression: Equatable {
+        public let directory: AbsolutePath
+        public let destinationPath: AbsolutePath
 
-    public convenience init(handler: ExtractionHandler? = nil) {
-        self.init(extractionHandler: handler, validationHandler: nil)
+        public init(directory: AbsolutePath, destinationPath: AbsolutePath) {
+            self.directory = directory
+            self.destinationPath = destinationPath
+        }
     }
 
-    public init(extractionHandler: ExtractionHandler? = nil, validationHandler: ValidationHandler? = nil) {
+    public let supportedExtensions: Set<String> = ["zip"]
+    public let extractions = ThreadSafeArrayStore<Extraction>()
+    public let compressions = ThreadSafeArrayStore<Compression>()
+    public let extractionHandler: ExtractionHandler?
+    public let compressionHandler: CompressionHandler?
+    public let validationHandler: ValidationHandler?
+
+    public convenience init(handler: ExtractionHandler? = .none) {
+        self.init(extractionHandler: handler, validationHandler: .none)
+    }
+
+    public init(
+        extractionHandler: ExtractionHandler? = .none,
+        compressionHandler: CompressionHandler? = .none,
+        validationHandler: ValidationHandler? = .none
+    ) {
         self.extractionHandler = extractionHandler
+        self.compressionHandler = compressionHandler
         self.validationHandler = validationHandler
     }
 
@@ -51,6 +69,19 @@ public class MockArchiver: Archiver {
                 try handler(self, archivePath, destinationPath, completion)
             } else {
                 self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            }
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    public func compress(directory: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
+        do {
+            if let handler = self.compressionHandler {
+                try handler(self, directory, destinationPath, completion)
+            } else {
+                self.compressions.append(Compression(directory: directory, destinationPath: destinationPath))
                 completion(.success(()))
             }
         } catch {

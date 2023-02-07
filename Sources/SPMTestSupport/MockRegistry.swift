@@ -362,6 +362,11 @@ private struct MockRegistryArchiver: Archiver {
         }
     }
 
+    func compress(directory: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
+        // FIXME
+        fatalError("not implemented")
+    }
+
     func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             let lines = try self.readFileContents(path)
