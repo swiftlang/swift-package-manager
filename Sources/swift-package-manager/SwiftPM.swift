@@ -41,6 +41,5 @@ struct SwiftPM {
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
-
     }
 }
