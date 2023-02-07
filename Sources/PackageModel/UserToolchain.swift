@@ -166,13 +166,17 @@ public final class UserToolchain: Toolchain {
             vcInstallDir: String,
             hostName: String,
             targetName: String
-        ) -> AbsolutePath? {
-            let defaultVersion =
-                try? String(contentsOfFile: "\(vcInstallDir)/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt")
-                    .spm_chomp()
+        ) throws -> AbsolutePath? {
+            guard let vcInstallDir = try? AbsolutePath(validating: vcInstallDir) else {
+                throw InvalidToolchainDiagnostic("could not find MSVC at expected path \(vcInstallDir)")
+            }
+            let defaultVersion = try? String(
+                contentsOfFile: "\(vcInstallDir.pathString)/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt"
+            ).spm_chomp()
             guard let vcToolsVersion = vcToolsVersion ?? defaultVersion,
                   let vcToolsDir = try? AbsolutePath(
-                      validating: "\(vcInstallDir)/Tools/MSVC/\(vcToolsVersion)/bin/\(hostName)/\(targetName)"
+                      validating: "Tools/MSVC/\(vcToolsVersion)/bin/\(hostName)/\(targetName)",
+                      relativeTo: vcInstallDir
                   )
             else {
                 return nil
@@ -192,7 +196,7 @@ public final class UserToolchain: Toolchain {
             return try? getTool(name, binDir: binDir)
         }
         if let vcInstallDir = TSCBasic.ProcessEnv.vars["VCINSTALLDIR"] {
-            return getVCTool(
+            return try? getVCTool(
                 name,
                 vcToolsVersion: TSCBasic.ProcessEnv.vars["VCToolsVersion"],
                 vcInstallDir: vcInstallDir,
@@ -201,15 +205,15 @@ public final class UserToolchain: Toolchain {
             )
         }
         // If not in developer environment, try to locate latest toolset with `vswhere`
+        let vswhereArgs = ["-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"]
         guard let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
               let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
-                  "\(programFiles)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
-                  "-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath",
-              ]).spm_chomp()
+                  "\(programFiles)/Microsoft Visual Studio/Installer/vswhere.exe",
+              ] + vswhereArgs).spm_chomp()
         else {
             return nil
         }
-        return getVCTool(name, vcInstallDir: "\(visualStudio)/VC/", hostName: vcHost, targetName: vcTarget)
+        return try? getVCTool(name, vcInstallDir: "\(visualStudio)/VC", hostName: vcHost, targetName: vcTarget)
     }
 
     // MARK: - public API
