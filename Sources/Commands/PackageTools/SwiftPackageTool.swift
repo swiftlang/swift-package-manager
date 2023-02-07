@@ -88,7 +88,7 @@ extension SwiftPackageTool {
         var globalOptions: GlobalOptions
 
         @OptionGroup()
-        var pluginOptions: PluginCommand.PluginOptions
+        var _pluginOptions: PluginCommand.PluginOptions
 
         @Argument(parsing: .unconditionalRemaining)
         var remaining: [String] = []
@@ -99,7 +99,7 @@ extension SwiftPackageTool {
                 print(SwiftPackageTool.helpMessage())
                 return
             }
-            
+
             // Check for edge cases and unknown options to match the behavior in the absence of plugins.
             if command.isEmpty {
                 throw ValidationError("Unknown argument '\(command)'")
@@ -126,14 +126,38 @@ extension SwiftPackageTool {
                 throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
             }
 
+            // handle plugin execution arguments that got passed after the plugin name
+            let pluginArguments = try PluginArguments.parse(Array(self.remaining.drop(while: { $0 == command })))
+            // merge the relevant plugin execution options
+            var pluginOptions = self._pluginOptions
+            pluginOptions.allowWritingToPackageDirectory = pluginOptions.allowWritingToPackageDirectory || pluginArguments.pluginOptions.allowWritingToPackageDirectory
+            pluginOptions.additionalAllowedWritableDirectories.append(contentsOf: pluginArguments.pluginOptions.additionalAllowedWritableDirectories)
+            if pluginArguments.pluginOptions.allowNetworkConnections != .none {
+                pluginOptions.allowNetworkConnections = pluginArguments.pluginOptions.allowNetworkConnections
+            }
+            swiftTool.shouldDisableSandbox = swiftTool.shouldDisableSandbox || pluginArguments.globalOptions.security.shouldDisableSandbox
+
             // At this point we know we found exactly one command plugin, so we run it.
             try PluginCommand.run(
                 plugin: matchingPlugins[0],
                 package: packageGraph.rootPackages[0],
                 packageGraph: packageGraph,
                 options: pluginOptions,
-                arguments: Array( remaining.dropFirst()),
-                swiftTool: swiftTool)
+                arguments: pluginArguments.remaining,
+                swiftTool: swiftTool
+            )
         }
+    }
+
+    // helper to parse plugin arguments passed after the plugin name
+    private struct PluginArguments: ParsableCommand {
+        @OptionGroup
+        var globalOptions: GlobalOptions
+
+        @OptionGroup()
+        var pluginOptions: PluginCommand.PluginOptions
+
+        @Argument(parsing: .unconditionalRemaining)
+        var remaining: [String] = []
     }
 }
