@@ -398,7 +398,8 @@ let package = Package(
                 "CoreCommands",
                 "SPMBuildCore",
                 "PackageModel",
-            ]
+            ],
+            exclude: ["CMakeLists.txt", "README.md"]
         ),
 
         .target(

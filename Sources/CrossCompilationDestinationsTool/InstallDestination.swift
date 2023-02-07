@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.5.2)
+
 import ArgumentParser
 import Basics
 import CoreCommands
@@ -19,23 +21,24 @@ import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
-@available(macOS 12, *)
-struct InstallDestination: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
+public struct InstallDestination: AsyncParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
-        Installs a given destination artifact bundle to a location discoverable for SwiftPM. If the artifact bundle
+        Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle
         is at a remote location, it's downloaded to local filesystem first.
         """
     )
 
-    @OptionGroup()
+    @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
 
-    @Argument(help: "URL or a local filesystem path of an artifact bundle to install.")
+    @Argument(help: "A local filesystem path or a URL of an artifact bundle to install.")
     var bundlePathOrURL: String
 
-    func run() async throws {
+    public init() {}
+
+    public func run() async throws {
         let fileSystem = localFileSystem
 
         guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
@@ -57,13 +60,16 @@ struct InstallDestination: AsyncParsableCommand {
         )
         let observabilityScope = observabilitySystem.topScope
 
-        if let bundleURL = URL(string: bundlePathOrURL) {
-            let client = URLSessionHTTPClient()
+        if
+            let bundleURL = URL(string: bundlePathOrURL),
+            let scheme = bundleURL.scheme,
+                scheme == "http" || scheme == "https"
+        {
+            let client = HTTPClient()
             let response = try await client.execute(.init(method: .get, url: bundleURL), progress: nil)
 
             guard let body = response.body else {
-                observabilityScope.emit(error: "No downloadable data available at URL \(bundleURL).")
-                return
+                throw StringError("No downloadable data available at URL \(bundleURL).")
             }
 
             let fileName = bundleURL.lastPathComponent
@@ -71,11 +77,22 @@ struct InstallDestination: AsyncParsableCommand {
             try fileSystem.writeFileContents(destinationsDirectory.appending(component: fileName), data: body)
         } else if
             let cwd = fileSystem.currentWorkingDirectory,
-            let bundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
+            let bundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd),
+            let bundleName = bundlePath.components.last,
+            fileSystem.exists(bundlePath)
         {
-            try fileSystem.move(from: bundlePath, to: destinationsDirectory)
+            let destinationPath = destinationsDirectory.appending(component: bundleName)
+            if fileSystem.exists(destinationPath) {
+                throw StringError("Destination artifact bundle with name \(bundleName) is already installed.")
+            } else {
+                try fileSystem.copy(from: bundlePath, to: destinationPath)
+            }
         } else {
-            observabilityScope.emit(error: "Argument \(bundlePathOrURL) is neither a valid filesystem path nor a URL.")
+            throw StringError("Argument \(bundlePathOrURL) is neither a valid filesystem path nor a URL.")
         }
+
+        observabilityScope.emit(info: "Destination artifact bundle at \(bundlePathOrURL) successfully installed.")
     }
 }
+
+#endif
