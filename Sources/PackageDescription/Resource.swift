@@ -94,4 +94,10 @@ public struct Resource: Encodable {
     public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)
     }
+
+    /// Applies the embed rule to a resource at the given path.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func embedInCode(_ path: String) -> Resource {
+        return Resource(rule: "embedInCode", path: path, localization: nil)
+    }
 }

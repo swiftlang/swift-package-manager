@@ -50,11 +50,19 @@ public final class SwiftTargetBuildDescription {
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
-        if let bundleName = target.underlyingTarget.potentialBundleName, !resources.isEmpty {
+        if let bundleName = target.underlyingTarget.potentialBundleName, needsResourceBundle {
             return self.buildParameters.bundlePath(named: bundleName)
         } else {
             return .none
         }
+    }
+
+    private var needsResourceBundle: Bool {
+        return resources.filter { $0.rule != .embedInCode }.isEmpty == false
+    }
+
+    private var needsResourceEmbedding: Bool {
+        return resources.filter { $0.rule == .embedInCode }.isEmpty == false
     }
 
     /// The list of all source files in the target, including the derived ones.
@@ -284,6 +292,37 @@ public final class SwiftTargetBuildDescription {
                 self.resourceBundleInfoPlistPath = infoPlistPath
             }
         }
+
+        try self.generateResourceEmbeddingCode()
+    }
+
+    // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array representation in memory and also `writeIfChanged()` will read the entire generated file again.
+    private func generateResourceEmbeddingCode() throws {
+        guard needsResourceEmbedding else { return }
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        struct PackageResources {
+
+        """
+
+        try resources.forEach {
+            guard $0.rule == .embedInCode else { return }
+
+            let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
+            let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
+
+            stream <<< "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+        }
+
+        stream <<< """
+        }
+        """
+
+        let subpath = RelativePath("embedded_resources.swift")
+        self.derivedSources.relativePaths.append(subpath)
+        let path = self.derivedSources.root.appending(subpath)
+        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
     /// Generate the resource bundle accessor, if appropriate.
