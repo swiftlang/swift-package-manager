@@ -9,7 +9,7 @@ Swift Next
 
 * [#6067]
 
-  Basic support for a new `.embed` resource rule which will allow embedding the contents of the resource into the executable code by generating a byte array, e.g.
+  Basic support for a new `.embed` resource rule which allows embedding the contents of the resource into the executable code by generating a byte array, e.g.
 
   ```
   struct PackageResources {
