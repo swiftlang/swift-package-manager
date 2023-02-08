@@ -19,7 +19,7 @@ private let subcommands: [ParsableCommand.Type] = [
     ListDestinations.self,
 ]
 #else
-private let subcommands [ParsableCommand.Type] = [
+private let subcommands: [ParsableCommand.Type] = [
     ListDestinations.self,
 ]
 #endif
