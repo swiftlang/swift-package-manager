@@ -16,7 +16,7 @@ import TSCBasic
 public final class MockHashAlgorithm: HashAlgorithm {
     public typealias Handler = @Sendable (ByteString) -> ByteString
 
-    public private(set) var hashes = ThreadSafeArrayStore<ByteString>()
+    public let hashes = ThreadSafeArrayStore<ByteString>()
     private let handler: Handler?
 
     public init(handler: Handler? = nil) {
