@@ -13,7 +13,7 @@
 import Basics
 import TSCBasic
 
-public final class MockHashAlgorithm: HashAlgorithm {
+public final class MockHashAlgorithm {
     public typealias Handler = @Sendable (ByteString) -> ByteString
 
     public let hashes = ThreadSafeArrayStore<ByteString>()
@@ -34,7 +34,9 @@ public final class MockHashAlgorithm: HashAlgorithm {
 }
 
 
-// Older compilers are unable to infer sendability for Optional closures even when those are `@Sendable`.
+// Older compilers are unable to infer sendability for `Optional` closures even when those are `@Sendable`.
 #if swift(<5.6)
-extension MockHashAlgorithm: UnsafeSendable: Sendable {}
+extension MockHashAlgorithm: UnsafeSendable {}
 #endif
+
+extension MockHashAlgorithm: HashAlgorithm {}
