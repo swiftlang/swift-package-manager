@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import ArgumentParser
 import Basics
 import CoreCommands
@@ -92,5 +90,3 @@ public struct InstallDestination: AsyncParsableCommand {
         observabilityScope.emit(info: "Destination artifact bundle at \(bundlePathOrURL) successfully installed.")
     }
 }
-
-#endif
