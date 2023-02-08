@@ -13,7 +13,7 @@
 import Basics
 import TSCBasic
 
-public final class MockHashAlgorithm: HashAlgorithm {
+public class MockHashAlgorithm: HashAlgorithm {
     public typealias Handler = (ByteString) -> ByteString
 
     public private(set) var hashes = ThreadSafeArrayStore<ByteString>()
