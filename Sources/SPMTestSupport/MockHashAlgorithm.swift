@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import TSCBasic
+
 public final class MockHashAlgorithm {
     public typealias Handler = @Sendable (ByteString) -> ByteString
 
