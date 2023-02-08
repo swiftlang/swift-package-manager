@@ -7,6 +7,28 @@ Swift Next
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
 
+* [#6067]
+
+  Basic support for a new `.embed` resource rule which will allow embedding the contents of the resource into the executable code by generating a byte array, e.g.
+
+  ```
+  struct PackageResources {
+  static let best_txt: [UInt8] = [104,101,108,108,111,32,119,111,114,108,100,10]
+  }
+  ```
+
+
+Swift 5.9
+-----------
+
+* [#6114]
+
+  Added a new `allowNetworkConnections(scope:reason:)` for giving a command plugin permissions to access the network. Permissions can be scoped to Unix domain sockets in general or specifically for Docker, as well as local or remote IP connections which can be limited by port. For non-interactive use cases, there is also a `--allow-network-connections` commandline flag to allow network connections for a particular scope.
+
+* [#6060]
+
+  Support for building plugin dependencies for the host when cross-compiling.
+
 
 Swift 5.8
 -----------
