@@ -93,6 +93,61 @@ class ZipArchiverTests: XCTestCase {
             }
         }
     }
+
+    func testCompress() throws {
+         try testWithTemporaryDirectory { tmpdir in
+             let archiver = ZipArchiver(fileSystem: localFileSystem)
+
+             let rootDir = tmpdir.appending(component: UUID().uuidString)
+             try localFileSystem.createDirectory(rootDir)
+             try localFileSystem.writeFileContents(rootDir.appending(component: "file1.txt"), string: "Hello World!")
+
+             let dir1 = rootDir.appending(component: "dir1")
+             try localFileSystem.createDirectory(dir1)
+             try localFileSystem.writeFileContents(dir1.appending(component: "file2.txt"), string: "Hello World 2!")
+
+             let dir2 = dir1.appending(component: "dir2")
+             try localFileSystem.createDirectory(dir2)
+             try localFileSystem.writeFileContents(dir2.appending(component: "file3.txt"), string: "Hello World 3!")
+             try localFileSystem.writeFileContents(dir2.appending(component: "file4.txt"), string: "Hello World 4!")
+
+             let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
+             try archiver.compress(directory: rootDir, to: archivePath)
+             XCTAssertFileExists(archivePath)
+
+             let extractRootDir = tmpdir.appending(component: UUID().uuidString)
+             try localFileSystem.createDirectory(extractRootDir)
+             try archiver.extract(from: archivePath, to: extractRootDir)
+             try localFileSystem.stripFirstLevel(of: extractRootDir)
+
+             XCTAssertFileExists(extractRootDir.appending(component: "file1.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractRootDir.appending(component: "file1.txt")),
+                 "Hello World!"
+             )
+
+             let extractedDir1 = extractRootDir.appending(component: "dir1")
+             XCTAssertDirectoryExists(extractedDir1)
+             XCTAssertFileExists(extractedDir1.appending(component: "file2.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir1.appending(component: "file2.txt")),
+                 "Hello World 2!"
+             )
+
+             let extractedDir2 = extractedDir1.appending(component: "dir2")
+             XCTAssertDirectoryExists(extractedDir2)
+             XCTAssertFileExists(extractedDir2.appending(component: "file3.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending(component: "file3.txt")),
+                 "Hello World 3!"
+             )
+             XCTAssertFileExists(extractedDir2.appending(component: "file4.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending(component: "file4.txt")),
+                 "Hello World 4!"
+             )
+         }
+     }
 }
 
 class ArchiverTests: XCTestCase {
@@ -105,6 +160,24 @@ class ArchiverTests: XCTestCase {
             let finishGroup = DispatchGroup()
 
             func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
+                let cancelSemaphore = DispatchSemaphore(value: 0)
+                self.cancelSemaphores.append(cancelSemaphore)
+
+                self.startGroup.enter()
+                DispatchQueue.sharedConcurrent.async {
+                    self.startGroup.leave()
+                    self.finishGroup.enter()
+                    defer { self.finishGroup.leave() }
+                    switch cancelSemaphore.wait(timeout: .now() + .seconds(5)) {
+                    case .success:
+                        completion(.success(()))
+                    case .timedOut:
+                        completion(.failure(StringError("should be cancelled")))
+                    }
+                }
+            }
+
+            func compress(directory: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
                 let cancelSemaphore = DispatchSemaphore(value: 0)
                 self.cancelSemaphores.append(cancelSemaphore)
 
@@ -157,6 +230,10 @@ class ArchiverTests: XCTestCase {
             XCTAssertResultSuccess(result)
         }
 
+        archiver.compress(directory: .root, to: .root) { result in
+            XCTAssertResultSuccess(result)
+        }
+
         archiver.validate(path: .root) { result in
             XCTAssertResultSuccess(result)
         }
@@ -173,6 +250,11 @@ extension Archiver {
     fileprivate func extract(from: AbsolutePath, to: AbsolutePath) throws {
         try tsc_await {
             self.extract(from: from, to: to, completion: $0)
+        }
+    }
+    fileprivate func compress(directory: AbsolutePath, to: AbsolutePath) throws {
+        try tsc_await {
+            self.compress(directory: directory, to: to, completion: $0)
         }
     }
     fileprivate func validate(path: AbsolutePath) throws -> Bool {

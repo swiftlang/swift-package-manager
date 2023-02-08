@@ -29,6 +29,18 @@ public protocol Archiver {
         completion: @escaping (Result<Void, Error>) -> Void
     )
 
+    /// Asynchronously compress the contents of a directory to a destination archive.
+    ///
+    /// - Parameters:
+    ///   - directory: The `AbsolutePath` to the archive to extract.
+    ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
+    ///   - completion: The completion handler that will be called when the operation finishes to notify of its success.
+    func compress(
+        directory: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    )
+
     /// Asynchronously validates if a file is an archive.
     ///
     /// - Parameters:
