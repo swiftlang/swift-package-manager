@@ -289,6 +289,13 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        
+        .target(
+            name: "PackageSigning",
+            dependencies: [
+                "Basics",
+            ]
+        ),
 
         // MARK: Package Manager Functionality
 
