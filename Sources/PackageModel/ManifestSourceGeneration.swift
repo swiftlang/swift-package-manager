@@ -422,6 +422,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
+        case .embedInCode:
+            self.init(enum: "embedInCode", subnodes: params)
         }
     }
 
@@ -456,9 +458,30 @@ fileprivate extension SourceCodeFragment {
         }
     }
 
+    init(from networkPermissionScope: TargetDescription.PluginNetworkPermissionScope) {
+        switch networkPermissionScope {
+        case .none:
+            self.init(enum: "none")
+        case .local(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "local", subnodes: [ports])
+        case .all(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "all", subnodes: [ports])
+        case .docker:
+            self.init(enum: "docker")
+        case .unixDomainSocket:
+            self.init(enum: "unixDomainSocket")
+        }
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single plugin permission.
     init(from permission: TargetDescription.PluginPermission) {
         switch permission {
+        case .allowNetworkConnections(let scope, let reason):
+            let scope = SourceCodeFragment(key: "scope", subnode: .init(from: scope))
+            let reason = SourceCodeFragment(key: "reason", string: reason)
+            self.init(enum: "allowNetworkConnections", subnodes: [scope, reason])
         case .writeToPackageDirectory(let reason):
             let param = SourceCodeFragment(key: "reason", string: reason)
             self.init(enum: "writeToPackageDirectory", subnodes: [param])

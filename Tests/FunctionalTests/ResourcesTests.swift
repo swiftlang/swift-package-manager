@@ -124,4 +124,11 @@ class ResourcesTests: XCTestCase {
             XCTAssertSwiftTest(fixturePath, extraArgs: ["--filter", "ClangResourceTests"])
         }
     }
+
+    func testResourcesEmbeddedInCode() throws {
+        try fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
+            let result = try executeSwiftRun(fixturePath, "EmbedInCodeSimple")
+            XCTAssertEqual(result.stdout, "hello world\n\n")
+        }
+    }
 }

@@ -394,6 +394,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration = self.pluginConfiguration  {
+            let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending(component: "outputs"),
                 builtToolsDir: self.buildParameters.buildPath,
@@ -403,7 +404,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
-            )
+            ) { name, path in
+                try buildOperationForPluginDependencies.build(subset: .product(name))
+                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
+                    return builtTool.binaryPath
+                } else {
+                    return nil
+                }
+            }
 
 
             // Surface any diagnostics from build tool plugins.

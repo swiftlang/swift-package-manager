@@ -42,6 +42,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         public enum Rule: Encodable, Equatable, Sendable {
             case process(localization: Localization?)
             case copy
+            case embedInCode
         }
 
         public enum Localization: String, Encodable, Sendable {
@@ -116,7 +117,27 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         case custom(verb: String, description: String)
     }
 
+    public enum PluginNetworkPermissionScope: Equatable, Codable, Sendable {
+        case none
+        case local(ports: [UInt8])
+        case all(ports: [UInt8])
+        case docker
+        case unixDomainSocket
+
+        public init?(_ scopeString: String, ports: [UInt8]) {
+            switch scopeString {
+            case "none": self = .none
+            case "local": self = .local(ports: ports)
+            case "all": self = .all(ports: ports)
+            case "docker": self = .docker
+            case "unix-socket": self = .unixDomainSocket
+            default: return nil
+            }
+        }
+    }
+
     public enum PluginPermission: Equatable, Codable, Sendable {
+        case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
         case writeToPackageDirectory(reason: String)
     }
 

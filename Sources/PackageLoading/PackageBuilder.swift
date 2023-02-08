@@ -76,6 +76,9 @@ public enum ModuleError: Swift.Error {
 
     /// A plugin target didn't declare a capability.
     case pluginCapabilityNotDeclared(target: String)
+
+    /// A C target has declared an embedded resource
+    case embedInCodeNotSupported(target: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -124,6 +127,8 @@ extension ModuleError: CustomStringConvertible {
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         case .pluginCapabilityNotDeclared(let target):
             return "plugin target '\(target)' doesn't have a 'capability' property"
+        case .embedInCodeNotSupported(let target):
+            return "embedding resources in code not supported for C-family language target \(target)"
         }
     }
 }
@@ -884,6 +889,10 @@ public final class PackageBuilder {
                 throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
             } else {
                 moduleMapType = .none
+            }
+
+            if resources.contains(where: { $0.rule == .embedInCode }) {
+                throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
             }
 
             return try ClangTarget(

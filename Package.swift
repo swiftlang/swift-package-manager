@@ -549,11 +549,14 @@ let package = Package(
                 "swift-package",
                 "swift-test",
                 "swift-run",
-                "Commands",
-                "Workspace",
-                "SPMTestSupport",
+                "Basics",
                 "Build",
-                "SourceControl"
+                "Commands",
+                "PackageModel",
+                "PackageRegistryTool",
+                "SourceControl",
+                "SPMTestSupport",
+                "Workspace",
             ]
         ),
         .testTarget(

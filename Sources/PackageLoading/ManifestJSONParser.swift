@@ -438,6 +438,8 @@ enum ManifestJSONParser {
                 return .init(rule: .process(localization: localization), path: path.pathString)
             case "copy":
                 return .init(rule: .copy, path: path.pathString)
+            case "embedInCode":
+                return .init(rule: .embedInCode, path: path.pathString)
             default:
                 throw InternalError("invalid resource rule \(rule)")
             }
@@ -765,6 +767,15 @@ extension TargetDescription.PluginPermission {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {
+        case "allowNetworkConnections":
+            let reason = try json.get(String.self, forKey: "reason")
+            let scope = try json.get(String.self, forKey: "scope")
+            let ports = try json.get([Int].self, forKey: "ports").map { UInt8($0) }
+            if let scope = TargetDescription.PluginNetworkPermissionScope(scope, ports: ports) {
+                self = .allowNetworkConnections(scope: scope, reason: reason)
+            } else {
+                throw JSON.MapError.custom(key: "scope", message: "invalid scope '\(scope)'")
+            }
         case "writeToPackageDirectory":
             let reason = try json.get(String.self, forKey: "reason")
             self = .writeToPackageDirectory(reason: reason)

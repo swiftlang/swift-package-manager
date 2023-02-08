@@ -527,4 +527,17 @@ class ManifestSourceGenerationTests: XCTestCase {
             """
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
     }
+
+    func testPluginNetworkingPermissionGeneration() throws {
+        let manifest = Manifest.createRootManifest(
+            name: "thisPkg",
+            path: .init(path: "/thisPkg"),
+            toolsVersion: .v5_9,
+            dependencies: [],
+            targets: [
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: "internet good")]))
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
+    }
 }

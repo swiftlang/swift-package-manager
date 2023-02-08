@@ -50,6 +50,7 @@ public protocol PluginScriptRunner {
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,

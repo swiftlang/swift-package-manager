@@ -869,29 +869,29 @@ extension RegistryClient {
 }
 
 extension RegistryClient {
-    enum SignatureFormat {
+    public enum SignatureFormat {
         case CMS_1_0_0
     }
 }
 
 extension RegistryClient {
     public struct PublishRequirements {
-        let metadata: Metadata
-        let signing: Signing
+        public let metadata: Metadata
+        public let signing: Signing
 
-        struct Metadata {
-            let location: [MetadataLocation]
+        public struct Metadata {
+            public let location: [MetadataLocation]
         }
 
-        enum MetadataLocation {
+        public enum MetadataLocation {
             case request
             case archive
         }
 
-        struct Signing {
-            let required: Bool
-            let acceptedSignatureFormats: [SignatureFormat]
-            let trustedRootCertificates: [String]
+        public struct Signing {
+            public let required: Bool
+            public let acceptedSignatureFormats: [SignatureFormat]
+            public let trustedRootCertificates: [String]
         }
     }
 }
