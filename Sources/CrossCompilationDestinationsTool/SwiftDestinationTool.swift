@@ -13,16 +13,24 @@
 import ArgumentParser
 import Basics
 
+#if swift(>=5.5.2)
+private let subcommands: [ParsableCommand.Type] = [
+    InstallDestination.self,
+    ListDestinations.self,
+]
+#else
+private let subcommands [ParsableCommand.Type] = [
+    ListDestinations.self,
+]
+#endif
+
 public struct SwiftDestinationTool: AsyncParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "experimental-destination",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift cross-compilation destinations.",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
-            InstallDestination.self,
-            ListDestinations.self,
-        ],
+        subcommands: subcommands,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     public init() {}
