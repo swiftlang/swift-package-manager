@@ -814,11 +814,50 @@ public enum PluginCommandIntent: Hashable, Codable {
     }
 }
 
+public enum PluginNetworkPermissionScope: Hashable, Codable {
+    case none
+    case local(ports: [UInt8])
+    case all(ports: [UInt8])
+    case docker
+    case unixDomainSocket
+
+    init(_ scope: TargetDescription.PluginNetworkPermissionScope) {
+        switch scope {
+        case .none: self = .none
+        case .local(let ports): self = .local(ports: ports)
+        case .all(let ports): self = .all(ports: ports)
+        case .docker: self = .docker
+        case .unixDomainSocket: self = .unixDomainSocket
+        }
+    }
+
+    public var label: String {
+        switch self {
+        case .all: return "all"
+        case .local: return "local"
+        case .none: return "none"
+        case .docker: return "docker unix domain socket"
+        case .unixDomainSocket: return "unix domain socket"
+        }
+    }
+
+    public var ports: [UInt8] {
+        switch self {
+        case .all(let ports): return ports
+        case .local(let ports): return ports
+        case .none, .docker, .unixDomainSocket: return []
+        }
+    }
+}
+
 public enum PluginPermission: Hashable, Codable {
+    case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
     case writeToPackageDirectory(reason: String)
 
     public init(from desc: TargetDescription.PluginPermission) {
         switch desc {
+        case .allowNetworkConnections(let scope, let reason):
+            self = .allowNetworkConnections(scope: .init(scope), reason: reason)
         case .writeToPackageDirectory(let reason):
             self = .writeToPackageDirectory(reason: reason)
         }

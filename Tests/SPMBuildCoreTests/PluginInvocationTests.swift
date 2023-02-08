@@ -118,6 +118,7 @@ class PluginInvocationTests: XCTestCase {
                 workingDirectory: AbsolutePath,
                 writableDirectories: [AbsolutePath],
                 readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,

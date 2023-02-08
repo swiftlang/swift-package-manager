@@ -298,13 +298,35 @@ extension PluginCommandIntent: Encodable {
     }
 }
 
+extension PluginNetworkPermissionScope: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .all: try container.encode("all")
+        case .local: try container.encode("local")
+        case .none: try container.encode("none")
+        case .docker: try container.encode("docker")
+        case .unixDomainSocket: try container.encode("unix-socket")
+        }
+    }
+
+    var ports: [UInt8] {
+        switch self {
+        case .all(let ports): return ports
+        case .local(let ports): return ports
+        case .none, .docker, .unixDomainSocket: return []
+        }
+    }
+}
+
 /// `Encodable` conformance.
 extension PluginPermission: Encodable {
     private enum CodingKeys: CodingKey {
-        case type, reason
+        case type, reason, scope, ports
     }
 
     private enum PermissionType: String, Encodable {
+        case allowNetworkConnections
         case writeToPackageDirectory
     }
 
@@ -314,6 +336,11 @@ extension PluginPermission: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case ._allowNetworkConnections(let scope, let reason):
+            try container.encode(PermissionType.allowNetworkConnections, forKey: .type)
+            try container.encode(reason, forKey: .reason)
+            try container.encode(scope, forKey: .scope)
+            try container.encode(scope.ports, forKey: .ports)
         case ._writeToPackageDirectory(let reason):
             try container.encode(PermissionType.writeToPackageDirectory, forKey: .type)
             try container.encode(reason, forKey: .reason)

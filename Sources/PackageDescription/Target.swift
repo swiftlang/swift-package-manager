@@ -1221,10 +1221,37 @@ public extension PluginCommandIntent {
 
 /// The type of permission a plugin requires.
 ///
-/// Only one type of permission is supported. See ``writeToPackageDirectory(reason:)``.
+/// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginPermission {
+    @available(_PackageDescription, introduced: 5.9)
+    case _allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
     case _writeToPackageDirectory(reason: String)
+}
+
+/// The scope of a network permission. This can be none, local connections only or all connections.
+@available(_PackageDescription, introduced: 5.9)
+public enum PluginNetworkPermissionScope {
+    /// Do not allow network access.
+    case none
+    /// Allow local network connections, can be limited to a list of allowed ports.
+    case local(ports: [UInt8] = [])
+    /// Allow local and outgoing network connections, can be limited to a list of allowed ports.
+    case all(ports: [UInt8] = [])
+    /// Allow connections to Docker through unix domain sockets.
+    case docker
+    /// Allow connections to any unix domain socket.
+    case unixDomainSocket
+
+    /// Allow local and outgoing network connections,  limited to a range of allowed ports.
+    public static func all(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+        return .all(ports: Array(ports))
+    }
+
+    /// Allow local network connections,  limited to a range of allowed ports.
+    public static func local(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
+        return .local(ports: Array(ports))
+    }
 }
 
 @available(_PackageDescription, introduced: 5.6)
@@ -1238,6 +1265,18 @@ public extension PluginPermission {
     ///   - Returns: A `PluginPermission` instance.
     static func writeToPackageDirectory(reason: String) -> PluginPermission {
         return _writeToPackageDirectory(reason: reason)
+    }
+
+    /// Create a permission to make network connections.
+    ///
+    /// The command plugin wants permission to make network connections. The `reason` string is shown
+    /// to the user at the time of request for approval, explaining why the plugin is requesting this access.
+    ///   - Parameter scope: The scope of the permission.
+    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
+    ///   - Returns: A `PluginPermission` instance.
+    @available(_PackageDescription, introduced: 5.9)
+    static func allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String) -> PluginPermission {
+        return _allowNetworkConnections(scope: scope, reason: reason)
     }
 }
 
