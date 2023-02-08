@@ -88,7 +88,7 @@ extension SwiftPackageTool {
         var globalOptions: GlobalOptions
 
         @OptionGroup()
-        var _pluginOptions: PluginCommand.PluginOptions
+        var pluginOptions: PluginCommand.PluginOptions
 
         @Argument(parsing: .unconditionalRemaining)
         var remaining: [String] = []
@@ -109,55 +109,27 @@ extension SwiftPackageTool {
             }
 
             // Otherwise see if we can find a plugin.
-            
-            // We first have to try to resolve the package graph to find any plugins.
-            // TODO: Ideally we should only resolve plugin dependencies, if we had a way of distinguishing them.
-            let packageGraph = try swiftTool.loadPackageGraph()
-
-            // Otherwise find all plugins that match the command verb.
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command)'")
-            let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
-
-            // Complain if we didn't find exactly one. We have to formulate the error message taking into account that this might be a misspelled subcommand.
-            if matchingPlugins.isEmpty {
-                throw ValidationError("Unknown subcommand or plugin name '\(command)'")
-            }
-            else if matchingPlugins.count > 1 {
-                throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
-            }
-
-            // handle plugin execution arguments that got passed after the plugin name
-            let pluginArguments = try PluginArguments.parse(Array(self.remaining.drop(while: { $0 == command })))
-            // merge the relevant plugin execution options
-            var pluginOptions = self._pluginOptions
-            pluginOptions.allowWritingToPackageDirectory = pluginOptions.allowWritingToPackageDirectory || pluginArguments.pluginOptions.allowWritingToPackageDirectory
-            pluginOptions.additionalAllowedWritableDirectories.append(contentsOf: pluginArguments.pluginOptions.additionalAllowedWritableDirectories)
-            if pluginArguments.pluginOptions.allowNetworkConnections != .none {
-                pluginOptions.allowNetworkConnections = pluginArguments.pluginOptions.allowNetworkConnections
-            }
-            swiftTool.shouldDisableSandbox = swiftTool.shouldDisableSandbox || pluginArguments.globalOptions.security.shouldDisableSandbox
-
-            // At this point we know we found exactly one command plugin, so we run it.
             try PluginCommand.run(
-                plugin: matchingPlugins[0],
-                package: packageGraph.rootPackages[0],
-                packageGraph: packageGraph,
-                options: pluginOptions,
-                arguments: pluginArguments.remaining,
+                command: command,
+                options: self.pluginOptions,
+                arguments: self.remaining,
                 swiftTool: swiftTool
             )
         }
     }
+}
 
-    // helper to parse plugin arguments passed after the plugin name
-    private struct PluginArguments: ParsableCommand {
-        @OptionGroup
-        var globalOptions: GlobalOptions
-
-        @OptionGroup()
-        var pluginOptions: PluginCommand.PluginOptions
-
-        @Argument(parsing: .unconditionalRemaining)
-        var remaining: [String] = []
+extension PluginCommand.PluginOptions {
+    func merged(with other: Self) -> Self {
+        // validate against developer mistake
+        assert(Mirror(reflecting: self).children.count == 3, "Property added to PluginOptions without updating merged(with:)!")
+        // actual merge
+        var merged = self
+        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other.allowWritingToPackageDirectory
+        merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
+        if other.allowNetworkConnections != .none {
+            merged.allowNetworkConnections = other.allowNetworkConnections
+        }
+        return merged
     }
 }
