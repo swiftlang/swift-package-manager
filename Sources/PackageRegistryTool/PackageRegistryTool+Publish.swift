@@ -164,14 +164,25 @@ extension SwiftPackageRegistryTool {
             // step 4: publish the package
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
-            try self.publish(
-                packageIdentity: self.packageIdentity,
+            let result = try self.publish(
                 registryURL: registryURL,
+                packageIdentity: self.packageIdentity,
+                packageVersion: self.packageVersion,
                 archivePath: archivePath,
+                metadataPath: publishRequirements.metadata.location.contains(.request) ? metadataPath : .none,
                 signature: signature,
                 registryClient: registryClient,
                 observabilityScope: swiftTool.observabilityScope
             )
+
+            switch result {
+            case .published(.none):
+                print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL)")
+            case .published(.some(let location)):
+                print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL) and is available at \(location)")
+            case .processing(let statusURL, _):
+                print("\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)")
+            }
         }
 
         func getPublishRequirements(
@@ -248,14 +259,28 @@ extension SwiftPackageRegistryTool {
         }
 
         func publish(
-            packageIdentity: PackageIdentity,
             registryURL: URL,
+            packageIdentity: PackageIdentity,
+            packageVersion: Version,
             archivePath: AbsolutePath,
+            metadataPath: AbsolutePath?,
             signature: [UInt8],
             registryClient: RegistryClient,
             observabilityScope: ObservabilityScope
-        ) throws {
-            fatalError("not implemented")
+        ) throws -> RegistryClient.PublishResult {
+            try tsc_await { callback in
+                registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: packageIdentity,
+                    packageVersion: packageVersion,
+                    packageArchive: archivePath,
+                    packageMetadata: metadataPath,
+                    fileSystem: localFileSystem,
+                    observabilityScope: observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: callback
+                )
+            }
         }
     }
 }
