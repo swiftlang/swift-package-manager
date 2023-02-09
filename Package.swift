@@ -462,8 +462,7 @@ let package = Package(
         .executableTarget(
             /** Interacts with cross-compilation destinations */
             name: "swift-experimental-destination",
-            dependencies: ["Commands", "CrossCompilationDestinationsTool"],
-            exclude: ["CMakeLists.txt"]
+            dependencies: ["Commands", "CrossCompilationDestinationsTool"]
         ),
         .executableTarget(
             /** Runs package tests */
