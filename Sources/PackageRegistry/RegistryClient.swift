@@ -749,115 +749,118 @@ public final class RegistryClient: Cancellable {
     }
 
     public func publish(
-            registryURL: URL,
-            packageIdentity: PackageIdentity,
-            packageVersion: Version,
-            packageArchive: AbsolutePath,
-            packageMetadata: AbsolutePath?,
-            timeout: DispatchTimeInterval? = .none,
-            fileSystem: FileSystem,
-            observabilityScope: ObservabilityScope,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<PublishResult, Error>) -> Void
-        ) {
-            let completion = self.makeAsync(completion, on: callbackQueue)
+        registryURL: URL,
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageArchive: AbsolutePath,
+        packageMetadata: AbsolutePath?,
+        signature: Data?,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PublishResult, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
-            guard let scopeAndName = packageIdentity.scopeAndName else {
-                return completion(.failure(RegistryError.invalidPackage(packageIdentity)))
-            }
-            guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
-                return completion(.failure(RegistryError.invalidURL(registryURL)))
-            }
-            components.appendPathComponents(scopeAndName.scope.description)
-            components.appendPathComponents(scopeAndName.name.description)
-            components.appendPathComponents(packageVersion.description)
+        guard let scopeAndName = packageIdentity.scopeAndName else {
+            return completion(.failure(RegistryError.invalidPackage(packageIdentity)))
+        }
+        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+        components.appendPathComponents(scopeAndName.scope.description)
+        components.appendPathComponents(scopeAndName.name.description)
+        components.appendPathComponents(packageVersion.description)
 
-            guard let url = components.url else {
-                return completion(.failure(RegistryError.invalidURL(registryURL)))
-            }
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
 
-            // TODO: don't load the entire file in memory
-            guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
-                return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
-            }
-            var metadataContent: String? = .none
-            if let packageMetadata = packageMetadata {
-                do {
-                    metadataContent = try fileSystem.readFileContents(packageMetadata)
-                } catch {
-                    return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
-                }
-            }
-
-            // TODO: add generic support for upload requests in Basics
-            var body = Data()
-            let boundary = UUID().uuidString
-            
-            // archive field
-            body.append(contentsOf: """
-            --\(boundary)
-            Content-Disposition: form-data; name=\"source-archive\"
-            Content-Type: application/zip
-            Content-Transfer-Encoding: base64
-            Content-Length: \(packageArchiveContent.count)
-
-            \(packageArchiveContent.base64EncodedString())
-            """.utf8)
-
-            if let metadataContent = metadataContent {
-                // metadata fiels
-                body.append(contentsOf: """
-                --\(boundary)
-                Content-Disposition: form-data; name=\"metadata\"
-                Content-Type: application/json
-                Content-Transfer-Encoding: quoted-printable
-                Content-Length: \(metadataContent.count)
-
-                \(metadataContent)
-                """.utf8)
-            }
-
-            let request = LegacyHTTPClient.Request(
-                method: .put,
-                url: url,
-                headers: [
-                    "Accept": self.acceptHeader(mediaType: .json),
-                    "Prefer": "respond-async",
-                ],
-                body: body,
-                options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
-            )
-
-            self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-                completion(
-                    result.tryMap { response in
-                        switch response.statusCode {
-                        case 201:
-                            try response.validateAPIVersion()
-
-                            let location = response.headers.get("Location").first.flatMap{ URL(string: $0) }
-                            return PublishResult.published(location)
-                        case 202:
-                            try response.validateAPIVersion()
-
-                            guard let location = (response.headers.get("Location").first.flatMap{ URL(string: $0) }) else {
-                                throw RegistryError.missingPublishingLocation
-                            }
-                            let retryAfter = response.headers.get("Retry-After").first.flatMap{ Int($0) }
-                            return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
-                        default:
-                            if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                                throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                            } else {
-                                throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                            }
-                        }
-                    }.mapError {
-                        RegistryError.failedPublishing($0)
-                    }
-                )
+        // TODO: don't load the entire file in memory
+        guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
+            return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
+        }
+        var metadataContent: String? = .none
+        if let packageMetadata = packageMetadata {
+            do {
+                metadataContent = try fileSystem.readFileContents(packageMetadata)
+            } catch {
+                return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
             }
         }
+
+        // TODO: add generic support for upload requests in Basics
+        var body = Data()
+        let boundary = UUID().uuidString
+
+        // archive field
+        body.append(contentsOf: """
+        --\(boundary)
+        Content-Disposition: form-data; name=\"source-archive\"\r
+        Content-Type: application/zip\r
+        Content-Transfer-Encoding: base64\r
+        Content-Length: \(packageArchiveContent.count)\r
+        \r
+        \(packageArchiveContent.base64EncodedString())
+        """.utf8)
+
+        if let metadataContent = metadataContent {
+            // spacer
+            body.append(contentsOf: "\r\n".utf8)
+            // metadata fiels
+            body.append(contentsOf: """
+            --\(boundary)\r
+            Content-Disposition: form-data; name=\"metadata\"\r
+            Content-Type: application/json\r
+            Content-Transfer-Encoding: quoted-printable\r
+            Content-Length: \(metadataContent.count)\r
+            \r
+            \(metadataContent)
+            """.utf8)
+        }
+
+        let request = LegacyHTTPClient.Request(
+            method: .put,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .json),
+                "Prefer": "respond-async",
+            ],
+            body: body,
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 201:
+                        try response.validateAPIVersion()
+
+                        let location = response.headers.get("Location").first.flatMap { URL(string: $0) }
+                        return PublishResult.published(location)
+                    case 202:
+                        try response.validateAPIVersion()
+
+                        guard let location = (response.headers.get("Location").first.flatMap { URL(string: $0) }) else {
+                            throw RegistryError.missingPublishingLocation
+                        }
+                        let retryAfter = response.headers.get("Retry-After").first.flatMap { Int($0) }
+                        return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
+                    default:
+                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
+                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
+                        } else {
+                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
+                        }
+                    }
+                }.mapError {
+                    RegistryError.failedPublishing($0)
+                }
+            )
+        }
+    }
 
     private func makeAsync<T>(
         _ closure: @escaping (Result<T, Error>) -> Void,
@@ -951,7 +954,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .failedRetrievingManifest(let error):
             return "Failed retrieving manifest from registry: \(error)"
         case .failedDownloadingSourceArchive(let error):
-            return "Failed downloading source archive: \(error)"
+            return "Failed downloading source archive from registry: \(error)"
         case .failedIdentityLookup(let error):
             return "Failed looking up identity: \(error)"
         case .failedRetrievingRegistryPublishRequirements(let error):

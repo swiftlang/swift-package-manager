@@ -1581,6 +1581,7 @@ final class RegistryClientTests: XCTestCase {
                 packageVersion: version,
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
+                signature: .none,
                 fileSystem: localFileSystem
             )
 
@@ -1646,6 +1647,7 @@ final class RegistryClientTests: XCTestCase {
                 packageVersion: version,
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
+                signature: .none,
                 fileSystem: localFileSystem
             )
 
@@ -1688,6 +1690,7 @@ final class RegistryClientTests: XCTestCase {
                 packageVersion: version,
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
+                signature: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError
@@ -1731,6 +1734,7 @@ final class RegistryClientTests: XCTestCase {
                 packageVersion: version,
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
+                signature: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError.failedLoadingPackageArchive(archivePath) = error else {
@@ -1769,6 +1773,7 @@ final class RegistryClientTests: XCTestCase {
                 packageVersion: version,
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
+                signature: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError.failedLoadingPackageMetadata(metadataPath) = error else {
@@ -1903,6 +1908,7 @@ extension RegistryClient {
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
+        signature: Data?,
         fileSystem: FileSystem
     ) throws -> RegistryClient.PublishResult {
         try tsc_await {
@@ -1912,6 +1918,7 @@ extension RegistryClient {
                 packageVersion: packageVersion,
                 packageArchive: packageArchive,
                 packageMetadata: packageMetadata,
+                signature: signature,
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,

@@ -126,11 +126,14 @@ extension SwiftPackageRegistryTool {
 
             // step 1: get registry publishing requirements
             swiftTool.observabilityScope.emit(info: "retrieving '\(registryURL)' publishing requirements")
-            let publishRequirements = try self.getPublishRequirements(
-                registryURL: registryURL,
-                registryClient: registryClient,
-                observabilityScope: swiftTool.observabilityScope
-            )
+            let publishRequirements = try tsc_await { callback in
+                registryClient.getPublishRequirements(
+                    registryURL: registryURL,
+                    observabilityScope: swiftTool.observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: callback
+                )
+            }
 
             // step 2: generate source archive for the package release
             let metadataPath = self.customMetadataPath ?? packageDirectory.appending(component: Self.metadataFilename)
@@ -152,28 +155,36 @@ extension SwiftPackageRegistryTool {
             )
 
             // step 3: sign the source archive if needed
-            swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
-            let signature = try self.sign(
-                archivePath: archivePath,
-                signatureFormat: self.signatureFormat,
-                signingIdentity: self.signingIdentity,
-                privateKeyPath: self.privateKeyPath,
-                observabilityScope: swiftTool.observabilityScope
-            )
+            var signature: Data? = .none
+            if publishRequirements.signing.required {
+                swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
+                signature = try self.sign(
+                    archivePath: archivePath,
+                    signatureFormat: self.signatureFormat,
+                    signingIdentity: self.signingIdentity,
+                    privateKeyPath: self.privateKeyPath,
+                    observabilityScope: swiftTool.observabilityScope
+                )
+            }
 
             // step 4: publish the package
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
-            let result = try self.publish(
-                registryURL: registryURL,
-                packageIdentity: self.packageIdentity,
-                packageVersion: self.packageVersion,
-                archivePath: archivePath,
-                metadataPath: publishRequirements.metadata.location.contains(.request) ? metadataPath : .none,
-                signature: signature,
-                registryClient: registryClient,
-                observabilityScope: swiftTool.observabilityScope
-            )
+            // TODO: handle signature
+            let result = try tsc_await { callback in
+                registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: self.packageIdentity,
+                    packageVersion: self.packageVersion,
+                    packageArchive: archivePath,
+                    packageMetadata: publishRequirements.metadata.location.contains(.request) ? metadataPath : .none,
+                    signature: signature,
+                    fileSystem: localFileSystem,
+                    observabilityScope: swiftTool.observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: callback
+                )
+            }
 
             switch result {
             case .published(.none):
@@ -182,21 +193,6 @@ extension SwiftPackageRegistryTool {
                 print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL) and is available at \(location)")
             case .processing(let statusURL, _):
                 print("\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)")
-            }
-        }
-
-        func getPublishRequirements(
-            registryURL: URL,
-            registryClient: RegistryClient,
-            observabilityScope: ObservabilityScope
-        ) throws -> RegistryClient.PublishRequirements {
-            try tsc_await { callback in
-                registryClient.getPublishRequirements(
-                    registryURL: registryURL,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
             }
         }
 
@@ -254,33 +250,8 @@ extension SwiftPackageRegistryTool {
             signingIdentity: String?,
             privateKeyPath: AbsolutePath?,
             observabilityScope: ObservabilityScope
-        ) throws -> [UInt8] {
+        ) throws -> Data {
             fatalError("not implemented")
-        }
-
-        func publish(
-            registryURL: URL,
-            packageIdentity: PackageIdentity,
-            packageVersion: Version,
-            archivePath: AbsolutePath,
-            metadataPath: AbsolutePath?,
-            signature: [UInt8],
-            registryClient: RegistryClient,
-            observabilityScope: ObservabilityScope
-        ) throws -> RegistryClient.PublishResult {
-            try tsc_await { callback in
-                registryClient.publish(
-                    registryURL: registryURL,
-                    packageIdentity: packageIdentity,
-                    packageVersion: packageVersion,
-                    packageArchive: archivePath,
-                    packageMetadata: metadataPath,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
-            }
         }
     }
 }
