@@ -20,34 +20,6 @@ let firstArg = CommandLine.arguments[0]
 let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
     (try? RelativePath(validating: firstArg).basenameWithoutExt)
 
-#if swift(>=5.5.2)
-
-@main
-struct SwiftPM {
-    static func main() async {
-        switch execName {
-        case "swift-package":
-            SwiftPackageTool.main()
-        case "swift-build":
-            SwiftBuildTool.main()
-        case "swift-experimental-destination":
-            await SwiftDestinationTool.main()
-        case "swift-test":
-            SwiftTestTool.main()
-        case "swift-run":
-            SwiftRunTool.main()
-        case "swift-package-collection":
-            SwiftPackageCollectionsTool.main()
-        case "swift-package-registry":
-            SwiftPackageRegistryTool.main()
-        default:
-            fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
-        }
-    }
-}
-
-#else
-
 @main
 struct SwiftPM {
     static func main() {
@@ -56,6 +28,8 @@ struct SwiftPM {
             SwiftPackageTool.main()
         case "swift-build":
             SwiftBuildTool.main()
+        case "swift-experimental-destination":
+            SwiftDestinationTool.main()
         case "swift-test":
             SwiftTestTool.main()
         case "swift-run":
@@ -69,5 +43,3 @@ struct SwiftPM {
         }
     }
 }
-
-#endif // swift(>=5.5.2)
