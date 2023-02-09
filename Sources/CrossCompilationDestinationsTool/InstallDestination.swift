@@ -63,9 +63,9 @@ public struct InstallDestination: ParsableCommand {
             let scheme = bundleURL.scheme,
                 scheme == "http" || scheme == "https"
         {
-            let response = try tsc_await {
+            let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
                 let client = LegacyHTTPClient()
-                client.execute(.init(method: .get, url: bundleURL), progress: nil, completion: $0)
+                client.execute(.init(method: .get, url: bundleURL), progress: nil, completion: completion)
             }
 
             guard let body = response.body else {
