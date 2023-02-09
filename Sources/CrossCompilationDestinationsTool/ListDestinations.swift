@@ -17,8 +17,8 @@ import SPMBuildCore
 import PackageModel
 import TSCBasic
 
-struct ListDestinations: ParsableCommand {
-    static let configuration = CommandConfiguration(
+public struct ListDestinations: ParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
             """
@@ -29,11 +29,11 @@ struct ListDestinations: ParsableCommand {
     @OptionGroup()
     var locations: LocationOptions
 
-    func run() throws {
+    public init() {}
+
+    public func run() throws {
         let fileSystem = localFileSystem
-        let observabilitySystem = ObservabilitySystem(
-            SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .warning)
-        )
+        let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
 
         guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
