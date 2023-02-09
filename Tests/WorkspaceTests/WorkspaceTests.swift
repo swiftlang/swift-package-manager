@@ -12460,7 +12460,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching releases from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                    result.check(diagnostic: .equal("Failed fetching releases from registry: Invalid registry response status '500', expected '[200]'"), severity: .error)
                 }
             }
         }
@@ -12536,7 +12536,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: Invalid registry response status '500', expected '[200]'"), severity: .error)
                 }
             }
         }
@@ -12612,7 +12612,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: Invalid registry response status '500', expected '[200]'"), severity: .error)
                 }
             }
         }
@@ -12688,7 +12688,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed downloading source archive from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                    result.check(diagnostic: .equal("Failed downloading source archive from registry: Invalid registry response status '500', expected '[200]'"), severity: .error)
                 }
             }
         }
