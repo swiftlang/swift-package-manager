@@ -14,6 +14,7 @@ import Basics
 import TSCBasic
 import TSCTestSupport
 import XCTest
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
@@ -95,6 +96,12 @@ class ZipArchiverTests: XCTestCase {
     }
 
     func testCompress() throws {
+        #if os(Linux)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
          try testWithTemporaryDirectory { tmpdir in
              let archiver = ZipArchiver(fileSystem: localFileSystem)
 

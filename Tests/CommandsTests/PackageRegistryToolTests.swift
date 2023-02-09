@@ -17,6 +17,7 @@ import PackageModel
 @testable import PackageRegistryTool
 import SPMTestSupport
 import TSCBasic
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import XCTest
 
@@ -218,6 +219,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     // TODO: Test example with login and password
 
     func testArchiving() throws {
+        #if os(Linux)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
         let observability = ObservabilitySystem.makeForTesting()
         let publishTool = SwiftPackageRegistryTool.Publish()
 
