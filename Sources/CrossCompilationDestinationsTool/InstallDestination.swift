@@ -11,18 +11,17 @@
 //===----------------------------------------------------------------------===//
 
 
-#if swift(>=5.5.2)
-
 import ArgumentParser
 import Basics
 import CoreCommands
 import Foundation
 
+import func TSCBasic.tsc_await
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
-public struct InstallDestination: AsyncParsableCommand {
+public struct InstallDestination: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
@@ -64,8 +63,10 @@ public struct InstallDestination: AsyncParsableCommand {
             let scheme = bundleURL.scheme,
                 scheme == "http" || scheme == "https"
         {
-            let client = HTTPClient()
-            let response = try await client.execute(.init(method: .get, url: bundleURL), progress: nil)
+            let response = try tsc_await {
+                let client = LegacyHTTPClient()
+                client.execute(.init(method: .get, url: bundleURL), progress: nil, completion: $0)
+            }
 
             guard let body = response.body else {
                 throw StringError("No downloadable data available at URL \(bundleURL).")
@@ -93,5 +94,3 @@ public struct InstallDestination: AsyncParsableCommand {
         observabilityScope.emit(info: "Destination artifact bundle at \(bundlePathOrURL) successfully installed.")
     }
 }
-
-#endif
