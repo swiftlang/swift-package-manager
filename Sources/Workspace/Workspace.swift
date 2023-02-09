@@ -1073,7 +1073,6 @@ extension Workspace {
     }
 
     /// Loads and returns manifests at the given paths.
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     public func loadRootManifests(packages: [AbsolutePath], observabilityScope: ObservabilityScope) async throws -> [AbsolutePath: Manifest] {
         return try await withCheckedThrowingContinuation{ continuation in
             self.loadRootManifests(packages: packages, observabilityScope: observabilityScope) { result in
@@ -1124,7 +1123,6 @@ extension Workspace {
     }
 
     /// Loads and returns manifest at the given path.
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     public func loadRootManifest(at path: AbsolutePath, observabilityScope: ObservabilityScope) async throws -> Manifest {
         return try await withCheckedThrowingContinuation{ continuation in
             self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
@@ -1155,7 +1153,6 @@ extension Workspace {
     }
 
     /// Loads root package
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     public func loadRootPackage(at path: AbsolutePath, observabilityScope: ObservabilityScope) async throws -> Package {
         return try await withCheckedThrowingContinuation{ continuation in
             self.loadRootPackage(at: path, observabilityScope: observabilityScope) { result in

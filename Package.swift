@@ -104,8 +104,8 @@ packageCollectionsSigningTargets.append(
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS("10.15.4"),
-        .iOS("13.4")
+        .macOS("12.0"),
+        .iOS("15.0")
     ],
     products:
         autoProducts.flatMap {
