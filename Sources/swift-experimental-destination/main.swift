@@ -12,9 +12,4 @@
 
 import CrossCompilationDestinationsTool
 
-@main
-struct Main {
-    static func main() async {
-        await SwiftDestinationTool.main()
-    }
-}
+SwiftDestinationTool.main()

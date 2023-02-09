@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-experimental-destination
-  swift-experimental-destination.swift)
+  main.swift)
 target_link_libraries(swift-experimental-destination PRIVATE
   CrossCompilationDestinationsTool)
 
