@@ -759,13 +759,13 @@ public enum PIF {
     }
 
     /// A build file, representing the membership of either a file or target product reference in a build phase.
-    public struct BuildFile: Codable {
-        public enum Reference {
+    public struct BuildFile: Codable, Hashable {
+        public enum Reference: Hashable {
             case file(guid: PIF.GUID)
             case target(guid: PIF.GUID)
         }
 
-        public enum HeaderVisibility: String, Codable {
+        public enum HeaderVisibility: String, Codable, Hashable {
             case `public` = "public"
             case `private` = "private"
         }
@@ -847,7 +847,7 @@ public enum PIF {
     }
 
     /// Represents a generic platform filter.
-    public struct PlatformFilter: Codable, Equatable {
+    public struct PlatformFilter: Codable, Equatable, Hashable {
         /// The name of the platform (`LC_BUILD_VERSION`).
         ///
         /// Example: macos, ios, watchos, tvos.

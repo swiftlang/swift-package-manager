@@ -1799,6 +1799,60 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
+    func testLibraryTargetWithPublicHeaders() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/Bar/Sources/BarLib/include/lib.h",
+                                        "/Bar/Sources/BarLib/lib.c"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar"),
+                    packageKind: .root(.init(path: "/Bar/Sources/BarLib/include")),
+                    toolsVersion: .v4_2,
+                    cLanguageStandard: "c11",
+                    swiftLanguageVersions: [.v4_2],
+                    products: [
+                        .init(name: "BarLib", type: .library(.dynamic), targets: ["BarLib"]),
+                    ],
+                    targets: [
+                        .init(name: "BarLib", publicHeadersPath: "include"),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        var pif: PIF.TopLevelObject!
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(shouldCreateDylibForDynamicProducts: true),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            pif = try builder.construct()
+        }
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        try PIFTester(pif) { workspace in
+            try workspace.checkProject("PACKAGE:/Bar") { project in
+                project.checkTarget("PACKAGE-TARGET:BarLib") { target in
+                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.headers.count, 1)
+                    XCTAssertEqual(target.headers.first?.headerVisibility, .public)
+                }
+            }
+        }
+    }
+
     func testSystemLibraryTargets() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")

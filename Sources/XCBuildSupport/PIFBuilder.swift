@@ -611,7 +611,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
             // Also propagate this search path to all direct and indirect clients.
             impartedSettings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
-
+            
             let publicHeaders = clangTarget.headers.filter { $0.isDescendant(of: clangTarget.includeDir) }
             addPublicHeaders(publicHeaders, includeDir: clangTarget.includeDir, to: pifTarget)
 

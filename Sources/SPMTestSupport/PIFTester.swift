@@ -114,6 +114,7 @@ public class PIFBaseTargetTester {
     public var guid: PIF.GUID { baseTarget.guid }
     public var name: String { baseTarget.name }
     public let dependencies: Set<PIF.GUID>
+    public let headers: Set<PIF.BuildFile>
     public let sources: Set<String>
     public let frameworks: Set<String>
     public let resources: Set<String>
@@ -121,6 +122,9 @@ public class PIFBaseTargetTester {
     fileprivate init(baseTarget: PIF.BaseTarget, targetMap: [PIF.GUID: PIF.BaseTarget], fileMap: [PIF.GUID: String]) {
         self.baseTarget = baseTarget
         dependencies = Set(baseTarget.dependencies.map { targetMap[$0.targetGUID]!.guid })
+
+        let headersBuildFiles = baseTarget.buildPhases.first { $0 is PIF.HeadersBuildPhase }?.buildFiles ?? []
+        headers = Set(headersBuildFiles)
 
         let sourcesBuildFiles = baseTarget.buildPhases.first { $0 is PIF.SourcesBuildPhase }?.buildFiles ?? []
         sources = Set(sourcesBuildFiles.map { buildFile -> String in
