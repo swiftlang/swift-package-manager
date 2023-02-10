@@ -1442,89 +1442,6 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryRequirements() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let publishRequirementsURL = URL(string: "\(registryURL)/publish-requirements")!
-
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.get, publishRequirementsURL):
-                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
-
-                let data = #"""
-                {
-                  "metadata": {
-                    "location": ["in-request", "in-archive"]
-                  },
-                  "signing": {
-                    "required": true,
-                    "acceptedSignatureFormats": ["cms-1.0.0"],
-                    "trustedRootCertificates": ["foo", "bar"]
-                  }
-                }
-                """#.data(using: .utf8)!
-
-                completion(.success(.init(
-                    statusCode: 200,
-                    headers: .init([
-                        .init(name: "Content-Length", value: "\(data.count)"),
-                        .init(name: "Content-Type", value: "application/json"),
-                        .init(name: "Content-Version", value: "1"),
-                    ]),
-                    body: data
-                )))
-            default:
-                completion(.failure(StringError("method and url should match")))
-            }
-        }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = Registry(url: registryURL)
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let requirements = try registryClient.getPublishRequirements(registryURL: registryURL)
-
-        XCTAssertEqual(requirements.metadata.location, [.request, .archive])
-        XCTAssertEqual(requirements.signing.required, true)
-        XCTAssertEqual(requirements.signing.acceptedSignatureFormats, [.CMS_1_0_0])
-        XCTAssertEqual(requirements.signing.trustedRootCertificates, ["foo", "bar"])
-    }
-
-    func testGetRegistryRequirements_ServerError() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let publishRequirementsURL = URL(string: "\(registryURL)/publish-requirements")!
-
-        let serverErrorHandler = ServerErrorHandler(
-            method: .get,
-            url: publishRequirementsURL,
-            errorCode: Int.random(in: 400 ..< 500),
-            errorDescription: UUID().uuidString
-        )
-
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = Registry(url: registryURL)
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getPublishRequirements(registryURL: registryURL)) { error in
-            guard case RegistryError
-                .failedRetrievingRegistryPublishRequirements(
-                    RegistryError
-                        .serverError(code: serverErrorHandler.errorCode, details: serverErrorHandler.errorDescription)
-                ) = error
-            else {
-                return XCTFail("unexpected error \(error)")
-            }
-        }
-    }
-
     func testGetRegistryPublishSync() throws {
         let registryURL = URL(string: "https://packages.example.com")!
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -1884,17 +1801,6 @@ extension RegistryClient {
         try tsc_await {
             self.login(
                 url: url,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
-    }
-
-    func getPublishRequirements(registryURL: URL) throws -> RegistryClient.PublishRequirements {
-        try tsc_await {
-            self.getPublishRequirements(
-                registryURL: registryURL,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0

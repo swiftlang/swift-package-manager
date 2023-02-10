@@ -648,74 +648,6 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    public func getPublishRequirements(
-        registryURL: URL,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PublishRequirements, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
-        }
-        components.appendPathComponents("publish-requirements")
-        guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
-        }
-
-        let request = LegacyHTTPClient.Request(
-            method: .get,
-            url: url,
-            headers: [
-                "Accept": self.acceptHeader(mediaType: .json),
-            ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
-        )
-
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
-                    switch response.statusCode {
-                    case 200:
-                        let publishRequirements = try response.parseJSON(
-                            Serialization.PublishRequirements.self,
-                            decoder: self.jsonDecoder
-                        )
-
-                        return PublishRequirements(
-                            metadata: .init(
-                                location: publishRequirements.metadata.location.map {
-                                    switch $0 {
-                                    case .archive:
-                                        return .archive
-                                    case .request:
-                                        return .request
-                                    }
-                                }
-                            ),
-                            signing: .init(
-                                required: publishRequirements.signing.required,
-                                acceptedSignatureFormats: publishRequirements.signing.acceptedSignatureFormats.map {
-                                    switch $0 {
-                                    case .CMS_1_0_0:
-                                        return .CMS_1_0_0
-                                    }
-                                },
-                                trustedRootCertificates: publishRequirements.signing.trustedRootCertificates
-                            )
-                        )
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
-                    }
-                }.mapError {
-                    RegistryError.failedRetrievingRegistryPublishRequirements($0)
-                }
-            )
-        }
-    }
-
     public func publish(
         registryURL: URL,
         packageIdentity: PackageIdentity,
@@ -759,43 +691,46 @@ public final class RegistryClient: Cancellable {
         }
 
         // TODO: add generic support for upload requests in Basics
-        var body = Data()
         let boundary = UUID().uuidString
+        var parts = [String]()
 
         // archive field
-        body.append(contentsOf: """
-        --\(boundary)
+        parts.append("""
         Content-Disposition: form-data; name=\"source-archive\"\r
         Content-Type: application/zip\r
         Content-Transfer-Encoding: base64\r
         Content-Length: \(packageArchiveContent.count)\r
         \r
-        \(packageArchiveContent.base64EncodedString())
-        """.utf8)
+        \(packageArchiveContent.base64EncodedString())\r
+        """)
 
         if let metadataContent = metadataContent {
-            // spacer
-            body.append(contentsOf: "\r\n".utf8)
-            // metadata fiels
-            body.append(contentsOf: """
-            --\(boundary)\r
+            parts.append("""
             Content-Disposition: form-data; name=\"metadata\"\r
             Content-Type: application/json\r
             Content-Transfer-Encoding: quoted-printable\r
             Content-Length: \(metadataContent.count)\r
             \r
-            \(metadataContent)
-            """.utf8)
+            \(metadataContent)\r
+            """)
         }
+
+        let bodyString = """
+        --\(boundary)\r
+        \(parts.joined(separator: "\n--\(boundary)\r\n"))
+        --\(boundary)--\r\n
+        """
 
         let request = LegacyHTTPClient.Request(
             method: .put,
             url: url,
             headers: [
+                "Content-Type": "multipart/form-data;boundary=\"\(boundary)\"",
                 "Accept": self.acceptHeader(mediaType: .json),
+                "Expect": "100-continue",
                 "Prefer": "respond-async",
             ],
-            body: body,
+            body: Data(bodyString.utf8),
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
@@ -1024,23 +959,27 @@ extension RegistryClient {
 }
 
 extension RegistryClient {
-    public struct PublishRequirements {
-        public let metadata: Metadata
+    public struct PublishConfiguration {
         public let signing: Signing
 
-        public struct Metadata {
-            public let location: [MetadataLocation]
-        }
-
-        public enum MetadataLocation {
-            case request
-            case archive
+        public init(signing: Signing) {
+            self.signing = signing
         }
 
         public struct Signing {
             public let required: Bool
             public let acceptedSignatureFormats: [SignatureFormat]
             public let trustedRootCertificates: [String]
+
+            public init(
+                required: Bool,
+                acceptedSignatureFormats: [SignatureFormat],
+                trustedRootCertificates: [String]
+            ) {
+                self.required = required
+                self.acceptedSignatureFormats = acceptedSignatureFormats
+                self.trustedRootCertificates = trustedRootCertificates
+            }
         }
     }
 }

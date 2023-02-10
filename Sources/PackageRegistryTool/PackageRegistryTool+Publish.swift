@@ -33,13 +33,13 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: .customLong("id"), help: "The package identity")
+        @Option(name: [.customLong("id"), .customLong("package-id")] , help: "The package identity")
         var packageIdentity: PackageIdentity
 
-        @Option(name: .customLong("version"), help: "The package version")
+        @Option(name: [.customLong("version"), .customLong("package-version")], help: "The package version")
         var packageVersion: Version
 
-        @Option(name: .customLong("url"), help: "The registry URL")
+        @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL")
         var registryURL: URL?
 
         @Option(
@@ -66,7 +66,7 @@ extension SwiftPackageRegistryTool {
         @Option(
             help: "Paths to all of the certificates (DER-encoded) in the chain. The certificate used for signing must be listed first and the root certificate last."
         )
-        var certificateChainPaths: [AbsolutePath]
+        var certificateChainPaths: [AbsolutePath] = []
 
         func run(_ swiftTool: SwiftTool) throws {
             let configuration = try getRegistriesConfig(swiftTool).configuration
@@ -106,6 +106,12 @@ extension SwiftPackageRegistryTool {
                 }
             }
 
+            let workingDirectory = customWorkingDirectory ?? Workspace.DefaultLocations
+                .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
+            if localFileSystem.exists(workingDirectory) {
+                try localFileSystem.removeFileTree(workingDirectory)
+            }
+
             // validate custom metadata path
             if let customMetadataPath = self.customMetadataPath {
                 guard localFileSystem.exists(customMetadataPath) else {
@@ -124,18 +130,7 @@ extension SwiftPackageRegistryTool {
                 authorizationProvider: authorizationProvider
             )
 
-            // step 1: get registry publishing requirements
-            swiftTool.observabilityScope.emit(info: "retrieving '\(registryURL)' publishing requirements")
-            let publishRequirements = try tsc_await { callback in
-                registryClient.getPublishRequirements(
-                    registryURL: registryURL,
-                    observabilityScope: swiftTool.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
-            }
-
-            // step 2: generate source archive for the package release
+            // step 1: publishing configuration
             let metadataPath = self.customMetadataPath ?? packageDirectory.appending(component: Self.metadataFilename)
             guard localFileSystem.exists(metadataPath) else {
                 throw StringError(
@@ -143,20 +138,29 @@ extension SwiftPackageRegistryTool {
                 )
             }
 
+            let publishConfiguration = RegistryClient.PublishConfiguration(
+                signing: .init(
+                    required: self.signingIdentity != nil || self.privateKeyPath != nil,
+                    acceptedSignatureFormats: [.CMS_1_0_0],
+                    trustedRootCertificates: []
+                )
+            )
+
+            // step 2: generate source archive for the package release
+
             swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
             let archivePath = try self.archiveSource(
                 packageIdentity: self.packageIdentity,
                 packageVersion: self.packageVersion,
                 packageDirectory: packageDirectory,
-                metadataPath: publishRequirements.metadata.location.contains(.archive) ? metadataPath : .none,
-                customWorkingDirectory: self.customWorkingDirectory,
+                workingDirectory: workingDirectory,
                 cancellator: swiftTool.cancellator,
                 observabilityScope: swiftTool.observabilityScope
             )
 
             // step 3: sign the source archive if needed
             var signature: Data? = .none
-            if publishRequirements.signing.required {
+            if publishConfiguration.signing.required {
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 signature = try self.sign(
                     archivePath: archivePath,
@@ -177,7 +181,7 @@ extension SwiftPackageRegistryTool {
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     packageArchive: archivePath,
-                    packageMetadata: publishRequirements.metadata.location.contains(.request) ? metadataPath : .none,
+                    packageMetadata: self.customMetadataPath,
                     signature: signature,
                     fileSystem: localFileSystem,
                     observabilityScope: swiftTool.observabilityScope,
@@ -200,14 +204,10 @@ extension SwiftPackageRegistryTool {
             packageIdentity: PackageIdentity,
             packageVersion: Version,
             packageDirectory: AbsolutePath,
-            metadataPath: AbsolutePath?,
-            customWorkingDirectory: AbsolutePath?,
+            workingDirectory: AbsolutePath,
             cancellator: Cancellator?,
             observabilityScope: ObservabilityScope
         ) throws -> AbsolutePath {
-            let workingDirectory = customWorkingDirectory ?? Workspace.DefaultLocations
-                .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
-
             let archivePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).zip")
 
             // create temp location for sources
@@ -221,16 +221,6 @@ extension SwiftPackageRegistryTool {
                 try localFileSystem.copy(
                     from: packageDirectory.appending(component: item),
                     to: sourceDirectory.appending(component: item)
-                )
-            }
-
-            // include metadata from non-standard location in the archive
-            if let metadataPath = metadataPath,
-               metadataPath != packageDirectory.appending(component: Self.metadataFilename)
-            {
-                try localFileSystem.copy(
-                    from: metadataPath,
-                    to: sourceDirectory.appending(component: Self.metadataFilename)
                 )
             }
 

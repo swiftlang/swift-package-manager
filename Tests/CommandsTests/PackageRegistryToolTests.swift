@@ -247,17 +247,19 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             initGitRepo(packageDirectory)
 
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.3.5",
                 packageDirectory: packageDirectory,
-                metadataPath: .none,
-                customWorkingDirectory: .none,
+                workingDirectory: workingDirectory,
                 cancellator: .none,
                 observabilityScope: observability.topScope
             )
 
             try validatePackageArchive(at: archivePath)
+            XCTAssertTrue(archivePath.isDescendant(of: workingDirectory))
         }
 
         // not a git repo
@@ -274,12 +276,13 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try initPackage.writePackageStructure()
             XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
 
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "1.5.4",
                 packageDirectory: packageDirectory,
-                metadataPath: .none,
-                customWorkingDirectory: .none,
+                workingDirectory: workingDirectory,
                 cancellator: .none,
                 observabilityScope: observability.topScope
             )
@@ -307,80 +310,19 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 bytes: ""
             )
 
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
             let archivePath = try publishTool.archiveSource(
                 packageIdentity: packageIdentity,
                 packageVersion: "0.3.1",
                 packageDirectory: packageDirectory,
-                metadataPath: .none,
-                customWorkingDirectory: .none,
+                workingDirectory: workingDirectory,
                 cancellator: .none,
                 observabilityScope: observability.topScope
             )
 
             let extractedPath = try validatePackageArchive(at: archivePath)
             XCTAssertFileExists(extractedPath.appending(component: metadataFilename))
-        }
-
-        // custom metadata location
-        try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
-
-            // metadata file
-            let customMetadataFilePath = temporaryDirectory.appending(component: metadataFilename)
-            try localFileSystem.writeFileContents(customMetadataFilePath, bytes: "")
-
-            let archivePath = try publishTool.archiveSource(
-                packageIdentity: packageIdentity,
-                packageVersion: "2.5.2",
-                packageDirectory: packageDirectory,
-                metadataPath: customMetadataFilePath,
-                customWorkingDirectory: .none,
-                cancellator: .none,
-                observabilityScope: observability.topScope
-            )
-
-            let extractedPath = try validatePackageArchive(at: archivePath)
-            XCTAssertFileExists(extractedPath.appending(component: metadataFilename))
-        }
-
-        // custom working directory
-        try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
-
-            let customWorkingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-
-            let archivePath = try publishTool.archiveSource(
-                packageIdentity: packageIdentity,
-                packageVersion: "0.1.5",
-                packageDirectory: packageDirectory,
-                metadataPath: .none,
-                customWorkingDirectory: customWorkingDirectory,
-                cancellator: .none,
-                observabilityScope: observability.topScope
-            )
-
-            try validatePackageArchive(at: archivePath)
-            XCTAssertTrue(archivePath.isDescendant(of: customWorkingDirectory))
         }
 
         @discardableResult
