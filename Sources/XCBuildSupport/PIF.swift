@@ -649,14 +649,14 @@ public enum PIF {
             let type = try container.decode(String.self, forKey: .type)
 
             let buildPhases: [BuildPhase]
-            let impartedBuildProperties: BuildSettings
+            let impartedBuildProperties: ImpartedBuildProperties
 
             if type == "packageProduct" {
                 self.productType = .packageProduct
                 self.productName = ""
                 let fwkBuildPhase = try container.decodeIfPresent(FrameworksBuildPhase.self, forKey: .frameworksBuildPhase)
                 buildPhases = fwkBuildPhase.map{ [$0] } ?? []
-                impartedBuildProperties = BuildSettings()
+                impartedBuildProperties = ImpartedBuildProperties(settings: BuildSettings())
             } else if type == "standard" {
                 self.productType = try container.decode(ProductType.self, forKey: .productTypeIdentifier)
 
@@ -673,7 +673,7 @@ public enum PIF {
                     return try BuildPhase.decode(container: &buildPhasesContainer, type: type)
                 }
 
-                impartedBuildProperties = try container.decode(BuildSettings.self, forKey: .impartedBuildProperties)
+                impartedBuildProperties = try container.decode(ImpartedBuildProperties.self, forKey: .impartedBuildProperties)
             } else {
                 throw InternalError("Unhandled target type \(type)")
             }
@@ -684,7 +684,7 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildProperties,
+                impartedBuildSettings: impartedBuildProperties.buildSettings,
                 signature: nil
             )
         }
