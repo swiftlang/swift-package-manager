@@ -1331,9 +1331,7 @@ final class PIFBuildFileBuilder {
     }
 
     func construct() -> PIF.BuildFile {
-        var buildFile = PIF.BuildFile(guid: guid, reference: reference.pifReference, platformFilters: platformFilters)
-        buildFile.headerVisibility = headerVisibility
-        return buildFile
+        PIF.BuildFile(guid: guid, reference: reference.pifReference, platformFilters: platformFilters, headerVisibility: headerVisibility)
     }
 }
 

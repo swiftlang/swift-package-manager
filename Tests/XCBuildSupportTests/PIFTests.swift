@@ -103,6 +103,17 @@ class PIFTests: XCTestCase {
                                             platformFilters: []
                                         )
                                     ]
+                                ),
+                                PIF.HeadersBuildPhase(
+                                    guid: "target-exe-headers-build-phase-guid",
+                                    buildFiles: [
+                                        PIF.BuildFile(
+                                            guid: "target-exe-headers-build-file-guid",
+                                            targetGUID: "target-lib-guid",
+                                            platformFilters: [],
+                                            headerVisibility: .public
+                                        )
+                                    ]
                                 )
                             ],
                             dependencies: [
@@ -371,7 +382,7 @@ class PIFTests: XCTestCase {
             XCTFail("invalid number of build configurations")
         }
 
-        if let buildPhases = exeTargetContents["buildPhases"]?.array, buildPhases.count == 2 {
+        if let buildPhases = exeTargetContents["buildPhases"]?.array, buildPhases.count == 3 {
             let buildPhase1 = buildPhases[0]
             XCTAssertEqual(buildPhase1["guid"]?.string, "target-exe-sources-build-phase-guid")
             XCTAssertEqual(buildPhase1["type"]?.string, "com.apple.buildphase.sources")
@@ -388,6 +399,17 @@ class PIFTests: XCTestCase {
             if let frameworks = buildPhase2["buildFiles"]?.array, frameworks.count == 1 {
                 XCTAssertEqual(frameworks[0]["guid"]?.string, "target-exe-frameworks-build-file-guid")
                 XCTAssertEqual(frameworks[0]["targetReference"]?.string, "target-lib-guid@11")
+            } else {
+                XCTFail("invalid number of build files")
+            }
+
+            let buildPhase3 = buildPhases[2]
+            XCTAssertEqual(buildPhase3["guid"]?.string, "target-exe-headers-build-phase-guid")
+            XCTAssertEqual(buildPhase3["type"]?.string, "com.apple.buildphase.headers")
+            if let frameworks = buildPhase3["buildFiles"]?.array, frameworks.count == 1 {
+                XCTAssertEqual(frameworks[0]["guid"]?.string, "target-exe-headers-build-file-guid")
+                XCTAssertEqual(frameworks[0]["targetReference"]?.string, "target-lib-guid@11")
+                XCTAssertEqual(frameworks[0]["headerVisibility"]?.string, "public")
             } else {
                 XCTFail("invalid number of build files")
             }
