@@ -806,13 +806,14 @@ public enum PIF {
         }
 
         private enum CodingKeys: CodingKey {
-            case guid, platformFilters, fileReference, targetReference
+            case guid, platformFilters, fileReference, targetReference, headerVisibility
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(guid, forKey: .guid)
             try container.encode(platformFilters, forKey: .platformFilters)
+            try container.encodeIfPresent(headerVisibility, forKey: .headerVisibility)
 
             switch self.reference {
             case .file(let fileGUID):
@@ -826,6 +827,7 @@ public enum PIF {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             guid = try container.decode(GUID.self, forKey: .guid)
             platformFilters = try container.decode([PlatformFilter].self, forKey: .platformFilters)
+            headerVisibility = try container.decodeIfPresent(HeaderVisibility.self, forKey: .headerVisibility)
 
             if container.allKeys.contains(.fileReference) {
                 reference = try .file(guid: container.decode(GUID.self, forKey: .fileReference))
