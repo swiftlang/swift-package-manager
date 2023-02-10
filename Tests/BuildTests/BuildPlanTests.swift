@@ -27,6 +27,7 @@ import struct TSCUtility.Triple
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let driverSupport = DriverSupport()
 
     /// The j argument.
     private var j: String {
@@ -537,7 +538,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testPackageNameFlag() throws {
-        guard DriverSupport().checkSupportedDriverFlags(flags: ["package-name"]) else {
+        guard driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) else {
           throw XCTSkip("driver should be 5.9+ to accept -package-name")
         }
         try testWithTemporaryDirectory { tmpPath in

@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftDriver
+import Basics
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
-
 import protocol TSCBasic.FileSystem
 
 public class DriverSupport {
-    var supportedDriverFlags: Set<String>?
+    var supportedDriverFlags = ThreadSafeBox<Set<String>>()
     public init() {}
 
     // This checks supported _frontend_ flags, which are not necessarily supported in the driver.
@@ -35,7 +35,7 @@ public class DriverSupport {
     // Currently there's no good way to get supported flags from the built-in toolchain driver, so call `swiftc -h` directly
     // and save the result so we don't spawn processes repeatedly.
     public func checkSupportedDriverFlags(flags: Set<String>) -> Bool {
-        if let supported = supportedDriverFlags {
+        if let supported = supportedDriverFlags.get() {
             let trimmedFlags = flags.map{$0.hasPrefix("-") ? String($0.dropFirst()) : $0}
             return supported.intersection(trimmedFlags).count == flags.count
         }
@@ -49,7 +49,7 @@ public class DriverSupport {
             let helpOutput = try processResult.utf8Output()
             let helpFlags = helpOutput.components(separatedBy: " ").filter{$0.hasPrefix("-")}.map{String($0.dropFirst())}
             let helpFlagsSet = Set(helpFlags)
-            supportedDriverFlags = helpFlagsSet
+            supportedDriverFlags.put(helpFlagsSet)
             let trimmedFlags = flags.map{$0.hasPrefix("-") ? String($0.dropFirst()) : $0}
             return helpFlagsSet.intersection(trimmedFlags).count == flags.count
         } catch {
