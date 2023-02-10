@@ -92,7 +92,7 @@ final class PackageToolTests: CommandsTestCase {
     func testUnknownSubommand() throws {
         try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             XCTAssertThrowsCommandExecutionError(try execute(["foo"], packagePath: fixturePath)) { error in
-                XCTAssertMatch(error.stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
+                XCTAssertMatch(error.stderr, .contains("Unknown subcommand or plugin name ‘foo’"))
             }
         }
     }
