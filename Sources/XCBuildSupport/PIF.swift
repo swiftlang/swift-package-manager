@@ -775,34 +775,39 @@ public enum PIF {
         public var headerVisibility: HeaderVisibility? = nil
         public var platformFilters: [PlatformFilter]
 
-        public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .file(guid: file.guid)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, fileGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, fileGUID: PIF.GUID, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .file(guid: fileGUID)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, target: PIF.BaseTarget, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, target: PIF.BaseTarget, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .target(guid: target.guid)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, targetGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, targetGUID: PIF.GUID, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .target(guid: targetGUID)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, reference: Reference, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, reference: Reference, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = reference
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
         private enum CodingKeys: CodingKey {
