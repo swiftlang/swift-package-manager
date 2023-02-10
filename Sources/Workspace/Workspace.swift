@@ -3964,7 +3964,7 @@ extension Workspace {
                 }
             }
 
-            self.registryClient.lookupIdentities(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+            self.registryClient.lookupIdentities(scmURL: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
                 switch result {
                 case .failure(let error):
                     self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)

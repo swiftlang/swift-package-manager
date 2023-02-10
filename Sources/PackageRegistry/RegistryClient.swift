@@ -580,7 +580,7 @@ public final class RegistryClient: Cancellable {
     }
 
     public func lookupIdentities(
-        url: URL,
+        scmURL: URL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -598,7 +598,7 @@ public final class RegistryClient: Cancellable {
         components.appendPathComponents("identifiers")
 
         components.queryItems = [
-            URLQueryItem(name: "url", value: url.absoluteString),
+            URLQueryItem(name: "url", value: scmURL.absoluteString),
         ]
 
         guard let url = components.url else {
@@ -748,6 +748,120 @@ public final class RegistryClient: Cancellable {
         }
     }
 
+    public func publish(
+        registryURL: URL,
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageArchive: AbsolutePath,
+        packageMetadata: AbsolutePath?,
+        signature: Data?,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PublishResult, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        guard let scopeAndName = packageIdentity.scopeAndName else {
+            return completion(.failure(RegistryError.invalidPackage(packageIdentity)))
+        }
+        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+        components.appendPathComponents(scopeAndName.scope.description)
+        components.appendPathComponents(scopeAndName.name.description)
+        components.appendPathComponents(packageVersion.description)
+
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+
+        // TODO: don't load the entire file in memory
+        guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
+            return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
+        }
+        var metadataContent: String? = .none
+        if let packageMetadata = packageMetadata {
+            do {
+                metadataContent = try fileSystem.readFileContents(packageMetadata)
+            } catch {
+                return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
+            }
+        }
+
+        // TODO: add generic support for upload requests in Basics
+        var body = Data()
+        let boundary = UUID().uuidString
+
+        // archive field
+        body.append(contentsOf: """
+        --\(boundary)
+        Content-Disposition: form-data; name=\"source-archive\"\r
+        Content-Type: application/zip\r
+        Content-Transfer-Encoding: base64\r
+        Content-Length: \(packageArchiveContent.count)\r
+        \r
+        \(packageArchiveContent.base64EncodedString())
+        """.utf8)
+
+        if let metadataContent = metadataContent {
+            // spacer
+            body.append(contentsOf: "\r\n".utf8)
+            // metadata fiels
+            body.append(contentsOf: """
+            --\(boundary)\r
+            Content-Disposition: form-data; name=\"metadata\"\r
+            Content-Type: application/json\r
+            Content-Transfer-Encoding: quoted-printable\r
+            Content-Length: \(metadataContent.count)\r
+            \r
+            \(metadataContent)
+            """.utf8)
+        }
+
+        let request = LegacyHTTPClient.Request(
+            method: .put,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .json),
+                "Prefer": "respond-async",
+            ],
+            body: body,
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 201:
+                        try response.validateAPIVersion()
+
+                        let location = response.headers.get("Location").first.flatMap { URL(string: $0) }
+                        return PublishResult.published(location)
+                    case 202:
+                        try response.validateAPIVersion()
+
+                        guard let location = (response.headers.get("Location").first.flatMap { URL(string: $0) }) else {
+                            throw RegistryError.missingPublishingLocation
+                        }
+                        let retryAfter = response.headers.get("Retry-After").first.flatMap { Int($0) }
+                        return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
+                    default:
+                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
+                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
+                        } else {
+                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
+                        }
+                    }
+                }.mapError {
+                    RegistryError.failedPublishing($0)
+                }
+            )
+        }
+    }
+
     private func makeAsync<T>(
         _ closure: @escaping (Result<T, Error>) -> Void,
         on queue: DispatchQueue
@@ -789,6 +903,10 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedDownloadingSourceArchive(Error)
     case failedIdentityLookup(Error)
     case failedRetrievingRegistryPublishRequirements(Error)
+    case failedLoadingPackageArchive(AbsolutePath)
+    case failedLoadingPackageMetadata(AbsolutePath)
+    case failedPublishing(Error)
+    case missingPublishingLocation
     case serverError(code: Int, details: String)
     case unauthorized
     case authenticationMethodNotSupported
@@ -838,9 +956,17 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .failedDownloadingSourceArchive(let error):
             return "Failed downloading source archive from registry: \(error)"
         case .failedIdentityLookup(let error):
-            return "Failed looking up identity from registry: \(error)"
+            return "Failed looking up identity: \(error)"
         case .failedRetrievingRegistryPublishRequirements(let error):
             return "Failed retrieving registry publishing requirements: \(error)"
+        case .failedLoadingPackageArchive(let path):
+            return "Failed loading package archive at '\(path)' for publishing"
+        case .failedLoadingPackageMetadata(let path):
+            return "Failed loading package metadata at '\(path)' for publishing"
+        case .failedPublishing(let error):
+            return "Failed publishing: \(error)"
+        case .missingPublishingLocation:
+            return "Response missing registry source archive"
         case .serverError(let code, let details):
             return "Server error \(code): \(details)"
         case .unauthorized:
@@ -874,23 +1000,6 @@ extension RegistryClient {
     private func acceptHeader(mediaType: MediaType) -> String {
         "application/vnd.swift.registry.v\(self.apiVersion.rawValue)+\(mediaType)"
     }
-
-    /*
-     private func validateResponse(
-         _ response: LegacyHTTPClient.Response,
-         expectedStatusCodes: [Int],
-         expectedContentType: ContentType
-     ) throws {
-         guard expectedStatusCodes.isEmpty || expectedStatusCodes.contains(response.statusCode) else {
-             throw RegistryError.invalidResponseStatus(expected: expectedStatusCode, actual: response.statusCode)
-         }
-         guard let contentVersion = response.headers.get("Content-Version").first, contentVersion == self.apiVersion.rawValue else {
-             throw RegistryError.invalidContentVersion(expected: self.apiVersion.rawValue, actual: contentVersion)
-         }
-         guard let contentType = response.headers.get("Content-Type").first, contentType.hasPrefix(expectedContentType.rawValue) == true else {
-             throw RegistryError.invalidContentType(expected: expectedContentType.rawValue, actual: contentType)
-         }
-     }*/
 }
 
 extension RegistryClient {
@@ -946,6 +1055,13 @@ extension RegistryClient {
             public let acceptedSignatureFormats: [SignatureFormat]
             public let trustedRootCertificates: [String]
         }
+    }
+}
+
+extension RegistryClient {
+    public enum PublishResult: Equatable {
+        case published(URL?)
+        case processing(statusURL: URL, retryAfter: Int?)
     }
 }
 
