@@ -59,10 +59,10 @@ final class SwiftPMTests: XCTestCase {
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
             // delete any files generated
-            for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources", "foo")) {
-                try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", "foo", entry))
+            for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources")) {
+                try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", entry))
             }
-            try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/foo/main.m", relativeTo: packagePath)) {
+            try localFileSystem.writeFileContents(AbsolutePath(validating: "Sources/main.m", relativeTo: packagePath)) {
                 $0 <<< "int main() {}"
             }
             let archs = ["x86_64", "arm64"]
