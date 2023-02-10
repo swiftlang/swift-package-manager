@@ -139,11 +139,7 @@ public final class RegistryClient: Cancellable {
                             alternateLocations: alternateLocations?.map(\.url)
                         )
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 }.mapError {
                     RegistryError.failedRetrievingReleases($0)
@@ -216,11 +212,7 @@ public final class RegistryClient: Cancellable {
                         }
                         return result
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 }.mapError {
                     RegistryError.failedRetrievingManifest($0)
@@ -289,11 +281,7 @@ public final class RegistryClient: Cancellable {
 
                         return manifestContent
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 }.mapError {
                     RegistryError.failedRetrievingManifest($0)
@@ -391,11 +379,7 @@ public final class RegistryClient: Cancellable {
                             completion(.success(checksum))
                         }
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 } catch {
                     completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
@@ -523,11 +507,7 @@ public final class RegistryClient: Cancellable {
                             }
                         }
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 } catch {
                     completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
@@ -630,11 +610,7 @@ public final class RegistryClient: Cancellable {
                         // 404 is valid, no identities mapped
                         return []
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
                     RegistryError.failedIdentityLookup($0)
@@ -664,12 +640,8 @@ public final class RegistryClient: Cancellable {
                     switch response.statusCode {
                     case 200:
                         return ()
-                    case 401:
-                        throw RegistryError.unauthorized
-                    case 501:
-                        throw RegistryError.authenticationMethodNotSupported
                     default:
-                        throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 }
             )
@@ -735,11 +707,7 @@ public final class RegistryClient: Cancellable {
                             )
                         )
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
                     }
                 }.mapError {
                     RegistryError.failedRetrievingRegistryPublishRequirements($0)
@@ -849,16 +817,32 @@ public final class RegistryClient: Cancellable {
                         let retryAfter = response.headers.get("Retry-After").first.flatMap { Int($0) }
                         return PublishResult.processing(statusURL: location, retryAfter: retryAfter)
                     default:
-                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
-                            throw RegistryError.serverError(code: response.statusCode, details: error.detail)
-                        } else {
-                            throw RegistryError.invalidResponseStatus(expected: [200], actual: response.statusCode)
-                        }
+                        throw self.unexpectedStatusError(response, expectedStatus: [201, 202])
                     }
                 }.mapError {
                     RegistryError.failedPublishing($0)
                 }
             )
+        }
+    }
+
+    private func unexpectedStatusError(
+        _ response: HTTPClientResponse,
+        expectedStatus: [Int]
+    ) -> Error {
+        if let error = try? response.parseError(decoder: self.jsonDecoder) {
+            return RegistryError.serverError(code: response.statusCode, details: error.detail)
+        }
+
+        switch response.statusCode {
+        case 401:
+            return RegistryError.unauthorized
+        case 403:
+            return RegistryError.forbidden
+        case 501:
+            return RegistryError.authenticationMethodNotSupported
+        default:
+            return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)
         }
     }
 
@@ -910,6 +894,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case serverError(code: Int, details: String)
     case unauthorized
     case authenticationMethodNotSupported
+    case forbidden
 
     public var description: String {
         switch self {
@@ -973,6 +958,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Missing or invalid authentication credentials"
         case .authenticationMethodNotSupported:
             return "Authentication method not supported"
+        case .forbidden:
+            return "Forbidden"
         }
     }
 }
@@ -990,7 +977,7 @@ extension RegistryClient {
         case zip
     }
 
-    fileprivate enum ContentType: String {
+    fileprivate enum ContentType: String, CaseIterable {
         case json = "application/json"
         case swift = "text/x-swift"
         case zip = "application/zip"
@@ -1127,14 +1114,22 @@ extension HTTPClientResponse {
     }
 
     fileprivate var apiVersion: RegistryClient.APIVersion? {
-        self.headers.get("Content-Version").first.flatMap {
-            RegistryClient.APIVersion(rawValue: $0)
+        self.headers.get("Content-Version").first.flatMap { headerValue in
+            RegistryClient.APIVersion(rawValue: headerValue)
         }
     }
 
     private var contentType: RegistryClient.ContentType? {
-        self.headers.get("Content-Type").first.flatMap {
-            RegistryClient.ContentType(rawValue: $0)
+        self.headers.get("Content-Type").first.flatMap { headerValue in
+            if let contentType = RegistryClient.ContentType(rawValue: headerValue) {
+                return contentType
+            }
+            if let contentType = RegistryClient.ContentType.allCases.first(where: {
+                headerValue.hasPrefix($0.rawValue + ";")
+            }) {
+                return contentType
+            }
+            return nil
         }
     }
 }
