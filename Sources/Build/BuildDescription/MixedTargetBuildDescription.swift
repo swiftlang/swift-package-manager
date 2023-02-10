@@ -419,13 +419,14 @@ public final class MixedTargetBuildDescription {
             "-ivfsoverlay", allProductHeadersPath.pathString,
             "-ivfsoverlay", unextendedModuleMapOverlayPath.pathString,
             // Adding the root of the target's source as a header search
-            // path allows for importing headers using paths relative to
-            // the root.
+            // path allows for importing headers (within the mixed target's
+            // headers) using paths relative to the root.
             "-I", mixedTarget.path.pathString,
-            // TODO(ncooke3): When there are no public headers, what happens?
-            // What is exposed outside of the module?
-            // TODO(ncooke3): Add comment about below line.
-            // TODO(ncooke3): Think hard about further edge cases.
+            // Adding the public headers directory as a header search
+            // path allows for importing public headers within the mixed
+            // target's headers. Note that this directory may not exist in the
+            // case that there are no public headers. In this case, adding this
+            // header search path is a no-op.
             "-I", mixedTarget.clangTarget.includeDir.pathString
         )
 
