@@ -204,7 +204,7 @@ final class MixedTargetTests: XCTestCase {
         }
     }
 
-    func testNonPublicHeadersAreVisibleFromSwiftPartfOfMixedTarget() throws {
+    func testNonPublicHeadersAreVisibleFromSwiftPartOfMixedTarget() throws {
         try fixture(name: "MixedTargets/BasicMixedTargets") { fixturePath in
             XCTAssertBuilds(
                 fixturePath,
