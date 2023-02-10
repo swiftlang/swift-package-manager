@@ -1148,9 +1148,9 @@ class PIFBaseTargetBuilder {
 
     /// Convenience function to add a file reference to the Headers build phase, after creating it if needed.
     @discardableResult
-    public func addHeaderFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
+    public func addHeaderFile(_ fileReference: PIFFileReferenceBuilder, headerVisibility: PIF.BuildFile.HeaderVisibility) -> PIFBuildFileBuilder {
         let headerPhase = buildPhases.first { $0 is PIFHeadersBuildPhaseBuilder } ?? addHeadersBuildPhase()
-        return headerPhase.addBuildFile(to: fileReference, platformFilters: [])
+        return headerPhase.addBuildFile(to: fileReference, platformFilters: [], headerVisibility: headerVisibility)
     }
 
     /// Convenience function to add a file reference to the Sources build phase, after creating it if needed.
@@ -1241,8 +1241,8 @@ class PIFBuildPhaseBuilder {
     /// - Parameters:
     ///   - file: The builder for the file reference.
     @discardableResult
-    func addBuildFile(to file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter]) -> PIFBuildFileBuilder {
-        let builder = PIFBuildFileBuilder(file: file, platformFilters: platformFilters)
+    func addBuildFile(to file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter], headerVisibility: PIF.BuildFile.HeaderVisibility? = nil) -> PIFBuildFileBuilder {
+        let builder = PIFBuildFileBuilder(file: file, platformFilters: platformFilters, headerVisibility: headerVisibility)
         buildFiles.append(builder)
         return builder
     }
@@ -1316,18 +1316,24 @@ final class PIFBuildFileBuilder {
 
     let platformFilters: [PIF.PlatformFilter]
 
-    fileprivate init(file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter]) {
+    let headerVisibility: PIF.BuildFile.HeaderVisibility?
+
+    fileprivate init(file: PIFFileReferenceBuilder, platformFilters: [PIF.PlatformFilter], headerVisibility: PIF.BuildFile.HeaderVisibility? = nil) {
         reference = .file(builder: file)
         self.platformFilters = platformFilters
+        self.headerVisibility = headerVisibility
     }
 
-    fileprivate init(targetGUID: PIF.GUID, platformFilters: [PIF.PlatformFilter]) {
+    fileprivate init(targetGUID: PIF.GUID, platformFilters: [PIF.PlatformFilter], headerVisibility: PIF.BuildFile.HeaderVisibility? = nil) {
         reference = .target(guid: targetGUID)
         self.platformFilters = platformFilters
+        self.headerVisibility = headerVisibility
     }
 
     func construct() -> PIF.BuildFile {
-        return PIF.BuildFile(guid: guid, reference: reference.pifReference, platformFilters: platformFilters)
+        var buildFile = PIF.BuildFile(guid: guid, reference: reference.pifReference, platformFilters: platformFilters)
+        buildFile.headerVisibility = headerVisibility
+        return buildFile
     }
 }
 
