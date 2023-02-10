@@ -438,14 +438,14 @@ public enum SystemPackageProvider {
 // MARK: - Package Dumping
 
 func manifestToJSON(_ package: Package) -> String {
-    struct Output: Encodable {
-        let package: Package
+    struct Output: Codable {
+        let package: Serialization.Package
         let errors: [String]
     }
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = try! encoder.encode(Output(package: package, errors: errors))
+    let data = try! encoder.encode(Output(package: .init(package), errors: errors))
     return String(data: data, encoding: .utf8)!
 }
 

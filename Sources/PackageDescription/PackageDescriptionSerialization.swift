@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,515 +11,266 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import Foundation
-#if canImport(Glibc)
-@_implementationOnly import Glibc
-#elseif canImport(Darwin)
-@_implementationOnly import Darwin.C
-#elseif canImport(ucrt) && canImport(WinSDK)
-@_implementationOnly import ucrt
-@_implementationOnly import struct WinSDK.HANDLE
-#endif
 
-// MARK: - Package JSON serialization
+enum Serialization {
+    // MARK: - build settings serialization
 
-extension Package: Encodable {
-    private enum CodingKeys: CodingKey {
-        case name
-        case defaultLocalization
-        case platforms
-        case pkgConfig
-        case providers
-        case products
-        case dependencies
-        case targets
-        case swiftLanguageVersions
-        case cLanguageStandard
-        case cxxLanguageStandard
+    struct BuildConfiguration: Codable {
+        let config: String
     }
 
-    /// Encodes this value into the given encoder.
-    ///
-    /// If the value fails to encode anything, `encoder` will encode an empty
-    /// keyed container in its place.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-
-        if let defaultLocalization = self.defaultLocalization {
-            try container.encode(defaultLocalization.tag, forKey: .defaultLocalization)
-        }
-        if let platforms = self.platforms {
-            try container.encode(platforms, forKey: .platforms)
-        }
-
-        try container.encode(self.pkgConfig, forKey: .pkgConfig)
-        try container.encode(self.providers, forKey: .providers)
-        try container.encode(self.products, forKey: .products)
-        try container.encode(self.dependencies, forKey: .dependencies)
-        try container.encode(self.targets, forKey: .targets)
-        try container.encode(self.swiftLanguageVersions, forKey: .swiftLanguageVersions)
-        try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(self.cxxLanguageStandard, forKey: .cxxLanguageStandard)
-    }
-}
-
-@available(_PackageDescription, deprecated: 5.6)
-extension Package.Dependency.Requirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
+    struct BuildSettingCondition: Codable {
+        let platforms: [Platform]?
+        let config: BuildConfiguration?
     }
 
-    private enum Kind: String, Codable {
-        case range
-        case exact
-        case branch
-        case revision
-        case localPackage
+    struct BuildSettingData: Codable {
+        let name: String
+        let value: [String]
+        let condition: BuildSettingCondition?
     }
 
-    /// Encodes this value into the given encoder.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .rangeItem(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exactItem(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        case .branchItem(let identifier):
-            try container.encode(Kind.branch, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .revisionItem(let identifier):
-            try container.encode(Kind.revision, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .localPackageItem:
-            try container.encode(Kind.localPackage, forKey: .type)
-        }
-    }
-}
-
-extension Package.Dependency.Kind: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case name
-        case path
-        case location
-        case requirement
-        case identity
+    struct CSetting: Codable {
+        let data: BuildSettingData
     }
 
-    private enum Kind: String, Codable {
-        case fileSystem
-        case sourceControl
-        case registry
+    struct CXXSetting: Codable {
+        let data: BuildSettingData
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .fileSystem(let name, let path):
-            try container.encode(Kind.fileSystem, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(path, forKey: .path)
-        case .sourceControl(let name, let location, let requirement):
-            try container.encode(Kind.sourceControl, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(location, forKey: .location)
-            try container.encode(requirement, forKey: .requirement)
-        case .registry(let identity, let requirement):
-            try container.encode(Kind.registry, forKey: .type)
-            try container.encode(identity, forKey: .identity)
-            try container.encode(requirement, forKey: .requirement)
-        }
-    }
-}
-
-extension Package.Dependency.SourceControlRequirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
+    struct SwiftSetting: Codable {
+        let data: BuildSettingData
     }
 
-    private enum Kind: String, Codable {
-        case range
-        case exact
-        case branch
-        case revision
+    struct LinkerSetting: Codable {
+        let data: BuildSettingData
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .range(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exact(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        case .branch(let identifier):
-            try container.encode(Kind.branch, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .revision(let identifier):
-            try container.encode(Kind.revision, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        }
-    }
-}
+    // MARK: - language standards serialization
 
-extension Package.Dependency.RegistryRequirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
+    enum CLanguageStandard: String, Codable {
+        case c89
+        case c90
+        case c99
+        case c11
+        case c17
+        case c18
+        case c2x
+        case gnu89
+        case gnu90
+        case gnu99
+        case gnu11
+        case gnu17
+        case gnu18
+        case gnu2x
+        case iso9899_1990 = "iso9899:1990"
+        case iso9899_199409 = "iso9899:199409"
+        case iso9899_1999 = "iso9899:1999"
+        case iso9899_2011 = "iso9899:2011"
+        case iso9899_2017 = "iso9899:2017"
+        case iso9899_2018 = "iso9899:2018"
     }
 
-    private enum Kind: String, Codable {
-        case range
-        case exact
+    enum CXXLanguageStandard: String, Codable {
+        case cxx98 = "c++98"
+        case cxx03 = "c++03"
+        case cxx11 = "c++11"
+        case cxx14 = "c++14"
+        case cxx17 = "c++17"
+        case cxx1z = "c++1z"
+        case cxx20 = "c++20"
+        case cxx2b = "c++2b"
+        case gnucxx98 = "gnu++98"
+        case gnucxx03 = "gnu++03"
+        case gnucxx11 = "gnu++11"
+        case gnucxx14 = "gnu++14"
+        case gnucxx17 = "gnu++17"
+        case gnucxx1z = "gnu++1z"
+        case gnucxx20 = "gnu++20"
+        case gnucxx2b = "gnu++2b"
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .range(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exact(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        }
-    }
-}
-
-extension SystemPackageProvider: Encodable {
-    private enum CodingKeys: CodingKey {
-        case name
-        case values
+    enum SwiftVersion: Codable {
+        case v3
+        case v4
+        case v4_2
+        case v5
+        case version(String)
     }
 
-    private enum Name: String, Encodable {
-        case brew
-        case apt
-        case yum
-        case nuget
+    // MARK: - version serialization
+
+    struct Version: Codable {
+        let major: Int
+        let minor: Int
+        let patch: Int
+        let prereleaseIdentifiers: [String]
+        let buildMetadataIdentifiers: [String]
     }
 
-    /// Encodes this value into the given encoder.
-    ///
-    /// If the value fails to encode anything, `encoder` will encode an empty
-    /// keyed container in its place.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .brewItem(let packages):
-            try container.encode(Name.brew, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .aptItem(let packages):
-            try container.encode(Name.apt, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .yumItem(let packages):
-            try container.encode(Name.yum, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .nugetItem(let packages):
-            try container.encode(Name.nuget, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        }
-    }
-}
+    // MARK: - package dependency serialization
 
-extension Target.PluginCapability: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, intent, permissions
-    }
-
-    private enum Capability: String, Encodable {
-        case buildTool, command
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case ._buildTool:
-            try container.encode(Capability.buildTool, forKey: .type)
-        case ._command(let intent, let permissions):
-            try container.encode(Capability.command, forKey: .type)
-            try container.encode(intent, forKey: .intent)
-            try container.encode(permissions, forKey: .permissions)
-        }
-    }
-}
-
-extension PluginCommandIntent: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, verb, description
-    }
-
-    private enum IntentType: String, Encodable {
-        case documentationGeneration, sourceCodeFormatting, custom
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case ._documentationGeneration:
-            try container.encode(IntentType.documentationGeneration, forKey: .type)
-        case ._sourceCodeFormatting:
-            try container.encode(IntentType.sourceCodeFormatting, forKey: .type)
-        case ._custom(let verb, let description):
-            try container.encode(IntentType.custom, forKey: .type)
-            try container.encode(verb, forKey: .verb)
-            try container.encode(description, forKey: .description)
-        }
-    }
-}
-
-extension PluginNetworkPermissionScope: Encodable {
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .all: try container.encode("all")
-        case .local: try container.encode("local")
-        case .none: try container.encode("none")
-        case .docker: try container.encode("docker")
-        case .unixDomainSocket: try container.encode("unix-socket")
-        }
-    }
-
-    var ports: [UInt8] {
-        switch self {
-        case .all(let ports): return ports
-        case .local(let ports): return ports
-        case .none, .docker, .unixDomainSocket: return []
-        }
-    }
-}
-
-/// `Encodable` conformance.
-extension PluginPermission: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, reason, scope, ports
-    }
-
-    private enum PermissionType: String, Encodable {
-        case allowNetworkConnections
-        case writeToPackageDirectory
-    }
-
-    /// Encode the `PluginPermission` into the given encoder.
-    ///
-    /// - Parameter to: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case ._allowNetworkConnections(let scope, let reason):
-            try container.encode(PermissionType.allowNetworkConnections, forKey: .type)
-            try container.encode(reason, forKey: .reason)
-            try container.encode(scope, forKey: .scope)
-            try container.encode(scope.ports, forKey: .ports)
-        case ._writeToPackageDirectory(let reason):
-            try container.encode(PermissionType.writeToPackageDirectory, forKey: .type)
-            try container.encode(reason, forKey: .reason)
-        }
-    }
-}
-
-extension Target.Dependency: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case name
-        case package
-        case moduleAliases
-        case condition
-    }
-
-    private enum Kind: String, Codable {
-        case target
-        case product
-        case byName = "byname"
-    }
-
-    /// Encodes the `Target.Dependency` into the given encoder.
-    ///
-    /// If the value fails to encode anything, `encoder` will encode an empty
-    /// keyed container in its place.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .targetItem(let name, let condition):
-            try container.encode(Kind.target, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(condition, forKey: .condition)
-        case .productItem(let name, let package, let moduleAliases, let condition):
-            try container.encode(Kind.product, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(package, forKey: .package)
-            try container.encode(moduleAliases, forKey: .moduleAliases)
-            try container.encode(condition, forKey: .condition)
-        case .byNameItem(let name, let condition):
-            try container.encode(Kind.byName, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(condition, forKey: .condition)
-        }
-    }
-}
-
-extension Target: Encodable {
-    private enum CodingKeys: CodingKey {
-        case name
-        case path
-        case url
-        case sources
-        case resources
-        case exclude
-        case dependencies
-        case publicHeadersPath
-        case type
-        case pkgConfig
-        case providers
-        case pluginCapability
-        case cSettings
-        case cxxSettings
-        case swiftSettings
-        case linkerSettings
-        case checksum
-        case pluginUsages
-    }
-
-    /// Encodes this value into the given encoder.
-    ///
-    /// If the value fails to encode anything, `encoder` will encode an empty
-    /// keyed container in its place.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-
-        try container.encode(name, forKey: .name)
-        try container.encode(path, forKey: .path)
-        try container.encode(url, forKey: .url)
-        try container.encode(sources, forKey: .sources)
-        try container.encode(resources, forKey: .resources)
-        try container.encode(exclude, forKey: .exclude)
-        try container.encode(dependencies, forKey: .dependencies)
-        try container.encode(publicHeadersPath, forKey: .publicHeadersPath)
-        try container.encode(type, forKey: .type)
-        try container.encode(pkgConfig, forKey: .pkgConfig)
-        try container.encode(providers, forKey: .providers)
-        try container.encode(pluginCapability, forKey: .pluginCapability)
-        try container.encode(checksum, forKey: .checksum)
-
-        if let cSettings = self.cSettings {
-            try container.encode(cSettings, forKey: .cSettings)
+    struct PackageDependency: Codable {
+        enum SourceControlRequirement: Codable {
+            case exact(Version)
+            case range(lowerBound: Version, upperBound: Version)
+            case revision(String)
+            case branch(String)
         }
 
-        if let cxxSettings = self.cxxSettings {
-            try container.encode(cxxSettings, forKey: .cxxSettings)
+        enum RegistryRequirement: Codable {
+            case exact(Version)
+            case range(lowerBound: Version, upperBound: Version)
         }
 
-        if let swiftSettings = self.swiftSettings {
-            try container.encode(swiftSettings, forKey: .swiftSettings)
+        enum Kind: Codable {
+            case fileSystem(name: String?, path: String)
+            case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
+            case registry(id: String, requirement: RegistryRequirement)
         }
 
-        if let linkerSettings = self.linkerSettings {
-            try container.encode(linkerSettings, forKey: .linkerSettings)
-        }
-
-        if let pluginUsages = self.plugins {
-            try container.encode(pluginUsages, forKey: .pluginUsages)
-        }
-    }
-}
-
-extension Target.PluginUsage: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, name, package
+        let kind: Kind
+        let moduleAliases: [String: String]?
     }
 
-    private enum Kind: String, Codable {
+    // MARK: - platforms serialization
+
+    struct Platform: Codable {
+        let name: String
+    }
+
+    struct SupportedPlatform: Codable {
+        let platform: Platform
+        let version: String?
+    }
+
+    // MARK: - target serialization
+
+    enum TargetDependency: Codable {
+        struct Condition: Codable {
+            let platforms: [Platform]?
+        }
+
+        case target(name: String, condition: Condition?)
+        case product(name: String, package: String?, moduleAliases: [String: String]?, condition: Condition?)
+        case byName(name: String, condition: Condition?)
+    }
+
+    enum TargetType: Codable {
+        case regular
+        case executable
+        case test
+        case system
+        case binary
         case plugin
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case ._pluginItem(let name, let package):
-            try container.encode(Kind.plugin, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(package, forKey: .package)
-        }
+    enum PluginCapability: Codable {
+        case buildTool
+        case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
-}
 
-extension SwiftVersion: Encodable {
-    /// Encodes this value into the given encoder.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        let value: String
+    enum PluginCommandIntent: Codable {
+        case documentationGeneration
+        case sourceCodeFormatting
+        case custom(verb: String, description: String)
+    }
 
-        switch self {
-        case .v3:
-            value = "3"
-        case .v4:
-            value = "4"
-        case .v4_2:
-            value = "4.2"
-        case .v5:
-            value = "5"
-        case .version(let v):
-            value = v
+    enum PluginPermission: Codable {
+        case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
+        case writeToPackageDirectory(reason: String)
+    }
+
+    enum PluginNetworkPermissionScope: Codable {
+        case none
+        case local(ports: [UInt8])
+        case all(ports: [UInt8])
+        case docker
+        case unixDomainSocket
+    }
+
+    enum PluginUsage: Codable {
+        case plugin(name: String, package: String?)
+    }
+
+    struct Target: Codable {
+        let name: String
+        let path: String?
+        let url: String?
+        let sources: [String]?
+        let resources: [Resource]?
+        let exclude: [String]
+        let dependencies: [TargetDependency]
+        let publicHeadersPath: String?
+        let type: TargetType
+        let pkgConfig: String?
+        let providers: [SystemPackageProvider]?
+        let pluginCapability: PluginCapability?
+        let cSettings: [CSetting]?
+        let cxxSettings: [CXXSetting]?
+        let swiftSettings: [SwiftSetting]?
+        let linkerSettings: [LinkerSetting]?
+        let checksum: String?
+        let pluginUsages: [PluginUsage]?
+    }
+
+    // MARK: - resource serialization
+
+    struct Resource: Codable {
+        enum Localization: String, Codable {
+            case `default`
+            case base
         }
 
-        var container = encoder.singleValueContainer()
-        try container.encode(value)
+        let rule: String
+        let path: String
+        let localization: Localization?
     }
-}
 
-extension Version: Encodable {
-    /// Encodes this value into the given encoder.
-    ///
-    /// This function throws an error if any values are invalid for the given
-    /// encoder's format.
-    ///
-    /// - Parameter encoder: The encoder to write data to.
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(description)
+    // MARK: - product serialization
+
+    struct Product: Codable {
+        enum ProductType: Codable {
+            enum LibraryType: Codable {
+                case automatic
+                case dynamic
+                case `static`
+            }
+
+            case executable
+            case library(type: LibraryType)
+            case plugin
+        }
+
+        let name: String
+        let targets: [String]
+        let productType: ProductType
+    }
+
+    // MARK: - package serialization
+
+    struct LanguageTag: Codable {
+        let tag: String
+    }
+
+    enum SystemPackageProvider: Codable {
+        case brew([String])
+        case apt([String])
+        case yum([String])
+        case nuget([String])
+    }
+
+    struct Package: Codable {
+        let name: String
+        let platforms: [SupportedPlatform]?
+        let defaultLocalization: LanguageTag?
+        let pkgConfig: String?
+        let providers: [SystemPackageProvider]?
+        let targets: [Target]
+        let products: [Product]
+        let dependencies: [PackageDependency]
+        let swiftLanguageVersions: [SwiftVersion]?
+        let cLanguageStandard: CLanguageStandard?
+        let cxxLanguageStandard: CXXLanguageStandard?
     }
 }

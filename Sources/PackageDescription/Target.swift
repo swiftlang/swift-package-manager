@@ -23,7 +23,7 @@
 public final class Target {
 
     /// The different types of a target.
-    public enum TargetType: String, Encodable {
+    public enum TargetType: String {
         /// A target that contains code for the Swift package's functionality.
         case regular
         /// A target that contains code for an executable's main module.
@@ -1103,8 +1103,8 @@ extension Target.Dependency {
 }
 
 /// A condition that limits the application of a target's dependency.
-public struct TargetDependencyCondition: Encodable {
-    private let platforms: [Platform]?
+public struct TargetDependencyCondition {
+    let platforms: [Platform]?
 
     private init(platforms: [Platform]?) {
         self.platforms = platforms

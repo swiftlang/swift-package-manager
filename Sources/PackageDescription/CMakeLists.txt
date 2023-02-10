@@ -13,6 +13,7 @@ add_library(PackageDescription
   LanguageStandardSettings.swift
   PackageDescription.swift
   PackageDescriptionSerialization.swift
+  PackageDescriptionSerializationConversion.swift
   PackageDependency.swift
   PackageRequirement.swift
   Product.swift

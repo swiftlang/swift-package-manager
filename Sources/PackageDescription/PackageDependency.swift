@@ -10,9 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import Foundation
-
-// MARK: - file system
 
 extension Package {
     /// A package dependency of a Swift package.
@@ -27,7 +24,7 @@ extension Package {
     /// package. If you add the Swift package as a package dependency to an app
     /// for an Apple platform, you can find the `Package.resolved` file inside
     /// your `.xcodeproj` or `.xcworkspace`.
-    public class Dependency: Encodable {
+    public class Dependency {
         /// The kind of dependency.
         @available(_PackageDescription, introduced: 5.6)
         public enum Kind {
