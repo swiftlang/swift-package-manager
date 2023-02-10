@@ -23,9 +23,11 @@ import Workspace
 import XCTest
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Triple
+@_implementationOnly import DriverSupport
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let driverSupport = DriverSupport()
 
     /// The j argument.
     private var j: String {
@@ -533,6 +535,52 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" })
+    }
+
+    func testPackageNameFlag() throws {
+        guard driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) else {
+          throw XCTSkip("driver should be 5.9+ to accept -package-name")
+        }
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending(components: "root")
+            let dep = tmpPath.appending(components: "dep")
+
+            // Create root package.
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
+            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.7
+                import PackageDescription
+                let package = Package(
+                name: "rootPkg",
+                dependencies: [.package(path: "../dep")],
+                targets: [.target(name: "root", dependencies: ["dep"])]
+                )
+                """
+            }
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.8
+
+                import PackageDescription
+                let package = Package(
+                name: "depPkg",
+                products: [.library(name: "dep", targets: ["dep"])],
+                targets: [.target(name: "dep")]
+                )
+                """
+            }
+            let (stdout, _) = try executeSwiftBuild(root, extraArgs: ["-v"])
+            XCTAssertMatch(stdout, .contains("-module-name dep"))
+            XCTAssertMatch(stdout, .contains("-package-name deppkg"))
+            XCTAssertMatch(stdout, .contains("-module-name root"))
+            XCTAssertMatch(stdout, .contains("-package-name rootpkg"))
+            XCTAssertMatch(stdout, .contains("Build complete!"))
+        }
     }
 
     func testBasicSwiftPackage() throws {

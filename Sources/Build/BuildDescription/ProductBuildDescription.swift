@@ -15,6 +15,7 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
+@_implementationOnly import DriverSupport
 
 /// The build description for a product.
 public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {

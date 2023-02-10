@@ -17,6 +17,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import TSCBasic
+@_implementationOnly import DriverSupport
 
 /// Target description for a Swift target.
 public final class SwiftTargetBuildDescription {
@@ -47,6 +48,9 @@ public final class SwiftTargetBuildDescription {
 
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
+
+    /// Used to check for supported driver flags.
+    private var driverSupport = DriverSupport()
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -487,7 +491,10 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-
+        if driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) {
+            result.append("-package-name")
+            result.append(self.package.identity.description.spm_mangledToC99ExtendedIdentifier())
+        }
         if !scanInvocation {
             result.append("-emit-dependencies")
 
@@ -533,6 +540,10 @@ public final class SwiftTargetBuildDescription {
         result.append("-emit-module")
         result.append("-emit-module-path")
         result.append(self.moduleOutputPath.pathString)
+        if driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) {
+            result.append("-package-name")
+            result.append(self.package.identity.description.spm_mangledToC99ExtendedIdentifier())
+        }
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
 
         result.append("-Xfrontend")
@@ -577,6 +588,10 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
+        if driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) {
+            result.append("-package-name")
+            result.append(self.package.identity.description.spm_mangledToC99ExtendedIdentifier())
+        }
         result.append("-incremental")
         result.append("-emit-dependencies")
 
