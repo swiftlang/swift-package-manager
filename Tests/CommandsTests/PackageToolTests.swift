@@ -92,7 +92,7 @@ final class PackageToolTests: CommandsTestCase {
     func testUnknownSubommand() throws {
         try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             XCTAssertThrowsCommandExecutionError(try execute(["foo"], packagePath: fixturePath)) { error in
-                XCTAssertMatch(error.stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
+                XCTAssertMatch(error.stderr, .contains("Unknown subcommand or plugin name ‘foo’"))
             }
         }
     }
@@ -1829,7 +1829,7 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("error: Unknown subcommand or plugin name 'my-nonexistent-cmd'"))
+                XCTAssertMatch(output, .contains("Unknown subcommand or plugin name ‘my-nonexistent-cmd’"))
             }
 
             // Check that the .docc file was properly vended to the plugin.
@@ -2044,6 +2044,104 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
             }
           #endif
+
+            // Check default command with arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+
+            // Check plugin arguments after plugin name
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+
+            // Check default command with arguments after plugin name
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+        }
+    }
+
+    func testCommandPluginArgumentsNotSwallowed() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                import Foundation
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "MyPlugin", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                """
+                import PackagePlugin
+                import Foundation
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        print (arguments)
+                        guard arguments.contains("--foo") else {
+                            throw "expecting argument foo"
+                        }
+                        guard arguments.contains("--help") else {
+                            throw "expecting argument help"
+                        }
+                        guard arguments.contains("--version") else {
+                            throw "expecting argument version"
+                        }
+                        guard arguments.contains("--verbose") else {
+                            throw "expecting argument verbose"
+                        }
+                        print("success")
+                    }
+                }
+                extension String: Error {}
+                """
+            }
+
+            // Check arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("success"))
+                XCTAssertEqual(try result.utf8stderrOutput(), "")
+            }
+
+            // Check default command arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("success"))
+                XCTAssertEqual(try result.utf8stderrOutput(), "")
+            }
         }
     }
 

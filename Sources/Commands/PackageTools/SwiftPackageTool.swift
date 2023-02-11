@@ -99,7 +99,7 @@ extension SwiftPackageTool {
                 print(SwiftPackageTool.helpMessage())
                 return
             }
-            
+
             // Check for edge cases and unknown options to match the behavior in the absence of plugins.
             if command.isEmpty {
                 throw ValidationError("Unknown argument '\(command)'")
@@ -109,31 +109,27 @@ extension SwiftPackageTool {
             }
 
             // Otherwise see if we can find a plugin.
-            
-            // We first have to try to resolve the package graph to find any plugins.
-            // TODO: Ideally we should only resolve plugin dependencies, if we had a way of distinguishing them.
-            let packageGraph = try swiftTool.loadPackageGraph()
-
-            // Otherwise find all plugins that match the command verb.
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command)'")
-            let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
-
-            // Complain if we didn't find exactly one. We have to formulate the error message taking into account that this might be a misspelled subcommand.
-            if matchingPlugins.isEmpty {
-                throw ValidationError("Unknown subcommand or plugin name '\(command)'")
-            }
-            else if matchingPlugins.count > 1 {
-                throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
-            }
-
-            // At this point we know we found exactly one command plugin, so we run it.
             try PluginCommand.run(
-                plugin: matchingPlugins[0],
-                package: packageGraph.rootPackages[0],
-                packageGraph: packageGraph,
-                options: pluginOptions,
-                arguments: Array( remaining.dropFirst()),
-                swiftTool: swiftTool)
+                command: command,
+                options: self.pluginOptions,
+                arguments: self.remaining,
+                swiftTool: swiftTool
+            )
         }
+    }
+}
+
+extension PluginCommand.PluginOptions {
+    func merged(with other: Self) -> Self {
+        // validate against developer mistake
+        assert(Mirror(reflecting: self).children.count == 3, "Property added to PluginOptions without updating merged(with:)!")
+        // actual merge
+        var merged = self
+        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other.allowWritingToPackageDirectory
+        merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
+        if other.allowNetworkConnections != .none {
+            merged.allowNetworkConnections = other.allowNetworkConnections
+        }
+        return merged
     }
 }

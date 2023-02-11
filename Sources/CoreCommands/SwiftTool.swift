@@ -182,6 +182,9 @@ public final class SwiftTool {
     /// The min severity at which to log diagnostics
     public let logLevel: Basics.Diagnostic.Severity
 
+    // should use sandbox on external subcommands
+    public var shouldDisableSandbox: Bool
+
     /// The file system in use
     public let fileSystem: FileSystem
 
@@ -215,6 +218,7 @@ public final class SwiftTool {
         self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
+        self.shouldDisableSandbox = options.security.shouldDisableSandbox
         self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
         self.workspaceDelegateProvider = workspaceDelegateProvider
         self.workspaceLoaderProvider = workspaceLoaderProvider
@@ -513,7 +517,7 @@ public final class SwiftTool {
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain(),
-            enableSandbox: !self.options.security.shouldDisableSandbox,
+            enableSandbox: !self.shouldDisableSandbox,
             verboseOutput: self.logLevel <= .info
         )
         // register the plugin runner system with the cancellation handler
@@ -729,7 +733,7 @@ public final class SwiftTool {
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 toolchain: self.getHostToolchain(),
-                isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
+                isManifestSandboxEnabled: !self.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags,
                 restrictImports: nil

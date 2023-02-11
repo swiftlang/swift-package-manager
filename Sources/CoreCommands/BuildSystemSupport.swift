@@ -33,7 +33,7 @@ extension SwiftTool {
                         pluginConfiguration: .init(
                             scriptRunner: self.getPluginScriptRunner(),
                             workDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                            disableSandbox: self.options.security.shouldDisableSandbox
+                            disableSandbox: self.shouldDisableSandbox
                         ),
                         additionalFileRules: FileRuleDescription.swiftpmFileTypes,
                         pkgConfigDirectories: self.options.locations.pkgConfigDirectories,
