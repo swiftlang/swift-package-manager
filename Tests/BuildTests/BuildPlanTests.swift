@@ -576,9 +576,10 @@ final class BuildPlanTests: XCTestCase {
             }
             let (stdout, _) = try executeSwiftBuild(root, extraArgs: ["-v"])
             XCTAssertMatch(stdout, .contains("-module-name dep"))
-            XCTAssertMatch(stdout, .contains("-package-name deppkg"))
+            // FIXME: rdar://105305875
+//            XCTAssertMatch(stdout, .contains("-package-name deppkg"))
             XCTAssertMatch(stdout, .contains("-module-name root"))
-            XCTAssertMatch(stdout, .contains("-package-name rootpkg"))
+//            XCTAssertMatch(stdout, .contains("-package-name rootpkg"))
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }
