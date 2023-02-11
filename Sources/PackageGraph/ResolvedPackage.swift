@@ -48,13 +48,17 @@ public final class ResolvedPackage {
     /// The list of platforms that are supported by this target.
     public let platforms: SupportedPlatforms
 
+    /// If the given package's source is a registry release, this provides additional metadata and signature information.
+    public let registryMetadata: RegistryReleaseMetadata?
+
     public init(
         package: Package,
         defaultLocalization: String?,
         platforms: SupportedPlatforms,
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
-        products: [ResolvedProduct]
+        products: [ResolvedProduct],
+        registryMetadata: RegistryReleaseMetadata? = nil
     ) {
         self.underlyingPackage = package
         self.defaultLocalization = defaultLocalization
@@ -62,6 +66,7 @@ public final class ResolvedPackage {
         self.dependencies = dependencies
         self.targets = targets
         self.products = products
+        self.registryMetadata = registryMetadata
     }
 }
 
