@@ -15,6 +15,11 @@
 import _Concurrency
 import DequeModule
 
+// This type is already marked as `Sendable` in Swift 5.6 and later
+#if swift(<5.6)
+extension CheckedContinuation: UnsafeSendable {}
+#endif
+
 /// Type modeled after a "token bucket" pattern, which is similar to a semaphore, but is built with
 /// Swift Concurrency primitives.
 public actor TokenBucket {
@@ -63,4 +68,4 @@ public actor TokenBucket {
     }
 }
 
-#endif
+#endif // swift(>=5.5.2)
