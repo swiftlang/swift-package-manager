@@ -82,7 +82,7 @@ struct RunToolOptions: ParsableArguments {
     var executable: String?
 
     /// The arguments to pass to the executable.
-    @Argument(parsing: .unconditionalRemaining,
+    @Argument(parsing: .captureForPassthrough,
               help: "The arguments to pass to the executable")
     var arguments: [String] = []
 }

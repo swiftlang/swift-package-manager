@@ -65,7 +65,7 @@ struct PluginCommand: SwiftCommand {
     var command: String = ""
 
     @Argument(
-        parsing: .unconditionalRemaining,
+        parsing: .allUnrecognized,
         help: "Arguments to pass to the command plugin"
     )
     var arguments: [String] = []
@@ -315,7 +315,7 @@ struct PluginArguments: ParsableCommand {
     @OptionGroup()
     var pluginOptions: PluginCommand.PluginOptions
 
-    @Argument(parsing: .unconditionalRemaining)
+    @Argument(parsing: .allUnrecognized)
     var remaining: [String] = []
 }
 
