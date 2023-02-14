@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Dispatch
 import Foundation
 
 import Basics
@@ -23,10 +22,8 @@ public struct Signer {
         _ content: Data,
         with identity: SigningIdentity,
         in format: SignatureFormat,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Data, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Data {
         fatalError("TO BE IMPLEMENTED")
     }
     
@@ -34,10 +31,8 @@ public struct Signer {
         _ signature: Data,
         for content: Data,
         in format: SignatureFormat,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Bool {
         fatalError("TO BE IMPLEMENTED")
     }
 }
