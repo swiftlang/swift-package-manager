@@ -1678,13 +1678,13 @@ components:
       schema:
         type: string
         enum:
-          - - "1"
+          - "1"
     optionalContentVersion:
       required: false
       schema:
         type: string
         enum:
-          - - "1"          
+          - "1"          
 
 ```
 
