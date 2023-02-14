@@ -2137,7 +2137,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check default command arguments
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssertMatch(try result.utf8Output(), .contains("success"))
                 XCTAssertEqual(try result.utf8stderrOutput(), "")

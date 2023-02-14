@@ -90,7 +90,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var pluginOptions: PluginCommand.PluginOptions
 
-        @Argument(parsing: .allUnrecognized)
+        @Argument(parsing: .captureForPassthrough)
         var remaining: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {

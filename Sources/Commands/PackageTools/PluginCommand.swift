@@ -65,7 +65,7 @@ struct PluginCommand: SwiftCommand {
     var command: String = ""
 
     @Argument(
-        parsing: .allUnrecognized,
+        parsing: .captureForPassthrough,
         help: "Arguments to pass to the command plugin"
     )
     var arguments: [String] = []
@@ -309,6 +309,10 @@ struct PluginCommand: SwiftCommand {
 
 // helper to parse plugin arguments passed after the plugin name
 struct PluginArguments: ParsableCommand {
+    static var configuration: CommandConfiguration {
+        .init(helpNames: [])
+    }
+
     @OptionGroup
     var globalOptions: GlobalOptions
 
