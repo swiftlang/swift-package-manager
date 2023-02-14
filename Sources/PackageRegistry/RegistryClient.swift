@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -269,7 +269,7 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response -> String in
                     switch response.statusCode {
                     case 200:
-                        try response.validateAPIVersion()
+                        try response.validateAPIVersion(isOptional: true)
                         try response.validateContentType(.swift)
 
                         guard let data = response.body else {
@@ -454,7 +454,7 @@ public final class RegistryClient: Cancellable {
                 do {
                     switch response.statusCode {
                     case 200:
-                        try response.validateAPIVersion()
+                        try response.validateAPIVersion(isOptional: true)
                         try response.validateContentType(.zip)
 
                         withExpectedChecksum { result in
@@ -1009,8 +1009,15 @@ extension HTTPClientResponse {
         }
     }
 
-    fileprivate func validateAPIVersion(_ expectedVersion: RegistryClient.APIVersion = .v1) throws {
-        guard self.apiVersion == expectedVersion else {
+    fileprivate func validateAPIVersion(_ expectedVersion: RegistryClient.APIVersion = .v1, isOptional: Bool = false) throws {
+        let apiVersion = self.apiVersion
+        
+        if isOptional, apiVersion == nil {
+            return
+        }
+        
+        // Check API version as long as `Content-Version` is set
+        guard apiVersion == expectedVersion else {
             throw RegistryError.invalidContentVersion(
                 expected: expectedVersion.rawValue,
                 actual: self.apiVersion?.rawValue
