@@ -952,37 +952,12 @@ extension RegistryClient {
     }
 }
 
-extension RegistryClient {
-    public enum SignatureFormat {
-        case CMS_1_0_0
-    }
-}
-
-extension RegistryClient {
-    public struct PublishConfiguration {
-        public let signing: Signing
-
-        public init(signing: Signing) {
-            self.signing = signing
-        }
-
-        public struct Signing {
-            public let required: Bool
-            public let acceptedSignatureFormats: [SignatureFormat]
-            public let trustedRootCertificates: [String]
-
-            public init(
-                required: Bool,
-                acceptedSignatureFormats: [SignatureFormat],
-                trustedRootCertificates: [String]
-            ) {
-                self.required = required
-                self.acceptedSignatureFormats = acceptedSignatureFormats
-                self.trustedRootCertificates = trustedRootCertificates
-            }
-        }
-    }
-}
+/*
+ extension RegistryClient {
+     public enum SignatureFormat {
+         case CMS_1_0_0
+     }
+ }*/
 
 extension RegistryClient {
     public enum PublishResult: Equatable {

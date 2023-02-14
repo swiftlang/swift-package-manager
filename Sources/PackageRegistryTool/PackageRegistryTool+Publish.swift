@@ -33,7 +33,7 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: [.customLong("id"), .customLong("package-id")] , help: "The package identity")
+        @Option(name: [.customLong("id"), .customLong("package-id")], help: "The package identity")
         var packageIdentity: PackageIdentity
 
         @Option(name: [.customLong("version"), .customLong("package-version")], help: "The package version")
@@ -67,6 +67,9 @@ extension SwiftPackageRegistryTool {
             help: "Paths to all of the certificates (DER-encoded) in the chain. The certificate used for signing must be listed first and the root certificate last."
         )
         var certificateChainPaths: [AbsolutePath] = []
+
+        @Option(help: "Dry run only, prepare the archive and sign it but do not publish to the registry")
+        var dryRun: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let configuration = try getRegistriesConfig(swiftTool).configuration
@@ -131,23 +134,40 @@ extension SwiftPackageRegistryTool {
             )
 
             // step 1: publishing configuration
-            let metadataPath = self.customMetadataPath ?? packageDirectory.appending(component: Self.metadataFilename)
-            guard localFileSystem.exists(metadataPath) else {
-                throw StringError(
-                    "Publishing to '\(registryURL)' requires metadata file but none was found at '\(metadataPath)'."
-                )
-            }
-
-            let publishConfiguration = RegistryClient.PublishConfiguration(
+            let publishConfiguration = PublishConfiguration(
+                metadataLocation: self.customMetadataPath
+                    .flatMap { .external($0) } ??
+                    .sourceTree(packageDirectory.appending(component: Self.metadataFilename)),
                 signing: .init(
                     required: self.signingIdentity != nil || self.privateKeyPath != nil,
-                    acceptedSignatureFormats: [.CMS_1_0_0],
-                    trustedRootCertificates: []
+                    format: self.signatureFormat,
+                    signingIdentity: self.signingIdentity,
+                    privateKeyPath: self.privateKeyPath,
+                    certificateChainPaths: self.certificateChainPaths
                 )
             )
 
-            // step 2: generate source archive for the package release
+            guard localFileSystem.exists(publishConfiguration.metadataLocation.path) else {
+                throw StringError(
+                    "Publishing to '\(registryURL)' requires metadata file but none was found at '\(publishConfiguration.metadataLocation)'."
+                )
+            }
 
+            if publishConfiguration.signing.privateKeyPath == nil {
+                guard !publishConfiguration.signing.certificateChainPaths.isEmpty else {
+                    throw StringError(
+                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
+                    )
+                }
+            } else {
+                guard publishConfiguration.signing.certificateChainPaths.isEmpty else {
+                    throw StringError(
+                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
+                    )
+                }
+            }
+
+            // step 2: generate source archive for the package release
             swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
             let archivePath = try self.archiveSource(
                 packageIdentity: self.packageIdentity,
@@ -164,14 +184,19 @@ extension SwiftPackageRegistryTool {
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 signature = try self.sign(
                     archivePath: archivePath,
-                    signatureFormat: self.signatureFormat,
-                    signingIdentity: self.signingIdentity,
-                    privateKeyPath: self.privateKeyPath,
+                    configuration: publishConfiguration.signing,
                     observabilityScope: swiftTool.observabilityScope
                 )
             }
 
             // step 4: publish the package
+            guard !self.dryRun else {
+                print(
+                    "\(packageIdentity)@\(packageVersion) was successfully prepared for publishing but was not published due to dry run  flag. artifacts available at '\(workingDirectory)'."
+                )
+                return
+            }
+
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
             // TODO: handle signature
@@ -194,9 +219,13 @@ extension SwiftPackageRegistryTool {
             case .published(.none):
                 print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL)")
             case .published(.some(let location)):
-                print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL) and is available at \(location)")
+                print(
+                    "\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL) and is available at \(location)"
+                )
             case .processing(let statusURL, _):
-                print("\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)")
+                print(
+                    "\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)"
+                )
             }
         }
 
@@ -236,13 +265,38 @@ extension SwiftPackageRegistryTool {
 
         func sign(
             archivePath: AbsolutePath,
-            signatureFormat: SignatureFormat,
-            signingIdentity: String?,
-            privateKeyPath: AbsolutePath?,
+            configuration: PublishConfiguration.Signing,
             observabilityScope: ObservabilityScope
         ) throws -> Data {
             fatalError("not implemented")
         }
+    }
+}
+
+struct PublishConfiguration {
+    let metadataLocation: MetadataLocation
+    let signing: Signing
+
+    enum MetadataLocation {
+        case sourceTree(AbsolutePath)
+        case external(AbsolutePath)
+
+        var path: AbsolutePath {
+            switch self {
+            case .sourceTree(let path):
+                return path
+            case .external(let path):
+                return path
+            }
+        }
+    }
+
+    struct Signing {
+        let required: Bool
+        let format: SignatureFormat
+        var signingIdentity: String?
+        var privateKeyPath: AbsolutePath?
+        var certificateChainPaths: [AbsolutePath]
     }
 }
 

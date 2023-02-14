@@ -34,7 +34,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(args, packagePath: packagePath, env: environment)
+        let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+            args,
+            packagePath: packagePath,
+            env: environment
+        )
         return try (result.exitStatus, result.utf8Output(), result.utf8stderrOutput())
     }
 
@@ -56,7 +60,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testLocalConfiguration() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(
+                path: ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -67,7 +74,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
+                    "\(defaultRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -78,7 +88,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -94,24 +107,39 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Set registry for "foo" scope
             do {
-                let result = try execute(["set", "\(customRegistryBaseURL)", "--scope", "foo"], packagePath: packageRoot)
+                let result = try execute(
+                    ["set", "\(customRegistryBaseURL)", "--scope", "foo"],
+                    packagePath: packageRoot
+                )
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
             // Set registry for "bar" scope
             do {
-                let result = try execute(["set", "\(customRegistryBaseURL)", "--scope", "bar"], packagePath: packageRoot)
+                let result = try execute(
+                    ["set", "\(customRegistryBaseURL)", "--scope", "bar"],
+                    packagePath: packageRoot
+                )
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 2)
-                XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
-                XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -122,7 +150,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string,
+                    "\(customRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -135,7 +166,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetMissingURL() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(
+                path: ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -152,7 +186,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetInvalidURL() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(
+                path: ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -169,13 +206,19 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testSetInvalidScope() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(
+                path: ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
             do {
-                let result = try execute(["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
+                let result = try execute(
+                    ["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"],
+                    packagePath: packageRoot
+                )
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
             }
 
@@ -186,7 +229,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
     func testUnsetMissingEntry() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Bar")
-            let configurationFilePath = AbsolutePath(path: ".swiftpm/configuration/registries.json", relativeTo: packageRoot)
+            let configurationFilePath = AbsolutePath(
+                path: ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
@@ -197,7 +243,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
+                    "\(defaultRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -208,7 +257,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
-                XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
+                XCTAssertEqual(
+                    json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string,
+                    "\(defaultRegistryBaseURL)"
+                )
                 XCTAssertEqual(json["version"], .int(1))
             }
 
@@ -220,6 +272,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     func testArchiving() throws {
         #if os(Linux)
+        // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
         }
@@ -331,7 +384,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
-            try tsc_await {  archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending(component: "Package.swift"))
             return extractPath
