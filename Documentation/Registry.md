@@ -183,8 +183,12 @@ Valid `Accept` header field values are described by the following rules:
     accept      = "application/vnd.swift.registry" [".v" version] ["+" mediatype]
 ```
 
-A server MUST set the `Content-Type` and `Content-Version` header fields
-with the corresponding content type and API version number of the response.
+A server MUST set the `Content-Type` header field
+with the corresponding content type of the response. 
+
+A server MUST set the `Content-Version` header field
+with the API version number of the response, unless 
+explicitly stated otherwise. 
 
 ```http
 HTTP/1.1 200 OK
@@ -594,6 +598,10 @@ set to `attachment` with a `filename` parameter equal to
 the name of the manifest file
 (for example, "Package.swift").
 
+A server MAY omit the `Content-Version` header
+since the response content (i.e., the manifest) SHOULD NOT
+change across different API versions.
+
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
@@ -710,6 +718,10 @@ A server SHOULD respond with a `Content-Disposition` header
 set to `attachment` with a `filename` parameter equal to the name of the package
 followed by a hyphen (`-`), the version number, and file extension
 (for example, "LinkedList-1.1.1.zip").
+
+A server MAY omit the `Content-Version` header
+since the response content (i.e., the source archive) SHOULD NOT
+change across different API versions.
 
 It is RECOMMENDED for clients and servers to support
 range requests as described by [RFC 7233]
@@ -1379,7 +1391,7 @@ paths:
               schema:
                 type: integer
             Content-Version:
-              $ref: "#/components/headers/contentVersion"
+              $ref: "#/components/headers/optionalContentVersion"
             Link:
               schema:
                 type: string
@@ -1426,7 +1438,7 @@ paths:
               schema:
                 type: integer
             Content-Version:
-              $ref: "#/components/headers/contentVersion"
+              $ref: "#/components/headers/optionalContentVersion"
             Digest:
               required: true
               schema:
@@ -1666,7 +1678,13 @@ components:
       schema:
         type: string
         enum:
-          - - "1"
+          - "1"
+    optionalContentVersion:
+      required: false
+      schema:
+        type: string
+        enum:
+          - "1"          
 
 ```
 

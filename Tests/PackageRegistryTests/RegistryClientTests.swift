@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -200,6 +200,86 @@ final class RegistryClientTests: XCTestCase {
                         .init(name: "Content-Length", value: "\(data.count)"),
                         .init(name: "Content-Type", value: "text/x-swift"),
                         .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+
+        do {
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: nil
+            )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .current)
+        }
+
+        do {
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v5_3
+            )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v5_3)
+        }
+
+        do {
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v4
+            )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v4)
+        }
+    }
+    
+    func testGetManifestContent_optionalContentVersion() throws {
+        let registryURL = "https://packages.example.com"
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let (scope, name) = identity.scopeAndName!
+        let version = Version("1.1.1")
+        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+                .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
+            // remove query
+            components.query = nil
+            let urlWithoutQuery = components.url
+            switch (request.method, urlWithoutQuery) {
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let data = """
+                // swift-tools-version:\(toolsVersion)
+
+                import PackageDescription
+
+                let package = Package()
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        // Omit `Content-Version` header
                     ]),
                     body: data
                 )))
@@ -857,6 +937,115 @@ final class RegistryClientTests: XCTestCase {
         }
         XCTAssertEqual(registryURL, fingerprint.origin.url?.absoluteString)
         XCTAssertEqual(checksum, fingerprint.value)
+    }
+    
+    func testDownloadSourceArchive_optionalContentVersion() throws {
+        let registryURL = "https://packages.example.com"
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let (scope, name) = identity.scopeAndName!
+        let version = Version("1.1.1")
+        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+
+        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.kind, request.method, request.url) {
+            case (.download(let fileSystem, let path), .get, downloadURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
+
+                let data = Data(emptyZipFile.contents)
+                try! fileSystem.writeFileContents(path, data: data)
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/zip"),
+                        // Omit `Content-Version` header
+                        .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
+                    ]),
+                    body: nil
+                )))
+            // `downloadSourceArchive` calls this API to fetch checksum
+            case (.generic, .get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                  "id": "mona.LinkedList",
+                  "version": "1.1.1",
+                  "resources": [
+                    {
+                      "name": "source-archive",
+                      "type": "application/zip",
+                      "checksum": "\(checksum)"
+                    }
+                  ],
+                  "metadata": {
+                    "description": "One thing links to another."
+                  }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+
+        let fingerprintStorage = MockPackageFingerprintStorage()
+        let registryClient = RegistryClient(
+            configuration: configuration,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict,
+            customHTTPClient: httpClient,
+            customArchiverProvider: { fileSystem in
+                MockArchiver(handler: { _, from, to, callback in
+                    let data = try fileSystem.readFileContents(from)
+                    XCTAssertEqual(data, emptyZipFile)
+
+                    let packagePath = to.appending(component: "package")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    callback(.success(()))
+                })
+            }
+        )
+
+        let fileSystem = InMemoryFileSystem()
+        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+
+        try registryClient.downloadSourceArchive(
+            package: identity,
+            version: version,
+            fileSystem: fileSystem,
+            destinationPath: path,
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let contents = try fileSystem.getDirectoryContents(path)
+        XCTAssertEqual(contents, ["Package.swift"])
     }
 
     func testLookupIdentities() throws {
