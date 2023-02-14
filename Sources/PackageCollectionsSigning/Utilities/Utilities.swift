@@ -27,7 +27,12 @@ extension UInt8 {
     }
 }
 
-extension Data {
+/// Cannot use `extension Data` if `period` is going to be used with
+/// `+` operator via leading-dot syntax, for example: `Data(...) + .period`
+/// because `+` is declared as `(Self, Other) -> Self` where
+/// `Other: RangeReplaceableCollection, Other.Element == Self.Element`
+/// which means that `.period` couldn't get `Data` inferred from the first argument.
+extension RangeReplaceableCollection where Self == Data {
     static var period: Data {
         Data([UInt8.period])
     }
