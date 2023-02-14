@@ -835,7 +835,7 @@ A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
 
 ```http
-PUT /mona/LinkedList?version=1.1.1 HTTP/1.1
+PUT /mona/LinkedList/1.1.1 HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+json
 Content-Type: multipart/form-data;boundary="boundary"
