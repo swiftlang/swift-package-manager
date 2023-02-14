@@ -269,7 +269,6 @@ public final class InitPackage {
                 .DS_Store
                 /.build
                 /Packages
-                /*.xcodeproj
                 xcuserdata/
                 DerivedData/
                 .swiftpm/config/registries.json
