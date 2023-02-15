@@ -153,14 +153,8 @@ extension SwiftPackageRegistryTool {
                 )
             }
 
-            if publishConfiguration.signing.privateKeyPath == nil {
+            if publishConfiguration.signing.privateKeyPath != nil {
                 guard !publishConfiguration.signing.certificateChainPaths.isEmpty else {
-                    throw StringError(
-                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
-                    )
-                }
-            } else {
-                guard publishConfiguration.signing.certificateChainPaths.isEmpty else {
                     throw StringError(
                         "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
                     )
@@ -192,7 +186,7 @@ extension SwiftPackageRegistryTool {
             // step 4: publish the package
             guard !self.dryRun else {
                 print(
-                    "\(packageIdentity)@\(packageVersion) was successfully prepared for publishing but was not published due to dry run  flag. artifacts available at '\(workingDirectory)'."
+                    "\(packageIdentity)@\(packageVersion) was successfully prepared for publishing but was not published due to dry run flag. Artifacts available at '\(workingDirectory)'."
                 )
                 return
             }
