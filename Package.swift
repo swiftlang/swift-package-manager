@@ -158,7 +158,7 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+                .unsafeFlags(["-enable-library-evolution"]),
             ]
         ),
 
@@ -170,7 +170,7 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+                .unsafeFlags(["-enable-library-evolution"]),
             ]
         ),
 
