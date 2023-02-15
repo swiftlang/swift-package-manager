@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -265,7 +265,8 @@ public final class RegistryClient: Cancellable {
                     try self.checkResponseStatusAndHeaders(
                         response,
                         expectedStatusCode: 200,
-                        expectedContentType: .swift
+                        expectedContentType: .swift,
+                        isContentVersionOptional: true
                     )
 
                     guard let data = response.body else {
@@ -443,7 +444,12 @@ public final class RegistryClient: Cancellable {
             switch result {
             case .success(let response):
                 do {
-                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .zip)
+                    try self.checkResponseStatusAndHeaders(
+                        response,
+                        expectedStatusCode: 200,
+                        expectedContentType: .zip,
+                        isContentVersionOptional: true
+                    )
                 } catch {
                     return completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
                 }
@@ -739,20 +745,29 @@ extension RegistryClient {
     private func acceptHeader(mediaType: MediaType) -> String {
         "application/vnd.swift.registry.v\(self.apiVersion.rawValue)+\(mediaType)"
     }
+    
+    private func checkContentVersion(_ response: HTTPClient.Response, isOptional: Bool) throws {
+        let contentVersion = response.headers.get("Content-Version").first
+        if isOptional, contentVersion == nil {
+            return
+        }
+        // Check API version as long as `Content-Version` is set
+        guard contentVersion == self.apiVersion.rawValue else {
+            throw RegistryError.invalidContentVersion(expected: self.apiVersion.rawValue, actual: contentVersion)
+        }
+    }
 
     private func checkResponseStatusAndHeaders(
         _ response: HTTPClient.Response,
         expectedStatusCode: Int,
-        expectedContentType: ContentType
+        expectedContentType: ContentType,
+        isContentVersionOptional: Bool = false
     ) throws {
         guard response.statusCode == expectedStatusCode else {
             throw RegistryError.invalidResponseStatus(expected: expectedStatusCode, actual: response.statusCode)
         }
 
-        let contentVersion = response.headers.get("Content-Version").first
-        guard contentVersion == self.apiVersion.rawValue else {
-            throw RegistryError.invalidContentVersion(expected: self.apiVersion.rawValue, actual: contentVersion)
-        }
+        try checkContentVersion(response, isOptional: isContentVersionOptional)
 
         let contentType = response.headers.get("Content-Type").first
         guard contentType?.hasPrefix(expectedContentType.rawValue) == true else {
