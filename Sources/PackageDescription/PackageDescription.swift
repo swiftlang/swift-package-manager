@@ -441,11 +441,12 @@ func manifestToJSON(_ package: Package) -> String {
     struct Output: Codable {
         let package: Serialization.Package
         let errors: [String]
+        let version: Int
     }
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = try! encoder.encode(Output(package: .init(package), errors: errors))
+    let data = try! encoder.encode(Output(package: .init(package), errors: errors, version: 2))
     return String(data: data, encoding: .utf8)!
 }
 

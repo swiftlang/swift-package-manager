@@ -30,6 +30,10 @@ enum ManifestJSONParser {
         let errors: [String]
     }
 
+    struct VersionedInput: Codable {
+        let version: Int
+    }
+
     struct Result {
         var name: String
         var defaultLocalization: String?
@@ -51,7 +55,21 @@ enum ManifestJSONParser {
         identityResolver: IdentityResolver,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
-        let input = try JSONDecoder.makeWithDefaults().decode(Input.self, from: jsonString)
+        let decoder = JSONDecoder.makeWithDefaults()
+
+        // Validate the version first to detect use of a mismatched PD library.
+        let versionedInput: VersionedInput
+        do {
+            versionedInput = try decoder.decode(VersionedInput.self, from: jsonString)
+        } catch {
+            // If we cannot even decode the version, assume that a pre-5.9 PD library is being used which emits an incompatible JSON format.
+            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error)")
+        }
+        guard versionedInput.version == 2 else {
+            throw ManifestParseError.unsupportedVersion(version: versionedInput.version)
+        }
+
+        let input = try decoder.decode(Input.self, from: jsonString)
 
         guard input.errors.isEmpty else {
             throw ManifestParseError.runtimeManifestErrors(input.errors)
