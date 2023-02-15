@@ -15,6 +15,7 @@ import Foundation
 import TSCBasic
 
 import struct TSCUtility.Triple
+
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -54,7 +55,7 @@ public final class UserToolchain: Toolchain {
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
-    /// Only use search paths, do not fall back to `xcrun`.
+    /// Only use search paths, do not fall back to `xcrun` or `vswhere`.
     let useXcrun: Bool
 
     private var _clangCompiler: AbsolutePath?
@@ -102,7 +103,9 @@ public final class UserToolchain: Toolchain {
 
     private static func findTool(
         _ name: String,
+        destination: Destination,
         envSearchPaths: [AbsolutePath],
+        swiftCompilerPath: AbsolutePath?,
         useXcrun: Bool
     ) throws -> AbsolutePath {
         if useXcrun {
@@ -118,16 +121,110 @@ public final class UserToolchain: Toolchain {
                 return toolPath
             }
         }
+
+        if useXcrun {
+            #if os(Windows)
+            func getHostTriple(from destination: Destination, swiftCompilerPath: AbsolutePath?) -> Triple? {
+                if let triple = destination.hostTriple {
+                    return triple
+                } else if let swiftCompilerPath = swiftCompilerPath {
+                    return .getHostTriple(usingSwiftCompiler: swiftCompilerPath)
+                } else {
+                    return nil
+                }
+            }
+            if let hostTriple = getHostTriple(from: destination, swiftCompilerPath: swiftCompilerPath),
+               let tool = findToolInVisualStudio(name, triple: destination.targetTriple, hostTriple: hostTriple)
+            {
+                return tool
+            }
+            #endif
+        }
         throw InvalidToolchainDiagnostic("could not find \(name)")
+    }
+
+    private static func findToolInVisualStudio(_ name: String, triple: Triple?, hostTriple: Triple) -> AbsolutePath? {
+        // Returns MSVC names for the triple arch
+        func vcArchNames(triple: Triple) -> (component: String, host: String, target: String)? {
+            guard triple.isWindows() else { return nil }
+            switch triple.arch {
+            case .x86_64:
+                return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX64", "x64")
+            case .i686:
+                return ("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "HostX86", "x86")
+            case .arm64, .arm64e, .aarch64:
+                return ("Microsoft.VisualStudio.Component.VC.Tools.ARM64", "HostARM64", "arm64")
+            case .arm, .armv7:
+                return ("Microsoft.VisualStudio.Component.VC.Tools.ARM", "HostARM", "arm")
+            default: return nil
+            }
+        }
+        // Try to locate the tool from MSVC toolset
+        func getVCTool(
+            _ name: String,
+            vcToolsVersion: String? = nil,
+            vcInstallDir: String,
+            hostName: String,
+            targetName: String
+        ) throws -> AbsolutePath? {
+            guard let vcInstallDir = try? AbsolutePath(validating: vcInstallDir) else {
+                throw InvalidToolchainDiagnostic("could not find MSVC at expected path \(vcInstallDir)")
+            }
+            let defaultVersion = try? String(
+                contentsOfFile: "\(vcInstallDir.pathString)/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt"
+            ).spm_chomp()
+            guard let vcToolsVersion = vcToolsVersion ?? defaultVersion,
+                  let vcToolsDir = try? AbsolutePath(
+                      validating: "Tools/MSVC/\(vcToolsVersion)/bin/\(hostName)/\(targetName)",
+                      relativeTo: vcInstallDir
+                  )
+            else {
+                return nil
+            }
+            return try? getTool(name, binDir: vcToolsDir)
+        }
+        // Parse and ignore unsupported triples
+        guard let (_, vcHost, _) = vcArchNames(triple: hostTriple),
+              let (vcTools, _, vcTarget) = vcArchNames(triple: triple ?? hostTriple)
+        else {
+            return nil
+        }
+        // First let's look in environment variables set by `vcvarsall` script
+        if let vcToolsInstallDir = TSCBasic.ProcessEnv.vars["VCToolsInstallDir"],
+           let binDir = try? AbsolutePath(validating: vcToolsInstallDir)
+        {
+            return try? getTool(name, binDir: binDir)
+        }
+        if let vcInstallDir = TSCBasic.ProcessEnv.vars["VCINSTALLDIR"] {
+            return try? getVCTool(
+                name,
+                vcToolsVersion: TSCBasic.ProcessEnv.vars["VCToolsVersion"],
+                vcInstallDir: vcInstallDir,
+                hostName: vcHost,
+                targetName: vcTarget
+            )
+        }
+        // If not in developer environment, try to locate latest toolset with `vswhere`
+        let vswhereArgs = ["-latest", "-products", "*", "-requires", vcTools, "-property", "installationPath"]
+        guard let programFiles = TSCBasic.ProcessEnv.vars["ProgramFiles(x86)"],
+              let visualStudio = try? TSCBasic.Process.checkNonZeroExit(arguments: [
+                  "\(programFiles)/Microsoft Visual Studio/Installer/vswhere.exe",
+              ] + vswhereArgs).spm_chomp()
+        else {
+            return nil
+        }
+        return try? getVCTool(name, vcInstallDir: "\(visualStudio)/VC", hostName: vcHost, targetName: vcTarget)
     }
 
     // MARK: - public API
 
     public static func determineLibrarian(
         triple: Triple,
+        destination: Destination,
         binDir: AbsolutePath,
         useXcrun: Bool,
         environment: EnvironmentVariables,
+        swiftCompilerPath: AbsolutePath,
         searchPaths: [AbsolutePath]
     ) throws
         -> AbsolutePath
@@ -166,12 +263,19 @@ public final class UserToolchain: Toolchain {
         if let librarian = try? UserToolchain.getTool(tool, binDir: binDir) {
             return librarian
         }
-        return try UserToolchain.findTool(tool, envSearchPaths: searchPaths, useXcrun: useXcrun)
+        return try UserToolchain.findTool(
+            tool,
+            destination: destination,
+            envSearchPaths: searchPaths,
+            swiftCompilerPath: swiftCompilerPath,
+            useXcrun: useXcrun
+        )
     }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
     public static func determineSwiftCompilers(
         binDir: AbsolutePath,
+        destination: Destination,
         useXcrun: Bool,
         environment: EnvironmentVariables,
         searchPaths: [AbsolutePath]
@@ -206,7 +310,9 @@ public final class UserToolchain: Toolchain {
             // we're built outside of the Swift toolchain.
             resolvedBinDirCompiler = try UserToolchain.findTool(
                 "swiftc",
+                destination: destination,
                 envSearchPaths: searchPaths,
+                swiftCompilerPath: nil,
                 useXcrun: useXcrun
             )
         }
@@ -242,7 +348,13 @@ public final class UserToolchain: Toolchain {
         }
 
         // Otherwise, lookup it up on the system.
-        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+        let toolPath = try UserToolchain.findTool(
+            "clang",
+            destination: destination,
+            envSearchPaths: self.envSearchPaths,
+            swiftCompilerPath: swiftCompilerPath,
+            useXcrun: useXcrun
+        )
         self._clangCompiler = toolPath
         return toolPath
     }
@@ -264,7 +376,13 @@ public final class UserToolchain: Toolchain {
             return lldbPath
         }
         // If that fails, fall back to xcrun, PATH, etc.
-        return try UserToolchain.findTool("lldb", envSearchPaths: self.envSearchPaths, useXcrun: useXcrun)
+        return try UserToolchain.findTool(
+            "lldb",
+            destination: destination,
+            envSearchPaths: self.envSearchPaths,
+            swiftCompilerPath: swiftCompilerPath,
+            useXcrun: useXcrun
+        )
     }
 
     /// Returns the path to llvm-cov tool.
@@ -309,7 +427,9 @@ public final class UserToolchain: Toolchain {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
-                if let SDKROOT = environment["SDKROOT"], let sdkroot = try? AbsolutePath(validating: SDKROOT) {
+                if let SDKROOT = environment["SDKROOT"],
+                   let sdkroot = try? AbsolutePath(validating: SDKROOT)
+                {
                     var runtime: [String] = []
                     var xctest: [String] = []
                     var extraSwiftCFlags: [String] = []
@@ -367,8 +487,10 @@ public final class UserToolchain: Toolchain {
                                 relativeTo: installation
                             ).pathString,
                             "-L",
-                            AbsolutePath(validating: "usr/lib/swift/windows/\(triple.arch)", relativeTo: installation)
-                                .pathString,
+                            AbsolutePath(
+                                validating: "usr/lib/swift/windows/\(triple.arch)",
+                                relativeTo: installation
+                            ).pathString,
                         ]
 
                         // Migration Path
@@ -439,6 +561,7 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(
             binDir: binDir,
+            destination: destination,
             useXcrun: useXcrun,
             environment: environment,
             searchPaths: envSearchPaths
@@ -451,9 +574,11 @@ public final class UserToolchain: Toolchain {
 
         self.librarianPath = try UserToolchain.determineLibrarian(
             triple: triple,
+            destination: destination,
             binDir: binDir,
             useXcrun: useXcrun,
             environment: environment,
+            swiftCompilerPath: swiftCompilerPath,
             searchPaths: envSearchPaths
         )
 
@@ -496,22 +621,22 @@ public final class UserToolchain: Toolchain {
                         // Defines _DEBUG, _MT, and _DLL
                         // Linker uses MSVCRTD.lib
                         self.extraFlags.cCompilerFlags += [
-                            "-D_DEBUG",
-                            "-D_MT",
-                            "-D_DLL",
-                            "-Xclang",
-                            "--dependent-lib=msvcrtd",
+                            "-D_DEBUG", "-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrtd",
                         ]
 
                     case .multithreadedDLL:
                         // Defines _MT, and _DLL
                         // Linker uses MSVCRT.lib
-                        self.extraFlags.cCompilerFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
+                        self.extraFlags.cCompilerFlags += [
+                            "-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt",
+                        ]
 
                     case .multithreadedDebug:
                         // Defines _DEBUG, and _MT
                         // Linker uses LIBCMTD.lib
-                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
+                        self.extraFlags.cCompilerFlags += [
+                            "-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd",
+                        ]
 
                     case .multithreaded:
                         // Defines _MT
@@ -598,8 +723,11 @@ public final class UserToolchain: Toolchain {
             components: "PackageFrameworks",
             "PackageDescription.framework"
         )
-        let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
-        if localFileSystem.exists(manifestFrameworksPath), localFileSystem.exists(pluginFrameworksPath) {
+        let pluginFrameworksPath = applicationPath.appending(
+            components: "PackageFrameworks",
+            "PackagePlugin.framework"
+        )
+        if localFileSystem.exists(manifestFrameworksPath) && localFileSystem.exists(pluginFrameworksPath) {
             return .init(
                 manifestLibraryPath: manifestFrameworksPath,
                 pluginLibraryPath: pluginFrameworksPath
