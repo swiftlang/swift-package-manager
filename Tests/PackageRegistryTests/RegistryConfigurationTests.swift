@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+import PackageModel
 import PackageRegistry
 import SPMTestSupport
 import XCTest
@@ -26,6 +28,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertNil(configuration.security)
     }
 
     func testRoundTripCodingForEmptyConfiguration() throws {
@@ -46,6 +49,45 @@ final class RegistryConfigurationTests: XCTestCase {
 
         configuration.registryAuthentication[defaultRegistryBaseURL.host!] = .init(type: .token)
 
+        var security = RegistryConfiguration.Security()
+        // default
+        var global = RegistryConfiguration.Security.Global()
+        global.signing = RegistryConfiguration.Security.Signing()
+        global.signing?.onUnsigned = .error
+        global.signing?.onUntrustedCertificate = .error
+        global.signing?.trustedRootCertificatesPath = "/shared/roots"
+        global.signing?.includeDefaultTrustedRootCertificates = false
+        global.signing?.validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+        global.signing?.validationChecks?.certificateExpiration = .enabled
+        global.signing?.validationChecks?.certificateRevocation = .strict
+        security.default = global
+        // registryOverrides
+        var registryOverride = RegistryConfiguration.Security.RegistryOverride()
+        registryOverride.signing = RegistryConfiguration.Security.Signing()
+        registryOverride.signing?.onUnsigned = .silentAllow
+        registryOverride.signing?.onUntrustedCertificate = .silentTrust
+        registryOverride.signing?.trustedRootCertificatesPath = "/foo/roots"
+        registryOverride.signing?.includeDefaultTrustedRootCertificates = false
+        registryOverride.signing?.validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+        registryOverride.signing?.validationChecks?.certificateExpiration = .enabled
+        registryOverride.signing?.validationChecks?.certificateRevocation = .allowSoftFail
+        security.registryOverrides["foo.com"] = registryOverride
+        // scopeOverrides
+        let scope = try PackageIdentity.Scope(validating: "mona")
+        var scopeOverride = RegistryConfiguration.Security.ScopePackageOverride()
+        scopeOverride.signing = RegistryConfiguration.Security.ScopePackageOverride.Signing()
+        scopeOverride.signing?.trustedRootCertificatesPath = "/mona/roots"
+        scopeOverride.signing?.includeDefaultTrustedRootCertificates = false
+        security.scopeOverrides[scope] = scopeOverride
+        // packageOverrides
+        let packageIdentity = PackageIdentity.plain("mona.LinkedList")
+        var packageOverride = RegistryConfiguration.Security.ScopePackageOverride()
+        packageOverride.signing = RegistryConfiguration.Security.ScopePackageOverride.Signing()
+        packageOverride.signing?.trustedRootCertificatesPath = "/mona/LinkedList/roots"
+        packageOverride.signing?.includeDefaultTrustedRootCertificates = false
+        security.packageOverrides[packageIdentity] = packageOverride
+        configuration.security = security
+
         let encoded = try encoder.encode(configuration)
         let decoded = try decoder.decode(RegistryConfiguration.self, from: encoded)
 
@@ -57,6 +99,7 @@ final class RegistryConfigurationTests: XCTestCase {
         {
             "registries": {},
             "authentication": {},
+            "security": {},
             "version": 1
         }
         """#
@@ -65,6 +108,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertEqual(configuration.security, RegistryConfiguration.Security())
     }
 
     func testDecodeEmptyConfigurationWithMissingKeys() throws {
@@ -79,6 +123,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
         XCTAssertEqual(configuration.registryAuthentication, [:])
+        XCTAssertNil(configuration.security)
     }
 
     func testDecodeExampleConfiguration() throws {
@@ -102,7 +147,48 @@ final class RegistryConfigurationTests: XCTestCase {
                 }
             },
             "security": {
-                "credentialStore": "default"
+                "default": {
+                    "signing": {
+                        "onUnsigned": "prompt",
+                        "onUntrustedCertificate": "prompt",
+                        "trustedRootCertificatesPath": "~/.swiftpm/security/trusted-root-certs/",
+                        "includeDefaultTrustedRootCertificates": true,
+                        "validationChecks": {
+                            "certificateExpiration": "disabled",
+                            "certificateRevocation": "disabled"
+                        }
+                    }
+                },
+                "registryOverrides": {
+                    "packages.example.com": {
+                        "signing": {
+                            "onUnsigned": "warn",
+                            "onUntrustedCertificate": "warn",
+                            "trustedRootCertificatesPath": "/foo/roots",
+                            "includeDefaultTrustedRootCertificates": false,
+                            "validationChecks": {
+                                "certificateExpiration": "enabled",
+                                "certificateRevocation": "allowSoftFail"
+                            }
+                        }
+                    }
+                },
+                "scopeOverrides": {
+                    "mona": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/roots",
+                            "includeDefaultTrustedRootCertificates": false
+                        }
+                    }
+                },
+                "packageOverrides": {
+                    "mona.LinkedList": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/LinkedList/roots",
+                            "includeDefaultTrustedRootCertificates": false
+                        }
+                    }
+                }
             },
             "version": 1
         }
@@ -114,6 +200,59 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
+        XCTAssertEqual(configuration.security?.default.signing?.onUnsigned, .prompt)
+        XCTAssertEqual(configuration.security?.default.signing?.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(
+            configuration.security?.default.signing?.trustedRootCertificatesPath,
+            "~/.swiftpm/security/trusted-root-certs/"
+        )
+        XCTAssertEqual(configuration.security?.default.signing?.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(configuration.security?.default.signing?.validationChecks?.certificateExpiration, .disabled)
+        XCTAssertEqual(configuration.security?.default.signing?.validationChecks?.certificateRevocation, .disabled)
+        XCTAssertEqual(configuration.security?.registryOverrides["packages.example.com"]?.signing?.onUnsigned, .warn)
+        XCTAssertEqual(
+            configuration.security?.registryOverrides["packages.example.com"]?.signing?.onUntrustedCertificate,
+            .warn
+        )
+        XCTAssertEqual(
+            configuration.security?.registryOverrides["packages.example.com"]?.signing?.trustedRootCertificatesPath,
+            "/foo/roots"
+        )
+        XCTAssertEqual(
+            configuration.security?.registryOverrides["packages.example.com"]?.signing?
+                .includeDefaultTrustedRootCertificates,
+            false
+        )
+        XCTAssertEqual(
+            configuration.security?.registryOverrides["packages.example.com"]?.signing?.validationChecks?
+                .certificateExpiration,
+            .enabled
+        )
+        XCTAssertEqual(
+            configuration.security?.registryOverrides["packages.example.com"]?.signing?.validationChecks?
+                .certificateRevocation,
+            .allowSoftFail
+        )
+        XCTAssertEqual(
+            configuration.security?.scopeOverrides[PackageIdentity.Scope(stringLiteral: "mona")]?.signing?
+                .trustedRootCertificatesPath,
+            "/mona/roots"
+        )
+        XCTAssertEqual(
+            configuration.security?.scopeOverrides[PackageIdentity.Scope(stringLiteral: "mona")]?.signing?
+                .includeDefaultTrustedRootCertificates,
+            false
+        )
+        XCTAssertEqual(
+            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList")]?.signing?
+                .trustedRootCertificatesPath,
+            "/mona/LinkedList/roots"
+        )
+        XCTAssertEqual(
+            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList")]?.signing?
+                .includeDefaultTrustedRootCertificates,
+            false
+        )
     }
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
@@ -168,6 +307,58 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
+    func testDecodeSecurityConfigurationWithInvalidScopeKey() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "foobar"
+                }
+            },
+            "security": {
+                "scopeOverrides": {
+                  "mona.": {
+                    "signing": {
+                      "trustedRootCertificatesPath": "/mona/roots",
+                      "includeDefaultTrustedRootCertificates": false
+                    }
+                  }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeSecurityConfigurationWithInvalidPackageKey() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "foobar"
+                }
+            },
+            "security": {
+                "packageOverrides": {
+                  "LinkedList": {
+                    "signing": {
+                      "trustedRootCertificatesPath": "/mona/LinkedList/roots",
+                      "includeDefaultTrustedRootCertificates": false
+                    }
+                  }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
     func testDecodeConfigurationWithInvalidVersion() throws {
         let json = #"""
         {
@@ -185,5 +376,172 @@ final class RegistryConfigurationTests: XCTestCase {
 
         XCTAssertEqual(configuration.authentication(for: defaultRegistryBaseURL)?.type, .token)
         XCTAssertNil(configuration.authentication(for: customRegistryBaseURL))
+    }
+
+    func testGetSigning_noOverrides() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let signing = try configuration.signing(for: package, registry: registry)
+
+        XCTAssertEqual(signing.onUnsigned, .prompt)
+        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertNil(signing.trustedRootCertificatesPath)
+        XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
+        XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
+    }
+
+    func testGetSigning_globalOverride() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "security": {
+                "default": {
+                    "signing": {
+                        "onUnsigned": "error",
+                        "trustedRootCertificatesPath": "/custom/roots",
+                        "validationChecks": {
+                            "certificateExpiration": "enabled"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let signing = try configuration.signing(for: package, registry: registry)
+
+        XCTAssertEqual(signing.onUnsigned, .error)
+        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/custom/roots")
+        XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(signing.validationChecks?.certificateExpiration, .enabled)
+        XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
+    }
+
+    func testGetSigning_registryOverride() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "security": {
+                "registryOverrides": {
+                    "packages.example.com": {
+                        "signing": {
+                            "onUntrustedCertificate": "warn",
+                            "trustedRootCertificatesPath": "/foo/roots",
+                            "validationChecks": {
+                                "certificateRevocation": "allowSoftFail"
+                            }
+                        }
+                    },
+                    "other.example.com": {
+                        "signing": {
+                            "onUntrustedCertificate": "error"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let signing = try configuration.signing(for: package, registry: registry)
+
+        XCTAssertEqual(signing.onUnsigned, .prompt)
+        XCTAssertEqual(signing.onUntrustedCertificate, .warn)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/foo/roots")
+        XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
+        XCTAssertEqual(signing.validationChecks?.certificateRevocation, .allowSoftFail)
+    }
+
+    func testGetSigning_scopeOverride() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "security": {
+                "scopeOverrides": {
+                    "mona": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/roots"
+                        }
+                    },
+                    "foo": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/foo/roots"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let signing = try configuration.signing(for: package, registry: registry)
+
+        XCTAssertEqual(signing.onUnsigned, .prompt)
+        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/roots")
+        XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
+        XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
+    }
+
+    func testGetSigning_packageOverride() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "security": {
+                "packageOverrides": {
+                    "mona.LinkedList": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/linkedlist/roots"
+                        }
+                    },
+                    "foo.bar": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/foo/bar/roots"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let signing = try configuration.signing(for: package, registry: registry)
+
+        XCTAssertEqual(signing.onUnsigned, .prompt)
+        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/linkedlist/roots")
+        XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
+        XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
+        XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
     }
 }
