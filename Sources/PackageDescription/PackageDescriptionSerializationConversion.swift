@@ -222,8 +222,8 @@ extension Serialization.TargetType {
 extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
-        case ._buildTool: self = .buildTool
-        case ._command(let intent, let permissions): self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
+        case .buildTool: self = .buildTool
+        case .command(let intent, let permissions): self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
         }
     }
 }
@@ -231,9 +231,9 @@ extension Serialization.PluginCapability {
 extension Serialization.PluginCommandIntent {
     init(_ intent: PackageDescription.PluginCommandIntent) {
         switch intent {
-        case ._custom(let verb, let description): self = .custom(verb: verb, description: description)
-        case ._sourceCodeFormatting: self = .sourceCodeFormatting
-        case ._documentationGeneration: self = .documentationGeneration
+        case .custom(let verb, let description): self = .custom(verb: verb, description: description)
+        case .sourceCodeFormatting: self = .sourceCodeFormatting
+        case .documentationGeneration: self = .documentationGeneration
         }
     }
 }
@@ -241,8 +241,8 @@ extension Serialization.PluginCommandIntent {
 extension Serialization.PluginPermission {
     init(_ permission: PackageDescription.PluginPermission) {
         switch permission {
-        case ._allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(scope: .init(scope), reason: reason)
-        case ._writeToPackageDirectory(let reason): self = .writeToPackageDirectory(reason: reason)
+        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(scope: .init(scope), reason: reason)
+        case .writeToPackageDirectory(let reason): self = .writeToPackageDirectory(reason: reason)
         }
     }
 }
@@ -262,7 +262,7 @@ extension Serialization.PluginNetworkPermissionScope {
 extension Serialization.PluginUsage {
     init(_ usage: PackageDescription.Target.PluginUsage) {
         switch usage {
-        case ._pluginItem(let name, let package): self = .plugin(name: name, package: package)
+        case .plugin(let name, let package): self = .plugin(name: name, package: package)
         }
     }
 }

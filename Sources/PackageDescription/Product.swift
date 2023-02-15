@@ -82,7 +82,7 @@ public class Product {
     /// The library product of a Swift package.
     public final class Library: Product {
         /// The different types of a library product.
-        public enum LibraryType: String, Encodable {
+        public enum LibraryType: String {
             /// A statically linked library.
             case `static`
             /// A dynamically linked library.
