@@ -29,6 +29,7 @@ add_library(PackageGraph
   PubGrub/PubGrubDependencyResolver.swift
   PubGrub/PubGrubPackageContainer.swift
   PubGrub/Term.swift
+  RegistryReleaseMetadata.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
