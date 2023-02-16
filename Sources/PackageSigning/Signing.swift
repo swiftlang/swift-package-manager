@@ -15,8 +15,7 @@ import Foundation
 import Basics
 
 public struct Signer {
-    public init() {
-    }
+    public init() {}
 
     public func sign(
         _ content: Data,
@@ -26,7 +25,7 @@ public struct Signer {
     ) async throws -> Data {
         fatalError("TO BE IMPLEMENTED")
     }
-    
+
     public func isValidSignature(
         _ signature: Data,
         for content: Data,
@@ -37,20 +36,14 @@ public struct Signer {
     }
 }
 
-public enum SignatureFormat: String {
-    case cms_1_0_0 = "cms-1.0.0"
-}
+public struct PrivateKey {}
 
-public struct PrivateKey {
-}
-
-public struct Certificate {
-}
+public struct Certificate {}
 
 public struct SigningIdentity {
     public let key: PrivateKey
     public let certificate: Certificate
-    
+
     public init(key: PrivateKey, certificate: Certificate) {
         self.key = key
         self.certificate = certificate
@@ -61,20 +54,13 @@ public struct Signature {
     public let data: Data
     public let format: SignatureFormat
     public let certificate: Certificate
-    
-    public var signedBy: SigningEntity {
-        SigningEntity(certificate: self.certificate)
-    }
 
     public init(data: Data, format: SignatureFormat) {
         // TODO: decode `data` by `format`, then construct `signedBy` from signing cert
         fatalError("TO BE IMPLEMENTED")
     }
-    
-    public struct SigningEntity {
-        // TODO: properties (e.g., name?, id?, type?)
-        
-        init(certificate: Certificate) {
-        }
-    }
+}
+
+public enum SignatureFormat: String {
+    case cms_1_0_0 = "cms-1.0.0"
 }
