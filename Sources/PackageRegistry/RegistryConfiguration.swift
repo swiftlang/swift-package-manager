@@ -136,7 +136,7 @@ extension RegistryConfiguration {
         }
 
         public struct Signing: Hashable, Codable {
-            static let `default` = {
+            static let `default`: Signing = {
                 var signing = Signing()
                 signing.onUnsigned = .prompt
                 signing.onUntrustedCertificate = .prompt
