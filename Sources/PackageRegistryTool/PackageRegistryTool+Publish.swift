@@ -188,6 +188,11 @@ extension SwiftPackageRegistryTool {
                 return
             }
 
+            // FIXME
+            let progressHandler = { (bytesSent: Int64, totalBytes: Int64?) in
+                print("uploaded \(bytesSent) / \(totalBytes)")
+            }
+
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
             // TODO: handle signature
@@ -202,6 +207,7 @@ extension SwiftPackageRegistryTool {
                     fileSystem: localFileSystem,
                     observabilityScope: swiftTool.observabilityScope,
                     callbackQueue: .sharedConcurrent,
+                    progressHandler: progressHandler,
                     completion: callback
                 )
             }

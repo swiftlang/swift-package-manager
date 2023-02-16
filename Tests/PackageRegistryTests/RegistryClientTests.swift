@@ -2639,7 +2639,8 @@ extension RegistryClient {
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
         signature: Data?,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        progressHandler: ((Int64, Int64?) -> Void)? = .none
     ) throws -> RegistryClient.PublishResult {
         try tsc_await {
             self.publish(
@@ -2652,6 +2653,7 @@ extension RegistryClient {
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
+                progressHandler: progressHandler,
                 completion: $0
             )
         }
