@@ -19,7 +19,7 @@ import TSCUtility
 extension SwiftPackageTool {
     struct Format: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "_format")
+            commandName: "_format", shouldDisplay: false)
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
