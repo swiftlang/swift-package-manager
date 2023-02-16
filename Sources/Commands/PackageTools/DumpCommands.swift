@@ -118,6 +118,8 @@ struct DumpPackage: SwiftCommand {
 }
 
 struct DumpPIF: SwiftCommand {
+    static let configuration = CommandConfiguration(abstract: "Print the Package Interchange Format of the swift package.")
+
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
