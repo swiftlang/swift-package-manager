@@ -1361,7 +1361,7 @@ final class RegistryClientTests: XCTestCase {
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: identifiersURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405 ..< 500), // avoid 404 since it is not considered an error
             errorDescription: UUID().uuidString
         )
 
