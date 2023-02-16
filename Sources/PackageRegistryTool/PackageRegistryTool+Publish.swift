@@ -159,6 +159,12 @@ extension SwiftPackageRegistryTool {
                         "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
                     )
                 }
+            } else {
+                guard publishConfiguration.signing.certificateChainPaths.isEmpty else {
+                    throw StringError(
+                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
+                    )
+                }
             }
 
             // step 2: generate source archive for the package release
