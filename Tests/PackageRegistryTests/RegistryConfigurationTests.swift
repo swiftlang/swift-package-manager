@@ -544,4 +544,67 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
         XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
     }
+    
+    func testGetSigning_multipleOverrides() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "security": {
+                "default": {
+                    "signing": {
+                        "trustedRootCertificatesPath": "/custom/roots"
+                    }
+                },
+                "registryOverrides": {
+                    "packages.example.com": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/foo/roots"
+                        }
+                    }
+                },
+                "scopeOverrides": {
+                    "mona": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/roots"
+                        }
+                    }
+                },
+                "packageOverrides": {
+                    "mona.LinkedList": {
+                        "signing": {
+                            "trustedRootCertificatesPath": "/mona/linkedlist/roots"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+
+        // Package override wins
+        var package = PackageIdentity.plain("mona.LinkedList")
+        var registry = Registry(url: URL(string: "https://packages.example.com")!)
+        var signing = try configuration.signing(for: package, registry: registry)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/linkedlist/roots")
+        
+        // No package override, closest match is scope override
+        package = PackageIdentity.plain("mona.Trie")
+        registry = Registry(url: URL(string: "https://packages.example.com")!)
+        signing = try configuration.signing(for: package, registry: registry)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/roots")
+        
+        // No package override, closest match is registry override
+        package = PackageIdentity.plain("foo.bar")
+        registry = Registry(url: URL(string: "https://packages.example.com")!)
+        signing = try configuration.signing(for: package, registry: registry)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/foo/roots")
+        
+        // Global override
+        package = PackageIdentity.plain("foo.bar")
+        registry = Registry(url: URL(string: "https://other.example.com")!)
+        signing = try configuration.signing(for: package, registry: registry)
+        XCTAssertEqual(signing.trustedRootCertificatesPath, "/custom/roots")
+    }
 }
