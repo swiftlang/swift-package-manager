@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Foundation.Data
 
 import Basics
 
-public struct Signer {
+public struct SignatureProvider {
     public init() {}
 
     public func sign(
@@ -34,33 +34,4 @@ public struct Signer {
     ) async throws -> Bool {
         fatalError("TO BE IMPLEMENTED")
     }
-}
-
-public struct PrivateKey {}
-
-public struct Certificate {}
-
-public struct SigningIdentity {
-    public let key: PrivateKey
-    public let certificate: Certificate
-
-    public init(key: PrivateKey, certificate: Certificate) {
-        self.key = key
-        self.certificate = certificate
-    }
-}
-
-public struct Signature {
-    public let data: Data
-    public let format: SignatureFormat
-    public let certificate: Certificate
-
-    public init(data: Data, format: SignatureFormat) {
-        // TODO: decode `data` by `format`, then construct `signedBy` from signing cert
-        fatalError("TO BE IMPLEMENTED")
-    }
-}
-
-public enum SignatureFormat: String {
-    case cms_1_0_0 = "cms-1.0.0"
 }

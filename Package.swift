@@ -651,6 +651,10 @@ let package = Package(
             dependencies: ["SPMTestSupport", "PackageRegistry"]
         ),
         .testTarget(
+            name: "PackageSigningTests",
+            dependencies: ["SPMTestSupport", "PackageSigning"]
+        ),
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]

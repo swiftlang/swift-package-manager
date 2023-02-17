@@ -10,6 +10,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Foundation.Data
+
+public struct Signature {
+    public let data: Data
+    public let format: SignatureFormat
+    public let certificate: Certificate
+
+    public init(data: Data, format: SignatureFormat) {
+        // TODO: decode `data` by `format`, then construct `signedBy` from signing cert
+        fatalError("TO BE IMPLEMENTED")
+    }
+}
+
+public enum SignatureFormat: String {
+    case cms_1_0_0 = "cms-1.0.0"
+}
+
+// MARK: - SigningEntity is the entity that generated the signature
+
 extension Signature {
     public var signedBy: SigningEntity {
         SigningEntity(certificate: self.certificate)
