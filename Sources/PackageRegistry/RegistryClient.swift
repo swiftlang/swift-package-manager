@@ -692,34 +692,33 @@ public final class RegistryClient: Cancellable {
 
         // TODO: add generic support for upload requests in Basics
         let boundary = UUID().uuidString
-        var parts = [String]()
+        var body = Data()
 
         // archive field
-        parts.append("""
+        body.append(contentsOf: """
+        --\(boundary)\r
         Content-Disposition: form-data; name=\"source-archive\"\r
         Content-Type: application/zip\r
-        Content-Transfer-Encoding: base64\r
-        Content-Length: \(packageArchiveContent.count)\r
-        \r
-        \(packageArchiveContent.base64EncodedString())\r
-        """)
+        Content-Transfer-Encoding: binary\r
+        \r\n
+        """.utf8)
+        body.append(packageArchiveContent)
 
+        // metadata field
         if let metadataContent = metadataContent {
-            parts.append("""
+            body.append(contentsOf: """
+            \r
+            --\(boundary)\r
             Content-Disposition: form-data; name=\"metadata\"\r
             Content-Type: application/json\r
             Content-Transfer-Encoding: quoted-printable\r
-            Content-Length: \(metadataContent.count)\r
             \r
-            \(metadataContent)\r
-            """)
+            \(metadataContent)
+            """.utf8)
         }
 
-        let bodyString = """
-        --\(boundary)\r
-        \(parts.joined(separator: "\n--\(boundary)\r\n"))
-        --\(boundary)--\r\n
-        """
+        // footer
+        body.append(contentsOf: "\r\n--\(boundary)--\r\n".utf8)
 
         let request = LegacyHTTPClient.Request(
             method: .put,
@@ -730,7 +729,7 @@ public final class RegistryClient: Cancellable {
                 "Expect": "100-continue",
                 "Prefer": "respond-async",
             ],
-            body: Data(bodyString.utf8),
+            body: body,
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
@@ -1009,13 +1008,16 @@ extension HTTPClientResponse {
         }
     }
 
-    fileprivate func validateAPIVersion(_ expectedVersion: RegistryClient.APIVersion = .v1, isOptional: Bool = false) throws {
+    fileprivate func validateAPIVersion(
+        _ expectedVersion: RegistryClient.APIVersion = .v1,
+        isOptional: Bool = false
+    ) throws {
         let apiVersion = self.apiVersion
-        
+
         if isOptional, apiVersion == nil {
             return
         }
-        
+
         // Check API version as long as `Content-Version` is set
         guard apiVersion == expectedVersion else {
             throw RegistryError.invalidContentVersion(

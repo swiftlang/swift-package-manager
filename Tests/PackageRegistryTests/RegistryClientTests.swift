@@ -1640,7 +1640,7 @@ final class RegistryClientTests: XCTestCase {
 
                 // TODO: implement multipart form parsing
                 let body = String(data: request.body!, encoding: .utf8)
-                XCTAssertMatch(body, .contains(Data(archiveContent.utf8).base64EncodedString()))
+                XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
                 completion(.success(.init(
@@ -1705,7 +1705,7 @@ final class RegistryClientTests: XCTestCase {
 
                 // TODO: implement multipart form parsing
                 let body = String(data: request.body!, encoding: .utf8)
-                XCTAssertMatch(body, .contains(Data(archiveContent.utf8).base64EncodedString()))
+                XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
                 completion(.success(.init(
