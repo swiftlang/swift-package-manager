@@ -355,15 +355,22 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 
 private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDataDelegate {
     private var tasks = ThreadSafeKeyValueStore<Int, UploadTask>()
-    private let delegateQueue: OperationQueue
+    private let sessionDelegateQueue: DispatchQueue
+    private let sessionDelegateOperationQueue: OperationQueue
     private var session: URLSession!
 
     init(configuration: URLSessionConfiguration) {
-        self.delegateQueue = OperationQueue()
-        self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client-upload-delegate"
-        self.delegateQueue.maxConcurrentOperationCount = 1
+        self.sessionDelegateQueue = DispatchQueue(label: "org.swift.swiftpm.urlsession-http-client-upload-delegate")
+        self.sessionDelegateOperationQueue = OperationQueue()
+        self.sessionDelegateOperationQueue.underlyingQueue = self.sessionDelegateQueue
+        self.sessionDelegateOperationQueue.name = self.sessionDelegateQueue.label
+        self.sessionDelegateOperationQueue.maxConcurrentOperationCount = 1
         super.init()
-        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: self.delegateQueue)
+        self.session = URLSession(
+            configuration: configuration,
+            delegate: self,
+            delegateQueue: self.sessionDelegateOperationQueue
+        )
     }
 
     func makeTask(
@@ -387,6 +394,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         task: URLSessionTask,
         needNewBodyStream completionHandler: @escaping @Sendable (InputStream?) -> Void
     ) {
+        dispatchPrecondition(condition: .onQueue(self.sessionDelegateQueue))
+
         guard let task = self.tasks[task.taskIdentifier] else {
             return
         }
@@ -402,6 +411,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         totalBytesSent: Int64,
         totalBytesExpectedToSend: Int64
     ) {
+        dispatchPrecondition(condition: .onQueue(self.sessionDelegateQueue))
+
         guard let task = self.tasks[task.taskIdentifier] else {
             return
         }
@@ -409,6 +420,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        dispatchPrecondition(condition: .onQueue(self.sessionDelegateQueue))
+
         guard let task = self.tasks.removeValue(forKey: task.taskIdentifier) else {
             return
         }
@@ -429,6 +442,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        dispatchPrecondition(condition: .onQueue(self.sessionDelegateQueue))
+
         guard let task = self.tasks[dataTask.taskIdentifier] else {
             return
         }
@@ -446,8 +461,11 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         private var streams: Streams!
 
         // URLSession APIs are thread safe
-        var dataToWrite: LegacyHTTPClientRequest.UploadData?
-        var responseBuffer: Data?
+        // calls into this are guarded with dispatchPrecondition
+        private var responseBuffer: Data?
+        // stream events may not be thread safe
+        private var streamBuffer: UploadStreamBuffer = .empty
+        private let streamBufferLock = NSLock()
 
         init(
             underlying: URLSessionUploadTask,
@@ -490,7 +508,9 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         }
 
         var response: HTTPClientResponse? {
-            (self.underlying.response as? HTTPURLResponse).flatMap {
+            self.underlying.response.flatMap {
+                $0 as? HTTPURLResponse
+            }.flatMap {
                 $0.response(body: self.responseBuffer)
             }
         }
@@ -527,32 +547,36 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                 return
             }
 
+            // stream events may not be thread safe
+            self.streamBufferLock.lock()
+            defer { self.streamBufferLock.unlock() }
+
             do {
                 guard !eventCode.contains(.errorOccurred) else {
                     throw HTTPClientError.uploadError("Unknown error occurred: \(eventCode)")
                 }
 
                 if eventCode.contains(.hasSpaceAvailable) {
-                    let dataToWrite: LegacyHTTPClientRequest.UploadData?
+                    let streamBuffer: UploadStreamBuffer
 
-                    switch self.dataToWrite {
-                    case .none:
+                    switch self.streamBuffer {
+                    case .empty:
                         switch try self.streamProvider() {
                         case .chunk(let data):
-                            dataToWrite = .chunk(data)
+                            streamBuffer = .data(data)
                         case .stream(let stream):
-                            dataToWrite = .stream(stream)
+                            streamBuffer = .stream(stream, .none)
                         case .none:
-                            dataToWrite = .none
+                            streamBuffer = .empty
                         }
-                    case .chunk(let data):
-                        dataToWrite = .chunk(data)
-                    case .stream(let stream):
-                        dataToWrite = .stream(stream)
+                    case .data(let data):
+                        streamBuffer = .data(data)
+                    case .stream(let stream, let leftover):
+                        streamBuffer = .stream(stream, leftover)
                     }
 
-                    switch dataToWrite {
-                    case .chunk(let data):
+                    switch streamBuffer {
+                    case .data(let data):
                         let totalBytes = data.count
                         let bytesWritten = try data
                             .withUnsafeBytes { (unsafeRawBufferPointer: UnsafeRawBufferPointer) in
@@ -567,42 +591,77 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                 )
                             }
                         if bytesWritten < totalBytes {
-                            self.dataToWrite = .chunk(data.subdata(in: bytesWritten ..< totalBytes))
+                            self.streamBuffer = .data(data.subdata(in: bytesWritten ..< totalBytes))
                         } else if bytesWritten == totalBytes {
                             // done with chunk
-                            self.dataToWrite = .none
+                            self.streamBuffer = .empty
                         } else {
                             throw HTTPClientError
                                 .uploadError("Invalid upload state: sent too many bytes from data chunk")
                         }
-                    case .stream(let inputStream):
-                        inputStream.open()
-                        if inputStream.hasBytesAvailable {
-                            var buffer = [UInt8](repeating: 0, count: Self.bufferSize)
-                            let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
-                            if bytesRead == 0 {
-                                // done with stream
-                                self.dataToWrite = .none
-                                inputStream.close()
+                    case .stream(let inputStream, let leftover):
+                        if let leftover = leftover {
+                            // write any left over we could not write before
+                            let totalBytes = leftover.count
+                            let bytesWritten = self.outputStream.write(
+                                leftover,
+                                maxLength: Swift.min(totalBytes, Self.bufferSize)
+                            )
+                            if bytesWritten == totalBytes {
+                                // continue to read from input stream
+                                self.streamBuffer = .stream(inputStream, .none)
+                            } else if bytesWritten < totalBytes {
+                                // record the unwritten bytes
+                                let leftover = leftover[bytesWritten ..< totalBytes]
+                                self.streamBuffer = .stream(inputStream, Array(leftover))
                             } else {
-                                let bytesWritten = self.outputStream.write(buffer, maxLength: bytesRead)
-                                guard bytesWritten <= bytesRead else {
-                                    throw HTTPClientError
-                                        .uploadError("Invalid upload state: sent too many bytes from input stream")
-                                }
-                                // read index moves forward
-                                self.dataToWrite = .stream(inputStream)
+                                throw HTTPClientError
+                                    .uploadError("Invalid upload state: sent too many bytes from input stream")
                             }
                         } else {
-                            self.dataToWrite = .stream(inputStream)
+                            // read from input stream
+                            inputStream.open()
+                            if inputStream.hasBytesAvailable {
+                                var buffer = [UInt8](repeating: 0, count: Self.bufferSize)
+                                let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
+                                if bytesRead == 0 {
+                                    // done with stream
+                                    self.streamBuffer = .empty
+                                    inputStream.close()
+                                } else {
+                                    let bytesWritten = self.outputStream.write(
+                                        buffer,
+                                        maxLength: Swift.min(bytesRead, Self.bufferSize)
+                                    )
+                                    if bytesWritten == bytesRead {
+                                        // read index moves forward
+                                        self.streamBuffer = .stream(inputStream, .none)
+                                    } else if bytesWritten < bytesRead {
+                                        // record the unwritten bytes
+                                        let leftover = buffer[bytesWritten ..< bytesRead]
+                                        self.streamBuffer = .stream(inputStream, Array(leftover))
+                                    } else {
+                                        throw HTTPClientError
+                                            .uploadError("Invalid upload state: sent too many bytes from input stream")
+                                    }
+                                }
+                            } else {
+                                self.streamBuffer = .stream(inputStream, leftover)
+                            }
                         }
-                    case .none:
+                    case .empty:
                         self.streams.output.close()
                     }
                 }
             } catch {
                 self.complete(with: .failure(error))
             }
+        }
+
+        public enum UploadStreamBuffer {
+            case empty
+            case data(Data)
+            case stream(InputStream, [UInt8]?)
         }
     }
 
