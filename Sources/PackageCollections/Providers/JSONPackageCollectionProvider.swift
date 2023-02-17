@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -264,7 +264,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     serializationOkay = false
                 }
 
-                return .init(identity: .init(url: package.url),
+                // If package identity is set, use that. Otherwise create one from URL.
+                return .init(identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: package.url),
                              location: package.url.absoluteString,
                              summary: package.summary,
                              keywords: package.keywords,

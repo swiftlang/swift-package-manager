@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -57,7 +57,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -78,6 +78,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -102,7 +104,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -121,6 +123,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertFalse(collection.isSigned)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -403,7 +407,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -428,6 +432,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -471,7 +477,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -496,6 +502,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertFalse(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
@@ -607,7 +615,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -630,6 +638,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
@@ -675,7 +685,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -700,6 +710,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
@@ -750,7 +762,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
@@ -775,6 +787,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
