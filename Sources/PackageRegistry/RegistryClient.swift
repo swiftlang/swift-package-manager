@@ -147,6 +147,68 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
+    
+    public func getPackageVersionMetadata(
+        package: PackageIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        guard case (let scope, let name)? = package.scopeAndName else {
+            return completion(.failure(RegistryError.invalidPackage(package)))
+        }
+
+        guard let registry = configuration.registry(for: scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        }
+
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)", "\(version)")
+
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+
+        let request = LegacyHTTPClient.Request(
+            method: .get,
+            url: url,
+            headers: [
+                "Accept": self.acceptHeader(mediaType: .json),
+            ],
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        let versionMetadata = try response.parseJSON(
+                            Serialization.VersionMetadata.self,
+                            decoder: self.jsonDecoder
+                        )
+
+                        return PackageVersionMetadata(
+                            registry: registry,
+                            licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
+                            readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
+                            repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) }
+                        )
+                    default:
+                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                    }
+                }.mapError {
+                    RegistryError.failedRetrievingReleaseInfo($0)
+                }
+            )
+        }
+    }
 
     public func getAvailableManifests(
         package: PackageIdentity,
@@ -816,6 +878,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case invalidChecksum(expected: String, actual: String)
     case pathAlreadyExists(AbsolutePath)
     case failedRetrievingReleases(Error)
+    case failedRetrievingReleaseInfo(Error)
     case failedRetrievingReleaseChecksum(Error)
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
@@ -868,6 +931,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Path already exists '\(path)'"
         case .failedRetrievingReleases(let error):
             return "Failed fetching releases from registry: \(error)"
+        case .failedRetrievingReleaseInfo(let error):
+            return "Failed fetching release information from registry: \(error)"
         case .failedRetrievingReleaseChecksum(let error):
             return "Failed fetching release checksum from registry: \(error)"
         case .failedRetrievingManifest(let error):
@@ -928,6 +993,13 @@ extension RegistryClient {
         public let registry: Registry
         public let versions: [Version]
         public let alternateLocations: [URL]?
+    }
+    
+    public struct PackageVersionMetadata {
+        public let registry: Registry
+        public let licenseURL: URL?
+        public let readmeURL: URL?
+        public let repositoryURLs: [URL]?
     }
 }
 
@@ -1237,11 +1309,40 @@ extension RegistryClient {
             }
 
             public struct AdditionalMetadata: Codable {
+                public let author: Author?
                 public let description: String?
-
-                public init(description: String) {
+                public let licenseURL: String?
+                public let readmeURL: String?
+                public let repositoryURLs: [String]?
+                
+                public init(
+                    author: Author? = nil,
+                    description: String,
+                    licenseURL: String? = nil,
+                    readmeURL: String? = nil,
+                    repositoryURLs: [String]? = nil
+                ) {
+                    self.author = author
                     self.description = description
+                    self.licenseURL = licenseURL
+                    self.readmeURL = readmeURL
+                    self.repositoryURLs = repositoryURLs
                 }
+            }
+            
+            public struct Author: Codable {
+                public let name: String
+                public let email: String?
+                public let description: String?
+                public let organization: Organization?
+                public let url: String?
+            }
+            
+            public struct Organization: Codable {
+                public let name: String
+                public let email: String?
+                public let description: String?
+                public let url: String?
             }
         }
 
