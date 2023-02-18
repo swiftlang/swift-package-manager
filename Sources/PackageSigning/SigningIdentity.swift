@@ -20,7 +20,7 @@ import Basics
 
 public protocol SigningIdentity {
     var info: SigningIdentityInfo { get }
-    
+
     func sign(
         _ content: Data,
         in format: SignatureFormat,
@@ -32,7 +32,7 @@ public struct SigningIdentityInfo {
     public let commonName: String?
     public let organization: String?
     public let organizationalUnit: String?
-    
+
     init(commonName: String? = nil, organization: String? = nil, organizationalUnit: String? = nil) {
         self.commonName = commonName
         self.organization = organization
@@ -51,10 +51,11 @@ extension SecIdentity: SigningIdentity {
         guard status == errSecSuccess, let certificate = certificate else {
             return SigningIdentityInfo()
         }
-        
+
         guard let dict = SecCertificateCopyValues(certificate, nil, nil) as? [CFString: Any],
               let subjectDict = dict[kSecOIDX509V1SubjectName] as? [CFString: Any],
-              let propValueList = subjectDict[kSecPropertyKeyValue] as? [[String: Any]] else {
+              let propValueList = subjectDict[kSecPropertyKeyValue] as? [[String: Any]]
+        else {
             return SigningIdentityInfo()
         }
 
@@ -70,7 +71,7 @@ extension SecIdentity: SigningIdentity {
             organizationalUnit: props[kSecOIDOrganizationalUnitName as String]
         )
     }
-    
+
     public func sign(
         _ content: Data,
         in format: SignatureFormat,
@@ -99,7 +100,7 @@ public struct Certificate {}
 public struct SwiftSigningIdentity: SigningIdentity {
     public let key: PrivateKey
     public let certificate: Certificate
-    
+
     public var info: SigningIdentityInfo {
         // TODO: read from cert
         fatalError("TO BE IMPLEMENTED")
@@ -109,7 +110,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         self.key = key
         self.certificate = certificate
     }
-    
+
     public func sign(
         _ content: Data,
         in format: SignatureFormat,
@@ -122,32 +123,52 @@ public struct SwiftSigningIdentity: SigningIdentity {
 // MARK: - SigningIdentity store
 
 public struct SigningIdentityStore {
+    private let observabilityScope: ObservabilityScope
+
+    public init(observabilityScope: ObservabilityScope) {
+        self.observabilityScope = observabilityScope
+    }
+
     public func find(by label: String) async throws -> [SigningIdentity] {
         #if os(macOS)
         // Find in Keychain
         let query: [String: Any] = [
-            kSecClass as String: kSecClassCertificate, // kSecClassIdentity?
+            // Use kSecClassCertificate instead of kSecClassIdentity because the latter
+            // seems to always return all results, whether matching given label or not.
+            kSecClass as String: kSecClassCertificate,
             kSecReturnRef as String: true,
             kSecAttrLabel as String: label,
             kSecAttrCanSign as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll
+            kSecMatchLimit as String: kSecMatchLimitAll,
         ]
-        
-//        var item: CFTypeRef?
-//        let status = SecItemCopyMatching(getquery as CFDictionary, &item)
-//        guard status == errSecSuccess else { return nil } // TODO: throw?
-//        let certificate = item as! SecCertificate
-//        print(certificate)
-//
-//        // https://developer.apple.com/documentation/security/certificate_key_and_trust_services/identities/creating_an_identity
-//        var identity: SecIdentity?
-//        let idStatus = SecIdentityCreateWithCertificate(nil, certificate, &identity)
-//        guard idStatus == errSecSuccess else { return nil } // TODO: throw?
-//        print(identity)
-        
-        
-        return []
+
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else {
+            self.observabilityScope.emit(warning: "Error while searching for '\(label)' in Keychain: \(status)")
+            return []
+        }
+
+        let certificates = result as? [SecCertificate] ?? []
+        return certificates.compactMap { secCertificate in
+            var identity: SecIdentity?
+            let status = SecIdentityCreateWithCertificate(nil, secCertificate, &identity)
+            guard status == errSecSuccess else {
+                self.observabilityScope
+                    .emit(
+                        warning: "Error while trying to create SecIdentity from SecCertificate[\(secCertificate)]: \(status)"
+                    )
+                return nil
+            }
+            guard let identity = identity else {
+                self.observabilityScope
+                    .emit(warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]")
+                return nil
+            }
+            return identity
+        }
         #else
+        // No identity store support on other platforms
         return []
         #endif
     }

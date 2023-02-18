@@ -10,7 +10,34 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import XCTest
 
+import Basics
+import PackageSigning
+import SPMTestSupport
+
 final class SigningIdentityTests: XCTestCase {
+    #if swift(>=5.5.2)
+    func test_SigningIdentityStore_findInKeychain() async throws {
+        #if os(macOS)
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+        #else
+        throw XCTSkip("Skipping test on unsupported platform")
+        #endif
+
+        let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] ?? "<USER ID>"
+        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+        let matches = try await identityStore.find(by: label)
+        XCTAssertTrue(!matches.isEmpty)
+
+        let info = matches[0].info
+        XCTAssertNotNil(info.commonName)
+        XCTAssertNotNil(info.organization)
+        XCTAssertNotNil(info.organizationalUnit)
+    }
+    #endif
 }
