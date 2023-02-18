@@ -105,7 +105,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let responseBody = UUID().uuidString.data(using: .utf8)
 
         MockURLProtocol.onRequest("POST", url) { request in
-            // FIXME:
             XCTAssertEqual(request.httpBody, requestBody)
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
@@ -209,7 +208,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
     }
 
     // MARK: - download
-
 
     func testDownloadSuccess() throws {
         #if !os(macOS)
@@ -569,6 +567,102 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
+    // MARK: - upload
+
+    func testUploadSuccess() throws {
+        #if !os(macOS)
+        // URLSession upload tests can only run on macOS
+        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+        // and there is no way to set it in a mock
+        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let configuration = URLSessionConfiguration.default
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = LegacyHTTPClient(handler: urlSession.execute)
+
+        try testWithTemporaryDirectory { temporaryDirectory in
+            let didStream = XCTestExpectation(description: "didStream")
+            let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
+            //let didFinishLoadingExpectation = XCTestExpectation(description: "didFinishLoadingExpectation")
+            let progressExpectation = XCTestExpectation(description: "progress")
+            let completionExpectation = XCTestExpectation(description: "completion")
+
+            let url = URL(string: "https://uploader-tests.com/upload")!
+
+            let file1 = temporaryDirectory.appending(component: "file1")
+            try localFileSystem.writeFileContents(file1, data: Data(Array(repeating: 0xA0, count: 1024)))
+
+            let file2 = temporaryDirectory.appending(component: "file2")
+            try localFileSystem.writeFileContents(file2, data: Data(Array(repeating: 0xB0, count: 2048)))
+
+            let bodyToStream: [LegacyHTTPClient.Request.UploadStream] = [
+                .chunk(Data(Array(repeating: 0x01, count: 1024))),
+                .stream(InputStream(fileAtPath: file1.pathString)!),
+                .chunk(Data(Array(repeating: 0x02, count: 256))),
+                .stream(InputStream(fileAtPath: file2.pathString)!),
+                .chunk(Data(Array(repeating: 0x03, count: 256))),
+                .chunk(Data(Array(repeating: 0x04, count: 1024))),
+                .chunk(Data(Array(repeating: 0x05, count: 32))),
+            ]
+
+            var streamIndex = 0
+            let streamProvider = { () -> LegacyHTTPClient.Request.UploadStream? in
+                print("streamProvider \(streamIndex)")
+                if streamIndex < bodyToStream.count {
+                    streamIndex += 1
+                    return bodyToStream[streamIndex-1]
+                } else {
+                    didStream.fulfill()
+                    return .none
+                }
+            }
+            let request = LegacyHTTPClient.Request.upload(method: .post, url: url, streamProvider: streamProvider)
+            httpClient.execute(
+                request,
+                progress: { bytesUploaded, totalBytesToUploaded in
+                    progressExpectation.fulfill()
+                },
+                completion: { result in
+                    switch result {
+                    case .success:
+                        //XCTAssertFileExists(destination)
+                        //let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
+                        //XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
+                        break
+                    case .failure(let error):
+                        XCTFail("\(error)")
+                    }
+                    completionExpectation.fulfill()
+                }
+            )
+
+            MockURLProtocol.onRequest(request) { request in
+                self.wait(for: [didStream], timeout: 100.0)
+                var expectedBody = Data()
+                for item in bodyToStream {
+                    switch item {
+                    case .chunk(let data):
+                        expectedBody.append(data)
+                    case .stream(let inputStream):
+                        expectedBody.append(inputStream)
+                    }
+                }
+                XCTAssertEqual(request.httpBody, expectedBody)
+
+                MockURLProtocol.sendResponse(statusCode: 200, headers: [:], for: request)
+                didStartLoadingExpectation.fulfill()
+            }
+
+            wait(for: [didStartLoadingExpectation], timeout: 100.0)
+
+            let urlRequest = URLRequest(request)
+            MockURLProtocol.sendCompletion(for: urlRequest)
+            wait(for: [completionExpectation], timeout: 100.0)
+        }
+    }
+
     // FIXME: remove this availability check when back-deployment is available on CI hosts.
 #if swift(>=5.5.2)
     func testAsyncHead() async throws {
@@ -635,7 +729,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let responseBody = UUID().uuidString.data(using: .utf8)
 
         MockURLProtocol.onRequest("POST", url) { request in
-            // FIXME:
             XCTAssertEqual(request.httpBody, requestBody)
             self.assertRequestHeaders(request.allHTTPHeaderFields, expected: requestHeaders)
             MockURLProtocol.respond(request, statusCode: responseStatus, headers: responseHeaders, body: responseBody)
@@ -1095,41 +1188,46 @@ private class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        if let url = self.request.url, let method = self.request.httpMethod {
-            let key = Key(method, url)
-            Self.requests[key] = self
+        print("startLoading")
+        guard let url = self.request.url, let method = self.request.httpMethod else {
+            return
+        }
 
-            guard let action = Self.observers[key] else {
-                return
-            }
+        let key = Key(method, url)
+        Self.requests[key] = self
 
-            // read body if available
-            var request = self.request
-            if let bodyStream = self.request.httpBodyStream {
-                bodyStream.open()
-                defer { bodyStream.close() }
-                let bufferSize: Int = 1024
-                let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-                var data = Data()
-                while bodyStream.hasBytesAvailable {
-                    let read = bodyStream.read(buffer, maxLength: bufferSize)
-                    data.append(buffer, count: read)
-                }
-                buffer.deallocate()
-                request.httpBody = data
-            }
+        guard let action = Self.observers[key] else {
+            return
+        }
 
-            DispatchQueue.main.async {
-                action(request)
+        // read body if available
+        var request = self.request
+        if let bodyStream = self.request.httpBodyStream {
+            bodyStream.open()
+            defer { bodyStream.close() }
+            let bufferSize: Int = 1024
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+            var data = Data()
+            while bodyStream.hasBytesAvailable {
+                let read = bodyStream.read(buffer, maxLength: bufferSize)
+                data.append(buffer, count: read)
             }
+            buffer.deallocate()
+            request.httpBody = data
+        }
+
+        DispatchQueue.main.async {
+            action(request)
         }
     }
 
     override func stopLoading() {
-        if let url = self.request.url, let method = self.request.httpMethod {
-            let key = Key(method, url)
-            Self.requests[key] = nil
+        print("stopLoading")
+        guard let url = self.request.url, let method = self.request.httpMethod else {
+            return
         }
+        let key = Key(method, url)
+        Self.requests[key] = nil
     }
 }
 
@@ -1224,5 +1322,21 @@ fileprivate struct NetrcAuthorizationWrapper: AuthorizationProvider {
 
     func authentication(for url: URL) -> (user: String, password: String)? {
         self.underlying.authorization(for: url).map{ (user: $0.login, password: $0.password) }
+    }
+}
+
+
+extension Data {
+    mutating func append(_ inputStream: InputStream) {
+        inputStream.open()
+        while inputStream.hasBytesAvailable {
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
+            if bytesRead == 0 {
+                inputStream.close()
+            } else {
+                self.append(contentsOf: buffer.prefix(bytesRead))
+            }
+        }
     }
 }

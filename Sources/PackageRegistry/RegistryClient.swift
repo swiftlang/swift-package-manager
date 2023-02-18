@@ -1093,32 +1093,38 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registryURL)))
         }
 
-
         guard fileSystem.exists(packageArchive) else {
             return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
         }
+
         if let packageMetadata = packageMetadata {
             guard fileSystem.exists(packageMetadata) else {
                 return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
             }
         }
 
-        var uploadStreamProvider = UploadStreamProvider(
-            archivePath: packageArchive,
-            metadataPath: packageMetadata
-        )
+        var uploadStreamProvider: UploadStreamProvider
+        do {
+            uploadStreamProvider = try UploadStreamProvider(
+                archivePath: packageArchive,
+                metadataPath: packageMetadata
+            )
+        } catch {
+            return completion(.failure(StringError("failed constructing upload stream")))
+        }
 
         let request = LegacyHTTPClient.Request.upload(
             method: .put,
             url: url,
             headers: [
                 "Content-Type": "multipart/form-data;boundary=\"\(uploadStreamProvider.boundary)\"",
+                "Content-Length": "\(uploadStreamProvider.streamSize)",
                 "Accept": self.acceptHeader(mediaType: .json),
                 "Expect": "100-continue",
                 "Prefer": "respond-async",
             ],
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-            streamProvider: { try uploadStreamProvider.getUploadData() }
+            streamProvider: { try uploadStreamProvider.next() }
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
@@ -1148,73 +1154,116 @@ public final class RegistryClient: Cancellable {
         }
 
         struct UploadStreamProvider {
-            let archivePath: AbsolutePath
-            let metadataPath: AbsolutePath?
             let boundary: String
-            var nextChunk: Chunk
+            let stream: [LegacyHTTPClientRequest.UploadStream]
+            let streamSize: Int64
+            var streamIndex = 0
 
-            init(archivePath: AbsolutePath, metadataPath: AbsolutePath?) {
-                self.archivePath = archivePath
-                self.metadataPath = metadataPath
+            init(archivePath: AbsolutePath, metadataPath: AbsolutePath?) throws {
                 self.boundary = UUID().uuidString
-                self.nextChunk = .archiveHeader
+
+                let (stream, streamSize) = try Self.makeStream(
+                    archivePath: archivePath,
+                    metadataPath: metadataPath,
+                    boundary: boundary
+                )
+
+                self.stream = stream
+                self.streamSize = streamSize
             }
 
-            mutating func getUploadData() throws -> LegacyHTTPClientRequest.UploadData? {
-                switch self.nextChunk {
-                case .archiveHeader:
-                    self.nextChunk = .archiveContent
-                    return .chunk(
-                        Data("""
-                            --\(self.boundary)\r
+
+            static func makeStream(
+                archivePath: AbsolutePath,
+                metadataPath: AbsolutePath?,
+                boundary: String
+            ) throws -> ([LegacyHTTPClientRequest.UploadStream], Int64) {
+                var content = [LegacyHTTPClientRequest.UploadStream]()
+                var contentSize: Int64 = 0
+                var next = StreamItem.archiveHeader
+                while next != .done {
+                    switch next {
+                    case .archiveHeader:
+                        next = .archiveContent
+                        let data = Data("""
+                            --\(boundary)\r
                             Content-Disposition: form-data; name=\"source-archive\"\r
                             Content-Type: application/zip\r
                             Content-Transfer-Encoding: binary\r
                             \r\n
                             """.utf8
                         )
-                    )
-                case .archiveContent:
-                    self.nextChunk = .archiveFooter
-                    guard let stream = InputStream(fileAtPath: self.archivePath.pathString) else {
-                        throw StringError("failed creating input stream for '\(self.archivePath)'")
-                    }
-                    return .stream(stream)
-                case .archiveFooter:
-                    if let metadataPath = self.metadataPath {
-                        self.nextChunk = .metadataHeader(metadataPath)
-                        return .chunk(Data("\r\n".utf8))
-                    } else {
-                        self.nextChunk = .done
-                        return .chunk(Data("\r\n--\(self.boundary)--\r\n".utf8))
-                    }
-                case .metadataHeader(let metadataPath):
-                    self.nextChunk = .metadataContent(metadataPath)
-                    return .chunk(
-                        Data("""
-                            --\(self.boundary)\r
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .archiveContent:
+                        next = .archiveFooter
+                        guard let stream = InputStream(fileAtPath: archivePath.pathString) else {
+                            throw StringError("failed creating input stream for '\(archivePath)'")
+                        }
+                        content.append(.stream(stream))
+                        // FIXME: is there a better way?
+                        if let attributes = (try? FileManager.default.attributesOfItem(atPath: archivePath.pathString)) {
+                            if let size = attributes[.size] as? Int64 {
+                                contentSize += size
+                            }
+                        }
+                    case .archiveFooter:
+                        let data: Data
+                        if let metadataPath = metadataPath {
+                            next = .metadataHeader(metadataPath)
+                            data = Data("\r\n".utf8)
+                        } else {
+                            next = .done
+                            data = Data("\r\n--\(boundary)--\r\n".utf8)
+                        }
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .metadataHeader(let metadataPath):
+                        next = .metadataContent(metadataPath)
+                        let data = Data("""
+                            --\(boundary)\r
                             Content-Disposition: form-data; name=\"metadata\"\r
                             Content-Type: application/json\r
                             Content-Transfer-Encoding: quoted-printable\r
                             \r\n
                             """.utf8
                         )
-                    )
-                case .metadataContent(let metadataPath):
-                    self.nextChunk = .metadataFooter
-                    guard let stream = InputStream(fileAtPath: metadataPath.pathString) else {
-                        throw StringError("failed creating input stream for '\(metadataPath)'")
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .metadataContent(let metadataPath):
+                        next = .metadataFooter
+                        guard let stream = InputStream(fileAtPath: metadataPath.pathString) else {
+                            throw StringError("failed creating input stream for '\(metadataPath)'")
+                        }
+                        content.append(.stream(stream))
+                        // FIXME: is there a better way?
+                        if let attributes = (try? FileManager.default.attributesOfItem(atPath: metadataPath.pathString)) {
+                            if let size = attributes[.size] as? Int64 {
+                                contentSize += size
+                            }
+                        }
+                    case .metadataFooter:
+                        next = .done
+                        let data = Data("\r\n--\(boundary)--\r\n".utf8)
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .done:
+                        break
                     }
-                    return .stream(stream)
-                case .metadataFooter:
-                    self.nextChunk = .done
-                    return .chunk(Data("\r\n--\(self.boundary)--\r\n".utf8))
-                case .done:
-                    return .none
                 }
+                return (content, contentSize)
             }
 
-            enum Chunk {
+            mutating func next() throws -> LegacyHTTPClientRequest.UploadStream? {
+                if self.streamIndex >= self.stream.count {
+                    return .none
+                }
+                let item = self.stream[self.streamIndex]
+                self.streamIndex += 1
+                return item
+            }
+
+            enum StreamItem: Equatable {
                 case archiveHeader
                 case archiveContent
                 case archiveFooter

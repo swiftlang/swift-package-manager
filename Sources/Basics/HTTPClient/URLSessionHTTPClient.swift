@@ -375,7 +375,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
 
     func makeTask(
         urlRequest: URLRequest,
-        streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadData?,
+        streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadStream?,
         progress: LegacyHTTPClient.ProgressHandler?,
         completion: @escaping LegacyHTTPClient.CompletionHandler
     ) throws -> URLSessionUploadTask {
@@ -401,7 +401,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         }
         completionHandler(task.inputStream)
         // FIXME: serious hack here
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 10000.0))
+        task.runloop.run(until: Date(timeIntervalSinceNow: 10.0))
     }
 
     func urlSession(
@@ -452,10 +452,10 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
     }
 
     class UploadTask: NSObject, StreamDelegate {
-        static let bufferSize = 8 // FIXME: smal buffer for testing
+        static let bufferSize = 8 // FIXME: small buffer for testing
 
         let underlying: URLSessionUploadTask
-        private let streamProvider: () throws -> LegacyHTTPClientRequest.UploadData?
+        private let streamProvider: () throws -> LegacyHTTPClientRequest.UploadStream?
         private let completionHandler: LegacyHTTPClient.CompletionHandler
         private let progressHandler: LegacyHTTPClient.ProgressHandler?
         private var streams: Streams!
@@ -467,9 +467,11 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         private var streamBuffer: UploadStreamBuffer = .empty
         private let streamBufferLock = NSLock()
 
+        let runloop: RunLoop
+
         init(
             underlying: URLSessionUploadTask,
-            streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadData?,
+            streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadStream?,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler
         ) throws {
@@ -477,6 +479,9 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
             self.streamProvider = streamProvider
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
+
+            self.runloop = RunLoop.current
+
             super.init()
 
             // initialize the stream
@@ -493,7 +498,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
             }
 
             output.delegate = self
-            output.schedule(in: .current, forMode: .default)
+            output.schedule(in: self.runloop, forMode: .default)
             output.open()
 
             self.streams = Streams(input: input, output: output)
@@ -590,7 +595,10 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                     maxLength: Swift.min(totalBytes, Self.bufferSize)
                                 )
                             }
-                        if bytesWritten < totalBytes {
+                        if bytesWritten < 0 {
+                            throw HTTPClientError
+                                .uploadError("Invalid upload state, failed writing to output stream")
+                        } else if bytesWritten < totalBytes {
                             self.streamBuffer = .data(data.subdata(in: bytesWritten ..< totalBytes))
                         } else if bytesWritten == totalBytes {
                             // done with chunk
@@ -607,7 +615,10 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                 leftover,
                                 maxLength: Swift.min(totalBytes, Self.bufferSize)
                             )
-                            if bytesWritten == totalBytes {
+                            if bytesWritten < 0 {
+                                throw HTTPClientError
+                                    .uploadError("Invalid upload state, failed writing to output stream")
+                            } else if bytesWritten == totalBytes {
                                 // continue to read from input stream
                                 self.streamBuffer = .stream(inputStream, .none)
                             } else if bytesWritten < totalBytes {
@@ -633,7 +644,10 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                         buffer,
                                         maxLength: Swift.min(bytesRead, Self.bufferSize)
                                     )
-                                    if bytesWritten == bytesRead {
+                                    if bytesWritten < 0 {
+                                        throw HTTPClientError
+                                            .uploadError("Invalid upload state, failed writing to output stream")
+                                    } else if bytesWritten == bytesRead {
                                         // read index moves forward
                                         self.streamBuffer = .stream(inputStream, .none)
                                     } else if bytesWritten < bytesRead {
@@ -646,6 +660,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                     }
                                 }
                             } else {
+                                // FIXME: may not be correct, what if we do not get a new event?
                                 self.streamBuffer = .stream(inputStream, leftover)
                             }
                         }

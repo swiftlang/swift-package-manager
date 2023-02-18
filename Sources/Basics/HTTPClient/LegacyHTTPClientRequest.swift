@@ -70,7 +70,7 @@ public struct LegacyHTTPClientRequest {
         url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Options = .init(),
-        streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadData?
+        streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadStream?
     ) -> Self {
         self.init(
             kind: .upload(method, streamProvider: streamProvider),
@@ -103,7 +103,7 @@ public struct LegacyHTTPClientRequest {
     public enum Kind {
         case generic(HTTPMethod)
         case download(fileSystem: FileSystem, destination: AbsolutePath)
-        case upload(UploadMethod, streamProvider: () throws -> LegacyHTTPClientRequest.UploadData?)
+        case upload(UploadMethod, streamProvider: () throws -> LegacyHTTPClientRequest.UploadStream?)
     }
 
     public struct Options {
@@ -142,7 +142,7 @@ public struct LegacyHTTPClientRequest {
         case put
     }
 
-    public enum UploadData {
+    public enum UploadStream {
         case chunk(Data)
         case stream(InputStream)
     }
