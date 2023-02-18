@@ -11,6 +11,7 @@
   "packages": [
     {
       "url": "https://www.example.com/repos/RepoOne.git",
+      "identity": "repos.one",
       "summary": "Package One",
       "keywords": ["sample package"],
       "readmeURL": "https://www.example.com/repos/RepoOne/README",

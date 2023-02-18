@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -105,7 +105,7 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
                                                        createdAt: Date())
     }
 
-    return PackageCollectionsModel.Package(identity: .init(urlString: "https://\(id)"),
+    return PackageCollectionsModel.Package(identity: PackageIdentity.plain("test-\(id).\(id)"),
                                            location: "https://\(id)",
                                            summary: "\(id) description",
                                            keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,8 @@ import TSCBasic
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"
-    private static let targetsFTSName = "fts_targets"
+    private static let targetsFTSNameV0 = "fts_targets" // TODO: remove as this has been replaced by v1
+    private static let targetsFTSNameV1 = "fts_targets_1"
 
     let fileSystem: FileSystem
     let location: SQLite.Location
@@ -306,14 +307,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             do {
                 // rdar://84218640
                 //let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE \(Self.packagesFTSName) MATCH ?;"
-                let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE name LIKE ? OR summary LIKE ? OR keywords LIKE ? OR products LIKE ? OR targets LIKE ? OR repository_url LIKE ?;"
+                let packageQuery = "SELECT collection_id_blob_base64, id FROM \(Self.packagesFTSName) WHERE name LIKE ? OR summary LIKE ? OR keywords LIKE ? OR products LIKE ? OR targets LIKE ? OR repository_url LIKE ? OR id LIKE ?;"
                 try self.executeStatement(packageQuery) { statement in
-                    try statement.bind((1...6).map { _ in .string("%\(query)%") })
+                    try statement.bind((1...7).map { _ in .string("%\(query)%") })
 
                     while let row = try statement.step() {
                         if let collectionData = Data(base64Encoded: row.string(at: 0)),
                             let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                            matches.append((collection: collection, package: PackageIdentity(urlString: row.string(at: 1))))
+                            matches.append((collection: collection, package: PackageIdentity.plain(row.string(at: 1))))
                             matchingCollections.insert(collection)
                         }
                     }
@@ -374,6 +375,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [Model.Package]]()) { partial, collection in
                         var map = partial
                         map[collection.identifier] = collection.packages.filter { package in
+                            if package.identity.description.lowercased().contains(queryString) { return true }
                             if package.location.lowercased().contains(queryString) { return true }
                             if let summary = package.summary, summary.lowercased().contains(queryString) { return true }
                             if let keywords = package.keywords, (keywords.map { $0.lowercased() }).contains(queryString) { return true }
@@ -419,7 +421,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         if useSearchIndices {
-            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             do {
@@ -430,7 +431,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     while let row = try statement.step() {
                         if let collectionData = Data(base64Encoded: row.string(at: 0)),
                             let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                            matches.append((collection: collection, package: PackageIdentity(urlString: row.string(at: 1))))
                             matchingCollections.insert(collection)
                         }
                     }
@@ -440,7 +440,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             }
 
             // Optimization: return early if no matches
-            guard !matches.isEmpty else {
+            guard !matchingCollections.isEmpty else {
                 return callback(.failure(NotFoundError("\(identifier)")))
             }
 
@@ -454,8 +454,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         result[collection.identifier] = collection
                     }
 
-                    let collections = matches.filter { collectionDict.keys.contains($0.collection) }
-                        .compactMap { collectionDict[$0.collection] }
+                    let collections = matchingCollections.filter { collectionDict.keys.contains($0) }
+                        .compactMap { collectionDict[$0] }
                         // Sort collections by processing date so the latest metadata is first
                         .sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt })
 
@@ -539,7 +539,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         if useSearchIndices {
-            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
+            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, packageLocation: String, targetName: String)]()
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             // Trie is more performant for target search; use it if available
@@ -548,13 +548,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     switch type {
                     case .exactMatch:
                         try self.targetTrie.find(word: query).forEach {
-                            matches.append((collection: $0.collection, package: $0.package, targetName: query))
+                            matches.append((collection: $0.collection, package: $0.package, packageLocation: $0.packageLocation, targetName: query))
                             matchingCollections.insert($0.collection)
                         }
                     case .prefix:
                         try self.targetTrie.findWithPrefix(query).forEach { targetName, collectionPackages in
                             collectionPackages.forEach {
-                                matches.append((collection: $0.collection, package: $0.package, targetName: targetName))
+                                matches.append((collection: $0.collection, package: $0.package, packageLocation: $0.packageLocation, targetName: targetName))
                                 matchingCollections.insert($0.collection)
                             }
                         }
@@ -566,8 +566,31 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 }
             } else {
                 do {
-                    let targetQuery = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName) WHERE name LIKE ?;"
-                    try self.executeStatement(targetQuery) { statement in
+                    let targetV1Query = "SELECT collection_id_blob_base64, package_id, package_repository_url, name FROM \(Self.targetsFTSNameV1) WHERE name LIKE ?;"
+                    try self.executeStatement(targetV1Query) { statement in
+                        switch type {
+                        case .exactMatch:
+                            try statement.bind([.string("\(query)")])
+                        case .prefix:
+                            try statement.bind([.string("\(query)%")])
+                        }
+
+                        while let row = try statement.step() {
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                matches.append((
+                                    collection: collection,
+                                    package: PackageIdentity.plain(row.string(at: 1)),
+                                    packageLocation: row.string(at: 2),
+                                    targetName: row.string(at: 3)
+                                ))
+                                matchingCollections.insert(collection)
+                            }
+                        }
+                    }
+                    
+                    let targetV0Query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSNameV0) WHERE name LIKE ?;"
+                    try self.executeStatement(targetV0Query) { statement in
                         switch type {
                         case .exactMatch:
                             try statement.bind([.string("\(query)")])
@@ -581,6 +604,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                                 matches.append((
                                     collection: collection,
                                     package: PackageIdentity(urlString: row.string(at: 1)),
+                                    packageLocation: row.string(at: 1),
                                     targetName: row.string(at: 2)
                                 ))
                                 matchingCollections.insert(collection)
@@ -611,7 +635,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         var packageEntry = packageCollections.removeValue(forKey: match.package)
                         if packageEntry == nil {
                             guard let package = collectionDict[match.collection].flatMap({ collection in
-                                collection.packages.first(where: { $0.identity == match.package })
+                                collection.packages.first(where: { $0.identity == match.package || $0.location == match.packageLocation })
                             }) else {
                                 return
                             }
@@ -709,7 +733,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             // Update search indices
             try self.withDB { db in
                 let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
-                let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSName) VALUES (?, ?, ?);")
+                let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSNameV1) VALUES (?, ?, ?, ?);")
                 
                 try db.exec(query: "BEGIN TRANSACTION;")
                 do {
@@ -741,7 +765,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
 
-                        let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.identity)
+                        let collectionPackage = CollectionPackage(
+                            collection: collection.identifier,
+                            package: package.identity,
+                            packageLocation: package.location
+                        )
                         try targets.forEach { target in
                             // Targets in-memory trie
                             self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
@@ -749,6 +777,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             // Targets FTS
                             let targetsBindings: [SQLite.SQLiteValue] = [
                                 .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
+                                .string(package.identity.description),
                                 .string(package.location),
                                 .string(target),
                             ]
@@ -784,8 +813,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try statement.step()
         }
 
-        let targetsQuery = "DELETE FROM \(Self.targetsFTSName) WHERE collection_id_blob_base64 = ?;"
-        try self.executeStatement(targetsQuery) { statement -> Void in
+        let targetsV0Query = "DELETE FROM \(Self.targetsFTSNameV0) WHERE collection_id_blob_base64 = ?;"
+        try self.executeStatement(targetsV0Query) { statement -> Void in
+            let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
+            try statement.bind(bindings)
+            try statement.step()
+        }
+
+        let targetsV1Query = "DELETE FROM \(Self.targetsFTSNameV1) WHERE collection_id_blob_base64 = ?;"
+        try self.executeStatement(targetsV1Query) { statement -> Void in
             let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
             try statement.bind(bindings)
             try statement.step()
@@ -840,9 +876,43 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         break
                     }
 
+                    // Use collectionsProcessed to make sure we don't end up with duplicates
+                    // in the trie. If a collection is in targetsFTSNameV1, then the data
+                    // in targetsFTSNameV0 (if any) must be stale.
+                    var collectionsProcessed = Set<Model.CollectionIdentifier>()
+
                     // Use FTS to build the trie
-                    let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
-                    try self.executeStatement(query) { statement in
+                    let queryV1 = "SELECT collection_id_blob_base64, package_id, package_repository_url, name FROM \(Self.targetsFTSNameV1);"
+                    try self.executeStatement(queryV1) { statement in
+                        while let row = try statement.step() {
+                            #if os(Linux)
+                            // lock not required since executeStatement locks
+                            guard case .connected = self.state else {
+                                return
+                            }
+                            #else
+                            guard case .connected = (try self.withStateLock { self.state }) else {
+                                return
+                            }
+                            #endif
+
+                            let targetName = row.string(at: 3)
+
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                               let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                let collectionPackage = CollectionPackage(
+                                    collection: collection,
+                                    package: PackageIdentity.plain(row.string(at: 1)),
+                                    packageLocation: row.string(at: 2)
+                                )
+                                self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
+                                collectionsProcessed.insert(collection)
+                            }
+                        }
+                    }
+
+                    let queryV0 = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSNameV0);"
+                    try self.executeStatement(queryV0) { statement in
                         while let row = try statement.step() {
                             #if os(Linux)
                             // lock not required since executeStatement locks
@@ -858,8 +928,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             let targetName = row.string(at: 2)
 
                             if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(urlString: row.string(at: 1)))
+                               let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData),
+                               !collectionsProcessed.contains(collection) {
+                                let collectionPackage = CollectionPackage(
+                                    collection: collection,
+                                    package: PackageIdentity(urlString: row.string(at: 1)),
+                                    packageLocation: row.string(at: 1)
+                                )
                                 self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
                             }
                         }
@@ -967,14 +1042,24 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             """
             try db.exec(query: ftsPackages)
 
-            let ftsTargets = """
-                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSName) USING fts4(
+            // We don't insert to this anymore but keeping it for queries to work
+            let ftsTargetsV0 = """
+                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV0) USING fts4(
                     collection_id_blob_base64, package_repository_url, name,
                     notindexed=collection_id_blob_base64,
                     tokenize=unicode61
                 );
             """
-            try db.exec(query: ftsTargets)
+            try db.exec(query: ftsTargetsV0)
+            
+            let ftsTargetsV1 = """
+                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV1) USING fts4(
+                    collection_id_blob_base64, package_id, package_repository_url, name,
+                    notindexed=collection_id_blob_base64,
+                    tokenize=unicode61
+                );
+            """
+            try db.exec(query: ftsTargetsV1)
 
             self.useSearchIndices.put(true)
         } catch {
@@ -1013,6 +1098,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private struct CollectionPackage: Hashable, CustomStringConvertible {
         let collection: Model.CollectionIdentifier
         let package: PackageIdentity
+        let packageLocation: String
 
         var description: String {
             "\(collection): \(package)"
