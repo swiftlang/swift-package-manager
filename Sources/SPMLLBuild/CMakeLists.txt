@@ -16,5 +16,3 @@ target_link_libraries(SPMLLBuild PUBLIC
   TSCBasic
   TSCUtility
   llbuildSwift)
-
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SPMLLBuild)
