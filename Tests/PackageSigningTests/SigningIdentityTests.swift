@@ -38,6 +38,16 @@ final class SigningIdentityTests: XCTestCase {
         XCTAssertNotNil(info.commonName)
         XCTAssertNotNil(info.organization)
         XCTAssertNotNil(info.organizationalUnit)
+
+        let content = "per aspera ad astra".data(using: .utf8)!
+        let signingIdentity = matches[0]
+        // This call will trigger OS prompt(s) for key access
+        let signature = try await signingIdentity.sign(
+            content,
+            in: .cms_1_0_0,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        print(signature.base64EncodedString())
     }
     #endif
 }

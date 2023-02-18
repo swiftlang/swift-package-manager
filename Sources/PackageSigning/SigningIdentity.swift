@@ -40,6 +40,11 @@ public struct SigningIdentityInfo {
     }
 }
 
+public enum SigningError: Error {
+    case initializationFailed(String)
+    case signingFailed(String)
+}
+
 // MARK: - SecIdentity conformance to SigningIdentity
 
 #if os(macOS)
@@ -77,7 +82,32 @@ extension SecIdentity: SigningIdentity {
         in format: SignatureFormat,
         observabilityScope: ObservabilityScope
     ) async throws -> Data {
-        fatalError("TO BE IMPLEMENTED")
+        switch format {
+        case .cms_1_0_0:
+            // TODO: validate key is EC
+            var cmsEncoder: CMSEncoder?
+            var status = CMSEncoderCreate(&cmsEncoder)
+            guard status == errSecSuccess, let cmsEncoder = cmsEncoder else {
+                throw SigningError.initializationFailed("Unable to create CMSEncoder. Error: \(status)")
+            }
+
+            CMSEncoderAddSigners(cmsEncoder, self)
+            CMSEncoderSetHasDetachedContent(cmsEncoder, true) // Detached signature
+            CMSEncoderSetSignerAlgorithm(cmsEncoder, kCMSEncoderDigestAlgorithmSHA256)
+            CMSEncoderAddSignedAttributes(cmsEncoder, CMSSignedAttributes.attrSigningTime)
+//            CMSEncoderSetCertificateChainMode(cmsEncoder, .chainWithRoot)
+
+            var contentArray = Array(content)
+            CMSEncoderUpdateContent(cmsEncoder, &contentArray, content.count)
+
+            var signature: CFData?
+            status = CMSEncoderCopyEncodedContent(cmsEncoder, &signature)
+            guard status == errSecSuccess, let signature = signature else {
+                throw SigningError.signingFailed("Signing failed. Error: \(status)")
+            }
+
+            return signature as Data
+        }
     }
 }
 
@@ -153,16 +183,11 @@ public struct SigningIdentityStore {
         return certificates.compactMap { secCertificate in
             var identity: SecIdentity?
             let status = SecIdentityCreateWithCertificate(nil, secCertificate, &identity)
-            guard status == errSecSuccess else {
+            guard status == errSecSuccess, let identity = identity else {
                 self.observabilityScope
                     .emit(
                         warning: "Error while trying to create SecIdentity from SecCertificate[\(secCertificate)]: \(status)"
                     )
-                return nil
-            }
-            guard let identity = identity else {
-                self.observabilityScope
-                    .emit(warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]")
                 return nil
             }
             return identity
