@@ -39,8 +39,9 @@ target_link_libraries(PackageGraph PUBLIC
   Basics
   PackageLoading
   PackageModel
-  SourceControl
   TSCUtility)
+target_link_libraries(PackageGraph PRIVATE
+  SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageGraph PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

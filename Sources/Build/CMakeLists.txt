@@ -21,12 +21,14 @@ target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
   PackageGraph
-  LLBuildManifest
-  SPMBuildCore
-  SPMLLBuild)
+  SPMBuildCore)
 target_link_libraries(Build PRIVATE
   DriverSupport
+  LLBuildManifest
+  SPMLLBuild
   SwiftDriver)
+target_link_libraries(Build INTERFACE
+  llbuildSwift)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Build PROPERTIES
