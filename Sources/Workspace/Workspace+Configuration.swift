@@ -116,6 +116,11 @@ extension Workspace {
             self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
         }
 
+        /// Path to the shared trusted root certificates directory.
+        public var sharedTrustedRootCertificatesDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending(component: "trusted-root-certs") }
+        }
+        
         // cache locations
 
         /// Path to the shared manifests cache.
