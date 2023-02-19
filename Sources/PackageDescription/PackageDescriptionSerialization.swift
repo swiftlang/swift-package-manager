@@ -221,7 +221,6 @@ extension SystemPackageProvider: Encodable {
         case brew
         case apt
         case yum
-        case nuget
     }
 
     /// Encodes this value into the given encoder.
@@ -244,9 +243,6 @@ extension SystemPackageProvider: Encodable {
             try container.encode(packages, forKey: .values)
         case .yumItem(let packages):
             try container.encode(Name.yum, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .nugetItem(let packages):
-            try container.encode(Name.nuget, forKey: .name)
             try container.encode(packages, forKey: .values)
         }
     }
