@@ -47,11 +47,11 @@ public struct SignatureProvider {
 
         status = CMSDecoderUpdateMessage(cmsDecoder, [UInt8](signature), signature.count)
         guard status == errSecSuccess else {
-            return .invalid("Cannot update CMSDecoder with message. Error: \(status)")
+            return .invalid("Unable to update CMSDecoder with signature. Error: \(status)")
         }
         status = CMSDecoderFinalizeMessage(cmsDecoder)
         guard status == errSecSuccess else {
-            return .invalid("Cannot update CMSDecoder with message. Error: \(status)")
+            return .invalid("Failed to set up CMSDecoder. Error: \(status)")
         }
 
         var signerStatus = CMSSignerStatus.needsDetachedContent
@@ -125,4 +125,5 @@ public enum SigningError: Error {
     case encodeInitializationFailed(String)
     case decodeInitializationFailed(String)
     case signingFailed(String)
+    case signatureInvalid(String)
 }

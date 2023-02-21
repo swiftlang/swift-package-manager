@@ -36,28 +36,34 @@ final class SigningIdentityTests: XCTestCase {
 
         let info = matches[0].info
         XCTAssertNotNil(info.commonName)
-        XCTAssertNotNil(info.organization)
         XCTAssertNotNil(info.organizationalUnit)
+        XCTAssertNotNil(info.organization)
 
         let signatureProvider = SignatureProvider()
         let content = "per aspera ad astra".data(using: .utf8)!
+        let signatureFormat = SignatureFormat.cms_1_0_0
         let signingIdentity = matches[0]
 
         // This call will trigger OS prompt(s) for key access
         let signature = try await signatureProvider.sign(
             content,
             with: signingIdentity,
-            in: .cms_1_0_0,
+            in: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
         let status = try await signatureProvider.status(
             of: signature,
             for: content,
-            in: .cms_1_0_0,
+            in: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(status, SignatureStatus.valid)
+
+        let signingEntity = try Signature(data: signature, format: signatureFormat).signedBy
+        XCTAssertNotNil(signingEntity.name)
+        XCTAssertNotNil(signingEntity.organizationalUnit)
+        XCTAssertNotNil(signingEntity.organization)
     }
     #endif
 }

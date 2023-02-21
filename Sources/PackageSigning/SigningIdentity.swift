@@ -30,13 +30,13 @@ public protocol SigningIdentity {
 
 public struct SigningIdentityInfo {
     public let commonName: String?
-    public let organization: String?
     public let organizationalUnit: String?
+    public let organization: String?
 
-    init(commonName: String? = nil, organization: String? = nil, organizationalUnit: String? = nil) {
+    init(commonName: String? = nil, organizationalUnit: String? = nil, organization: String? = nil) {
         self.commonName = commonName
-        self.organization = organization
         self.organizationalUnit = organizationalUnit
+        self.organization = organization
     }
 }
 
@@ -67,8 +67,8 @@ extension SecIdentity: SigningIdentity {
 
         return SigningIdentityInfo(
             commonName: certificate.commonName,
-            organization: props[kSecOIDOrganizationName as String],
-            organizationalUnit: props[kSecOIDOrganizationalUnitName as String]
+            organizationalUnit: props[kSecOIDOrganizationalUnitName as String],
+            organization: props[kSecOIDOrganizationName as String]
         )
     }
 
