@@ -40,11 +40,6 @@ public struct SigningIdentityInfo {
     }
 }
 
-public enum SigningError: Error {
-    case initializationFailed(String)
-    case signingFailed(String)
-}
-
 // MARK: - SecIdentity conformance to SigningIdentity
 
 #if os(macOS)
@@ -88,14 +83,14 @@ extension SecIdentity: SigningIdentity {
             var cmsEncoder: CMSEncoder?
             var status = CMSEncoderCreate(&cmsEncoder)
             guard status == errSecSuccess, let cmsEncoder = cmsEncoder else {
-                throw SigningError.initializationFailed("Unable to create CMSEncoder. Error: \(status)")
+                throw SigningError.encodeInitializationFailed("Unable to create CMSEncoder. Error: \(status)")
             }
 
             CMSEncoderAddSigners(cmsEncoder, self)
             CMSEncoderSetHasDetachedContent(cmsEncoder, true) // Detached signature
             CMSEncoderSetSignerAlgorithm(cmsEncoder, kCMSEncoderDigestAlgorithmSHA256)
             CMSEncoderAddSignedAttributes(cmsEncoder, CMSSignedAttributes.attrSigningTime)
-//            CMSEncoderSetCertificateChainMode(cmsEncoder, .chainWithRoot)
+            CMSEncoderSetCertificateChainMode(cmsEncoder, .signerOnly)
 
             var contentArray = Array(content)
             CMSEncoderUpdateContent(cmsEncoder, &contentArray, content.count)
@@ -168,7 +163,8 @@ public struct SigningIdentityStore {
             kSecClass as String: kSecClassCertificate,
             kSecReturnRef as String: true,
             kSecAttrLabel as String: label,
-            kSecAttrCanSign as String: true,
+            // TODO: too restrictive to require kSecAttrCanSign == true?
+//            kSecAttrCanSign as String: true,
             kSecMatchLimit as String: kSecMatchLimitAll,
         ]
 

@@ -19,7 +19,7 @@ import SPMTestSupport
 
 final class SigningIdentityTests: XCTestCase {
     #if swift(>=5.5.2)
-    func test_SigningIdentityStore_findInKeychain() async throws {
+    func testSigningWithIdentityFromKeychain() async throws {
         #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -39,15 +39,25 @@ final class SigningIdentityTests: XCTestCase {
         XCTAssertNotNil(info.organization)
         XCTAssertNotNil(info.organizationalUnit)
 
+        let signatureProvider = SignatureProvider()
         let content = "per aspera ad astra".data(using: .utf8)!
         let signingIdentity = matches[0]
+
         // This call will trigger OS prompt(s) for key access
-        let signature = try await signingIdentity.sign(
+        let signature = try await signatureProvider.sign(
             content,
+            with: signingIdentity,
             in: .cms_1_0_0,
             observabilityScope: ObservabilitySystem.NOOP
         )
-        print(signature.base64EncodedString())
+
+        let status = try await signatureProvider.status(
+            of: signature,
+            for: content,
+            in: .cms_1_0_0,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        XCTAssertEqual(status, SignatureStatus.valid)
     }
     #endif
 }
