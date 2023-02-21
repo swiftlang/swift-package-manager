@@ -43,8 +43,7 @@ public final class InitPackage {
         case empty = "empty"
         case library = "library"
         case executable = "executable"
-        case systemModule = "system-module"
-        case manifest = "manifest"
+        case tool = "tool"
         case `extension` = "extension"
 
         public var description: String {
@@ -114,15 +113,8 @@ public final class InitPackage {
         // FIXME: We should form everything we want to write, then validate that
         // none of it exists, and then act.
         try writeManifestFile()
-
-        if packageType == .manifest {
-            return
-        }
-
-        try writeREADMEFile()
         try writeGitIgnore()
         try writeSources()
-        try writeModuleMap()
         try writeTests()
     }
 
@@ -171,16 +163,19 @@ public final class InitPackage {
 
                 platformsParams.append(param)
             }
+
+            // Package platforms
             if !options.platforms.isEmpty {
                 pkgParams.append("""
                         platforms: [\(platformsParams.joined(separator: ", "))]
                     """)
             }
 
-            if packageType == .library || packageType == .manifest {
+            // Package products
+            if packageType == .library {
                 pkgParams.append("""
                     products: [
-                        // Products define the executables and libraries a package produces, and make them visible to other packages.
+                        // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
                             targets: ["\(pkgname)"]),
@@ -188,40 +183,52 @@ public final class InitPackage {
                 """)
             }
 
-            pkgParams.append("""
+            // Package dependencies
+            if packageType == .tool {
+                pkgParams.append("""
                     dependencies: [
-                        // Dependencies declare other packages that this package depends on.
-                        // .package(url: /* package url */, from: "1.0.0"),
+                        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0"),
                     ]
                 """)
+            }
 
-            if packageType == .library || packageType == .executable || packageType == .manifest {
+            // Package targets
+            if packageType != .empty {
                 var param = ""
 
                 param += """
                     targets: [
-                        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+                        // Targets are the basic building blocks of a package, defining a module or a test suite.
+                        // Targets can depend on other targets in this package and products from dependencies.
 
                 """
                 if packageType == .executable {
                     param += """
                             .executableTarget(
+                                name: "\(pkgname)",
+                                path: "Sources"),
+                        ]
+                    """
+                } else if packageType == .tool {
+                    param += """
+                            .executableTarget(
+                                name: "\(pkgname)",
+                                dependencies: [
+                                    .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                                ],
+                                path: "Sources"),
+                        ]
                     """
                 } else {
                     param += """
                             .target(
+                                name: "\(pkgname)"),
+                            .testTarget(
+                                name: "\(pkgname)Tests",
+                                dependencies: ["\(pkgname)"]),
+                        ]
                     """
                 }
-                param += """
-
-                            name: "\(pkgname)",
-                            dependencies: []),
-                        .testTarget(
-                            name: "\(pkgname)Tests",
-                            dependencies: ["\(pkgname)"]),
-                    ]
-                """
 
                 pkgParams.append(param)
             }
@@ -242,23 +249,10 @@ public final class InitPackage {
         )
     }
 
-    private func writeREADMEFile() throws {
-        let readme = destinationPath.appending(component: "README.md")
-        guard self.fileSystem.exists(readme) == false else {
+    private func writeGitIgnore() throws {
+        guard packageType != .empty else {
             return
         }
-
-        try writePackageFile(readme) { stream in
-            stream <<< """
-                # \(pkgname)
-
-                A description of this package.
-
-                """
-        }
-    }
-
-    private func writeGitIgnore() throws {
         let gitignore = destinationPath.appending(component: ".gitignore")
         guard self.fileSystem.exists(gitignore) == false else {
             return
@@ -280,9 +274,10 @@ public final class InitPackage {
     }
 
     private func writeSources() throws {
-        if packageType == .systemModule || packageType == .manifest {
+        if packageType == .empty {
             return
         }
+
         let sources = destinationPath.appending(component: "Sources")
         guard self.fileSystem.exists(sources) == false else {
             return
@@ -290,11 +285,9 @@ public final class InitPackage {
         progressReporter?("Creating \(sources.relative(to: destinationPath))/")
         try makeDirectories(sources)
 
-        if packageType == .empty {
-            return
-        }
-
-        let moduleDir = sources.appending(component: "\(pkgname)")
+        let moduleDir = packageType == .executable || packageType == .tool
+          ? sources
+          : sources.appending(component: "\(pkgname)")
         try makeDirectories(moduleDir)
 
         let sourceFileName = "\(typeName).swift"
@@ -304,27 +297,36 @@ public final class InitPackage {
         switch packageType {
         case .library:
             content = """
-                public struct \(typeName) {
-                    public private(set) var text = "Hello, World!"
-
-                    public init() {
-                    }
-                }
+                // The Swift Programming Language
+                // https://docs.swift.org/swift-book
 
                 """
         case .executable:
             content = """
-                @main
-                struct \(typeName) {
-                    private(set) var text = "Hello, World!"
+                // The Swift Programming Language
+                // https://docs.swift.org/swift-book
 
-                    static func main() {
-                        print(\(typeName)().text)
-                    }
-                }
+                print("Hello, world!")
 
                 """
-        case .systemModule, .empty, .manifest, .`extension`:
+        case .tool:
+            content = """
+            // The Swift Programming Language
+            // https://docs.swift.org/swift-book
+            // 
+            // Swift Argument Parser
+            // https://swiftpackageindex.com/apple/swift-argument-parser/documentation
+
+            import ArgumentParser
+
+            @main
+            struct \(typeName): ParsableCommand {
+                mutating func run() throws {
+                    print("Hello, world!")
+                }
+            }
+            """
+        case .empty, .`extension`:
             throw InternalError("invalid packageType \(packageType)")
         }
 
@@ -333,30 +335,10 @@ public final class InitPackage {
         }
     }
 
-    private func writeModuleMap() throws {
-        if packageType != .systemModule {
-            return
-        }
-        let modulemap = destinationPath.appending(component: "module.modulemap")
-        guard self.fileSystem.exists(modulemap) == false else {
-            return
-        }
-
-        try writePackageFile(modulemap) { stream in
-            stream <<< """
-                module \(moduleName) [system] {
-                  header "/usr/include/\(moduleName).h"
-                  link "\(moduleName)"
-                  export *
-                }
-
-                """
-        }
-    }
-
     private func writeTests() throws {
-        if packageType == .systemModule {
-            return
+        switch packageType {
+        case .empty, .executable, .tool, .`extension`: return
+            default: break
         }
         let tests = destinationPath.appending(component: "Tests")
         guard self.fileSystem.exists(tests) == false else {
@@ -364,12 +346,7 @@ public final class InitPackage {
         }
         progressReporter?("Creating \(tests.relative(to: destinationPath))/")
         try makeDirectories(tests)
-
-        switch packageType {
-        case .systemModule, .empty, .manifest, .`extension`: break
-        case .library, .executable:
-            try writeTestFileStubs(testsPath: tests)
-        }
+        try writeTestFileStubs(testsPath: tests)
     }
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
@@ -380,29 +357,11 @@ public final class InitPackage {
 
                 final class \(moduleName)Tests: XCTestCase {
                     func testExample() throws {
-                        // This is an example of a functional test case.
-                        // Use XCTAssert and related functions to verify your tests produce the correct
-                        // results.
-                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
-                    }
-                }
+                        // XCTest Documenation
+                        // https://developer.apple.com/documentation/xctest
 
-                """
-        }
-    }
-
-    private func writeExecutableTestsFile(_ path: AbsolutePath) throws {
-        try writePackageFile(path) { stream in
-            stream <<< """
-                import XCTest
-                @testable import \(moduleName)
-
-                final class \(moduleName)Tests: XCTestCase {
-                    func testExample() throws {
-                        // This is an example of a functional test case.
-                        // Use XCTAssert and related functions to verify your tests produce the correct
-                        // results.
-                        XCTAssertEqual(\(typeName)().text, "Hello, World!")
+                        // Defining Test Cases and Test Methods
+                        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
                     }
                 }
 
@@ -417,11 +376,9 @@ public final class InitPackage {
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
-        case .systemModule, .empty, .manifest, .`extension`: break
+        case .empty, .`extension`, .executable, .tool: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
-        case .executable:
-            try writeExecutableTestsFile(testClassFile)
         }
     }
 }

@@ -17,7 +17,6 @@ Swift Next
   }
   ```
 
-
 Swift 5.9
 -----------
 
@@ -29,6 +28,9 @@ Swift 5.9
 
   Support for building plugin dependencies for the host when cross-compiling.
 
+* [#6144]
+
+  Remove the `system-module` and `manifest` templates and clean up the remaining `empty`, `library`, and `executable` templates so they include the minimum information needed to get started, with links to documentation in the generated library, executable, and test content.
 
 Swift 5.8
 -----------
