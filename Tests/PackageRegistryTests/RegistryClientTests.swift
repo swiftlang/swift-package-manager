@@ -1714,7 +1714,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryPublishSync() throws {
+    func testRegistryPublishSync() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1777,7 +1777,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryPublishAsync() throws {
+    func testRegistryPublishAsync() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1842,7 +1842,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryPublish_ServerError() throws {
+    func testRegistryPublish_ServerError() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1894,7 +1894,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryPublish_InvalidArchive() throws {
+    func testRegistryPublish_InvalidArchive() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1933,7 +1933,7 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
-    func testGetRegistryPublish_InvalidMetadata() throws {
+    func testRegistryPublish_InvalidMetadata() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
@@ -1970,6 +1970,95 @@ final class RegistryClientTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testRegistryAvailability() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let availabilityURL = URL(string: "\(registryURL)/availability")!
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                completion(.success(.okay()))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient
+        )
+
+        let status = try registryClient.checkAvailability(registryURL: registryURL)
+        XCTAssertEqual(status, .available)
+    }
+
+    func testRegistryAvailability_NotAvailable() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let availabilityURL = URL(string: "\(registryURL)/availability")!
+
+        for unavailableStatus in RegistryClient.AvailabilityStatus.unavailableStatusCodes {
+            let handler: LegacyHTTPClient.Handler = { request, _, completion in
+                switch (request.method, request.url) {
+                case (.get, availabilityURL):
+                    completion(.success(.init(statusCode: unavailableStatus)))
+                default:
+                    completion(.failure(StringError("method and url should match")))
+                }
+            }
+
+            let httpClient = LegacyHTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL)
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient
+            )
+
+            let status = try registryClient.checkAvailability(registryURL: registryURL)
+            XCTAssertEqual(status, .unavailable)
+        }
+    }
+
+    func testRegistryAvailability_ServerError() throws {
+        let registryURL = URL(string: "https://packages.example.com")!
+        let availabilityURL = URL(string: "\(registryURL)/availability")!
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                completion(.success(.serverError(reason: "boom")))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL)
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient
+        )
+
+        let status = try registryClient.checkAvailability(registryURL: registryURL)
+        XCTAssertEqual(status, .error("unknown server error (500)"))
     }
 }
 
@@ -2113,6 +2202,17 @@ extension RegistryClient {
                 packageMetadata: packageMetadata,
                 signature: signature,
                 fileSystem: fileSystem,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    func checkAvailability(registryURL: URL) throws -> AvailabilityStatus {
+        try tsc_await {
+            self.checkAvailability(
+                registryURL: registryURL,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
