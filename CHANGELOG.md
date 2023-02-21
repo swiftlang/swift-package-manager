@@ -7,9 +7,12 @@ Swift Next
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
 
-
 Swift 5.8
 -----------
+
+* [#6144]
+
+  Remove the `system-module` and `manifest` templates and clean up the remaining `empty`, `library`, and `executable` templates so they include the minimum information needed to get started, with links to documentation in the generated library, executable, and test content.
 
 * [#5949]
   

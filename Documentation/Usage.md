@@ -158,9 +158,9 @@ initialize it as a package that builds a system module:
     example$ cd ..
     $ mkdir Clibgit
     $ cd Clibgit
-    Clibgit$ swift package init --type system-module
+    Clibgit$ swift package init --type empty
 
-This creates `Package.swift` and `module.modulemap` files in the directory.
+This creates a `Package.swift` file in the directory.
 Edit `Package.swift` and add `pkgConfig` parameter:
 
 ```swift
@@ -181,7 +181,7 @@ parameter you can pass the path of a directory containing the library using the
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
-Edit `module.modulemap` so it consists of the following:
+Create a `module.modulemap` file so it consists of the following:
 
     module Clibgit [system] {
       header "/usr/local/include/git2.h"
@@ -258,10 +258,10 @@ initialize it as a package that builds a system module:
     example$ cd ..
     $ mkdir CJPEG
     $ cd CJPEG
-    CJPEG$ swift package init --type system-module
+    CJPEG$ swift package init --type empty
 
-This creates `Package.swift` and `module.modulemap` files in the directory.
-Edit `module.modulemap` so it consists of the following:
+This creates `Package.swift` file in the directory.
+Create a `module.modulemap` file so it consists of the following:
 
     module CJPEG [system] {
         header "shim.h"
