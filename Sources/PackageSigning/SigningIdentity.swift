@@ -86,16 +86,16 @@ public struct Certificate {}
 
 public struct SwiftSigningIdentity: SigningIdentity {
     public let key: PrivateKey
-    public let certificate: Certificate
+    public let certificateChain: [Certificate]
 
     public var info: SigningIdentityInfo {
         // TODO: read from cert
         fatalError("TO BE IMPLEMENTED")
     }
 
-    public init(key: PrivateKey, certificate: Certificate) {
+    public init(key: PrivateKey, certificateChain: [Certificate]) {
         self.key = key
-        self.certificate = certificate
+        self.certificateChain = certificateChain
     }
 }
 
