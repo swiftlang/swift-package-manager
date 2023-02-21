@@ -17,9 +17,9 @@ import Basics
 import PackageSigning
 import SPMTestSupport
 
-final class SigningIdentityTests: XCTestCase {
+final class SigningTests: XCTestCase {
     #if swift(>=5.5.2)
-    func testSigningWithIdentityFromKeychain() async throws {
+    func testEndToEndWithIdentityFromKeychain() async throws {
         #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -60,7 +60,7 @@ final class SigningIdentityTests: XCTestCase {
         )
         XCTAssertEqual(status, SignatureStatus.valid)
 
-        let signingEntity = try Signature(data: signature, format: signatureFormat).signedBy
+        let signingEntity = try SigningEntity(of: signature, signatureFormat: signatureFormat)
         XCTAssertNotNil(signingEntity.name)
         XCTAssertNotNil(signingEntity.organizationalUnit)
         XCTAssertNotNil(signingEntity.organization)

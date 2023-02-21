@@ -16,50 +16,6 @@ import struct Foundation.Data
 import Security
 #endif
 
-public struct Signature {
-    public let data: Data
-    public let format: SignatureFormat
-    public let signedBy: SigningEntity
-
-    public init(data: Data, format: SignatureFormat) throws {
-        self.data = data
-        self.format = format
-
-        #if os(macOS)
-        var cmsDecoder: CMSDecoder?
-        var status = CMSDecoderCreate(&cmsDecoder)
-        guard status == errSecSuccess, let cmsDecoder = cmsDecoder else {
-            throw SigningError.decodeInitializationFailed("Unable to create CMSDecoder. Error: \(status)")
-        }
-
-        status = CMSDecoderUpdateMessage(cmsDecoder, [UInt8](data), data.count)
-        guard status == errSecSuccess else {
-            throw SigningError
-                .decodeInitializationFailed("Unable to update CMSDecoder with signature. Error: \(status)")
-        }
-        status = CMSDecoderFinalizeMessage(cmsDecoder)
-        guard status == errSecSuccess else {
-            throw SigningError.decodeInitializationFailed("Failed to set up CMSDecoder. Error: \(status)")
-        }
-
-        var certificate: SecCertificate?
-        status = CMSDecoderCopySignerCert(cmsDecoder, 0, &certificate)
-        guard status == errSecSuccess, let certificate = certificate else {
-            throw SigningError.signatureInvalid("Unable to extract signing certificate. Error: \(status)")
-        }
-
-        self.signedBy = SigningEntity(certificate: certificate)
-        #else
-        // TODO: decode `data` by `format`, then construct `signedBy` from signing cert
-        fatalError("TO BE IMPLEMENTED")
-        #endif
-    }
-}
-
-public enum SignatureFormat: String {
-    case cms_1_0_0 = "cms-1.0.0"
-}
-
 // MARK: - SigningEntity is the entity that generated the signature
 
 public struct SigningEntity {
@@ -70,6 +26,11 @@ public struct SigningEntity {
 
     public var isRecognized: Bool {
         self.type != nil
+    }
+
+    public init(of signature: Data, signatureFormat: SignatureFormat) throws {
+        let provider = signatureFormat.provider
+        self = try provider.signingEntity(of: signature)
     }
 
     #if os(macOS)

@@ -19,13 +19,8 @@ import Security
 import Basics
 
 public protocol SigningIdentity {
+    // TODO: change type to Certificate
     var info: SigningIdentityInfo { get }
-
-    func sign(
-        _ content: Data,
-        in format: SignatureFormat,
-        observabilityScope: ObservabilityScope
-    ) async throws -> Data
 }
 
 public struct SigningIdentityInfo {
@@ -71,39 +66,6 @@ extension SecIdentity: SigningIdentity {
             organization: props[kSecOIDOrganizationName as String]
         )
     }
-
-    public func sign(
-        _ content: Data,
-        in format: SignatureFormat,
-        observabilityScope: ObservabilityScope
-    ) async throws -> Data {
-        switch format {
-        case .cms_1_0_0:
-            // TODO: validate key is EC
-            var cmsEncoder: CMSEncoder?
-            var status = CMSEncoderCreate(&cmsEncoder)
-            guard status == errSecSuccess, let cmsEncoder = cmsEncoder else {
-                throw SigningError.encodeInitializationFailed("Unable to create CMSEncoder. Error: \(status)")
-            }
-
-            CMSEncoderAddSigners(cmsEncoder, self)
-            CMSEncoderSetHasDetachedContent(cmsEncoder, true) // Detached signature
-            CMSEncoderSetSignerAlgorithm(cmsEncoder, kCMSEncoderDigestAlgorithmSHA256)
-            CMSEncoderAddSignedAttributes(cmsEncoder, CMSSignedAttributes.attrSigningTime)
-            CMSEncoderSetCertificateChainMode(cmsEncoder, .signerOnly)
-
-            var contentArray = Array(content)
-            CMSEncoderUpdateContent(cmsEncoder, &contentArray, content.count)
-
-            var signature: CFData?
-            status = CMSEncoderCopyEncodedContent(cmsEncoder, &signature)
-            guard status == errSecSuccess, let signature = signature else {
-                throw SigningError.signingFailed("Signing failed. Error: \(status)")
-            }
-
-            return signature as Data
-        }
-    }
 }
 
 extension SecCertificate {
@@ -134,14 +96,6 @@ public struct SwiftSigningIdentity: SigningIdentity {
     public init(key: PrivateKey, certificate: Certificate) {
         self.key = key
         self.certificate = certificate
-    }
-
-    public func sign(
-        _ content: Data,
-        in format: SignatureFormat,
-        observabilityScope: ObservabilityScope
-    ) async throws -> Data {
-        fatalError("TO BE IMPLEMENTED")
     }
 }
 
