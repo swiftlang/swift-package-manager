@@ -118,7 +118,8 @@ struct DumpPackage: SwiftCommand {
 }
 
 struct DumpPIF: SwiftCommand {
-    static let configuration = CommandConfiguration(abstract: "Print the Package Interchange Format of the swift package.")
+    // hides this command from CLI --help output
+    static let configuration = CommandConfiguration(shouldDisplay: false) 
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
