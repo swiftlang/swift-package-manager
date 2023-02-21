@@ -623,7 +623,8 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
-        if registryClient.configured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
+        // FIXME: activate when the root manifest has registry based deps too
+        if registryClient.explicitlyConfigured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,

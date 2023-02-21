@@ -23,7 +23,8 @@ import struct TSCUtility.Version
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
 public final class RegistryClient: Cancellable {
-    private let apiVersion: APIVersion = .v1
+    private static let apiVersion: APIVersion = .v1
+    private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
 
     private let configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
@@ -32,6 +33,8 @@ public final class RegistryClient: Cancellable {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
+
+    private let availabilityCache = ThreadSafeKeyValueStore<URL, (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)>()
 
     public init(
         configuration: RegistryConfiguration,
@@ -74,8 +77,8 @@ public final class RegistryClient: Cancellable {
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
-    public var configured: Bool {
-        !self.configuration.isEmpty
+    public var explicitlyConfigured: Bool {
+        self.configuration.explicitlyConfigured
     }
 
     /// Cancel any outstanding requests
@@ -96,14 +99,52 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.getPackageMetadata(
+                registry: registry,
+                package: registryIdentity,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func getPackageMetadata(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PackageMetadata, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)")
+        components.appendPathComponents("\(package.scope)", "\(package.name)")
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
@@ -138,11 +179,13 @@ public final class RegistryClient: Cancellable {
                             versions: versions,
                             alternateLocations: alternateLocations?.map(\.url)
                         )
+                    case 404:
+                        throw RegistryError.packageNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingReleases($0)
+                    RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: $0)
                 }
             )
         }
@@ -162,14 +205,54 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.getPackageVersionMetadata(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func getPackageVersionMetadata(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version)")
+        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version)")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -200,11 +283,13 @@ public final class RegistryClient: Cancellable {
                             readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
                             repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) }
                         )
+                    case 404:
+                        throw RegistryError.packageVersionNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingReleaseInfo($0)
+                    RegistryError.failedRetrievingReleaseInfo(registry: registry, package: package.underlying, version: version, error: $0)
                 }
             )
         }
@@ -224,16 +309,56 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.getAvailableManifests(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func getAvailableManifests(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
         components.appendPathComponents(
-            "\(registryIdentity.scope)",
-            "\(registryIdentity.name)",
+            "\(package.scope)",
+            "\(package.name)",
             "\(version)",
             Manifest.filename
         )
@@ -278,11 +403,13 @@ public final class RegistryClient: Cancellable {
                             )
                         }
                         return result
+                    case 404:
+                        throw RegistryError.packageVersionNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingManifest($0)
+                    RegistryError.failedRetrievingManifest(registry: registry, package: package.underlying, version: version, error: $0)
                 }
             )
         }
@@ -303,16 +430,58 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.getManifestContent(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                customToolsVersion: customToolsVersion,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func getManifestContent(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        customToolsVersion: ToolsVersion?,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
         components.appendPathComponents(
-            "\(registryIdentity.scope)",
-            "\(registryIdentity.name)",
+            "\(package.scope)",
+            "\(package.name)",
             "\(version)",
             "Package.swift"
         )
@@ -352,16 +521,18 @@ public final class RegistryClient: Cancellable {
                         }
 
                         return manifestContent
+                    case 404:
+                        throw RegistryError.packageVersionNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingManifest($0)
+                    RegistryError.failedRetrievingManifest(registry: registry, package: package.underlying, version: version, error: $0)
                 }
             )
         }
     }
-
+    
     public func fetchSourceArchiveChecksum(
         package: PackageIdentity,
         version: Version,
@@ -376,14 +547,54 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.fetchSourceArchiveChecksum(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func fetchSourceArchiveChecksum(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version)")
+        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version)")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -420,7 +631,7 @@ public final class RegistryClient: Cancellable {
 
                         if let fingerprintStorage = self.fingerprintStorage {
                             fingerprintStorage.put(
-                                package: package,
+                                package: package.underlying,
                                 version: version,
                                 fingerprint: .init(origin: .registry(registry.url), value: checksum),
                                 observabilityScope: observabilityScope,
@@ -450,14 +661,16 @@ public final class RegistryClient: Cancellable {
                         } else {
                             completion(.success(checksum))
                         }
+                    case 404:
+                        throw RegistryError.packageVersionNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 } catch {
-                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
+                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(registry: registry, package: package.underlying, version: version, error: error)))
                 }
             case .failure(let error):
-                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
+                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(registry: registry, package: package.underlying, version: version, error: error)))
             }
         }
     }
@@ -465,11 +678,11 @@ public final class RegistryClient: Cancellable {
     public func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
-        fileSystem: FileSystem,
         destinationPath: AbsolutePath,
         checksumAlgorithm: HashAlgorithm, // the same algorithm used by `package compute-checksum` tool
         progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -480,14 +693,62 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
+
+        let underlying = {
+            self.downloadSourceArchive(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                destinationPath: destinationPath,
+                checksumAlgorithm: checksumAlgorithm,
+                progressHandler: progressHandler,
+                timeout: timeout,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func downloadSourceArchive(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        destinationPath: AbsolutePath,
+        checksumAlgorithm: HashAlgorithm, // the same algorithm used by `package compute-checksum` tool
+        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version).zip")
+        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version).zip")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -578,14 +839,16 @@ public final class RegistryClient: Cancellable {
                                 completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
                             }
                         }
+                    case 404:
+                        throw RegistryError.packageVersionNotFound
                     default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200])
+                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 } catch {
-                    completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
+                    completion(.failure(RegistryError.failedDownloadingSourceArchive(registry: registry, package: package.underlying, version: version, error: error)))
                 }
             case .failure(let error):
-                completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
+                completion(.failure(RegistryError.failedDownloadingSourceArchive(registry: registry, package: package.underlying, version: version, error: error)))
             }
         }
 
@@ -593,7 +856,7 @@ public final class RegistryClient: Cancellable {
         func withExpectedChecksum(body: @escaping (Result<String, Error>) -> Void) {
             if let fingerprintStorage = self.fingerprintStorage {
                 fingerprintStorage.get(
-                    package: package,
+                    package: package.underlying,
                     version: version,
                     kind: .registry,
                     observabilityScope: observabilityScope,
@@ -611,8 +874,10 @@ public final class RegistryClient: Cancellable {
                         }
                         // Try fetching checksum from registry again no matter which kind of error it is
                         self.fetchSourceArchiveChecksum(
+                            registry: registry,
                             package: package,
                             version: version,
+                            timeout: timeout,
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue,
                             completion: body
@@ -621,8 +886,10 @@ public final class RegistryClient: Cancellable {
                 }
             } else {
                 self.fetchSourceArchiveChecksum(
+                    registry: registry,
                     package: package,
                     version: version,
+                    timeout: timeout,
                     observabilityScope: observabilityScope,
                     callbackQueue: callbackQueue,
                     completion: body
@@ -640,9 +907,47 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard let registry = configuration.defaultRegistry else {
+        guard let registry = self.configuration.defaultRegistry else {
             return completion(.failure(RegistryError.registryNotConfigured(scope: nil)))
         }
+
+        let underlying = {
+            self.lookupIdentities(
+                registry: registry,
+                scmURL: scmURL,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // marked internal for testing
+    func lookupIdentities(
+        registry: Registry,
+        scmURL: URL,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -685,14 +990,14 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedIdentityLookup($0)
+                    RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: $0)
                 }
             )
         }
     }
 
     public func login(
-        url: URL,
+        loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -702,7 +1007,7 @@ public final class RegistryClient: Cancellable {
 
         let request = LegacyHTTPClient.Request(
             method: .post,
-            url: url,
+            url: loginURL,
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
@@ -832,8 +1137,9 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    public func checkAvailability(
-        registryURL: URL,
+    // marked internal for testing
+    func checkAvailability(
+        registry: Registry,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -841,13 +1147,17 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        guard registry.supportsAvailability else {
+            return completion(.failure(StringError("registry \(registry.url) does not support availability checks.")))
+        }
+        
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
         components.appendPathComponents("availability")
 
         guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registryURL)))
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = LegacyHTTPClient.Request(
@@ -875,6 +1185,42 @@ public final class RegistryClient: Cancellable {
         }
     }
 
+    private func withAvailabilityCheck(
+        registry: Registry,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        next: @escaping (Error?) -> Void
+    ) {
+        let availabilityHandler = { (result: Result<AvailabilityStatus, Error>) in
+            switch result {
+            case .success(let status):
+                switch status {
+                case .available:
+                    return next(.none)
+                case .unavailable:
+                    return next(RegistryError.registryNotAvailable(registry))
+                case .error(let description):
+                    return next(StringError(description))
+                }
+            case .failure(let error):
+                return next(error)
+            }
+        }
+
+        if let cached = self.availabilityCache[registry.url], cached.expires < .now() {
+            return availabilityHandler(cached.status)
+        }
+
+        self.checkAvailability(
+            registry: registry,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue
+        ) { result in
+            self.availabilityCache[registry.url] = (status: result, expires: .now() + Self.availabilityCacheTTL)
+            availabilityHandler(result)
+        }
+    }
+
     private func unexpectedStatusError(
         _ response: HTTPClientResponse,
         expectedStatus: [Int]
@@ -890,6 +1236,8 @@ public final class RegistryClient: Cancellable {
             return RegistryError.forbidden
         case 501:
             return RegistryError.authenticationMethodNotSupported
+        case 500, 502, 503:
+            return RegistryError.serverError(code: response.statusCode, details: response.body.flatMap{ String(data: $0, encoding: .utf8) } ?? "")
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)
         }
@@ -930,12 +1278,12 @@ public enum RegistryError: Error, CustomStringConvertible {
     case checksumChanged(latest: String, previous: String)
     case invalidChecksum(expected: String, actual: String)
     case pathAlreadyExists(AbsolutePath)
-    case failedRetrievingReleases(Error)
-    case failedRetrievingReleaseInfo(Error)
-    case failedRetrievingReleaseChecksum(Error)
-    case failedRetrievingManifest(Error)
-    case failedDownloadingSourceArchive(Error)
-    case failedIdentityLookup(Error)
+    case failedRetrievingReleases(registry: Registry, package: PackageIdentity, error: Error)
+    case failedRetrievingReleaseInfo(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case failedRetrievingReleaseChecksum(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case failedRetrievingManifest(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case failedDownloadingSourceArchive(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case failedIdentityLookup(registry: Registry, scmURL: URL, error: Error)
     case failedLoadingPackageArchive(AbsolutePath)
     case failedLoadingPackageMetadata(AbsolutePath)
     case failedPublishing(Error)
@@ -944,6 +1292,9 @@ public enum RegistryError: Error, CustomStringConvertible {
     case unauthorized
     case authenticationMethodNotSupported
     case forbidden
+    case registryNotAvailable(Registry)
+    case packageNotFound
+    case packageVersionNotFound
 
     public var description: String {
         switch self {
@@ -981,18 +1332,18 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
         case .pathAlreadyExists(let path):
             return "Path already exists '\(path)'"
-        case .failedRetrievingReleases(let error):
-            return "Failed fetching releases from registry: \(error)"
-        case .failedRetrievingReleaseInfo(let error):
-            return "Failed fetching release information from registry: \(error)"
-        case .failedRetrievingReleaseChecksum(let error):
-            return "Failed fetching release checksum from registry: \(error)"
-        case .failedRetrievingManifest(let error):
-            return "Failed retrieving manifest from registry: \(error)"
-        case .failedDownloadingSourceArchive(let error):
-            return "Failed downloading source archive from registry: \(error)"
-        case .failedIdentityLookup(let error):
-            return "Failed looking up identity: \(error)"
+        case .failedRetrievingReleases(let registry, let packageIdentity, let error):
+            return "Failed fetching '\(packageIdentity)' releases list from '\(registry)': \(error)"
+        case .failedRetrievingReleaseInfo(let registry, let packageIdentity, let version, let error):
+            return "Failed fetching '\(packageIdentity)@\(version)' release information from '\(registry)': \(error)"
+        case .failedRetrievingReleaseChecksum(let registry, let packageIdentity, let version, let error):
+            return "Failed fetching '\(packageIdentity)@\(version)' release checksum from '\(registry)': \(error)"
+        case .failedRetrievingManifest(let registry, let packageIdentity, let version, let error):
+            return "Failed retrieving '\(packageIdentity)@\(version)' manifest from '\(registry)': \(error)"
+        case .failedDownloadingSourceArchive(let registry, let packageIdentity, let version, let error):
+            return "Failed downloading '\(packageIdentity)@\(version)' source archive from '\(registry)': \(error)"
+        case .failedIdentityLookup(let registry, let scmURL, let error):
+            return "Failed looking up identity for '\(scmURL)' on '\(registry)': \(error)"
         case .failedLoadingPackageArchive(let path):
             return "Failed loading package archive at '\(path)' for publishing"
         case .failedLoadingPackageMetadata(let path):
@@ -1009,6 +1360,12 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Authentication method not supported"
         case .forbidden:
             return "Forbidden"
+        case .registryNotAvailable(let registry):
+            return "registry at '\(registry.url)' is not available at this time, please try again later"
+        case .packageNotFound:
+            return "package not found on registry"
+        case .packageVersionNotFound:
+            return "package version not found on registry"
         }
     }
 }
@@ -1034,7 +1391,7 @@ extension RegistryClient {
     }
 
     private func acceptHeader(mediaType: MediaType) -> String {
-        "application/vnd.swift.registry.v\(self.apiVersion.rawValue)+\(mediaType)"
+        "application/vnd.swift.registry.v\(Self.apiVersion.rawValue)+\(mediaType)"
     }
 }
 
@@ -1086,7 +1443,7 @@ extension RegistryClient {
         case unavailable
         case error(String)
 
-        // internal for testing
+        // marked internal for testing
         static var unavailableStatusCodes = [404, 501]
     }
 }

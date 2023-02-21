@@ -33,10 +33,6 @@ public struct RegistryConfiguration: Hashable {
         self.security = nil
     }
 
-    public var isEmpty: Bool {
-        self.defaultRegistry == nil && self.scopedRegistries.isEmpty
-    }
-
     public mutating func merge(_ other: RegistryConfiguration) {
         if let defaultRegistry = other.defaultRegistry {
             self.defaultRegistry = defaultRegistry
@@ -51,8 +47,19 @@ public struct RegistryConfiguration: Hashable {
         }
     }
 
+    public func registry(for package: PackageIdentity) -> Registry? {
+        guard let registryIdentity = package.registry else {
+            return .none
+        }
+        return self.registry(for: registryIdentity.scope)
+    }
+
     public func registry(for scope: PackageIdentity.Scope) -> Registry? {
-        self.scopedRegistries[scope] ?? self.defaultRegistry
+        self.scopedRegistries[scope] ?? self.defaultRegistry    
+    }
+
+    public var explicitlyConfigured: Bool {
+        self.defaultRegistry != nil || !self.scopedRegistries.isEmpty
     }
 
     public func authentication(for registryURL: URL) -> Authentication? {
@@ -351,6 +358,25 @@ extension RegistryConfiguration: Codable {
 
         try container.encode(self.registryAuthentication, forKey: .authentication)
         try container.encodeIfPresent(self.security, forKey: .security)
+    }
+}
+
+extension PackageRegistry.Registry: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case url
+        case supportsAvailability
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.url = try container.decode(URL.self, forKey: .url)
+        self.supportsAvailability = try container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.url, forKey: .url)
+        try container.encode(self.supportsAvailability, forKey: .supportsAvailability)
     }
 }
 

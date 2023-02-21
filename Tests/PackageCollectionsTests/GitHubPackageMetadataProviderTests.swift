@@ -328,7 +328,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let repoURL = URL(string: "https://github.com/apple/swift-numerics.git")!
+        let repoURL = URL("https://github.com/apple/swift-numerics.git")
 
         let httpClient = LegacyHTTPClient()
         httpClient.configuration.circuitBreakerStrategy = .none

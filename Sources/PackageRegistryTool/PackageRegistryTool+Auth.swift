@@ -188,7 +188,7 @@ extension SwiftPackageRegistryTool {
             // Try logging in
             try tsc_await { callback in
                 registryClient.login(
-                    url: loginURL,
+                    loginURL: loginURL,
                     timeout: .seconds(5),
                     observabilityScope: swiftTool.observabilityScope,
                     callbackQueue: .sharedConcurrent,

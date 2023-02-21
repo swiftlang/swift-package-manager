@@ -47,7 +47,7 @@ public class MockRegistry {
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
 
         var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = .init(url: Self.mockRegistryURL)
+        configuration.defaultRegistry = .init(url: Self.mockRegistryURL, supportsAvailability: false)
 
         self.registryClient = RegistryClient(
             configuration: configuration,
