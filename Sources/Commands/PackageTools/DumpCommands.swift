@@ -118,6 +118,9 @@ struct DumpPackage: SwiftCommand {
 }
 
 struct DumpPIF: SwiftCommand {
+    // hides this command from CLI --help output
+    static let configuration = CommandConfiguration(shouldDisplay: false) 
+
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
