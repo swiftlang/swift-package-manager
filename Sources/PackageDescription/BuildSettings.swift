@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 /// The build configuration such as debug or release.
-public struct BuildConfiguration: Encodable {
-    private let config: String
+public struct BuildConfiguration {
+    let config: String
 
     private init(_ config: String) {
         self.config = config
@@ -53,10 +53,9 @@ public struct BuildConfiguration: Encodable {
 ///     ]
 /// ),
 /// ```
-public struct BuildSettingCondition: Encodable {
-
-    private let platforms: [Platform]?
-    private let config: BuildConfiguration?
+public struct BuildSettingCondition {
+    let platforms: [Platform]?
+    let config: BuildConfiguration?
 
     private init(platforms: [Platform]?, config: BuildConfiguration?) {
         self.platforms = platforms
@@ -100,7 +99,7 @@ public struct BuildSettingCondition: Encodable {
 }
 
 /// The underlying build setting data.
-fileprivate struct BuildSettingData: Encodable {
+struct BuildSettingData {
 
     /// The name of the build setting.
     let name: String
@@ -113,8 +112,8 @@ fileprivate struct BuildSettingData: Encodable {
 }
 
 /// A C-language build setting.
-public struct CSetting: Encodable {
-    private let data: BuildSettingData
+public struct CSetting {
+    let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
@@ -179,8 +178,8 @@ public struct CSetting: Encodable {
 }
 
 /// A CXX-language build setting.
-public struct CXXSetting: Encodable {
-    private let data: BuildSettingData
+public struct CXXSetting {
+    let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
@@ -244,8 +243,8 @@ public struct CXXSetting: Encodable {
 }
 
 /// A Swift language build setting.
-public struct SwiftSetting: Encodable {
-    private let data: BuildSettingData
+public struct SwiftSetting {
+    let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
@@ -348,8 +347,8 @@ public struct SwiftSetting: Encodable {
 }
 
 /// A linker build setting.
-public struct LinkerSetting: Encodable {
-    private let data: BuildSettingData
+public struct LinkerSetting {
+    let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
         self.data = BuildSettingData(name: name, value: value, condition: condition)

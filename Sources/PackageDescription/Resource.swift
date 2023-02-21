@@ -32,10 +32,10 @@
 ///
 /// To learn more about package resources, see
 /// <doc:bundling-resources-with-a-swift-package>.
-public struct Resource: Encodable {
+public struct Resource {
 
     /// Defines the explicit type of localization for resources.
-    public enum Localization: String, Encodable {
+    public enum Localization: String {
 
         /// A constant that represents default internationalization.
         case `default`
@@ -45,13 +45,13 @@ public struct Resource: Encodable {
     }
 
     /// The rule for the resource.
-    private let rule: String
+    let rule: String
 
     /// The path of the resource.
-    private let path: String
+    let path: String
 
     /// The explicit type of localization for the resource.
-    private let localization: Localization?
+    let localization: Localization?
 
     private init(rule: String, path: String, localization: Localization?) {
         self.rule = rule

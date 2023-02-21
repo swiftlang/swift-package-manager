@@ -31,6 +31,9 @@ public enum ManifestParseError: Swift.Error, Equatable {
 
     /// The manifest loader specified import restrictions that the given manifest violated.
     case importsRestrictedModules([String])
+
+    /// The JSON payload received from executing the manifest has an unsupported version, usually indicating an invalid mix-and-match of SwiftPM and PackageDescription libraries.
+    case unsupportedVersion(version: Int, underlyingError: String? = nil)
 }
 
 // used to output the errors via the observability system
@@ -51,6 +54,12 @@ extension ManifestParseError: CustomStringConvertible {
             return "invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
         case .importsRestrictedModules(let modules):
             return "invalid manifest, imports restricted modules: \(modules.joined(separator: ", "))"
+        case .unsupportedVersion(let version, let underlyingError):
+            let message = "serialized JSON uses unsupported version \(version), indicating use of a mismatched PackageDescription library"
+            if let underlyingError = underlyingError {
+                return "\(message), underlying error: \(underlyingError)"
+            }
+            return message
         }
     }
 }

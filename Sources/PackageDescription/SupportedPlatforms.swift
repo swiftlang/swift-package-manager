@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 /// A platform supported by Swift Package Manager.
-public struct Platform: Encodable, Equatable {
+public struct Platform: Equatable {
 
     /// The name of the platform.
-    fileprivate let name: String
+    let name: String
 
     private init(name: String) {
         self.name = name
@@ -85,7 +85,7 @@ public struct Platform: Encodable, Equatable {
 /// package's deployment version. The deployment target of a package's
 /// dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
-public struct SupportedPlatform: Encodable, Equatable {
+public struct SupportedPlatform: Equatable {
 
     /// The platform.
     let platform: Platform
@@ -265,7 +265,7 @@ public struct SupportedPlatform: Encodable, Equatable {
 extension SupportedPlatform {
 
     /// The supported macOS version.
-    public struct MacOSVersion: Encodable, AppleOSVersion {
+    public struct MacOSVersion: AppleOSVersion {
         fileprivate static let name = "macOS"
         fileprivate static let minimumMajorVersion = 10
 
@@ -339,7 +339,7 @@ extension SupportedPlatform {
     }
 
     /// The supported tvOS version.
-    public struct TVOSVersion: Encodable, AppleOSVersion {
+    public struct TVOSVersion: AppleOSVersion {
         fileprivate static let name = "tvOS"
         fileprivate static let minimumMajorVersion = 9
 
@@ -400,7 +400,7 @@ extension SupportedPlatform {
     }
 
     /// The supported Mac Catalyst version.
-    public struct MacCatalystVersion: Encodable, AppleOSVersion {
+    public struct MacCatalystVersion: AppleOSVersion {
         fileprivate static let name = "macCatalyst"
         fileprivate static let minimumMajorVersion = 13
 
@@ -437,7 +437,7 @@ extension SupportedPlatform {
     }
 
     /// The supported iOS version.
-    public struct IOSVersion: Encodable, AppleOSVersion {
+    public struct IOSVersion: AppleOSVersion {
         fileprivate static let name = "iOS"
         fileprivate static let minimumMajorVersion = 2
 
@@ -504,7 +504,7 @@ extension SupportedPlatform {
     }
 
     /// The supported watchOS version.
-    public struct WatchOSVersion: Encodable, AppleOSVersion {
+    public struct WatchOSVersion: AppleOSVersion {
         fileprivate static let name = "watchOS"
         fileprivate static let minimumMajorVersion = 2
 
@@ -565,7 +565,7 @@ extension SupportedPlatform {
     }
 
     /// The supported DriverKit version.
-    public struct DriverKitVersion: Encodable, AppleOSVersion {
+    public struct DriverKitVersion: AppleOSVersion {
         fileprivate static let name = "DriverKit"
         fileprivate static let minimumMajorVersion = 19
 

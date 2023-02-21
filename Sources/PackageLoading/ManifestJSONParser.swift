@@ -10,15 +10,29 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import TSCBasic
 
+import struct Basics.InternalError
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
+import enum TSCBasic.PathValidationError
+import struct TSCBasic.RegEx
+import struct TSCBasic.RelativePath
+import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
+
+    struct Input: Codable {
+        let package: Serialization.Package
+        let errors: [String]
+    }
+
+    struct VersionedInput: Codable {
+        let version: Int
+    }
 
     struct Result {
         var name: String
@@ -41,49 +55,84 @@ enum ManifestJSONParser {
         identityResolver: IdentityResolver,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
-        let json = try JSON(string: jsonString)
+        let decoder = JSONDecoder.makeWithDefaults()
 
-        let errors: [String] = try json.get("errors")
-        guard errors.isEmpty else {
-            throw ManifestParseError.runtimeManifestErrors(errors)
+        // Validate the version first to detect use of a mismatched PD library.
+        let versionedInput: VersionedInput
+        do {
+            versionedInput = try decoder.decode(VersionedInput.self, from: jsonString)
+        } catch {
+            // If we cannot even decode the version, assume that a pre-5.9 PD library is being used which emits an incompatible JSON format.
+            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error)")
+        }
+        guard versionedInput.version == 2 else {
+            throw ManifestParseError.unsupportedVersion(version: versionedInput.version)
         }
 
-        let package = try json.getJSON("package")
-        var manifest = Self.Result(name: try package.get(String.self, forKey: "name"))
-        manifest.defaultLocalization = try? package.get(String.self, forKey: "defaultLocalization")
-        manifest.pkgConfig = package.get("pkgConfig")
-        manifest.platforms = try Self.parsePlatforms(package)
-        manifest.swiftLanguageVersions = try Self.parseSwiftLanguageVersion(package)
-        manifest.products = try package.getArray("products").map(ProductDescription.init(v4:))
-        manifest.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
-        manifest.targets = try package.getArray("targets").map {
-            try Self.parseTarget(
-                json: $0,
-                identityResolver: identityResolver
-            )
+        let input = try decoder.decode(Input.self, from: jsonString)
+
+        guard input.errors.isEmpty else {
+            throw ManifestParseError.runtimeManifestErrors(input.errors)
         }
-        manifest.dependencies = try package.getArray("dependencies").map {
+
+        let dependencies = try input.package.dependencies.map {
             try Self.parseDependency(
-                json: $0,
+                dependency: $0,
                 toolsVersion: toolsVersion,
                 packageKind: packageKind,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem
             )
         }
-        manifest.cxxLanguageStandard = package.get("cxxLanguageStandard")
-        manifest.cLanguageStandard = package.get("cLanguageStandard")
 
-        return manifest
+        return Result(
+            name: input.package.name,
+            defaultLocalization: input.package.defaultLocalization?.tag,
+            platforms: try input.package.platforms.map { try Self.parsePlatforms($0) } ?? [],
+            targets: try input.package.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
+            pkgConfig: input.package.pkgConfig,
+            swiftLanguageVersions: try input.package.swiftLanguageVersions.map { try Self.parseSwiftLanguageVersions($0) },
+            dependencies: dependencies,
+            providers: input.package.providers?.map { .init($0) },
+            products: try input.package.products.map { try .init($0) },
+            cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
+            cLanguageStandard: input.package.cLanguageStandard?.rawValue
+        )
     }
 
-    private static func parseSwiftLanguageVersion(_ package: JSON) throws -> [SwiftLanguageVersion]?  {
-        guard let versionJSON = try? package.getArray("swiftLanguageVersions") else {
-            return nil
+    private static func parsePlatforms(_ declaredPlatforms: [Serialization.SupportedPlatform]) throws -> [PlatformDescription] {
+        // Empty list is not supported.
+        if declaredPlatforms.isEmpty {
+            throw ManifestParseError.runtimeManifestErrors(["supported platforms can't be empty"])
         }
 
-        return try versionJSON.map {
-            let languageVersionString = try String(json: $0)
+        var platforms: [PlatformDescription] = []
+
+        for platform in declaredPlatforms {
+            let description = PlatformDescription(platform)
+
+            // Check for duplicates.
+            if platforms.map({ $0.platformName }).contains(description.platformName) {
+                // FIXME: We need to emit the API name and not the internal platform name.
+                throw ManifestParseError.runtimeManifestErrors(["found multiple declaration for the platform: \(description.platformName)"])
+            }
+
+            platforms.append(description)
+        }
+
+        return platforms
+    }
+
+    private static func parseSwiftLanguageVersions(_ versions: [Serialization.SwiftVersion]) throws -> [SwiftLanguageVersion] {
+        return try versions.map {
+            let languageVersionString: String
+            switch $0 {
+            case .v3: languageVersionString = "3"
+            case .v4: languageVersionString = "4"
+            case .v4_2: languageVersionString = "4.2"
+            case .v5: languageVersionString = "5"
+            case .version(let version): languageVersionString = version
+            }
             guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {
                 throw ManifestParseError.runtimeManifestErrors(["invalid Swift language version: \(languageVersionString)"])
             }
@@ -92,78 +141,36 @@ enum ManifestJSONParser {
     }
 
     private static func parseDependency(
-        json: JSON,
+        dependency: Serialization.PackageDependency,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
-        if let kindJSON = try? json.getJSON("kind") {
-            // new format introduced 7/2021
-            let type: String = try kindJSON.get("type")
-            if type == "fileSystem" {
-                let name: String? = kindJSON.get("name")
-                let path: String = try kindJSON.get("path")
-                return try Self.parseFileSystemDependency(
-                    packageKind: packageKind,
-                    at: path,
-                    name: name,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem
-                )
-            } else if type == "sourceControl" {
-                let name: String? = kindJSON.get("name")
-                let location: String = try kindJSON.get("location")
-                let requirementJSON: JSON = try kindJSON.get("requirement")
-                let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
-                return try Self.parseSourceControlDependency(
-                    packageKind: packageKind,
-                    at: location,
-                    name: name,
-                    requirement: requirement,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem
-                )
-            } else if type == "registry" {
-                let identity: String = try kindJSON.get("identity")
-                let requirementJSON: JSON = try kindJSON.get("requirement")
-                let requirement = try PackageDependency.Registry.Requirement(v4: requirementJSON)
-                return try Self.parseRegistryDependency(
-                    identity: .plain(identity),
-                    requirement: requirement,
-                    identityResolver: identityResolver
-                )
-            } else {
-                throw InternalError("Unknown dependency type \(kindJSON)")
-            }
-        } else {
-            // old format, deprecated 7/2021 but may be stored in caches, etc
-            let name: String? = json.get("name")
-            let url: String = try json.get("url")
-
-            // backwards compatibility 2/2021
-            let requirementJSON: JSON = try json.get("requirement")
-            let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
-            switch requirementType {
-            case "localPackage":
-                return try Self.parseFileSystemDependency(
-                    packageKind: packageKind,
-                    at: url,
-                    name: name,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem
-                )
-            default:
-                let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
-                return try Self.parseSourceControlDependency(
-                    packageKind: packageKind,
-                    at: url,
-                    name: name,
-                    requirement: requirement,
-                    identityResolver: identityResolver,
-                    fileSystem: fileSystem
-                )
-            }
+        switch dependency.kind {
+        case .registry(let identity, let requirement):
+            return try Self.parseRegistryDependency(
+                identity: .plain(identity),
+                requirement: .init(requirement),
+                identityResolver: identityResolver
+            )
+        case .sourceControl(let name, let location, let requirement):
+            return try Self.parseSourceControlDependency(
+                packageKind: packageKind,
+                at: location,
+                name: name,
+                requirement: .init(requirement),
+                identityResolver: identityResolver,
+                fileSystem: fileSystem
+            )
+        case .fileSystem(let name, let path):
+            return try Self.parseFileSystemDependency(
+                packageKind: packageKind,
+                at: path,
+                name: name,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem
+            )
         }
     }
 
@@ -315,213 +322,70 @@ enum ManifestJSONParser {
         }
     }
 
-    private static func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
-        guard let platformsJSON = try? package.getJSON("platforms") else {
-            return []
-        }
-
-        // Get the declared platform list.
-        let declaredPlatforms = try platformsJSON.getArray()
-
-        // Empty list is not supported.
-        if declaredPlatforms.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["supported platforms can't be empty"])
-        }
-
-        // Start parsing platforms.
-        var platforms: [PlatformDescription] = []
-
-        for platformJSON in declaredPlatforms {
-            // Parse the version and validate that it can be used in the current
-            // manifest version.
-            let versionString: String = try platformJSON.get("version")
-
-            // Get the platform name.
-            let platformName: String = try platformJSON.getJSON("platform").get("name")
-
-            let versionComponents = versionString.split(
-                separator: ".",
-                omittingEmptySubsequences: false
-            )
-            var version: [String.SubSequence] = []
-            var options: [String.SubSequence] = []
-
-            for (idx, component) in versionComponents.enumerated() {
-                if idx < 2 {
-                    version.append(component)
-                    continue
-                }
-
-                if idx == 2, UInt(component) != nil {
-                    version.append(component)
-                    continue
-                }
-
-                options.append(component)
-            }
-
-            let description = PlatformDescription(
-                name: platformName,
-                version: version.joined(separator: "."),
-                options: options.map{ String($0) }
-            )
-
-            // Check for duplicates.
-            if platforms.map({ $0.platformName }).contains(platformName) {
-                // FIXME: We need to emit the API name and not the internal platform name.
-                throw ManifestParseError.runtimeManifestErrors(["found multiple declaration for the platform: \(platformName)"])
-            }
-
-            platforms.append(description)
-        }
-
-        return platforms
-    }
-
     private static func parseTarget(
-        json: JSON,
+        target: Serialization.Target,
         identityResolver: IdentityResolver
     ) throws -> TargetDescription {
-        let providers = try? json
-            .getArray("providers")
-            .map(SystemPackageProviderDescription.init(v4:))
+        let providers = target.providers?.map { SystemPackageProviderDescription($0) }
+        let pluginCapability = target.pluginCapability.map { TargetDescription.PluginCapability($0) }
+        let dependencies = try target.dependencies.map { try TargetDescription.Dependency($0, identityResolver: identityResolver) }
 
-        let pluginCapability = try? TargetDescription.PluginCapability(v4: json.getJSON("pluginCapability"))
+        try target.sources?.forEach{ _ = try RelativePath(validating: $0) }
+        try target.exclude.forEach{ _ = try RelativePath(validating: $0) }
 
-        let dependencies = try json
-            .getArray("dependencies")
-            .map {
-                try TargetDescription.Dependency.init(
-                    v4: $0,
-                    identityResolver: identityResolver
-                )
-            }
-
-        let sources: [String]? = try? json.get("sources")
-        try sources?.forEach{ _ = try RelativePath(validating: $0) }
-
-        let exclude: [String] = try json.get("exclude")
-        try exclude.forEach{ _ = try RelativePath(validating: $0) }
-
-        let pluginUsages = try? json
-            .getArray("pluginUsages")
-            .map(TargetDescription.PluginUsage.init(v4:))
+        let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
 
         return try TargetDescription(
-            name: try json.get("name"),
+            name: target.name,
             dependencies: dependencies,
-            path: json.get("path"),
-            url: json.get("url"),
-            exclude: exclude,
-            sources: sources,
-            resources: try Self.parseResources(json),
-            publicHeadersPath: json.get("publicHeadersPath"),
-            type: try .init(v4: json.get("type")),
-            pkgConfig: json.get("pkgConfig"),
+            path: target.path,
+            url: target.url,
+            exclude: target.exclude,
+            sources: target.sources,
+            resources: try Self.parseResources(target.resources),
+            publicHeadersPath: target.publicHeadersPath,
+            type: .init(target.type),
+            pkgConfig: target.pkgConfig,
             providers: providers,
             pluginCapability: pluginCapability,
-            settings: try Self.parseBuildSettings(json),
-            checksum: json.get("checksum"),
+            settings: try Self.parseBuildSettings(target),
+            checksum: target.checksum,
             pluginUsages: pluginUsages
         )
     }
 
-    private static func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
-        guard let resourcesJSON = try? json.getArray("resources") else { return [] }
-        return try resourcesJSON.map { json in
-            let rule = try json.get(String.self, forKey: "rule")
-            let path = try RelativePath(validating: json.get(String.self, forKey: "path"))
-            switch rule {
+    private static func parseResources(_ resources: [Serialization.Resource]?) throws -> [TargetDescription.Resource] {
+        return try resources?.map {
+            let path = try RelativePath(validating: $0.path)
+            switch $0.rule {
             case "process":
-                let localizationString = try? json.get(String.self, forKey: "localization")
-                let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
+                let localization = $0.localization.map({ TargetDescription.Resource.Localization(rawValue: $0.rawValue)! })
                 return .init(rule: .process(localization: localization), path: path.pathString)
             case "copy":
                 return .init(rule: .copy, path: path.pathString)
             case "embedInCode":
                 return .init(rule: .embedInCode, path: path.pathString)
             default:
-                throw InternalError("invalid resource rule \(rule)")
+                throw InternalError("invalid resource rule \($0.rule)")
             }
-        }
+        } ?? []
     }
 
-    private static func parseBuildSettings(_ json: JSON) throws -> [TargetBuildSettingDescription.Setting] {
+    private static func parseBuildSettings(_ target: Serialization.Target) throws -> [TargetBuildSettingDescription.Setting] {
         var settings: [TargetBuildSettingDescription.Setting] = []
-        for tool in TargetBuildSettingDescription.Tool.allCases {
-            let key = tool.rawValue + "Settings"
-            if let settingsJSON = try? json.getJSON(key) {
-                settings += try Self.parseBuildSettings(settingsJSON, tool: tool, settingName: key)
-            }
+        try target.cSettings?.forEach {
+            settings.append(try .init($0))
+        }
+        try target.cxxSettings?.forEach {
+            settings.append(try .init($0))
+        }
+        try target.swiftSettings?.forEach {
+            settings.append(try .init($0))
+        }
+        try target.linkerSettings?.forEach {
+            settings.append(try .init($0))
         }
         return settings
-    }
-
-    private static func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool, settingName: String) throws -> [TargetBuildSettingDescription.Setting] {
-        let declaredSettings = try json.getArray()
-        return try declaredSettings.map({
-            try Self.parseBuildSetting($0, tool: tool)
-        })
-    }
-    
-    private static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
-        let json = try json.getJSON("data")
-        let name = try json.get(String.self, forKey: "name")
-        let values = try json.get([String].self, forKey: "value")
-        let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
-        
-        // Diagnose invalid values.
-        for item in values {
-            let groups = Self.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
-            if !groups.isEmpty {
-                let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
-                throw ManifestParseError.runtimeManifestErrors([error])
-            }
-        }
-        
-        let kind: TargetBuildSettingDescription.Kind
-        switch name {
-        case "headerSearchPath":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .headerSearchPath(value)
-        case "define":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .define(value)
-        case "linkedLibrary":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .linkedLibrary(value)
-        case "linkedFramework":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .linkedFramework(value)
-        case "enableUpcomingFeature":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .enableUpcomingFeature(value)
-        case "enableExperimentalFeature":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            kind = .enableExperimentalFeature(value)
-        case "unsafeFlags":
-            kind = .unsafeFlags(values)
-        default:
-            throw InternalError("invalid build setting \(name)")
-        }
-        
-        return .init(
-            tool: tool,
-            kind: kind,
-            condition: condition
-        )
     }
 
     /// Parses the URL type of a git repository
@@ -552,260 +416,317 @@ enum ManifestJSONParser {
     }
 
     /// Looks for Xcode-style build setting macros "$()".
-    private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
+    fileprivate static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
 }
 
 extension SystemPackageProviderDescription {
-    fileprivate init(v4 json: JSON) throws {
-        let name = try json.get(String.self, forKey: "name")
-        let value = try json.get([String].self, forKey: "values")
-        switch name {
-        case "brew":
-            self = .brew(value)
-        case "apt":
-            self = .apt(value)
-        default:
-            throw InternalError("invalid provider \(name)")
+    init(_ provider: Serialization.SystemPackageProvider) {
+        switch provider {
+        case .brew(let values):
+            self = .brew(values)
+        case .apt(let values):
+            self = .apt(values)
+        case .yum(let values):
+            self = .yum(values)
+        case .nuget(let values):
+            self = .nuget(values)
         }
-    }
-}
-
-extension PackageModel.ProductType {
-    fileprivate init(v4 json: JSON) throws {
-        let productType = try json.get(String.self, forKey: "product_type")
-
-        switch productType {
-        case "executable":
-            self = .executable
-
-        case "library":
-            let libraryType: ProductType.LibraryType
-
-            let libraryTypeString: String? = json.get("type")
-            switch libraryTypeString {
-            case "static"?:
-                libraryType = .static
-            case "dynamic"?:
-                libraryType = .dynamic
-            case nil:
-                libraryType = .automatic
-            default:
-                throw InternalError("invalid product type \(productType)")
-            }
-
-            self = .library(libraryType)
-
-        case "plugin":
-            self = .plugin
-
-        default:
-            throw InternalError("unexpected product type: \(json)")
-        }
-    }
-}
-
-extension ProductDescription {
-    fileprivate init(v4 json: JSON) throws {
-        try self.init(
-            name: json.get("name"),
-            type: .init(v4: json),
-            targets: json.get("targets")
-        )
     }
 }
 
 extension PackageDependency.SourceControl.Requirement {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "branch":
-            self = try .branch(json.get("identifier"))
-
-        case "revision":
-            self = try .revision(json.get("identifier"))
-
-        case "range":
-            let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
-            guard let lowerBound = Version(lowerBoundString) else {
-                throw InternalError("invalid version \(lowerBoundString)")
-            }
-            let upperBoundString = try json.get(String.self, forKey: "upperBound")
-            guard let upperBound = Version(upperBoundString) else {
-                throw InternalError("invalid version \(upperBoundString)")
-            }
-            self = .range(lowerBound ..< upperBound)
-
-        case "exact":
-            let versionString = try json.get(String.self, forKey: "identifier")
-            guard let version = Version(versionString) else {
-                throw InternalError("invalid version \(versionString)")
-            }
-            self = .exact(version)
-
-        default:
-            throw InternalError("invalid dependency requirement \(type)")
+    init(_ requirement: Serialization.PackageDependency.SourceControlRequirement) {
+        switch requirement {
+        case .exact(let version):
+            self = .exact(.init(version))
+        case .range(let lowerBound, let upperBound):
+            let lower: TSCUtility.Version = .init(lowerBound)
+            let upper: TSCUtility.Version = .init(upperBound)
+            self = .range(lower..<upper)
+        case .revision(let revision):
+            self = .revision(revision)
+        case .branch(let branch):
+            self = .branch(branch)
         }
     }
 }
 
 extension PackageDependency.Registry.Requirement {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "range":
-            let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
-            guard let lowerBound = Version(lowerBoundString) else {
-                throw InternalError("invalid version \(lowerBoundString)")
-            }
-            let upperBoundString = try json.get(String.self, forKey: "upperBound")
-            guard let upperBound = Version(upperBoundString) else {
-                throw InternalError("invalid version \(upperBoundString)")
-            }
-            self = .range(lowerBound ..< upperBound)
-
-        case "exact":
-            let versionString = try json.get(String.self, forKey: "identifier")
-            guard let version = Version(versionString) else {
-                throw InternalError("invalid version \(versionString)")
-            }
-            self = .exact(version)
-
-        default:
-            throw InternalError("invalid dependency requirement \(type)")
+    init(_ requirement: Serialization.PackageDependency.RegistryRequirement) {
+        switch requirement {
+        case .exact(let version):
+            self = .exact(.init(version))
+        case .range(let lowerBound, let upperBound):
+            let lower: TSCUtility.Version = .init(lowerBound)
+            let upper: TSCUtility.Version = .init(upperBound)
+            self = .range(lower..<upper)
         }
     }
 }
 
-extension TargetDescription.TargetType {
-    fileprivate init(v4 string: String) throws {
-        switch string {
-        case "regular":
-            self = .regular
-        case "executable":
-            self = .executable
-        case "test":
-            self = .test
-        case "system":
-            self = .system
-        case "binary":
-            self = .binary
-        case "plugin":
-            self = .plugin
-        default:
-            throw InternalError("invalid target \(string)")
+extension ProductDescription {
+    init(_ product: Serialization.Product) throws {
+        let productType: ProductType
+        switch product.productType {
+        case .executable:
+            productType = .executable
+        case .plugin:
+            productType = .plugin
+        case .library(let type):
+            productType = .library(.init(type))
+        }
+        try self.init(name: product.name, type: productType, targets: product.targets)
+    }
+}
+
+extension ProductType.LibraryType {
+    init(_ libraryType: Serialization.Product.ProductType.LibraryType) {
+        switch libraryType {
+        case .dynamic:
+            self = .dynamic
+        case .static:
+            self = .static
+        case .automatic:
+            self = .automatic
         }
     }
 }
 
 extension TargetDescription.Dependency {
-    fileprivate init(v4 json: JSON, identityResolver: IdentityResolver) throws {
-        let type = try json.get(String.self, forKey: "type")
-        let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
-
-        switch type {
-        case "target":
-            self = try .target(name: json.get("name"), condition: condition)
-
-        case "product":
-            let name = try json.get(String.self, forKey: "name")
-            let moduleAliases: [String: String]? = try? json.get("moduleAliases")
-            var package: String? = json.get("package")
+    init(_ dependency: Serialization.TargetDependency, identityResolver: IdentityResolver) throws {
+        switch dependency {
+        case .target(let name, let condition):
+            self = .target(name: name, condition: condition.map { .init($0) })
+        case .product(let name, let package, let moduleAliases, let condition):
+            var package: String? = package
             if let packageName = package {
                 package = try identityResolver.mappedIdentity(for: .plain(packageName)).description
             }
-            self = .product(
-                name: name,
-                package: package,
-                moduleAliases: moduleAliases,
-                condition: condition
-            )
-
-        case "byname":
-            self = try .byName(name: json.get("name"), condition: condition)
-
-        default:
-            throw InternalError("invalid type \(type)")
-        }
-    }
-}
-
-extension TargetDescription.PluginCapability {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "buildTool":
-            self = .buildTool
-        case "command":
-            let intent = try TargetDescription.PluginCommandIntent(v4: json.getJSON("intent"))
-            let permissions = try json.getArray("permissions").map(TargetDescription.PluginPermission.init(v4:))
-            self = .command(intent: intent, permissions: permissions)
-        default:
-            throw InternalError("invalid type \(type)")
-        }
-    }
-}
-
-extension TargetDescription.PluginCommandIntent {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "documentationGeneration":
-            self = .documentationGeneration
-        case "sourceCodeFormatting":
-            self = .sourceCodeFormatting
-        case "custom":
-            let verb = try json.get(String.self, forKey: "verb")
-            let description = try json.get(String.self, forKey: "description")
-            self = .custom(verb: verb, description: description)
-        default:
-            throw InternalError("invalid type \(type)")
-        }
-    }
-}
-
-extension TargetDescription.PluginPermission {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "allowNetworkConnections":
-            let reason = try json.get(String.self, forKey: "reason")
-            let scope = try json.get(String.self, forKey: "scope")
-            let ports = try json.get([Int].self, forKey: "ports").map { UInt8($0) }
-            if let scope = TargetDescription.PluginNetworkPermissionScope(scope, ports: ports) {
-                self = .allowNetworkConnections(scope: scope, reason: reason)
-            } else {
-                throw JSON.MapError.custom(key: "scope", message: "invalid scope '\(scope)'")
-            }
-        case "writeToPackageDirectory":
-            let reason = try json.get(String.self, forKey: "reason")
-            self = .writeToPackageDirectory(reason: reason)
-        default:
-            throw InternalError("invalid type \(type)")
-        }
-    }
-}
-
-extension TargetDescription.PluginUsage {
-    fileprivate init(v4 json: JSON) throws {
-        let type = try json.get(String.self, forKey: "type")
-        switch type {
-        case "plugin":
-            let name = try json.get(String.self, forKey: "name")
-            let package = try? json.get(String.self, forKey: "package")
-            self = .plugin(name: name, package: package)
-        default:
-            throw InternalError("invalid type \(type)")
+            self = .product(name: name, package: package, moduleAliases: moduleAliases, condition: condition.map { .init($0) })
+        case .byName(let name, let condition):
+            self = .byName(name: name, condition: condition.map { .init($0) })
         }
     }
 }
 
 extension PackageConditionDescription {
-    fileprivate init?(v4 json: JSON) throws {
-        if case .null = json { return nil }
-        let platformNames: [String]? = try? json.getArray("platforms").map { try $0.get("name") }
+    init(_ condition: Serialization.TargetDependency.Condition) {
+        self.init(platformNames: condition.platforms?.map { $0.name } ?? [])
+    }
+}
+
+extension TargetDescription.TargetType {
+    init(_ type: Serialization.TargetType) {
+        switch type {
+        case .regular:
+            self = .regular
+        case .executable:
+            self = .executable
+        case .test:
+            self = .test
+        case .system:
+            self = .system
+        case .binary:
+            self = .binary
+        case .plugin:
+            self = .plugin
+        }
+    }
+}
+
+extension TargetDescription.PluginCapability {
+    init(_ capability: Serialization.PluginCapability) {
+        switch capability {
+        case .buildTool:
+            self = .buildTool
+        case .command(let intent, let permissions):
+            self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
+        }
+    }
+}
+
+extension TargetDescription.PluginCommandIntent {
+    init(_ intent: Serialization.PluginCommandIntent) {
+        switch intent {
+        case .documentationGeneration:
+            self = .documentationGeneration
+        case .sourceCodeFormatting:
+            self = .sourceCodeFormatting
+        case .custom(let verb, let description):
+            self = .custom(verb: verb, description: description)
+        }
+    }
+}
+
+extension TargetDescription.PluginPermission {
+    init(_ permission: Serialization.PluginPermission) {
+        switch permission {
+        case .allowNetworkConnections(let scope, let reason):
+            self = .allowNetworkConnections(scope: .init(scope), reason: reason)
+        case .writeToPackageDirectory(let reason):
+            self = .writeToPackageDirectory(reason: reason)
+        }
+    }
+}
+
+extension TargetDescription.PluginNetworkPermissionScope {
+    init(_ scope: Serialization.PluginNetworkPermissionScope) {
+        switch scope {
+        case .none:
+            self = .none
+        case .local(let ports):
+            self = .local(ports: ports)
+        case .all(ports: let ports):
+            self = .all(ports: ports)
+        case .docker:
+            self = .docker
+        case .unixDomainSocket:
+            self = .unixDomainSocket
+        }
+    }
+}
+
+extension TargetDescription.PluginUsage {
+    init(_ usage: Serialization.PluginUsage) {
+        switch usage {
+        case .plugin(let name, let package):
+            self = .plugin(name: name, package: package)
+        }
+    }
+}
+
+extension TSCUtility.Version {
+    init(_ version: Serialization.Version) {
         self.init(
-            platformNames: platformNames ?? [],
-            config: try? json.get("config").get("config")
+            version.major,
+            version.minor,
+            version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifiers: version.buildMetadataIdentifiers
+        )
+    }
+}
+
+extension PlatformDescription {
+    init(_ platform: Serialization.SupportedPlatform) {
+        let platformName = platform.platform.name
+        let versionString = platform.version ?? ""
+
+        let versionComponents = versionString.split(
+            separator: ".",
+            omittingEmptySubsequences: false
+        )
+        var version: [String.SubSequence] = []
+        var options: [String.SubSequence] = []
+
+        for (idx, component) in versionComponents.enumerated() {
+            if idx < 2 {
+                version.append(component)
+                continue
+            }
+
+            if idx == 2, UInt(component) != nil {
+                version.append(component)
+                continue
+            }
+
+            options.append(component)
+        }
+
+        self.init(
+            name: platformName,
+            version: version.joined(separator: "."),
+            options: options.map{ String($0) }
+        )
+    }
+}
+
+extension TargetBuildSettingDescription.Kind {
+    static func from(_ name: String, values: [String]) throws -> Self {
+        // Diagnose invalid values.
+        for item in values {
+            let groups = ManifestJSONParser.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
+            if !groups.isEmpty {
+                let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
+                throw ManifestParseError.runtimeManifestErrors([error])
+            }
+        }
+
+        switch name {
+        case "headerSearchPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .headerSearchPath(value)
+        case "define":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .define(value)
+        case "linkedLibrary":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .linkedLibrary(value)
+        case "linkedFramework":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .linkedFramework(value)
+        case "enableUpcomingFeature":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .enableUpcomingFeature(value)
+        case "enableExperimentalFeature":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .enableExperimentalFeature(value)
+        case "unsafeFlags":
+            return .unsafeFlags(values)
+        default:
+            throw InternalError("invalid build setting \(name)")
+        }
+    }
+}
+
+extension PackageConditionDescription {
+    init(_ condition: Serialization.BuildSettingCondition) {
+        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config)
+    }
+}
+
+extension TargetBuildSettingDescription.Setting {
+    init(_ setting: Serialization.CSetting) throws {
+        self.init(
+            tool: .c,
+            kind: try .from(setting.data.name, values: setting.data.value),
+            condition: setting.data.condition.map { .init($0) }
+        )
+    }
+
+    init(_ setting: Serialization.CXXSetting) throws {
+        self.init(
+            tool: .cxx,
+            kind: try .from(setting.data.name, values: setting.data.value),
+            condition: setting.data.condition.map { .init($0) }
+        )
+    }
+
+    init(_ setting: Serialization.LinkerSetting) throws {
+        self.init(
+            tool: .linker,
+            kind: try .from(setting.data.name, values: setting.data.value),
+            condition: setting.data.condition.map { .init($0) }
+        )
+    }
+
+    init(_ setting: Serialization.SwiftSetting) throws {
+        self.init(
+            tool: .swift,
+            kind: try .from(setting.data.name, values: setting.data.value),
+            condition: setting.data.condition.map { .init($0) }
         )
     }
 }

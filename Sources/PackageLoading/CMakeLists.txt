@@ -13,6 +13,7 @@ add_library(PackageLoading
   ManifestLoader+Validation.swift
   ModuleMapGenerator.swift
   PackageBuilder.swift
+  PackageDescriptionSerialization.swift
   ManifestJSONParser.swift
   Platform.swift
   PkgConfig.swift

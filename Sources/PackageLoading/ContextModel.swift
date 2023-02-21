@@ -25,20 +25,6 @@ struct ContextModel {
 }
 
 extension ContextModel : Codable {
-    private enum CodingKeys: CodingKey {
-        case packageDirectory
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.packageDirectory = try container.decode(String.self, forKey: .packageDirectory)
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(packageDirectory, forKey: .packageDirectory)
-    }
-
     func encode() throws -> String {
         let encoder = JSONEncoder()
         let data = try encoder.encode(self)

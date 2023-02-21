@@ -12,7 +12,7 @@
 
 /// The supported C language standard you use to compile C sources in the
 /// package.
-public enum CLanguageStandard: String, Encodable {
+public enum CLanguageStandard: String {
 
     /// The identifier for the ISO C 1990 language standard.
     case c89
@@ -89,7 +89,7 @@ public enum CLanguageStandard: String, Encodable {
 /// Aliases are available for some C++ language standards. For example,
 /// use `cxx98` or `cxx03` for the "ISO C++ 1998 with amendments" standard.
 /// To learn more, see [C++ Support in Clang](https://clang.llvm.org/cxx_status.html).
-public enum CXXLanguageStandard: String, Encodable {
+public enum CXXLanguageStandard: String {
 
     /// The identifier for the ISO C++ 1998 language standard with amendments.
     case cxx98 = "c++98"
