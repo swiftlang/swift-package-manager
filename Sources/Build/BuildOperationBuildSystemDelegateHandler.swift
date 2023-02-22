@@ -38,29 +38,27 @@ class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
         self.context = context
     }
 
-    func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
-        return []
+    func getSignature(_: SPMLLBuild.Command) -> [UInt8] {
+        []
     }
 
     func execute(
-        _ command: SPMLLBuild.Command,
-        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+        _: SPMLLBuild.Command,
+        _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
         fatalError("subclass responsibility")
     }
 }
 
-private extension IndexStore.TestCaseClass.TestMethod {
-
-    var allTestsEntry: String {
+extension IndexStore.TestCaseClass.TestMethod {
+    fileprivate var allTestsEntry: String {
         let baseName = name.hasSuffix("()") ? String(name.dropLast(2)) : name
 
-        return "(\"\(baseName)\", \(isAsync ? "asyncTest(\(baseName))" : baseName ))"
+        return "(\"\(baseName)\", \(isAsync ? "asyncTest(\(baseName))" : baseName))"
     }
 }
 
 final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
-
     private func write(
         tests: [IndexStore.TestCaseClass],
         forModule module: String,
@@ -75,10 +73,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
         for iterator in testsByClassNames {
             let className = iterator.key
-            let testMethods = iterator.value.flatMap{ $0.testMethods }
+            let testMethods = iterator.value.flatMap(\.testMethods)
             stream <<< "\n"
             stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
-            stream <<< indent(4) <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+            stream <<< indent(4) <<<
+                "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
+                "\n"
             // 'className' provides uniqueness for derived class.
             stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
             for method in testMethods {
@@ -112,13 +112,13 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store.listTests(in: tool.inputs.map{ try AbsolutePath(validating: $0.name) })
+        let tests = try store.listTests(in: tool.inputs.map { try AbsolutePath(validating: $0.name) })
 
-        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
+        let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
-            return path.basename == LLBuildManifest.TestDiscoveryTool.mainFileName
+            path.basename == LLBuildManifest.TestDiscoveryTool.mainFileName
         }
 
         var maybeMainFile: AbsolutePath?
@@ -155,7 +155,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
         stream <<< "import XCTest" <<< "\n\n"
 
-        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<<
+            "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
+            "\n"
         stream <<< "public func __allDiscoveredTests() -> [XCTestCaseEntry] {" <<< "\n"
         stream <<< indent(4) <<< "\(testsKeyword) tests = [XCTestCaseEntry]()" <<< "\n\n"
 
@@ -172,7 +174,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 
     override func execute(
         _ command: SPMLLBuild.Command,
-        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+        _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
         do {
             // This tool will never run without the build description.
@@ -192,11 +194,10 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
 }
 
 final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
-
     private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestEntryPointTool) throws {
         // Find the inputs, which are the names of the test discovery module(s)
         let inputs = tool.inputs.compactMap { try? AbsolutePath(validating: $0.name) }
-        let discoveryModuleNames = inputs.map { $0.basenameWithoutExt }
+        let discoveryModuleNames = inputs.map(\.basenameWithoutExt)
 
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
@@ -217,7 +218,9 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
         stream <<< "\n"
 
         stream <<< "@main" <<< "\n"
-        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<<
+            "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<<
+            "\n"
         stream <<< "struct Runner" <<< " {" <<< "\n"
         stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
         stream <<< indent(8) <<< "XCTMain(__allDiscoveredTests())" <<< "\n"
@@ -229,7 +232,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
     override func execute(
         _ command: SPMLLBuild.Command,
-        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+        _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
         do {
             // This tool will never run without the build description.
@@ -252,13 +255,11 @@ private protocol TestBuildCommand {}
 
 /// Functionality common to all build commands related to test targets.
 extension TestBuildCommand {
-
     /// Returns a value containing `spaces` number of space characters.
     /// Intended to facilitate indenting generated code a specified number of levels.
     fileprivate func indent(_ spaces: Int) -> ByteStreamable {
-        return Format.asRepeating(string: " ", count: spaces)
+        Format.asRepeating(string: " ", count: spaces)
     }
-
 }
 
 private final class InProcessTool: Tool {
@@ -270,8 +271,8 @@ private final class InProcessTool: Tool {
         self.type = type
     }
 
-    func createCommand(_ name: String) -> ExternalCommand? {
-        return type.init(self.context)
+    func createCommand(_: String) -> ExternalCommand? {
+        type.init(self.context)
     }
 }
 
@@ -282,10 +283,10 @@ public struct BuildDescription: Codable {
     public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
-    let swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool]
+    let swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool]
 
     /// The Swift compiler frontend invocation targets.
-    let swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool]
+    let swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool]
 
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
@@ -317,8 +318,8 @@ public struct BuildDescription: Codable {
 
     public init(
         plan: BuildPlan,
-        swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
-        swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
+        swiftCommands: [BuildManifest.CmdName: SwiftCompilerTool],
+        swiftFrontendCommands: [BuildManifest.CmdName: SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         testEntryPointCommands: [BuildManifest.CmdName: LLBuildManifest.TestEntryPointTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
@@ -329,9 +330,11 @@ public struct BuildDescription: Codable {
         self.testDiscoveryCommands = testDiscoveryCommands
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters.explicitTargetDependencyImportCheckingMode
+        self.explicitTargetDependencyImportCheckingMode = plan.buildParameters
+            .explicitTargetDependencyImportCheckingMode
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
-            let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment).compactMap { $0.target }.map { $0.c99name }
+            let deps = try $1.target.recursiveDependencies(satisfying: plan.buildParameters.buildEnvironment)
+                .compactMap(\.target).map(\.c99name)
             $0[$1.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
@@ -342,17 +345,20 @@ public struct BuildDescription: Codable {
             }
             targetCommandLines[target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
-                                                                  plan.buildParameters.toolchain.swiftCompilerPath.pathString]
+                                                                  plan.buildParameters.toolchain.swiftCompilerPath
+                                                                      .pathString]
             if case .discovery = desc.testTargetRole {
                 generatedSourceTargets.append(target.c99name)
             }
         }
-        generatedSourceTargets.append(contentsOf: plan.graph.allTargets.filter {$0.type == .plugin}
-                                                                       .map { $0.c99name })
+        generatedSourceTargets.append(
+            contentsOf: plan.graph.allTargets.filter { $0.type == .plugin }
+                .map(\.c99name)
+        )
         self.swiftTargetScanArgs = targetCommandLines
         self.generatedSourceTargetSet = Set(generatedSourceTargets)
-        self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
-            return BuiltTestProduct(
+        self.builtTestProducts = plan.buildProducts.filter { $0.product.type == .test }.map { desc in
+            BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binaryPath
             )
@@ -381,12 +387,6 @@ public protocol BuildErrorAdviceProvider {
 
 /// The context available during build execution.
 public final class BuildExecutionContext {
-
-    /// Reference to the index store API.
-    var indexStoreAPI: Result<IndexStoreAPI, Error> {
-        indexStoreAPICache.getValue(self)
-    }
-
     /// The build parameters.
     let buildParameters: BuildParameters
 
@@ -420,34 +420,40 @@ public final class BuildExecutionContext {
         self.observabilityScope = observabilityScope
         self.packageStructureDelegate = packageStructureDelegate
         self.buildErrorAdviceProvider = buildErrorAdviceProvider
-
     }
 
-    // MARK:- Private
+    // MARK: - Private
 
-    private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
-    private func createIndexStoreAPI() -> Result<IndexStoreAPI, Error> {
-        Result {
-#if os(Windows)
-            // The library's runtime component is in the `bin` directory on
-            // Windows rather than the `lib` directory as on unicies.  The `lib`
-            // directory contains the import library (and possibly static
-            // archives) which are used for linking.  The runtime component is
-            // not (necessarily) part of the SDK distributions.
-            //
-            // NOTE: the library name here `libIndexStore.dll` is technically
-            // incorrect as per the Windows naming convention.  However, the
-            // library is currently installed as `libIndexStore.dll` rather than
-            // `IndexStore.dll`.  In the future, this may require a fallback
-            // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
-            let indexStoreLib = buildParameters.toolchain.swiftCompilerPath
-                                    .parentDirectory
-                                    .appending(component: "libIndexStore.dll")
-#else
-            let ext = buildParameters.hostTriple.dynamicLibraryExtension
-            let indexStoreLib = try buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
-#endif
-            return try IndexStoreAPI(dylib: indexStoreLib)
+    private var indexStoreAPICache = ThreadSafeBox<Result<IndexStoreAPI, Error>>()
+
+    /// Reference to the index store API.
+    var indexStoreAPI: Result<IndexStoreAPI, Error> {
+        self.indexStoreAPICache.memoize {
+            do {
+                #if os(Windows)
+                // The library's runtime component is in the `bin` directory on
+                // Windows rather than the `lib` directory as on unicies.  The `lib`
+                // directory contains the import library (and possibly static
+                // archives) which are used for linking.  The runtime component is
+                // not (necessarily) part of the SDK distributions.
+                //
+                // NOTE: the library name here `libIndexStore.dll` is technically
+                // incorrect as per the Windows naming convention.  However, the
+                // library is currently installed as `libIndexStore.dll` rather than
+                // `IndexStore.dll`.  In the future, this may require a fallback
+                // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
+                let indexStoreLib = buildParameters.toolchain.swiftCompilerPath
+                    .parentDirectory
+                    .appending(component: "libIndexStore.dll")
+                #else
+                let ext = buildParameters.hostTriple.dynamicLibraryExtension
+                let indexStoreLib = try buildParameters.toolchain.toolchainLibDir
+                    .appending(component: "libIndexStore" + ext)
+                #endif
+                return try .success(IndexStoreAPI(dylib: indexStoreLib))
+            } catch {
+                return .failure(error)
+            }
         }
     }
 }
@@ -457,8 +463,7 @@ public protocol PackageStructureDelegate {
 }
 
 final class PackageStructureCommand: CustomLLBuildCommand {
-
-    override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
+    override func getSignature(_: SPMLLBuild.Command) -> [UInt8] {
         let encoder = JSONEncoder.makeWithDefaults()
         // Include build parameters and process env in the signature.
         var hash = Data()
@@ -468,17 +473,17 @@ final class PackageStructureCommand: CustomLLBuildCommand {
     }
 
     override func execute(
-        _ command: SPMLLBuild.Command,
-        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+        _: SPMLLBuild.Command,
+        _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
-        return self.context.packageStructureDelegate.packageStructureChanged()
+        self.context.packageStructureDelegate.packageStructureChanged()
     }
 }
 
 final class CopyCommand: CustomLLBuildCommand {
     override func execute(
         _ command: SPMLLBuild.Command,
-        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+        _: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
         do {
             // This tool will never run without the build description.
@@ -559,7 +564,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     // MARK: llbuildSwift.BuildSystemDelegate
 
     var fs: SPMLLBuild.FileSystem? {
-        return nil
+        nil
     }
 
     func lookupTool(_ name: String) -> Tool? {
@@ -623,8 +628,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         }
     }
 
-    func shouldCommandStart(_ command: SPMLLBuild.Command) -> Bool {
-        return true
+    func shouldCommandStart(_: SPMLLBuild.Command) -> Bool {
+        true
     }
 
     func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
@@ -671,8 +676,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         self.observabilityScope.emit(.multipleProducers(output: output, commands: commands))
     }
 
-    func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
-    }
+    func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {}
 
     func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
         self.observabilityScope.emit(.commandError(command: command, message: message))
@@ -715,7 +719,11 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
                 for errorMessage in errorMessages {
                     // Emit any advice that's provided for each error message.
-                    if let adviceMessage = self.buildExecutionContext.buildErrorAdviceProvider?.provideBuildErrorAdvice(for: target, command: command.name, message: errorMessage) {
+                    if let adviceMessage = self.buildExecutionContext.buildErrorAdviceProvider?.provideBuildErrorAdvice(
+                        for: target,
+                        command: command.name,
+                        message: errorMessage
+                    ) {
                         self.outputStream <<< "note: " <<< adviceMessage <<< "\n"
                         self.outputStream.flush()
                     }
@@ -737,7 +745,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
-        return false
+        false
     }
 
     /// Invoked right before running an action taken before building.
@@ -796,7 +804,11 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
-                        self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
+                        self
+                            .errorMessagesByTarget[parser.targetName] = (
+                                self
+                                    .errorMessagesByTarget[parser.targetName] ?? []
+                            ) + [match[0]]
                     }
                 }
             }
@@ -843,7 +855,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 }
 
 /// Tracks tasks based on command status and swift compiler output.
-fileprivate struct CommandTaskTracker {
+private struct CommandTaskTracker {
     private(set) var totalCount = 0
     private(set) var finishedCount = 0
     private var swiftTaskProgressTexts: [Int: String] = [:]
@@ -863,7 +875,6 @@ fileprivate struct CommandTaskTracker {
             self.finishedCount += 1
         @unknown default:
             assertionFailure("unhandled command status kind \(kind) for command \(command)")
-            break
         }
     }
 
@@ -939,8 +950,8 @@ fileprivate struct CommandTaskTracker {
 
         return nil
     }
-    
-    mutating func buildPreparationStepStarted(_ name: String) {
+
+    mutating func buildPreparationStepStarted(_: String) {
         self.totalCount += 1
     }
 
@@ -973,32 +984,32 @@ extension SwiftCompilerMessage {
     }
 }
 
-private extension Basics.Diagnostic {
-    static func cycleError(rules: [BuildKey]) -> Self {
-        .error("build cycle detected: " + rules.map{ $0.key }.joined(separator: ", "))
+extension Basics.Diagnostic {
+    fileprivate static func cycleError(rules: [BuildKey]) -> Self {
+        .error("build cycle detected: " + rules.map(\.key).joined(separator: ", "))
     }
 
-    static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Self {
-        let missingInputs = inputs.map{ $0.key }.joined(separator: ", ")
+    fileprivate static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Self {
+        let missingInputs = inputs.map(\.key).joined(separator: ", ")
         return .error("couldn't build \(output.key) because of missing inputs: \(missingInputs)")
     }
 
-    static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
-        let producers = commands.map{ $0.description }.joined(separator: ", ")
+    fileprivate static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
+        let producers = commands.map(\.description).joined(separator: ", ")
         return .error("couldn't build \(output.key) because of missing producers: \(producers)")
     }
 
-    static func commandError(command: SPMLLBuild.Command, message: String) -> Self {
+    fileprivate static func commandError(command: SPMLLBuild.Command, message: String) -> Self {
         .error("command \(command.description) failed: \(message)")
     }
 
-    static func swiftCompilerOutputParsingError(_ error: String) -> Self {
+    fileprivate static func swiftCompilerOutputParsingError(_ error: String) -> Self {
         .error("failed parsing the Swift compiler output: \(error)")
     }
 }
 
-private extension BuildSystemCommand {
-    init(_ command: SPMLLBuild.Command) {
+extension BuildSystemCommand {
+    fileprivate init(_ command: SPMLLBuild.Command) {
         self.init(
             name: command.name,
             description: command.description,
