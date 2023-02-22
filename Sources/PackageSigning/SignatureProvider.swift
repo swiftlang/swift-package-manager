@@ -35,10 +35,34 @@ public struct SignatureProvider {
         of signature: Data,
         for content: Data,
         in format: SignatureFormat,
+        verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
         let provider = format.provider
         return try await provider.status(of: signature, for: content, observabilityScope: observabilityScope)
+    }
+}
+
+public struct VerifierConfiguration {
+    public var trustedRoots: [Certificate]
+    public var certificateExpiration: CertificateExpiration
+    public var certificateRevocation: CertificateRevocation
+
+    public init() {
+        self.trustedRoots = []
+        self.certificateExpiration = .disabled
+        self.certificateRevocation = .disabled
+    }
+
+    public enum CertificateExpiration {
+        case enabled
+        case disabled
+    }
+
+    public enum CertificateRevocation {
+        case strict
+        case allowSoftFail
+        case disabled
     }
 }
 

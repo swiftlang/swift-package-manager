@@ -56,6 +56,7 @@ final class SigningTests: XCTestCase {
             of: signature,
             for: content,
             in: signatureFormat,
+            verifierConfiguration: .init(),
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(status, SignatureStatus.valid)
