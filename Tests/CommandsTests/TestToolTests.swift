@@ -101,7 +101,7 @@ final class TestToolTests: CommandsTestCase {
                 XCTAssertMatch(error.stdout, .contains("testExample2"))
                 XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
                 XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                XCTAssertMatch(error.stdout, .contains("[5/5]"))
             }
 
             do {
@@ -115,15 +115,22 @@ final class TestToolTests: CommandsTestCase {
                     XCTAssertMatch(error.stdout, .contains("testExample2"))
                     XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
                     XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                    XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                    XCTAssertMatch(error.stdout, .contains("[5/5]"))
                 }
 
                 // Check the xUnit output.
                 XCTAssertFileExists(xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-                XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                XCTAssertMatch(contents, .contains("tests=\"5\" failures=\"3\""))
                 XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
                 XCTAssertNoMatch(contents, .contains("time=\"0.0\""))
+                XCTAssertMatch(contents, .contains(#"message="ParallelTestsFailureTests.swift:7 failed - Giving up is the only sure way to fail."#))
+                XCTAssertMatch(contents, .contains(#"message="ParallelTestsFailureTests.swift:11 XCTAssertTrue failed - Expected assertion failure.""#))                
+#if os(Linux)
+                XCTAssertMatch(contents, .contains(#"message="ParallelTestsFailureTests.swift:16 Asynchronous wait failed - Exceeded timeout of 0.0 seconds, with unfulfilled expectations: failing expectation"#))
+#else
+                XCTAssertMatch(contents, .contains(#"message="ParallelTestsFailureTests.swift:16 Asynchronous wait failed: Exceeded timeout of 0 seconds, with unfulfilled expectations: &quot;failing expectation&quot;."#))   
+#endif
             }
         }
     }
