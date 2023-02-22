@@ -25,10 +25,6 @@
 - ``iso9899_2017``
 - ``iso9899_2018``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Hashing
 
 - ``hash(into:)``

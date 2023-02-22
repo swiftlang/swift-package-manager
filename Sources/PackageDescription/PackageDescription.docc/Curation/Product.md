@@ -20,7 +20,3 @@
 ### Naming the Product
 
 - ``name``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

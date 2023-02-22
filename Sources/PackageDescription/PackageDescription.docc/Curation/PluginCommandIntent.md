@@ -7,7 +7,3 @@
 - ``documentationGeneration()``
 - ``sourceCodeFormatting()``
 - ``custom(verb:description:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

@@ -7,7 +7,3 @@
 - ``linkedFramework(_:_:)``
 - ``linkedLibrary(_:_:)``
 - ``unsafeFlags(_:_:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

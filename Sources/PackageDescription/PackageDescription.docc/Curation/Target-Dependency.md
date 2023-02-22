@@ -18,10 +18,6 @@
 - ``init(extendedGraphemeClusterLiteral:)``
 - ``init(unicodeScalarLiteral:)``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Identifying Related Types
 
 - ``ExtendedGraphemeClusterLiteralType``
