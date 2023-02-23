@@ -12769,7 +12769,7 @@ final class WorkspaceTests: XCTestCase {
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
 
-        guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
+        guard let identity = packageIdentity.registry else {
             throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
@@ -12873,16 +12873,16 @@ final class WorkspaceTests: XCTestCase {
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
                 // request to get package releases
-                case "http://localhost/\(packageScope)/\(packageName)":
+                case "http://localhost/\(identity.scope)/\(identity.name)":
                     releasesRequestHandler(request, progress, completion)
                 // request to get package version metadata
-                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)":
+                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion)":
                     versionMetadataRequestHandler(request, progress, completion)
                 // request to get package manifest
-                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)/Package.swift":
+                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
                     manifestRequestHandler(request, progress, completion)
                 // request to get download the version source archive
-                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion).zip":
+                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
                     downloadArchiveRequestHandler(request, progress, completion)
                 default:
                     completion(.failure(StringError("unexpected url \(request.url)")))
