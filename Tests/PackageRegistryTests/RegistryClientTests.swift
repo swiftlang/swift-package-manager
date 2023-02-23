@@ -235,7 +235,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let manifestURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let defaultManifest = """
         // swift-tools-version:5.5
@@ -309,7 +310,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let manifestURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -342,7 +344,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let manifestURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -421,7 +424,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let manifestURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -490,7 +494,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let manifestURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -1714,7 +1719,8 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
-        let expectedLocation = URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let expectedLocation =
+            URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -1776,7 +1782,8 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
-        let expectedLocation = URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let expectedLocation =
+            URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let expectedRetry = Int.random(in: 10 ..< 100)
 
         let archiveContent = UUID().uuidString
