@@ -695,8 +695,6 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["init", "--type", "empty"], packagePath: path)
 
             XCTAssertFileExists(path.appending(component: "Package.swift"))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
     }
 
@@ -714,8 +712,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["Foo.swift"])
         }
     }
 
@@ -746,8 +743,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["CustomName.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["CustomNameTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["CustomName.swift"])
         }
     }
 

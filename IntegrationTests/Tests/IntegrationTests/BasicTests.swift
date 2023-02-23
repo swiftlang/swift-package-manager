@@ -234,11 +234,11 @@ final class BasicTests: XCTestCase {
             try localFileSystem.createDirectory(packagePath)
             try sh(swiftPackage, "--package-path", packagePath, "init", "--type", "executable")
             // delete any files generated
-            for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources", "secho")) {
-                try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", "secho", entry))
+            for entry in try localFileSystem.getDirectoryContents(packagePath.appending(components: "Sources")) {
+                try localFileSystem.removeFileTree(packagePath.appending(components: "Sources", entry))
             }
             try localFileSystem.writeFileContents(
-                packagePath.appending(components: "Sources", "secho", "main.swift"),
+                packagePath.appending(components: "Sources", "secho.swift"),
                 bytes: ByteString(encodingAsUTF8: """
                     import Foundation
                     print(CommandLine.arguments.dropFirst().joined(separator: " "))
