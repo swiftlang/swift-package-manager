@@ -26,7 +26,7 @@ final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let releasesURL = URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")!
+        let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -87,17 +87,17 @@ final class RegistryClientTests: XCTestCase {
         let metadata = try registryClient.getPackageMetadata(package: identity)
         XCTAssertEqual(metadata.versions, ["1.1.1", "1.0.0"])
         XCTAssertEqual(metadata.alternateLocations!, [
-            URL(string: "https://github.com/mona/LinkedList"),
-            URL(string: "ssh://git@github.com:mona/LinkedList.git"),
-            URL(string: "git@github.com:mona/LinkedList.git"),
-            URL(string: "https://gitlab.com/mona/LinkedList"),
+            URL("https://github.com/mona/LinkedList"),
+            URL("ssh://git@github.com:mona/LinkedList.git"),
+            URL("git@github.com:mona/LinkedList.git"),
+            URL("https://gitlab.com/mona/LinkedList"),
         ])
     }
 
     func testGetPackageMetadata_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let releasesURL = URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")!
+        let releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -130,8 +130,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let releaseURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let releaseURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -187,12 +186,12 @@ final class RegistryClientTests: XCTestCase {
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try registryClient.getPackageVersionMetadata(package: identity, version: version)
-        XCTAssertEqual(metadata.licenseURL, URL(string: "https://github.com/mona/LinkedList/license")!)
-        XCTAssertEqual(metadata.readmeURL, URL(string: "https://github.com/mona/LinkedList/readme")!)
+        XCTAssertEqual(metadata.licenseURL, URL("https://github.com/mona/LinkedList/license"))
+        XCTAssertEqual(metadata.readmeURL, URL("https://github.com/mona/LinkedList/readme"))
         XCTAssertEqual(metadata.repositoryURLs!, [
-            URL(string: "https://github.com/mona/LinkedList")!,
-            URL(string: "ssh://git@github.com:mona/LinkedList.git")!,
-            URL(string: "git@github.com:mona/LinkedList.git")!,
+            URL("https://github.com/mona/LinkedList"),
+            URL("ssh://git@github.com:mona/LinkedList.git"),
+            URL("git@github.com:mona/LinkedList.git"),
         ])
     }
 
@@ -200,8 +199,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let releaseURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let releaseURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -238,9 +236,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let manifestURL =
-            URL(
-                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
-            )!
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let defaultManifest = """
         // swift-tools-version:5.5
@@ -315,9 +311,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let manifestURL =
-            URL(
-                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
-            )!
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -351,9 +345,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let manifestURL =
-            URL(
-                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
-            )!
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -433,9 +425,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let manifestURL =
-            URL(
-                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
-            )!
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -505,9 +495,7 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
         let manifestURL =
-            URL(
-                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
-            )!
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -543,8 +531,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -620,8 +607,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -696,8 +682,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -792,8 +777,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -835,8 +819,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -917,8 +900,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
@@ -1007,8 +989,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
@@ -1100,10 +1081,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1225,10 +1204,8 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
-        let metadataURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1335,8 +1312,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let downloadURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1401,8 +1377,8 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities() throws {
         let registryURL = "https://packages.example.com"
-        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
-        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        let packageURL = URL("https://example.com/mona/LinkedList")
+        let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -1445,8 +1421,8 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities404() throws {
         let registryURL = "https://packages.example.com"
-        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
-        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        let packageURL = URL("https://example.com/mona/LinkedList")
+        let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -1472,8 +1448,8 @@ final class RegistryClientTests: XCTestCase {
 
     func testLookupIdentities_ServerError() throws {
         let registryURL = "https://packages.example.com"
-        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
-        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        let packageURL = URL("https://example.com/mona/LinkedList")
+        let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -1503,9 +1479,9 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testRequestAuthorization_token() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
-        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        let registryURL = URL("https://packages.example.com")
+        let packageURL = URL("https://example.com/mona/LinkedList")
+        let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let token = "top-sekret"
 
@@ -1557,9 +1533,9 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testRequestAuthorization_basic() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let packageURL = URL(string: "https://example.com/mona/LinkedList")!
-        let identifiersURL = URL(string: "\(registryURL)/identifiers?url=\(packageURL.absoluteString)")!
+        let registryURL = URL("https://packages.example.com")
+        let packageURL = URL("https://example.com/mona/LinkedList")
+        let identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 
         let user = "jappleseed"
         let password = "top-sekret"
@@ -1615,8 +1591,8 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testLogin() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let loginURL = URL(string: "\(registryURL)/login")!
+        let registryURL = URL("https://packages.example.com")
+        let loginURL = URL("\(registryURL)/login")
 
         let token = "top-sekret"
 
@@ -1655,8 +1631,8 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testLogin_missingCredentials() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let loginURL = URL(string: "\(registryURL)/login")!
+        let registryURL = URL("https://packages.example.com")
+        let loginURL = URL("\(registryURL)/login")
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -1694,8 +1670,8 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testLogin_authenticationMethodNotSupported() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
-        let loginURL = URL(string: "\(registryURL)/login")!
+        let registryURL = URL("https://packages.example.com")
+        let loginURL = URL("\(registryURL)/login")
 
         let token = "top-sekret"
 
@@ -1739,16 +1715,12 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testGetRegistryPublishSync() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
+        let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let publishURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
-
+        let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let expectedLocation =
-            URL(
-                string: "https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)"
-            )!
+            URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -1806,16 +1778,12 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testGetRegistryPublishAsync() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
+        let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let publishURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
-
+        let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let expectedLocation =
-            URL(
-                string: "https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)"
-            )!
+            URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let expectedRetry = Int.random(in: 10 ..< 100)
 
         let archiveContent = UUID().uuidString
@@ -1875,11 +1843,10 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testGetRegistryPublish_ServerError() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
+        let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
-        let publishURL =
-            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
+        let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let serverErrorHandler = ServerErrorHandler(
             method: .put,
@@ -1928,7 +1895,7 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testGetRegistryPublish_InvalidArchive() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
+        let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 
@@ -1967,7 +1934,7 @@ final class RegistryClientTests: XCTestCase {
     }
 
     func testGetRegistryPublish_InvalidMetadata() throws {
-        let registryURL = URL(string: "https://packages.example.com")!
+        let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 

@@ -18,7 +18,7 @@ import XCTest
 
 final class HTTPClientTests: XCTestCase {
     func testHead() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -38,7 +38,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testGet() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -58,7 +58,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testPost() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -80,7 +80,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testPut() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -102,7 +102,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testDelete() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -122,7 +122,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testExtraHeaders() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
@@ -141,7 +141,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testUserAgent() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let httpClient = HTTPClient { request, _ in
@@ -157,7 +157,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testNoUserAgent() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let httpClient = HTTPClient { request, _ in
@@ -174,7 +174,7 @@ final class HTTPClientTests: XCTestCase {
     }
 
     func testAuthorization() async throws {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let authorization = UUID().uuidString
 
         let httpClient = HTTPClient { request, _ in
@@ -199,7 +199,7 @@ final class HTTPClientTests: XCTestCase {
             throw HTTPClientError.badResponseStatusCode(statusCode)
         }
 
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        var request = HTTPClient.Request(method: .get, url: "http://test")
         request.options.validResponseCodes = [200]
 
         do {
@@ -227,7 +227,7 @@ final class HTTPClientTests: XCTestCase {
             await lastCall.resetDate()
             return .init(statusCode: errorCode)
         }
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        var request = HTTPClient.Request(method: .get, url: "http://test")
         request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
 
         let response = try await httpClient.execute(request)
@@ -251,7 +251,7 @@ final class HTTPClientTests: XCTestCase {
         do {
             let counter = SendableBox(0)
             for index in (0 ..< maxErrors) {
-                let response = try await httpClient.get(URL(string: "\(host)/\(index)/foo")!)
+                let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
                 await counter.increment()
                 XCTAssertEqual(response.statusCode, errorCode)
             }
@@ -264,7 +264,7 @@ final class HTTPClientTests: XCTestCase {
         let total = Int.random(in: 10 ..< 20)
         for index in (0 ..< total) {
             do {
-                let response = try await httpClient.get(URL(string: "\(host)/\(index)/foo")!)
+                let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
                 XCTFail("unexpected success \(response)")
             } catch {
                 XCTAssertEqual(error as? HTTPClientError, .circuitBreakerTriggered, "expected error to match")
@@ -303,7 +303,7 @@ final class HTTPClientTests: XCTestCase {
         do {
             let counter = SendableBox(0)
             for index in (0 ..< maxErrors) {
-                let response = try await httpClient.get(URL(string: "\(host)/\(index)/error")!)
+                let response = try await httpClient.get(URL("\(host)/\(index)/error"))
                 await counter.increment()
                 XCTAssertEqual(response.statusCode, errorCode)
             }
@@ -319,7 +319,7 @@ final class HTTPClientTests: XCTestCase {
             // age it
             let sleepInterval = SendableTimeInterval.milliseconds(ageInMilliseconds)
             try await Task.sleep(nanoseconds: UInt64(sleepInterval.nanoseconds()!))
-            let response = try await httpClient.get(URL(string: "\(host)/\(index)/okay")!)
+            let response = try await httpClient.get("\(host)/\(index)/okay")
             count.increment()
             XCTAssertEqual(response.statusCode, 200, "expected status code to match")
         }
@@ -369,7 +369,7 @@ final class HTTPClientTests: XCTestCase {
             fatalError("unreachable")
         }
 
-        var request = HTTPClient.Request(url: URL(string: "http://test")!)
+        var request = HTTPClient.Request(url: "http://test")
         request.options.maximumResponseSizeInBytes = 10
 
         do {
@@ -402,7 +402,7 @@ final class HTTPClientTests: XCTestCase {
         try await withThrowingTaskGroup(of: HTTPClient.Response.self) { group in
             for _ in 0..<total {
                 group.addTask {
-                    try await httpClient.get(URL(string: "http://localhost/test")!)
+                    try await httpClient.get("http://localhost/test")
                 }
             }
 

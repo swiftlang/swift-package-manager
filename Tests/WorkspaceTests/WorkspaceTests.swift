@@ -27,6 +27,7 @@ import enum TSCUtility.Diagnostics
 import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
+
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
@@ -6776,12 +6777,12 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 switch request.url {
-                case URL(string: "https://a.com/a1.zip")!:
+                case "https://a.com/a1.zip":
                     completion(.success(.serverError()))
-                case URL(string: "https://a.com/a2.zip")!:
+                case "https://a.com/a2.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
-                case URL(string: "https://a.com/a3.zip")!:
+                case "https://a.com/a3.zip":
                     try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
                     completion(.success(.okay()))
                 default:
@@ -6852,13 +6853,13 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 switch request.url {
-                case URL(string: "https://a.com/a1.zip")!:
+                case "https://a.com/a1.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
-                case URL(string: "https://a.com/a2.zip")!:
+                case "https://a.com/a2.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
                     completion(.success(.okay()))
-                case URL(string: "https://a.com/a3.zip")!:
+                case "https://a.com/a3.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA3]))
                     completion(.success(.okay()))
                 default:
@@ -6952,7 +6953,7 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 switch request.url {
-                case URL(string: "https://a.com/a1.zip")!:
+                case "https://a.com/a1.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
                 default:
@@ -7021,7 +7022,7 @@ final class WorkspaceTests: XCTestCase {
                 }
 
                 switch request.url {
-                case URL(string: "https://a.com/foo.zip")!:
+                case "https://a.com/foo.zip":
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
                     completion(.success(.okay()))
                 default:
@@ -12275,7 +12276,7 @@ final class WorkspaceTests: XCTestCase {
         try customFS.createDirectory(targetDir, recursive: true)
         try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
 
-        let bazURL = try XCTUnwrap(URL(string: "https://example.com/baz"))
+        let bazURL = URL("https://example.com/baz")
         let bazPackageReference = PackageReference(identity: PackageIdentity(url: bazURL), kind: .remoteSourceControl(bazURL))
         let bazContainer = MockPackageContainer(package: bazPackageReference, dependencies: ["1.0.0": []], fileSystem: customFS, customRetrievalPath: .root)
 
@@ -12775,7 +12776,7 @@ final class WorkspaceTests: XCTestCase {
         var configuration = configuration
         if configuration == nil {
             configuration = PackageRegistry.RegistryConfiguration()
-            configuration!.defaultRegistry = .init(url: URL(string: "http://localhost")!)
+            configuration!.defaultRegistry = .init(url: "http://localhost")
         }
 
         let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in
@@ -12872,16 +12873,16 @@ final class WorkspaceTests: XCTestCase {
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
                 // request to get package releases
-                case URL(string: "http://localhost/\(packageScope)/\(packageName)")!:
+                case "http://localhost/\(packageScope)/\(packageName)":
                     releasesRequestHandler(request, progress, completion)
                 // request to get package version metadata
-                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)")!:
+                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)":
                     versionMetadataRequestHandler(request, progress, completion)
                 // request to get package manifest
-                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)/Package.swift")!:
+                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)/Package.swift":
                     manifestRequestHandler(request, progress, completion)
                 // request to get download the version source archive
-                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion).zip")!:
+                case "http://localhost/\(packageScope)/\(packageName)/\(packageVersion).zip":
                     downloadArchiveRequestHandler(request, progress, completion)
                 default:
                     completion(.failure(StringError("unexpected url \(request.url)")))

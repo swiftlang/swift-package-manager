@@ -16,7 +16,7 @@ import XCTest
 
 final class LegacyHTTPClientTests: XCTestCase {
     func testHead() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -48,7 +48,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testGet() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -80,7 +80,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testPost() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -114,7 +114,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testPut() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
         let responseStatus = Int.random(in: 201 ..< 500)
@@ -148,7 +148,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testDelete() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseStatus = Int.random(in: 201 ..< 500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -180,7 +180,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testExtraHeaders() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
@@ -212,7 +212,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testUserAgent() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -240,7 +240,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testNoUserAgent() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -268,7 +268,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testAuthorization() {
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let authorization = UUID().uuidString
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -305,7 +305,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         }
 
         let httpClient = LegacyHTTPClient(handler: brokenHandler)
-        var request = LegacyHTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        var request = LegacyHTTPClient.Request(method: .get, url: "http://test")
         request.options.validResponseCodes = [200]
 
         let promise = XCTestExpectation(description: "completed")
@@ -340,7 +340,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         }
 
         let httpClient = LegacyHTTPClient(handler: brokenHandler)
-        var request = LegacyHTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        var request = LegacyHTTPClient.Request(method: .get, url: "http://test")
         request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: delay)
 
         let promise = XCTestExpectation(description: "completed")
@@ -376,7 +376,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             let count = ThreadSafeBox<Int>(0)
             (0 ..< maxErrors).forEach { index in
                 sync.enter()
-                httpClient.get(URL(string: "\(host)/\(index)/foo")!) { result in
+                httpClient.get(URL("\(host)/\(index)/foo")) { result in
                     defer { sync.leave() }
                     count.increment()
                     switch result {
@@ -397,7 +397,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let total = Int.random(in: 10 ..< 20)
         (0 ..< total).forEach { index in
             sync.enter()
-            httpClient.get(URL(string: "\(host)/\(index)/foo")!) { result in
+            httpClient.get(URL("\(host)/\(index)/foo")) { result in
                 defer { sync.leave() }
                 count.increment()
                 switch result {
@@ -440,7 +440,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             let count = ThreadSafeBox<Int>(0)
             (0 ..< maxErrors).forEach { index in
                 sync.enter()
-                httpClient.get(URL(string: "\(host)/\(index)/error")!) { result in
+                httpClient.get(URL("\(host)/\(index)/error")) { result in
                     defer { sync.leave() }
                     count.increment()
                     switch result {
@@ -464,7 +464,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             sync.enter()
             // age it
             DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + .milliseconds(ageInMilliseconds)) {
-                httpClient.get(URL(string: "\(host)/\(index)/okay")!) { result in
+                httpClient.get(URL("\(host)/\(index)/okay")) { result in
                     defer { sync.leave() }
                     count.increment()
                     switch result {
@@ -503,7 +503,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             }
         })
 
-        var request = LegacyHTTPClient.Request(url: URL(string: "http://test")!)
+        var request = LegacyHTTPClient.Request(url: "http://test")
         request.options.maximumResponseSizeInBytes = 10
 
         let promise = XCTestExpectation(description: "completed")
@@ -549,7 +549,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let results = ThreadSafeArrayStore<Result<LegacyHTTPClient.Response, Error>>()
         for _ in 0 ..< total {
             sync.enter()
-            httpClient.get(URL(string: "http://localhost/test")!) { result in
+            httpClient.get(URL("http://localhost/test")) { result in
                 defer { sync.leave() }
                 results.append(result)
             }
@@ -605,7 +605,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         for index in 0 ..< total {
             startGroup.enter()
             finishGroup.enter()
-            let url = URL(string: "http://test/\(index)")!
+            let url = URL("http://test/\(index)")
             httpClient.head(url) { result in
                 defer { finishGroup.leave() }
                 results[url] = result

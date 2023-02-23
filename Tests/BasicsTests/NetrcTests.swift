@@ -29,11 +29,11 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.login, "anonymous")
         XCTAssertEqual(machine?.password, "qwerty")
 
-        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "anonymous", password: "qwerty"))
 
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: "http://example2.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://www.example2.com/resource.zip"))
     }
 
     /// should load machines for a given multi-line format
@@ -52,11 +52,11 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine?.login, "anonymous")
         XCTAssertEqual(machine?.password, "qwerty")
 
-        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "anonymous", password: "qwerty"))
 
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: "http://example2.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://www.example2.com/resource.zip"))
     }
 
     /// Should fall back to default machine when not matching host
@@ -84,7 +84,7 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(machine2?.login, "id")
         XCTAssertEqual(machine2?.password, "secret")
 
-        let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example2.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "id", password: "secret"))
     }
 
@@ -126,7 +126,7 @@ class NetrcTests: XCTestCase {
         XCTAssertEqual(netrc.machines[2].login, "id")
         XCTAssertEqual(netrc.machines[2].password, "secret")
 
-        let authorization = netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example2.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "id", password: "secret"))
     }
 
@@ -279,7 +279,7 @@ class NetrcTests: XCTestCase {
     func testEmptyMachineValueFollowedByDefaultNoError() throws {
         let content = "machine default login id password secret"
         let netrc = try NetrcParser.parse(content)
-        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "id", password: "secret"))
     }
 
@@ -288,17 +288,17 @@ class NetrcTests: XCTestCase {
         let content = "machine example.com login anonymous password qwerty"
 
         let netrc = try NetrcParser.parse(content)
-        let authorization = netrc.authorization(for: URL(string: "http://example.com/resource.zip")!)
+        let authorization = netrc.authorization(for: "http://example.com/resource.zip")
         XCTAssertEqual(authorization, Netrc.Authorization(login: "anonymous", password: "qwerty"))
     }
 
     func testReturnNoAuthorizationForUnmatched() throws {
         let content = "machine example.com login anonymous password qwerty"
         let netrc = try NetrcParser.parse(content)
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "ftp.example.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: "http://www.example.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "ftp.example.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://example2.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://www.example2.com/resource.zip"))
     }
 
     /// should not return authorization when config does not contain a given machine
@@ -306,11 +306,11 @@ class NetrcTests: XCTestCase {
         let content = "machine example.com login anonymous password qwerty"
 
         let netrc = try NetrcParser.parse(content)
-        XCTAssertNil(netrc.authorization(for: URL(string: "https://example99.com")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "ftp.example.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://example2.com/resource.zip")!))
-        XCTAssertNil(netrc.authorization(for: URL(string: "http://www.example2.com/resource.zip")!))
+        XCTAssertNil(netrc.authorization(for: "https://example99.com"))
+        XCTAssertNil(netrc.authorization(for: "http://www.example.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "ftp.example.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://example2.com/resource.zip"))
+        XCTAssertNil(netrc.authorization(for: "http://www.example2.com/resource.zip"))
     }
 
     /// Test case: https://www.ibm.com/support/knowledgecenter/en/ssw_aix_72/filesreference/netrc.html

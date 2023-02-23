@@ -22,7 +22,7 @@ import TSCBasic
 import struct TSCUtility.Version
 
 public class MockRegistry {
-    private static let mockRegistryURL = URL(string: "http://localhost/registry/mock")!
+    private static let mockRegistryURL = URL("http://localhost/registry/mock")
 
     private let fileSystem: FileSystem
     private let identityResolver: IdentityResolver

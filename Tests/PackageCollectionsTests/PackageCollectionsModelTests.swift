@@ -71,22 +71,22 @@ final class PackageCollectionsModelTests: XCTestCase {
     }
 
     func testSourceValidation() throws {
-        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
+        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: "https://feed.mock.io")
         XCTAssertNil(httpsSource.validate(fileSystem: localFileSystem), "not expecting errors")
 
-        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
+        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: "HTTPS://feed.mock.io")
         XCTAssertNil(httpsSource2.validate(fileSystem: localFileSystem), "not expecting errors")
 
-        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
+        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: "HttpS://feed.mock.io")
         XCTAssertNil(httpsSource3.validate(fileSystem: localFileSystem), "not expecting errors")
 
-        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
+        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: "http://feed.mock.io")
         XCTAssertEqual(httpSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
 
-        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
+        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: "ftp://feed.mock.io")
         XCTAssertEqual(otherProtocolSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
 
-        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
+        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: "blah")
         XCTAssertEqual(brokenUrlSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
     }
 

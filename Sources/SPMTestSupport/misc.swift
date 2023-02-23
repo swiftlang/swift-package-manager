@@ -11,6 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import struct Foundation.URL
+#if os(macOS)
+import class Foundation.Bundle
+#endif
 import OrderedCollections
 import PackageGraph
 import PackageLoading
@@ -24,9 +28,7 @@ import enum TSCUtility.Git
 
 @_exported import TSCTestSupport
 
-#if os(macOS)
-import class Foundation.Bundle
-#endif
+
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is
@@ -256,18 +258,30 @@ public func loadPackageGraph(
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
-public extension AbsolutePath {
-    init(path: StaticString) {
+ extension AbsolutePath {
+     public init(path: StaticString) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString)
     }
 
-    init(path: StaticString, relativeTo basePath: AbsolutePath) {
+     public init(path: StaticString, relativeTo basePath: AbsolutePath) {
         let pathString = path.withUTF8Buffer {
             String(decoding: $0, as: UTF8.self)
         }
         try! self.init(validating: pathString, relativeTo: basePath)
+    }
+}
+
+extension URL: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        self.init(string: value)!
+    }
+}
+
+extension URL: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        self.init(string: value)!
     }
 }

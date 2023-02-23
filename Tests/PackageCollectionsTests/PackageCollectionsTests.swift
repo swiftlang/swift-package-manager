@@ -704,7 +704,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -713,7 +713,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -871,7 +871,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -880,7 +880,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -1017,10 +1017,10 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let expectedError = MyError()
-        let goodSources = [PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!),
-                           PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
-        let brokenSources = [PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!),
-                             PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
+        let goodSources = [PackageCollectionsModel.CollectionSource(type: .json, url: "https://feed-\(UUID().uuidString)"),
+                           PackageCollectionsModel.CollectionSource(type: .json, url: "https://feed-\(UUID().uuidString)")]
+        let brokenSources = [PackageCollectionsModel.CollectionSource(type: .json, url: "https://feed-\(UUID().uuidString)"),
+                             PackageCollectionsModel.CollectionSource(type: .json, url: "https://feed-\(UUID().uuidString)")]
         let provider = BrokenProvider(brokenSources: brokenSources, error: expectedError)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: provider]
 
@@ -1038,7 +1038,7 @@ final class PackageCollectionsTests: XCTestCase {
         try brokenSources.forEach { source in
             _ = try tsc_await { callback in storage.sources.add(source: source, order: nil, callback: callback) }
         }
-        _ = try tsc_await { callback in storage.sources.add(source: .init(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!), order: nil, callback: callback) }
+        _ = try tsc_await { callback in storage.sources.add(source: .init(type: .json, url: "https://feed-\(UUID().uuidString)"), order: nil, callback: callback) }
 
         XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollections(callback: callback) }, "expected error", { error in
             if let error = error as? MultipleErrors {
@@ -1297,7 +1297,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                         .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                     ],
-                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
+                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: "http://apache.license"),
                                                     createdAt: Date())
         }
 
@@ -1308,8 +1308,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                           keywords: [UUID().uuidString],
                                                           versions: versions,
                                                           watchersCount: Int.random(in: 0 ... 50),
-                                                          readmeURL: URL(string: "https://package-\(packageId)-readme")!,
-                                                          license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
+                                                          readmeURL: "https://package-\(packageId)-readme",
+                                                          license: PackageCollectionsModel.License(type: .Apache2_0, url: "http://apache.license"),
                                                           authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
                                                           languages: nil)
 
@@ -1317,8 +1317,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
                                                                         versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", createdAt: Date()) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
-                                                                        readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
-                                                                        license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
+                                                                        readmeURL: "\(mockPackage.readmeURL!.absoluteString)-2",
+                                                                        license: PackageCollectionsModel.License(type: .Apache2_0, url: "\(mockPackage.license!.url.absoluteString)-2"),
                                                                         authors: mockPackage.authors.flatMap { $0.map { .init(username: "\($0.username + "2")", url: nil, service: nil) } },
                                                                         languages: ["Swift"])
 
@@ -1546,7 +1546,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -1555,7 +1555,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -1618,10 +1618,8 @@ private extension PackageCollections {
     }
 }
 
-extension XCTestCase {
-    func PackageCollectionsTests_skipIfUnsupportedPlatform() throws {
-        if !PackageCollections.isSupportedPlatform {
-            throw XCTSkip("Skipping test on unsupported platform")
-        }
+func PackageCollectionsTests_skipIfUnsupportedPlatform() throws {
+    if !PackageCollections.isSupportedPlatform {
+        throw XCTSkip("Skipping test on unsupported platform")
     }
 }
