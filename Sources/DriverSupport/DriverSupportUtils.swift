@@ -19,28 +19,35 @@ import struct TSCBasic.ProcessResult
 import protocol TSCBasic.FileSystem
 
 public class DriverSupport {
-    var supportedDriverFlags = ThreadSafeBox<Set<String>>()
+    private var flagsMap = ThreadSafeBox<[String: Set<String>]>()
     public init() {}
 
-    // This checks supported _frontend_ flags, which are not necessarily supported in the driver.
-    public static func checkSupportedFrontendFlags(flags: Set<String>, toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+    // This checks _frontend_ supported flags, which are not necessarily supported in the driver.
+    public func checkSupportedFrontendFlags(flags: Set<String>, toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+        let trimmedFlagSet = Set(flags.map{$0.trimmingCharacters(in: ["-"])})
+
+        if let entry = flagsMap.get(), let cachedSupportedFlagSet = entry[toolchain.swiftCompilerPath.pathString + "-frontend"] {
+            return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
+        }
         do {
             let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
             let driver = try Driver(args: ["swiftc"], executor: executor, compilerExecutableDir: toolchain.swiftCompilerPath.parentDirectory)
-            return driver.supportedFrontendFlags.intersection(flags) == flags
+            let supportedFlagSet = Set(driver.supportedFrontendFlags.map{$0.trimmingCharacters(in: ["-"])})
+            flagsMap.put([toolchain.swiftCompilerPath.pathString + "-frontend" : supportedFlagSet])
+            return supportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         } catch {
             return false
         }
     }
 
-    // Currently there's no good way to get supported flags from the built-in toolchain driver, so call `swiftc -h` directly
-    // and save the result so we don't spawn processes repeatedly.
-    public func checkSupportedDriverFlags(flags: Set<String>) -> Bool {
-        if let supported = supportedDriverFlags.get() {
-            let trimmedFlags = flags.map{$0.hasPrefix("-") ? String($0.dropFirst()) : $0}
-            return supported.intersection(trimmedFlags).count == flags.count
+    // This checks if given flags are supported in the built-in toolchain driver. Currently
+    // there's no good way to get the supported flags from it, so run `swiftc -h` directly
+    // to get the flags and cache the result.
+    public func checkToolchainDriverFlags(flags: Set<String>, toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+        let trimmedFlagSet = Set(flags.map{$0.trimmingCharacters(in: ["-"])})
+        if let entry = flagsMap.get(), let cachedSupportedFlagSet = entry[toolchain.swiftCompilerPath.pathString + "-driver"] {
+            return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
-
         do {
             let helpJob = try Process.launchProcess(arguments: ["swiftc", "-h"], env: ProcessEnv.vars)
             let processResult = try helpJob.waitUntilExit()
@@ -48,11 +55,10 @@ public class DriverSupport {
                 return false
             }
             let helpOutput = try processResult.utf8Output()
-            let helpFlags = helpOutput.components(separatedBy: " ").filter{$0.hasPrefix("-")}.map{String($0.dropFirst())}
-            let helpFlagsSet = Set(helpFlags)
-            supportedDriverFlags.put(helpFlagsSet)
-            let trimmedFlags = flags.map{$0.hasPrefix("-") ? String($0.dropFirst()) : $0}
-            return helpFlagsSet.intersection(trimmedFlags).count == flags.count
+            let helpFlags = helpOutput.components(separatedBy: " ").map{$0.trimmingCharacters(in: ["-"])}
+            let supportedFlagSet = Set(helpFlags)
+            flagsMap.put([toolchain.swiftCompilerPath.pathString + "-driver" : supportedFlagSet])
+            return supportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         } catch {
             return false
         }
