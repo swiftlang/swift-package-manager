@@ -134,9 +134,10 @@ enum TestingSupport {
             env.prependPath("Path", value: location.pathString)
         }
         #elseif os(Linux)
-        var libraryPaths = ["/usr/lib/swift/linux"]
+        let arch = buildParameters.triple.arch.rawValue
+        var libraryPaths = ["/usr/lib/swift/linux/\(arch)"]
         if let path = env["PATH"], let firstPathEntry = path.components(separatedBy: ":").first {
-            libraryPaths.append("\(firstPathEntry)/../lib/swift/linux")
+            libraryPaths.append("\(firstPathEntry)/../lib/swift/linux/\(arch)")
         }
         if let originalLibraryPaths = env["LD_LIBRARY_PATH"] {
             libraryPaths.append(originalLibraryPaths)

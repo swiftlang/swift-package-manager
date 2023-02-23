@@ -27,7 +27,7 @@ private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
     cxxCompilerFlags: ["-fno-exceptions"],
     swiftCompilerFlags: ["-enable-experimental-cxx-interop", "-use-ld=lld"],
-    linkerFlags: ["-R/usr/lib/swift/linux/"]
+    linkerFlags: ["-R/usr/lib/swift/linux/x86_64"]
 )
 
 private let destinationV1JSON =
