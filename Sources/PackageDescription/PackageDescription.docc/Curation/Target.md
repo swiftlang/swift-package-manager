@@ -67,7 +67,3 @@
 - ``isTest``
 - ``type``
 - ``TargetType``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

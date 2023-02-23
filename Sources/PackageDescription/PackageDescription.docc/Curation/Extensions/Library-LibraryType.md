@@ -7,10 +7,6 @@
 - ``dynamic``
 - ``static``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Hashing
 
 - <doc:/documentation/PackageDescription/Product/Library/LibraryType/hash(into:)>

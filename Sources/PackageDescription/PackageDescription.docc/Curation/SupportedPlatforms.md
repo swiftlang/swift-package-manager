@@ -48,10 +48,6 @@
 
 - <doc:/documentation/PackageDescription/Platform/linux>
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Type Methods
 
 - ``custom(_:versionString:)``

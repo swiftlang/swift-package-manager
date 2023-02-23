@@ -15,10 +15,6 @@
 
 - ``init(rawValue:)``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Hashing
 
 - ``hash(into:)``

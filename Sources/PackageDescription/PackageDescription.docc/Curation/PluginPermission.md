@@ -6,7 +6,3 @@
 
 - ``allowNetworkConnections(scope:reason:)``
 - ``writeToPackageDirectory(reason:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

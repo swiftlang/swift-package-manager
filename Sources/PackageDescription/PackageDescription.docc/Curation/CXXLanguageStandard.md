@@ -21,10 +21,6 @@
 - ``gnucxx20``
 - ``gnucxx2b``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Hashing
 
 - ``hash(into:)``

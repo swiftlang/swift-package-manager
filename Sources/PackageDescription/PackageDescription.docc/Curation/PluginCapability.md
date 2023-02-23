@@ -6,7 +6,3 @@
 
 - ``buildTool()``
 - ``command(intent:permissions:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

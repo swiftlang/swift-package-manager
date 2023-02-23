@@ -22,7 +22,3 @@
 
 - ``kind-swift.property``
 - ``Version``
-
-### Encoding and Decoding
-
-- ``encode(to:)``
