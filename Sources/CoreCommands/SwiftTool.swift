@@ -654,9 +654,18 @@ public final class SwiftTool {
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
-                destination = try Destination(fromFile: customDestination, fileSystem: fileSystem)
-            } else if let target = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
+                let destinations = try Destination.decode(fromFile: customDestination, fileSystem: fileSystem)
+                if destinations.count == 1 {
+                    destination = destinations[0]
+                } else if destinations.count > 1,
+                          let triple = options.build.customCompileTriple,
+                            let matchingDestination = destinations.first(where: { $0.targetTriple == triple }) {
+                    destination = matchingDestination
+                } else {
+                    return .failure(DestinationError.noDestinationsDecoded(customDestination))
+                }
+            } else if let triple = options.build.customCompileTriple,
+                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination) {
                 destination = targetDestination
             } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
                 destination = try DestinationsBundle.selectDestination(

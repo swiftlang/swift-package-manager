@@ -29,16 +29,16 @@ public struct BuildFlags: Equatable, Encodable {
     public var xcbuildFlags: [String]?
     
     public init(
-        cCompilerFlags: [String]? = .none,
-        cxxCompilerFlags: [String]? = .none,
-        swiftCompilerFlags: [String]? = .none,
-        linkerFlags: [String]? = .none,
-        xcbuildFlags: [String]? = .none
+        cCompilerFlags: [String] = [],
+        cxxCompilerFlags: [String] = [],
+        swiftCompilerFlags: [String] = [],
+        linkerFlags: [String] = [],
+        xcbuildFlags: [String] = []
     ) {
-        self.cCompilerFlags = cCompilerFlags ?? []
-        self.cxxCompilerFlags = cxxCompilerFlags ?? []
-        self.swiftCompilerFlags = swiftCompilerFlags ?? []
-        self.linkerFlags = linkerFlags ?? []
-        self.xcbuildFlags = xcbuildFlags ?? []
+        self.cCompilerFlags = cCompilerFlags
+        self.cxxCompilerFlags = cxxCompilerFlags
+        self.swiftCompilerFlags = swiftCompilerFlags
+        self.linkerFlags = linkerFlags
+        self.xcbuildFlags = xcbuildFlags
     }
 }

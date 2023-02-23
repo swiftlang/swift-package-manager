@@ -19,7 +19,7 @@ import TSCUtility
 public struct DestinationsBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
-        let destination: Destination
+        let destinations: [Destination]
     }
 
     let path: AbsolutePath
@@ -182,11 +182,11 @@ private extension ArtifactsArchiveMetadata {
                 }
 
                 do {
-                    let destination = try Destination(
+                    let destinations = try Destination.decode(
                         fromFile: destinationJSONPath, fileSystem: fileSystem
                     )
 
-                    variants.append(.init(metadata: variantMetadata, destination: destination))
+                    variants.append(.init(metadata: variantMetadata, destinations: destinations))
                 } catch {
                     observabilityScope.emit(
                         .warning(
@@ -215,8 +215,8 @@ extension Array where Element == DestinationsBundle {
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) -> Destination? {
-        var matchedByID: (path: AbsolutePath, variant: DestinationsBundle.Variant)?
-        var matchedByTriple: (path: AbsolutePath, variant: DestinationsBundle.Variant)?
+        var matchedByID: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
+        var matchedByTriple: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
@@ -225,35 +225,37 @@ extension Array where Element == DestinationsBundle {
                         continue
                     }
 
-                    if artifactID == selector {
-                        if let matchedByID = matchedByID {
-                            observabilityScope.emit(warning:
-                                """
-                                multiple destinations match ID `\(artifactID)` and host triple \(
-                                    hostTriple.tripleString
-                                ), selected one at \(
-                                    matchedByID.path.appending(component: matchedByID.variant.metadata.path)
+                    for destination in variant.destinations {
+                        if artifactID == selector {
+                            if let matchedByID = matchedByID {
+                                observabilityScope.emit(warning:
+                                    """
+                                    multiple destinations match ID `\(artifactID)` and host triple \(
+                                        hostTriple.tripleString
+                                    ), selected one at \(
+                                        matchedByID.path.appending(component: matchedByID.variant.metadata.path)
+                                    )
+                                    """
                                 )
-                                """
-                            )
-                        } else {
-                            matchedByID = (bundle.path, variant)
+                            } else {
+                                matchedByID = (bundle.path, variant, destination)
+                            }
                         }
-                    }
 
-                    if variant.destination.targetTriple?.tripleString == selector {
-                        if let matchedByTriple = matchedByTriple {
-                            observabilityScope.emit(warning:
-                                """
-                                multiple destinations match target triple `\(selector)` and host triple \(
-                                    hostTriple.tripleString
-                                ), selected one at \(
-                                    matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path)
+                        if destination.targetTriple?.tripleString == selector {
+                            if let matchedByTriple = matchedByTriple {
+                                observabilityScope.emit(warning:
+                                    """
+                                    multiple destinations match target triple `\(selector)` and host triple \(
+                                        hostTriple.tripleString
+                                    ), selected one at \(
+                                        matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path)
+                                    )
+                                    """
                                 )
-                                """
-                            )
-                        } else {
-                            matchedByTriple = (bundle.path, variant)
+                            } else {
+                                matchedByTriple = (bundle.path, variant, destination)
+                            }
                         }
                     }
                 }
@@ -270,6 +272,6 @@ extension Array where Element == DestinationsBundle {
             )
         }
 
-        return matchedByID?.variant.destination ?? matchedByTriple?.variant.destination
+        return matchedByID?.destination ?? matchedByTriple?.destination
     }
 }

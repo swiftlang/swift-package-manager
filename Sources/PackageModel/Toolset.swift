@@ -22,6 +22,7 @@ import struct TSCUtility.Version
 /// A set of paths and flags for tools used for building Swift packages. This type unifies pre-existing assorted ways
 /// to specify these properties across SwiftPM codebase.
 public struct Toolset {
+    /// Tools currently known and used by SwiftPM.
     public enum KnownTool: String, Hashable, CaseIterable {
         case swiftCompiler
         case cCompiler
@@ -43,6 +44,10 @@ public struct Toolset {
 
     /// A dictionary of known tools in this toolset.
     public fileprivate(set) var knownTools: [KnownTool: ToolProperties]
+
+    /// An array of paths specified as `rootPath` in toolset files from which this toolset was formed. May be used
+    /// for locating tools that aren't currently listed in ``Toolset/KnownTool``.
+    public fileprivate(set) var rootPaths: [AbsolutePath]
 }
 
 extension Toolset {
@@ -101,7 +106,14 @@ extension Toolset {
             throw StringError("Toolset configuration at `\(toolsetPath)` has at least one tool with no properties.")
         }
 
-        self.init(knownTools: knownTools)
+        let rootPaths: [AbsolutePath]
+        if let rootPath = decoded.rootPath {
+            rootPaths = [rootPath]
+        } else {
+            rootPaths = []
+        }
+
+        self.init(knownTools: knownTools, rootPaths: rootPaths)
     }
 
     /// Merges toolsets together into a single configuration. Tools passed in a new toolset will shadow tools with
@@ -110,6 +122,8 @@ extension Toolset {
     /// of replacing them.
     /// - Parameter newToolset: new toolset to merge into the existing `self` toolset.
     public mutating func merge(with newToolset: Toolset) {
+        self.rootPaths.append(contentsOf: newToolset.rootPaths)
+
         for (newTool, newProperties) in newToolset.knownTools {
             if newProperties.path != nil {
                 // if `newTool` has `path` specified, it overrides the existing tool completely.

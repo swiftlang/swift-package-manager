@@ -15,6 +15,7 @@ import Foundation
 import TSCBasic
 
 import struct TSCUtility.Triple
+import struct TSCUtility.Version
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
@@ -22,6 +23,9 @@ public enum DestinationError: Swift.Error {
 
     /// The schema version is invalid.
     case invalidSchemaVersion
+
+    /// No valid destinations were decoded from a destination file.
+    case noDestinationsDecoded(AbsolutePath)
 }
 
 extension DestinationError: CustomStringConvertible {
@@ -31,13 +35,14 @@ extension DestinationError: CustomStringConvertible {
             return "unsupported destination file schema version"
         case .invalidInstallation(let problem):
             return problem
+        case .noDestinationsDecoded(let path):
+            return "no valid destinations were decoded from a destination file at path `\(path)`"
         }
     }
 }
 
 /// The compilation destination, has information about everything that's required for a certain destination.
 public struct Destination: Encodable, Equatable {
-
     /// The clang/LLVM triple describing the target OS and architecture.
     ///
     /// The triple has the general format <arch><sub>-<vendor>-<sys>-<abi>, where:
@@ -95,13 +100,13 @@ public struct Destination: Encodable, Equatable {
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
     }
-    
+
     /// Additional flags to be passed to the C++ compiler.
     @available(*, deprecated, message: "use `extraFlags.cxxCompilerFlags` instead")
     public var extraCPPFlags: [String] {
         extraFlags.cxxCompilerFlags
     }
-    
+
     /// Additional flags to be passed to the build tools.
     public var extraFlags: BuildFlags
 
@@ -125,7 +130,7 @@ public struct Destination: Encodable, Equatable {
             swiftCompilerFlags: extraSwiftCFlags
         )
     }
-    
+
     /// Creates a compilation destination with the specified properties.
     public init(
         hostTriple: Triple? = nil,
@@ -159,7 +164,7 @@ public struct Destination: Encodable, Equatable {
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
         originalWorkingDirectory: AbsolutePath? = nil,
-        environment: [String:String] = ProcessEnv.vars
+        environment: [String: String] = ProcessEnv.vars
     ) throws -> Destination {
         let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
@@ -167,44 +172,46 @@ public struct Destination: Encodable, Equatable {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
         }
         let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
-            .flatMap{ try? AbsolutePath(validating: $0) }
+            .flatMap { try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
             fileSystem: localFileSystem,
             originalWorkingDirectory: originalWorkingDirectory
         )
 
         let sdkPath: AbsolutePath?
-#if os(macOS)
+        #if os(macOS)
         // Get the SDK.
         if let value = lookupExecutablePath(filename: ProcessEnv.vars["SDKROOT"]) {
             sdkPath = value
         } else {
             // No value in env, so search for it.
             let sdkPathStr = try TSCBasic.Process.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"], environment: environment).spm_chomp()
+                arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                environment: environment
+            ).spm_chomp()
             guard !sdkPathStr.isEmpty else {
                 throw DestinationError.invalidInstallation("default SDK not found")
             }
             sdkPath = try AbsolutePath(validating: sdkPathStr)
         }
-#else
+        #else
         sdkPath = nil
-#endif
+        #endif
 
         // Compute common arguments for clang and swift.
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
-#if os(macOS)
+        #if os(macOS)
         let sdkPaths = try Destination.sdkPlatformFrameworkPaths(environment: environment)
         extraCCFlags += ["-F", sdkPaths.fwk.pathString]
         extraSwiftCFlags += ["-F", sdkPaths.fwk.pathString]
         extraSwiftCFlags += ["-I", sdkPaths.lib.pathString]
         extraSwiftCFlags += ["-L", sdkPaths.lib.pathString]
-#endif
+        #endif
 
-#if !os(Windows)
+        #if !os(Windows)
         extraCCFlags += ["-fPIC"]
-#endif
+        #endif
 
         return Destination(
             sdkRootDir: sdkPath,
@@ -213,7 +220,7 @@ public struct Destination: Encodable, Equatable {
         )
     }
 
-    /// Returns macosx sdk platform framework path.
+    /// Returns `macosx` sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
         environment: EnvironmentVariables = .process()
     ) throws -> (fwk: AbsolutePath, lib: AbsolutePath) {
@@ -222,7 +229,8 @@ public struct Destination: Encodable, Equatable {
         }
         let platformPath = try TSCBasic.Process.checkNonZeroExit(
             arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
-            environment: environment).spm_chomp()
+            environment: environment
+        ).spm_chomp()
 
         guard !platformPath.isEmpty else {
             throw StringError("could not determine SDK platform path")
@@ -230,11 +238,13 @@ public struct Destination: Encodable, Equatable {
 
         // For XCTest framework.
         let fwk = try AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "Library", "Frameworks")
+            components: "Developer", "Library", "Frameworks"
+        )
 
         // For XCTest Swift library.
         let lib = try AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "usr", "lib")
+            components: "Developer", "usr", "lib"
+        )
 
         let sdkPlatformFrameworkPath = (fwk, lib)
         _sdkPlatformFrameworkPath = sdkPlatformFrameworkPath
@@ -262,16 +272,52 @@ public struct Destination: Encodable, Equatable {
 
 extension Destination {
     /// Load a ``Destination`` description from a JSON representation from disk.
-    public init(fromFile path: AbsolutePath, fileSystem: FileSystem) throws {
+    public static func decode(fromFile path: AbsolutePath, fileSystem: FileSystem) throws -> [Destination] {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
-        
+
+        return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
+    }
+
+    /// Load a ``Destination`` description from a semantically versioned JSON representation from disk.
+    private static func decode(
+        semanticVersion: SemanticVersionInfo,
+        fromFile path: AbsolutePath,
+        fileSystem: FileSystem,
+        decoder: JSONDecoder
+    ) throws -> [Destination] {
+        switch semanticVersion.version {
+        case Version(3, 0, 0):
+            let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV3.self)
+            let destinationDirectory = path.parentDirectory
+
+            return []
+//            return try destinations.runTimeTriples.map { (triple, destination) in
+//                let triple = try Triple(triple)
+
+//                return Destination(
+//                    targetTriple: triple,
+//                    sdkRootDir: AbsolutePath(validating: destination.sdkRootPath, relativeTo: destinationDirectory),
+//                    toolchainBinDir: <#T##AbsolutePath#>
+//            }
+        default:
+            throw DestinationError.invalidSchemaVersion
+        }
+    }
+
+    /// Load a ``Destination`` description from a legacy JSON representation from disk.
+    private init(
+        legacy version: VersionInfo,
+        fromFile path: AbsolutePath,
+        fileSystem: FileSystem,
+        decoder: JSONDecoder
+    ) throws {
         // Check schema version.
         switch version.version {
         case 1:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV1.self)
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV1.self)
             try self.init(
-                targetTriple: destination.target.map{ try Triple($0) },
+                targetTriple: destination.target.map { try Triple($0) },
                 sdkRootDir: destination.sdk,
                 toolchainBinDir: destination.binDir,
                 extraFlags: .init(
@@ -281,15 +327,18 @@ extension Destination {
                 )
             )
         case 2:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfoV2.self)
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV2.self)
             let destinationDirectory = path.parentDirectory
 
-            // TODO support multiple host and destination triple.
+            // TODO: support multiple host and destination triple.
             try self.init(
                 hostTriple: destination.hostTriples.map(Triple.init).first,
                 targetTriple: destination.targetTriples.map(Triple.init).first,
                 sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
-                toolchainBinDir: AbsolutePath(validating: destination.toolchainBinDir, relativeTo: destinationDirectory),
+                toolchainBinDir: AbsolutePath(
+                    validating: destination.toolchainBinDir,
+                    relativeTo: destinationDirectory
+                ),
                 extraFlags: .init(
                     cCompilerFlags: destination.extraCCFlags,
                     cxxCompilerFlags: destination.extraCXXFlags,
@@ -301,15 +350,33 @@ extension Destination {
             throw DestinationError.invalidSchemaVersion
         }
     }
+
 }
 
-/// Version of the schema of `destination.json` files used for cross-compilation.
-fileprivate struct VersionInfo: Codable {
+/// Integer version of the schema of `destination.json` files used for cross-compilation.
+private struct VersionInfo: Codable {
     let version: Int
 }
 
+/// Semantic version of the schema of `destination.json` files used for cross-compilation.
+private struct SemanticVersionInfo: Decodable {
+    let version: Version
+
+    enum CodingKeys: CodingKey {
+        case version
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.version = try Version(
+            versionString: container.decode(String.self, forKey: .version),
+            usesLenientParsing: true
+        )
+    }
+}
+
 /// Represents v1 schema of `destination.json` files used for cross-compilation.
-fileprivate struct DestinationInfoV1: Codable {
+private struct DecodedDestinationV1: Codable {
     let target: String?
     let sdk: AbsolutePath?
     let binDir: AbsolutePath
@@ -328,7 +395,7 @@ fileprivate struct DestinationInfoV1: Codable {
 }
 
 /// Represents v2 schema of `destination.json` files used for cross-compilation.
-fileprivate struct DestinationInfoV2: Codable {
+private struct DecodedDestinationV2: Codable {
     let sdkRootDir: String
     let toolchainBinDir: String
     let hostTriples: [String]
@@ -337,4 +404,30 @@ fileprivate struct DestinationInfoV2: Codable {
     let extraSwiftCFlags: [String]
     let extraCXXFlags: [String]
     let extraLinkerFlags: [String]
+}
+
+/// Represents v3 schema of `destination.json` files used for cross-compilation.
+private struct DecodedDestinationV3: Decodable {
+    struct TripleProperties: Decodable {
+        /// Path relative to `destination.json` containing SDK root.
+        let sdkRootPath: String
+
+        /// Path relative to `destination.json` containing Swift resources for dynamic linking.
+        let swiftResourcesPath: String?
+
+        /// Path relative to `destination.json` containing Swift resources for static linking.
+        let swiftStaticResourcesPath: String?
+
+        /// Array of paths relative to `destination.json` containing headers.
+        let includeSearchPaths: [String]?
+
+        /// Array of paths relative to `destination.json` containing libraries.
+        let librarySearchPaths: [String]?
+
+        /// Array of paths relative to `destination.json` containing toolset files.
+        let toolsetPaths: [String]?
+    }
+
+    /// Mapping of triple strings to corresponding properties of such run-time triple.
+    let runTimeTriples: [String: TripleProperties]
 }

@@ -84,7 +84,7 @@ final class DestinationTests: XCTestCase {
             "\(bundleRootPath)/destinationV2.json": ByteString(encodingAsUTF8: destinationV2JSON),
         ])
 
-        let destinationV1 = try Destination(fromFile: bundleRootPath.appending(.init("destinationV1.json")), fileSystem: fs)
+        let destinationV1 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV1.json")), fileSystem: fs)[0]
 
         var flagsWithoutLinkerFlags = extraFlags
         flagsWithoutLinkerFlags.linkerFlags = []
@@ -99,7 +99,7 @@ final class DestinationTests: XCTestCase {
             )
         )
 
-        let destinationV2 = try Destination(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs)
+        let destinationV2 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs)[0]
 
         XCTAssertEqual(destinationV2, parsedDestinationV2GNU)
     }
@@ -115,7 +115,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id1",
                                 supportedTriples: [hostTriple]
                             ),
-                            destination: parsedDestinationV2GNU
+                            destinations: [parsedDestinationV2GNU]
                         )
                     ],
                     "id2": [
@@ -124,7 +124,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id2",
                                 supportedTriples: []
                             ),
-                            destination: parsedDestinationV2GNU
+                            destinations: [parsedDestinationV2GNU]
                         )
                     ],
                     "id3": [
@@ -133,7 +133,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id3",
                                 supportedTriples: [hostTriple]
                             ),
-                            destination: parsedDestinationV2Musl
+                            destinations: [parsedDestinationV2Musl]
                         )
                     ]
                 ]
