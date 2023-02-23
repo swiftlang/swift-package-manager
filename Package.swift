@@ -289,6 +289,13 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        
+        .target(
+            name: "PackageSigning",
+            dependencies: [
+                "Basics",
+            ]
+        ),
 
         // MARK: Package Manager Functionality
 
@@ -642,6 +649,10 @@ let package = Package(
         .testTarget(
             name: "PackageRegistryTests",
             dependencies: ["SPMTestSupport", "PackageRegistry"]
+        ),
+        .testTarget(
+            name: "PackageSigningTests",
+            dependencies: ["SPMTestSupport", "PackageSigning"]
         ),
         .testTarget(
             name: "SourceControlTests",
