@@ -99,7 +99,6 @@ public struct PackageSearchClient {
         callback: @escaping (Result<[Package], Error>) -> Void
     ) {
         let identity = PackageIdentity.plain(query)
-        let isRegistryIdentity = identity.scopeAndName != nil
 
         // Search the package index and collections for a search term.
         let search = { (error: Error?) -> Void in
@@ -164,7 +163,7 @@ public struct PackageSearchClient {
         // package metadata for it from the configured registry. If there are any errors
         // or the search term does not work as a registry identity, we will fall back on
         // `fetchStandalonePackageByURL`.
-        if isRegistryIdentity {
+        if identity.isRegistry {
             return self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope, callbackQueue: DispatchQueue.sharedConcurrent) { result in
                 do {
                     let metadata = try result.get()

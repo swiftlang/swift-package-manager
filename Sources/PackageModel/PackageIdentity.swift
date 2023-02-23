@@ -49,39 +49,59 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
         PackageIdentity(value)
     }
 
-    // TODO: formalize package registry identifier
+    @available(*, deprecated, message: "use .registry instead")
     public var scopeAndName: (scope: Scope, name: Name)? {
-        let components = description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+        self.registry.flatMap { (scope: $0.scope, name: $0.name) }
+    }
+
+    public var registry: RegistryIdentity? {
+        let components = self.description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
         guard components.count == 2,
               let scope = Scope(components.first),
               let name = Name(components.last)
-        else { return .none }
+        else {
+            return .none
+        }
 
-        return (scope: scope, name: name)
+        return RegistryIdentity(
+            scope: scope,
+            name: name,
+            underlying: self
+        )
+    }
+
+    public var isRegistry: Bool {
+        self.registry != nil
+    }
+
+    public struct RegistryIdentity {
+        public let scope: PackageIdentity.Scope
+        public let name: PackageIdentity.Name
+        public let underlying: PackageIdentity
     }
 }
 
 extension PackageIdentity: Equatable, Comparable {
     private func compare(to other: PackageIdentity) -> ComparisonResult {
-        return self.description.caseInsensitiveCompare(other.description)
+        self.description.caseInsensitiveCompare(other.description)
     }
 
     public static func == (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.compare(to: rhs) == .orderedSame
+        lhs.compare(to: rhs) == .orderedSame
     }
 
     public static func < (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.compare(to: rhs) == .orderedAscending
+        lhs.compare(to: rhs) == .orderedAscending
     }
 
     public static func > (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.compare(to: rhs) == .orderedDescending
+        lhs.compare(to: rhs) == .orderedDescending
     }
 }
 
 extension PackageIdentity: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(description.lowercased())
+        hasher.combine(self.description.lowercased())
     }
 }
 
@@ -116,9 +136,9 @@ extension PackageIdentity {
 
             for (index, character) in zip(description.indices, description) {
                 guard character.isASCII,
-                        character.isLetter ||
-                        character.isNumber ||
-                        character == "-"
+                      character.isLetter ||
+                      character.isNumber ||
+                      character == "-"
                 else {
                     throw StringError("A package scope consists of alphanumeric characters and hyphens.")
                 }
@@ -154,25 +174,25 @@ extension PackageIdentity {
 
         private func compare(to other: Scope) -> ComparisonResult {
             // Package scopes are case-insensitive (for example, `mona` ≍ `MONA`).
-            return self.description.caseInsensitiveCompare(other.description)
+            self.description.caseInsensitiveCompare(other.description)
         }
 
         public static func == (lhs: Scope, rhs: Scope) -> Bool {
-            return lhs.compare(to: rhs) == .orderedSame
+            lhs.compare(to: rhs) == .orderedSame
         }
 
         public static func < (lhs: Scope, rhs: Scope) -> Bool {
-            return lhs.compare(to: rhs) == .orderedAscending
+            lhs.compare(to: rhs) == .orderedAscending
         }
 
         public static func > (lhs: Scope, rhs: Scope) -> Bool {
-            return lhs.compare(to: rhs) == .orderedDescending
+            lhs.compare(to: rhs) == .orderedDescending
         }
 
         // MARK: - Hashable
 
         public func hash(into hasher: inout Hasher) {
-            hasher.combine(description.lowercased())
+            hasher.combine(self.description.lowercased())
         }
 
         // MARK: - ExpressibleByStringLiteral
@@ -197,10 +217,10 @@ extension PackageIdentity {
 
             for (index, character) in zip(description.indices, description) {
                 guard character.isASCII,
-                        character.isLetter ||
-                        character.isNumber ||
-                        character == "-" ||
-                        character == "_"
+                      character.isLetter ||
+                      character.isNumber ||
+                      character == "-" ||
+                      character == "_"
                 else {
                     throw StringError("A package name consists of alphanumeric characters, underscores, and hyphens.")
                 }
@@ -236,25 +256,25 @@ extension PackageIdentity {
 
         private func compare(to other: Name) -> ComparisonResult {
             // Package scopes are case-insensitive (for example, `LinkedList` ≍ `LINKEDLIST`).
-            return self.description.caseInsensitiveCompare(other.description)
+            self.description.caseInsensitiveCompare(other.description)
         }
 
         public static func == (lhs: Name, rhs: Name) -> Bool {
-            return lhs.compare(to: rhs) == .orderedSame
+            lhs.compare(to: rhs) == .orderedSame
         }
 
         public static func < (lhs: Name, rhs: Name) -> Bool {
-            return lhs.compare(to: rhs) == .orderedAscending
+            lhs.compare(to: rhs) == .orderedAscending
         }
 
         public static func > (lhs: Name, rhs: Name) -> Bool {
-            return lhs.compare(to: rhs) == .orderedDescending
+            lhs.compare(to: rhs) == .orderedDescending
         }
 
         // MARK: - Hashable
 
         public func hash(into hasher: inout Hasher) {
-            hasher.combine(description.lowercased())
+            hasher.combine(self.description.lowercased())
         }
 
         // MARK: - ExpressibleByStringLiteral
@@ -289,9 +309,9 @@ struct PackageIdentityParser {
     /// Compute the default name of a package given its location.
     public static func computeDefaultName(fromLocation url: String) -> String {
         #if os(Windows)
-        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+        let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
         #else
-        let isSeparator : (Character) -> Bool = { $0 == "/" }
+        let isSeparator: (Character) -> Bool = { $0 == "/" }
         #endif
 
         // Get the last path component of the URL.
@@ -303,7 +323,7 @@ struct PackageIdentityParser {
 
         let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
         let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
-        var lastComponent = url[startIndex..<endIndex]
+        var lastComponent = url[startIndex ..< endIndex]
 
         // Strip `.git` suffix if present.
         if lastComponent.hasSuffix(".git") {
@@ -443,8 +463,8 @@ fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
 fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
 #endif
 
-private extension Character {
-    var isDigit: Bool {
+extension Character {
+    fileprivate var isDigit: Bool {
         switch self {
         case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
             return true
@@ -453,31 +473,31 @@ private extension Character {
         }
     }
 
-    var isAllowedInURLScheme: Bool {
-        return isLetter || self.isDigit || self == "+" || self == "-" || self == "."
+    fileprivate var isAllowedInURLScheme: Bool {
+        isLetter || self.isDigit || self == "+" || self == "-" || self == "."
     }
 }
 
-private extension String {
+extension String {
     @discardableResult
-    mutating func removePrefixIfPresent<T: StringProtocol>(_ prefix: T) -> Bool {
+    private mutating func removePrefixIfPresent<T: StringProtocol>(_ prefix: T) -> Bool {
         guard hasPrefix(prefix) else { return false }
         removeFirst(prefix.count)
         return true
     }
 
     @discardableResult
-    mutating func removeSuffixIfPresent<T: StringProtocol>(_ suffix: T) -> Bool {
+    fileprivate mutating func removeSuffixIfPresent<T: StringProtocol>(_ suffix: T) -> Bool {
         guard hasSuffix(suffix) else { return false }
         removeLast(suffix.count)
         return true
     }
 
     @discardableResult
-    mutating func dropSchemeComponentPrefixIfPresent() -> String? {
+    fileprivate mutating func dropSchemeComponentPrefixIfPresent() -> String? {
         if let rangeOfDelimiter = range(of: "://"),
            self[startIndex].isLetter,
-           self[..<rangeOfDelimiter.lowerBound].allSatisfy({ $0.isAllowedInURLScheme })
+           self[..<rangeOfDelimiter.lowerBound].allSatisfy(\.isAllowedInURLScheme)
         {
             defer { self.removeSubrange(..<rangeOfDelimiter.upperBound) }
 
@@ -488,7 +508,7 @@ private extension String {
     }
 
     @discardableResult
-    mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
+    fileprivate mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
         if let indexOfAtSign = firstIndex(of: "@"),
            let indexOfFirstPathComponent = firstIndex(where: isSeparator),
            indexOfAtSign < indexOfFirstPathComponent
@@ -508,7 +528,7 @@ private extension String {
     }
 
     @discardableResult
-    mutating func removePortComponentIfPresent() -> Bool {
+    fileprivate mutating func removePortComponentIfPresent() -> Bool {
         if let indexOfFirstPathComponent = firstIndex(where: isSeparator),
            let startIndexOfPort = firstIndex(of: ":"),
            startIndexOfPort < endIndex,
@@ -523,7 +543,7 @@ private extension String {
     }
 
     @discardableResult
-    mutating func removeFragmentComponentIfPresent() -> Bool {
+    fileprivate mutating func removeFragmentComponentIfPresent() -> Bool {
         if let index = firstIndex(of: "#") {
             self.removeSubrange(index...)
         }
@@ -532,7 +552,7 @@ private extension String {
     }
 
     @discardableResult
-    mutating func removeQueryComponentIfPresent() -> Bool {
+    fileprivate mutating func removeQueryComponentIfPresent() -> Bool {
         if let index = firstIndex(of: "?") {
             self.removeSubrange(index...)
         }
@@ -541,7 +561,7 @@ private extension String {
     }
 
     @discardableResult
-    mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
+    fileprivate mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
         of string: T,
         before index: Index? = nil,
         with replacement: U
@@ -556,4 +576,3 @@ private extension String {
         return true
     }
 }
-

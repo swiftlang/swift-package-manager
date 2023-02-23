@@ -683,7 +683,7 @@ extension Package.Dependency {
     ) -> Package.Dependency {
         let pattern = #"\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\.[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z"#
         if id.range(of: pattern, options: .regularExpression) == nil {
-            errors.append("Invalid package identifier: \(id)")
+            errors.append("Invalid package identifier: '\(id)'")
         }
 
         return .init(id: id, requirement: requirement)

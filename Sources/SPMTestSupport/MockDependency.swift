@@ -60,7 +60,7 @@ public struct MockDependency {
             )
         case .remoteSourceControl(let url, let _requirement):
             let mappedLocation = identityResolver.mappedLocation(for: url.absoluteString)
-            if PackageIdentity.plain(mappedLocation).scopeAndName != nil {
+            if PackageIdentity.plain(mappedLocation).isRegistry {
                 let identity = PackageIdentity.plain(mappedLocation)
                 let requirement: RegistryRequirement
                 switch _requirement {
@@ -91,7 +91,7 @@ public struct MockDependency {
             }
         case .registry(let identity, let _requirement):
             let mappedLocation = identityResolver.mappedLocation(for: identity.description)
-            if PackageIdentity.plain(mappedLocation).scopeAndName != nil {
+            if PackageIdentity.plain(mappedLocation).isRegistry {
                 let identity = PackageIdentity.plain(mappedLocation)
                 return .registry(
                     identity: identity,

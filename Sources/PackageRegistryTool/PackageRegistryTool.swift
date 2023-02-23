@@ -172,7 +172,7 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
         case .invalidURL(let url):
             return "invalid URL: \(url)"
         case .invalidPackageIdentity(let identity):
-            return "invalid package identity: \(identity)"
+            return "invalid package identifier '\(identity)'"
         case .unknownRegistry:
             return "unknown registry, is one configured?"
         case .unknownCredentialStore:
