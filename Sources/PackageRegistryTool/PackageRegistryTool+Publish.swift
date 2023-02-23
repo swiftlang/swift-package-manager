@@ -81,13 +81,13 @@ extension SwiftPackageRegistryTool {
             }
 
             // validate package identity
-            guard let packageScopeAndName = self.packageIdentity.scopeAndName else {
+            guard let registryIdentity = self.packageIdentity.registry else {
                 throw ValidationError.invalidPackageIdentity(self.packageIdentity)
             }
 
             // compute and validate registry URL
             let registryURL: URL? = self.registryURL ?? {
-                if let registry = configuration.registry(for: packageScopeAndName.scope) {
+                if let registry = configuration.registry(for: registryIdentity.scope) {
                     return registry.url
                 }
                 if let registry = configuration.defaultRegistry {

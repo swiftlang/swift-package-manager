@@ -61,13 +61,13 @@ public struct RegistryConfiguration: Hashable {
     }
 
     public func signing(for package: PackageIdentity, registry: Registry) throws -> Security.Signing {
-        guard case (let scope, _)? = package.scopeAndName else {
+        guard let registryIdentity = package.registry else {
             throw StringError("Only package identity in <scope>.<name> format is supported: '\(package)'")
         }
 
         let global = self.security?.default.signing
         let registryOverrides = registry.url.host.flatMap { host in self.security?.registryOverrides[host]?.signing }
-        let scopeOverrides = self.security?.scopeOverrides[scope]?.signing
+        let scopeOverrides = self.security?.scopeOverrides[registryIdentity.scope]?.signing
         let packageOverrides = self.security?.packageOverrides[package]?.signing
 
         var signing = Security.Signing.default
@@ -389,11 +389,11 @@ extension RegistryConfiguration.Security: Codable {
         var packageOverrides: [PackageIdentity: ScopePackageOverride] = [:]
         for (key, packageOverride) in packageOverridesContainer {
             let packageIdentity = PackageIdentity.plain(key)
-            guard packageIdentity.scopeAndName != nil else {
+            guard packageIdentity.isRegistry else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .packageOverrides,
                     in: container,
-                    debugDescription: "invalid package identity: \(key)"
+                    debugDescription: "invalid package identifier: '\(key)'"
                 )
             }
             packageOverrides[packageIdentity] = packageOverride

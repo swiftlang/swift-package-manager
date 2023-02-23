@@ -92,18 +92,18 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)")
+        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)")
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
@@ -147,7 +147,7 @@ public final class RegistryClient: Cancellable {
             )
         }
     }
-    
+
     public func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version,
@@ -158,18 +158,18 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)", "\(version)")
+        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version)")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -220,18 +220,23 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)", "\(version)", Manifest.filename)
+        components.appendPathComponents(
+            "\(registryIdentity.scope)",
+            "\(registryIdentity.name)",
+            "\(version)",
+            Manifest.filename
+        )
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -294,18 +299,23 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)", "\(version)", "Package.swift")
+        components.appendPathComponents(
+            "\(registryIdentity.scope)",
+            "\(registryIdentity.name)",
+            "\(version)",
+            "Package.swift"
+        )
 
         if let toolsVersion = customToolsVersion {
             components.queryItems = [
@@ -362,18 +372,18 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)", "\(version)")
+        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version)")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -466,18 +476,18 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard case (let scope, let name)? = package.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(package)))
+        guard let registryIdentity = package.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
         }
 
-        guard let registry = configuration.registry(for: scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
+        guard let registry = configuration.registry(for: registryIdentity.scope) else {
+            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
-        components.appendPathComponents("\(scope)", "\(name)", "\(version).zip")
+        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version).zip")
 
         guard let url = components.url else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -725,14 +735,14 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard let scopeAndName = packageIdentity.scopeAndName else {
-            return completion(.failure(RegistryError.invalidPackage(packageIdentity)))
+        guard let registryIdentity = packageIdentity.registry else {
+            return completion(.failure(RegistryError.invalidPackageIdentity(packageIdentity)))
         }
         guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registryURL)))
         }
-        components.appendPathComponents(scopeAndName.scope.description)
-        components.appendPathComponents(scopeAndName.name.description)
+        components.appendPathComponents(registryIdentity.scope.description)
+        components.appendPathComponents(registryIdentity.name.description)
         components.appendPathComponents(packageVersion.description)
 
         guard let url = components.url else {
@@ -863,7 +873,7 @@ public final class RegistryClient: Cancellable {
 
 public enum RegistryError: Error, CustomStringConvertible {
     case registryNotConfigured(scope: PackageIdentity.Scope?)
-    case invalidPackage(PackageIdentity)
+    case invalidPackageIdentity(PackageIdentity)
     case invalidURL(URL)
     case invalidResponseStatus(expected: [Int], actual: Int)
     case invalidContentVersion(expected: String, actual: String?)
@@ -901,8 +911,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             } else {
                 return "No registry configured'"
             }
-        case .invalidPackage(let package):
-            return "Invalid package '\(package)'"
+        case .invalidPackageIdentity(let packageIdentity):
+            return "Invalid package identifier '\(packageIdentity)'"
         case .invalidURL(let url):
             return "Invalid URL '\(url)'"
         case .invalidResponseStatus(let expected, let actual):
@@ -994,7 +1004,7 @@ extension RegistryClient {
         public let versions: [Version]
         public let alternateLocations: [URL]?
     }
-    
+
     public struct PackageVersionMetadata {
         public let registry: Registry
         public let licenseURL: URL?
@@ -1314,7 +1324,7 @@ extension RegistryClient {
                 public let licenseURL: String?
                 public let readmeURL: String?
                 public let repositoryURLs: [String]?
-                
+
                 public init(
                     author: Author? = nil,
                     description: String,
@@ -1329,7 +1339,7 @@ extension RegistryClient {
                     self.repositoryURLs = repositoryURLs
                 }
             }
-            
+
             public struct Author: Codable {
                 public let name: String
                 public let email: String?
@@ -1337,7 +1347,7 @@ extension RegistryClient {
                 public let organization: Organization?
                 public let url: String?
             }
-            
+
             public struct Organization: Codable {
                 public let name: String
                 public let email: String?

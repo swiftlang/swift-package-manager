@@ -337,8 +337,8 @@ class RegistryPackageContainerTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let fingerprintStorage = MockPackageFingerprintStorage()
 
-        guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
-            throw StringError("Invalid package identity")
+        guard let registryIdentity = packageIdentity.registry else {
+            throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
         var configuration = configuration
@@ -404,7 +404,7 @@ class RegistryPackageContainerTests: XCTestCase {
         let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
             // meh
             let path = packagePath
-                .appending(components: ".build", "registry", "downloads", packageScope.description, packageName.description)
+                .appending(components: ".build", "registry", "downloads", registryIdentity.scope.description, registryIdentity.name.description)
                 .appending(component: "\(packageVersion).zip")
             try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
             try! fileSystem.writeFileContents(path, string: "")
@@ -443,10 +443,10 @@ class RegistryPackageContainerTests: XCTestCase {
                 guard pathComponents.count >= 2 else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
-                guard pathComponents[0] == packageScope.description else {
+                guard pathComponents[0] == registryIdentity.scope.description else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
-                guard pathComponents[1] == packageName.description else {
+                guard pathComponents[1] == registryIdentity.name.description else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
 
@@ -468,11 +468,11 @@ class RegistryPackageContainerTests: XCTestCase {
     }
 
     private func manifestLink(_ identity: PackageIdentity, _ version: ToolsVersion) -> String {
-        guard let (scope, name) = identity.scopeAndName else {
-            preconditionFailure("invalid identity")
+        guard let registryIdentity = identity.registry else {
+            preconditionFailure("invalid registry identity: '\(identity)'")
         }
         let versionString = version.patch == 0 ? "\(version.major).\(version.minor)" : version.description
-        return "<http://localhost/\(scope)/\(name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
+        return "<http://localhost/\(registryIdentity.scope)/\(registryIdentity.name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
     }
 }
 

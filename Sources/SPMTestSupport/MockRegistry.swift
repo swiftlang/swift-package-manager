@@ -161,15 +161,15 @@ public class MockRegistry {
     }
 
     private func getPackageMetadata(packageIdentity: PackageIdentity) throws -> HTTPClientResponse {
-        guard let (scope, name) = packageIdentity.scopeAndName else {
-            throw StringError("invalid package identity \(packageIdentity)")
+        guard let registryIdentity = packageIdentity.registry else {
+            throw StringError("invalid package identifier '\(packageIdentity)'")
         }
 
         let versions = self.packageVersions[packageIdentity] ?? [:]
         let metadata = RegistryClient.Serialization.PackageMetadata(
             releases: versions.keys
                 .reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
-                    partial[item] = .init(url: "\(Self.mockRegistryURL.absoluteString)/\(scope)/\(name)/\(item)")
+                    partial[item] = .init(url: "\(Self.mockRegistryURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)")
                 }
         )
 

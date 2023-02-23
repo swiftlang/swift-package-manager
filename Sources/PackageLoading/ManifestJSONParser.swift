@@ -207,7 +207,7 @@ enum ManifestJSONParser {
         var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         // location mapping (aka mirrors) if any
         location = identityResolver.mappedLocation(for: location)
-        if PackageIdentity.plain(location).scopeAndName != nil {
+        if PackageIdentity.plain(location).isRegistry {
             // re-mapped to registry
             let identity = PackageIdentity.plain(location)
             let registryRequirement: PackageDependency.Registry.Requirement
@@ -257,7 +257,7 @@ enum ManifestJSONParser {
     ) throws -> PackageDependency {
         // location mapping (aka mirrors) if any
         let location = identityResolver.mappedLocation(for: identity.description)
-        if PackageIdentity.plain(location).scopeAndName != nil {
+        if PackageIdentity.plain(location).isRegistry {
             // re-mapped to registry
             let identity = PackageIdentity.plain(location)
             return .registry(

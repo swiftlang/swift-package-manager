@@ -160,7 +160,7 @@ public final class DependencyMirrors: Equatable {
     }
 
     private func parseLocation(_ location: String) throws -> PackageIdentity {
-        if PackageIdentity.plain(location).scopeAndName != nil {
+        if PackageIdentity.plain(location).isRegistry {
             return PackageIdentity.plain(location)
         } else if let path = try? AbsolutePath(validating: location)  {
             return PackageIdentity(path: path)

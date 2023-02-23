@@ -26,8 +26,7 @@ final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
-        let releasesURL = URL(string: "\(registryURL)/\(scope)/\(name)")!
+        let releasesURL = URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")!
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -98,8 +97,7 @@ final class RegistryClientTests: XCTestCase {
     func testGetPackageMetadata_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
-        let releasesURL = URL(string: "\(registryURL)/\(scope)/\(name)")!
+        let releasesURL = URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -127,13 +125,13 @@ final class RegistryClientTests: XCTestCase {
             }
         }
     }
-    
+
     func testGetPackageVersionMetadata() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let releaseURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let releaseURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
@@ -197,13 +195,13 @@ final class RegistryClientTests: XCTestCase {
             URL(string: "git@github.com:mona/LinkedList.git")!,
         ])
     }
-    
+
     func testGetPackageVersionMetadata_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let releaseURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let releaseURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -220,7 +218,10 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(try registryClient.getPackageVersionMetadata(package: identity, version: version)) { error in
+        XCTAssertThrowsError(
+            try registryClient
+                .getPackageVersionMetadata(package: identity, version: version)
+        ) { error in
             guard case RegistryError
                 .failedRetrievingReleaseInfo(
                     RegistryError
@@ -235,9 +236,11 @@ final class RegistryClientTests: XCTestCase {
     func testAvailableManifests() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+        let manifestURL =
+            URL(
+                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
+            )!
 
         let defaultManifest = """
         // swift-tools-version:5.5
@@ -310,9 +313,11 @@ final class RegistryClientTests: XCTestCase {
     func testAvailableManifests_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+        let manifestURL =
+            URL(
+                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
+            )!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -344,9 +349,11 @@ final class RegistryClientTests: XCTestCase {
     func testGetManifestContent() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+        let manifestURL =
+            URL(
+                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
+            )!
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -420,13 +427,15 @@ final class RegistryClientTests: XCTestCase {
             XCTAssertEqual(parsedToolsVersion, .v4)
         }
     }
-    
+
     func testGetManifestContent_optionalContentVersion() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+        let manifestURL =
+            URL(
+                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
+            )!
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
@@ -494,9 +503,11 @@ final class RegistryClientTests: XCTestCase {
     func testGetManifestContent_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
+        let manifestURL =
+            URL(
+                string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift"
+            )!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -531,9 +542,9 @@ final class RegistryClientTests: XCTestCase {
     func testFetchSourceArchiveChecksum() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -608,9 +619,9 @@ final class RegistryClientTests: XCTestCase {
     func testFetchSourceArchiveChecksum_storageConflict() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -684,9 +695,9 @@ final class RegistryClientTests: XCTestCase {
     func testFetchSourceArchiveChecksum_storageConflict_fingerprintChecking_warn() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -780,9 +791,9 @@ final class RegistryClientTests: XCTestCase {
     func testFetchSourceArchiveChecksum_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
@@ -823,9 +834,9 @@ final class RegistryClientTests: XCTestCase {
     func testDownloadSourceArchive_matchingChecksumInStorage() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -905,9 +916,9 @@ final class RegistryClientTests: XCTestCase {
     func testDownloadSourceArchive_nonMatchingChecksumInStorage() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
@@ -995,9 +1006,9 @@ final class RegistryClientTests: XCTestCase {
     func testDownloadSourceArchive_nonMatchingChecksumInStorage_fingerprintChecking_warn() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
@@ -1088,10 +1099,11 @@ final class RegistryClientTests: XCTestCase {
     func testDownloadSourceArchive_checksumNotInStorage() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1208,14 +1220,15 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertEqual(registryURL, fingerprint.origin.url?.absoluteString)
         XCTAssertEqual(checksum, fingerprint.value)
     }
-    
+
     func testDownloadSourceArchive_optionalContentVersion() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
-        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
+        let metadataURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1321,9 +1334,9 @@ final class RegistryClientTests: XCTestCase {
     func testDownloadSourceArchive_ServerError() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let downloadURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version).zip")!
+        let downloadURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")!
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
@@ -1728,11 +1741,14 @@ final class RegistryClientTests: XCTestCase {
     func testGetRegistryPublishSync() throws {
         let registryURL = URL(string: "https://packages.example.com")!
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let publishURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let publishURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
-        let expectedLocation = URL(string: "https://\(registryURL)/packages\(scope)/\(name)/\(version)")!
+        let expectedLocation =
+            URL(
+                string: "https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)"
+            )!
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -1760,7 +1776,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        try withTemporaryDirectory() { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
@@ -1792,11 +1808,14 @@ final class RegistryClientTests: XCTestCase {
     func testGetRegistryPublishAsync() throws {
         let registryURL = URL(string: "https://packages.example.com")!
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let publishURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let publishURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
-        let expectedLocation = URL(string: "https://\(registryURL)/status\(scope)/\(name)/\(version)")!
+        let expectedLocation =
+            URL(
+                string: "https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)"
+            )!
         let expectedRetry = Int.random(in: 10 ..< 100)
 
         let archiveContent = UUID().uuidString
@@ -1826,7 +1845,7 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        try withTemporaryDirectory() { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
@@ -1858,9 +1877,9 @@ final class RegistryClientTests: XCTestCase {
     func testGetRegistryPublish_ServerError() throws {
         let registryURL = URL(string: "https://packages.example.com")!
         let identity = PackageIdentity.plain("mona.LinkedList")
-        let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let publishURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let publishURL =
+            URL(string: "\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")!
 
         let serverErrorHandler = ServerErrorHandler(
             method: .put,
@@ -1869,7 +1888,7 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        try withTemporaryDirectory() { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
@@ -1896,7 +1915,10 @@ final class RegistryClientTests: XCTestCase {
                 guard case RegistryError
                     .failedPublishing(
                         RegistryError
-                            .serverError(code: serverErrorHandler.errorCode, details: serverErrorHandler.errorDescription)
+                            .serverError(
+                                code: serverErrorHandler.errorCode,
+                                details: serverErrorHandler.errorDescription
+                            )
                     ) = error
                 else {
                     return XCTFail("unexpected error \(error)")
@@ -1910,13 +1932,13 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(StringError("should not be called")))
         }
 
-        try withTemporaryDirectory() { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
-            //try localFileSystem.writeFileContents(archivePath, bytes: [])
+            // try localFileSystem.writeFileContents(archivePath, bytes: [])
 
             let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
 
@@ -1949,11 +1971,11 @@ final class RegistryClientTests: XCTestCase {
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
 
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(StringError("should not be called")))
         }
 
-        try withTemporaryDirectory() { temporaryDirectory in
+        try withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
@@ -1997,7 +2019,7 @@ extension RegistryClient {
             )
         }
     }
-    
+
     fileprivate func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version

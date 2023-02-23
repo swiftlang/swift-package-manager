@@ -12769,7 +12769,7 @@ final class WorkspaceTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
 
         guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
-            throw StringError("Invalid package identity")
+            throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
         var configuration = configuration
