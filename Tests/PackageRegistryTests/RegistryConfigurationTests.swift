@@ -16,8 +16,8 @@ import PackageRegistry
 import SPMTestSupport
 import XCTest
 
-private let defaultRegistryBaseURL = URL(string: "https://packages.example.com/")!
-private let customRegistryBaseURL = URL(string: "https://custom.packages.example.com/")!
+private let defaultRegistryBaseURL = URL("https://packages.example.com/")
+private let customRegistryBaseURL = URL("https://custom.packages.example.com/")
 
 final class RegistryConfigurationTests: XCTestCase {
     let encoder = JSONEncoder()
@@ -389,7 +389,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let registry = Registry(url: "https://packages.example.com")
         let signing = try configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
@@ -422,7 +422,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let registry = Registry(url: "https://packages.example.com")
         let signing = try configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .error)
@@ -462,7 +462,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let registry = Registry(url: "https://packages.example.com")
         let signing = try configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
@@ -498,7 +498,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let registry = Registry(url: "https://packages.example.com")
         let signing = try configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
@@ -534,7 +534,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let registry = Registry(url: URL(string: "https://packages.example.com")!)
+        let registry = Registry(url: "https://packages.example.com")
         let signing = try configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
@@ -585,25 +585,25 @@ final class RegistryConfigurationTests: XCTestCase {
 
         // Package override wins
         var package = PackageIdentity.plain("mona.LinkedList")
-        var registry = Registry(url: URL(string: "https://packages.example.com")!)
+        var registry = Registry(url: "https://packages.example.com")
         var signing = try configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/linkedlist/roots")
         
         // No package override, closest match is scope override
         package = PackageIdentity.plain("mona.Trie")
-        registry = Registry(url: URL(string: "https://packages.example.com")!)
+        registry = Registry(url: "https://packages.example.com")
         signing = try configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/roots")
         
         // No package override, closest match is registry override
         package = PackageIdentity.plain("foo.bar")
-        registry = Registry(url: URL(string: "https://packages.example.com")!)
+        registry = Registry(url: "https://packages.example.com")
         signing = try configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/foo/roots")
         
         // Global override
         package = PackageIdentity.plain("foo.bar")
-        registry = Registry(url: URL(string: "https://other.example.com")!)
+        registry = Registry(url: "https://other.example.com")
         signing = try configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/custom/roots")
     }

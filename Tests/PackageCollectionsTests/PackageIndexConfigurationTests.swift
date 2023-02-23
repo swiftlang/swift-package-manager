@@ -16,7 +16,7 @@ import XCTest
 
 class PackageIndexConfigurationTests: XCTestCase {
     func testSaveAndLoad() throws {
-        let url = URL(string: "https://package-index.test")!
+        let url = URL("https://package-index.test")
         let configuration = PackageIndexConfiguration(url: url)
         
         let fileSystem = InMemoryFileSystem()
@@ -35,7 +35,7 @@ class PackageIndexConfigurationTests: XCTestCase {
     }
     
     func testLoad_urlOnly() throws {
-        let url = URL(string: "https://package-index.test")!
+        let url = URL("https://package-index.test")
         let configJSON = """
         {
             "index": {

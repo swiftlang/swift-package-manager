@@ -717,7 +717,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packageKind: .remoteSourceControl(URL("https://some.where/foo/bar")),
                 packagePath: .init(path: "/test"),
                 target: target,
                 path: .root,
@@ -784,7 +784,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packageKind: .remoteSourceControl(URL("https://some.where/foo/bar")),
                 packagePath: .root,
                 target: target,
                 path: .root,
@@ -931,7 +931,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packageKind: .remoteSourceControl(URL("https://some.where/foo/bar")),
                 packagePath: .root,
                 target: target,
                 path: .root,

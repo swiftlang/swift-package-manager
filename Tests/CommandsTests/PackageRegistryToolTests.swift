@@ -21,8 +21,8 @@ import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import XCTest
 
-let defaultRegistryBaseURL = URL(string: "https://packages.example.com")!
-let customRegistryBaseURL = URL(string: "https://custom.packages.example.com")!
+let defaultRegistryBaseURL = URL("https://packages.example.com")
+let customRegistryBaseURL = URL("https://custom.packages.example.com")
 
 final class PackageRegistryToolTests: CommandsTestCase {
     @discardableResult

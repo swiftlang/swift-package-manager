@@ -287,16 +287,16 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testPinsWithMirrors() throws {
-        let fooURL = URL(string: "https://github.com/corporate/foo.git")!
+        let fooURL = URL("https://github.com/corporate/foo.git")
         let fooIdentity = PackageIdentity(url: fooURL)
-        let fooMirroredURL = URL(string: "https://github.corporate.com/team/foo.git")!
+        let fooMirroredURL = URL("https://github.corporate.com/team/foo.git")
 
-        let barURL = URL(string: "https://github.com/corporate/baraka.git")!
+        let barURL = URL("https://github.com/corporate/baraka.git")
         let barIdentity = PackageIdentity(url: barURL)
-        let barMirroredURL = URL(string: "https://github.corporate.com/team/bar.git")!
+        let barMirroredURL = URL("https://github.corporate.com/team/bar.git")
         let barMirroredIdentity = PackageIdentity(url: barMirroredURL)
 
-        let bazURL = URL(string: "https://github.com/cool/baz.git")!
+        let bazURL = URL("https://github.com/cool/baz.git")
         let bazIdentity = PackageIdentity(url: bazURL)
 
         let mirrors = DependencyMirrors()
@@ -343,11 +343,11 @@ final class PinsStoreTests: XCTestCase {
 
     func testPinsWithMirrorsDeterminism() throws {
         let fooIdentity = PackageIdentity.plain("foo")
-        let fooURL1 = URL(string: "https://github.com/corporate/foo")!
-        let fooURL2 = URL(string: "https://github.com/corporate/foo.git")!
-        let fooURL3 = URL(string: "https://github.com/old-corporate/foo")!
-        let fooURL4 = URL(string: "https://github.com/old-corporate/foo.git")!
-        let fooMirroredURL = URL(string: "https://github.corporate.com/team/foo")!
+        let fooURL1 = URL("https://github.com/corporate/foo")
+        let fooURL2 = URL("https://github.com/corporate/foo.git")
+        let fooURL3 = URL("https://github.com/old-corporate/foo")
+        let fooURL4 = URL("https://github.com/old-corporate/foo.git")
+        let fooMirroredURL = URL("https://github.corporate.com/team/foo")
 
         let mirrors = DependencyMirrors()
         mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL1.absoluteString)
@@ -389,11 +389,11 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testMirrorsDeterminism() throws {
-        let URL1 = URL(string: "https://github.com/corporate/foo")!
-        let URL2 = URL(string: "https://github.com/corporate/foo.git")!
-        let URL3 = URL(string: "https://github.com/old-corporate/foo")!
-        let URL4 = URL(string: "https://github.com/old-corporate/foo.git")!
-        let mirroredURL = URL(string: "https://github.corporate.com/team/foo")!
+        let URL1 = URL("https://github.com/corporate/foo")
+        let URL2 = URL("https://github.com/corporate/foo.git")
+        let URL3 = URL("https://github.com/old-corporate/foo")
+        let URL4 = URL("https://github.com/old-corporate/foo.git")
+        let mirroredURL = URL("https://github.corporate.com/team/foo")
 
         do {
             let mirrors = DependencyMirrors([

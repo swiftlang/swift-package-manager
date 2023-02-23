@@ -305,7 +305,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() throws {
-        let fooURL = URL(string: "https://example.com/foo")!
+        let fooURL = URL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"

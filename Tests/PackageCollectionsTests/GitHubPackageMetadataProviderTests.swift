@@ -24,7 +24,7 @@ import struct TSCUtility.Version
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
+        let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
         do {
             let sshURLRetVal = GitHubPackageMetadataProvider.apiURL("git@github.com:octocat/Hello-World.git")
@@ -46,9 +46,9 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
-            let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
-            let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
+            let releasesURL = URL("https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")
 
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -113,11 +113,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 XCTAssertEqual(metadata.versions[1].title, "1.0.0")
                 XCTAssertEqual(metadata.versions[1].summary, "Description of the release")
                 XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
-                                                                                         url: URL(string: "https://api.github.com/users/octocat")!,
+                                                                                         url: "https://api.github.com/users/octocat",
                                                                                          service: .init(name: "GitHub"))])
-                XCTAssertEqual(metadata.readmeURL, URL(string: "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md"))
+                XCTAssertEqual(metadata.readmeURL, "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md")
                 XCTAssertEqual(metadata.license?.type, PackageCollectionsModel.LicenseType.MIT)
-                XCTAssertEqual(metadata.license?.url, URL(string: "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true"))
+                XCTAssertEqual(metadata.license?.url, "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true")
                 XCTAssertEqual(metadata.watchersCount, 80)
                 XCTAssertEqual(metadata.languages, ["Swift", "Shell", "C"])
             }
@@ -126,7 +126,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testRepoNotFound() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
 
             let handler: LegacyHTTPClient.Handler = { _, _, completion in
                 completion(.success(.init(statusCode: 404)))
@@ -148,8 +148,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testOthersNotFound() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
-            let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
@@ -186,8 +186,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testPermissionDenied() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
-            let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             let handler: LegacyHTTPClient.Handler = { _, _, completion in
                 completion(.success(.init(statusCode: 401)))
@@ -209,8 +209,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidAuthToken() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
-            let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let authTokens = [AuthTokenType.github("github.com"): "foo"]
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -239,8 +239,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testAPILimit() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
-            let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+            let repoURL = URL("https://github.com/octocat/Hello-World.git")
+            let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
             let total = 5
             var remaining = total

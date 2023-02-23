@@ -174,7 +174,7 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertEqual(netrcProviders.count, 1)
                 XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                let auth = try tool.getAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
                 XCTAssertEqual(auth?.password, "custom")
 
@@ -212,7 +212,7 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertNotNil(netrcProvider)
                 XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
                 XCTAssertEqual(auth?.password, "custom")
 

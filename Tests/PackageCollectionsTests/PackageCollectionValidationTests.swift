@@ -23,7 +23,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationOK() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -106,7 +106,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_tooManyPackages() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -132,7 +132,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 license: nil
             ),
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
+                url: "https://package-collection-tests.com/repos/foobaz.git",
                 summary: "Package Foobaz",
                 keywords: ["test package"],
                 versions: [
@@ -182,7 +182,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_noVersions() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [],
@@ -214,7 +214,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_duplicateVersions_emptyProductsAndTargets() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -291,7 +291,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_nonSemanticVersion() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -341,7 +341,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_tooManyMajorsAndMinors() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -384,7 +384,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 license: nil
             ),
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
+                url: "https://package-collection-tests.com/repos/foobaz.git",
                 summary: "Package Foobaz",
                 keywords: ["test package"],
                 versions: [
@@ -456,7 +456,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_versionEmptyManifests() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -498,7 +498,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_versionProductNoTargets() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -548,7 +548,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_manifestToolsVersionMismatch() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
@@ -598,7 +598,7 @@ class PackageCollectionValidationTests: XCTestCase {
     func test_validationFailed_missingDefaultManifest() throws {
         let packages = [
             Model.Collection.Package(
-                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                url: "https://package-collection-tests.com/repos/foobar.git",
                 summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [

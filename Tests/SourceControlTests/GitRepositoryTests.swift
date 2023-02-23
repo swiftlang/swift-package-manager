@@ -33,9 +33,9 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testRepositorySpecifier() {
         do {
-            let s1 = RepositorySpecifier(url: URL(string: "a")!)
-            let s2 = RepositorySpecifier(url: URL(string: "a")!)
-            let s3 = RepositorySpecifier(url: URL(string: "b")!)
+            let s1 = RepositorySpecifier(url: "a")
+            let s2 = RepositorySpecifier(url: "a")
+            let s3 = RepositorySpecifier(url: "b")
 
             XCTAssertEqual(s1, s1)
             XCTAssertEqual(s1, s2)
