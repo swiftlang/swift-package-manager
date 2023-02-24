@@ -34,7 +34,7 @@ public struct ListDestinations: ParsableCommand {
     public func run() throws {
         let fileSystem = localFileSystem
         let observabilitySystem = ObservabilitySystem.swiftTool()
-        let observabilityScope = observabilitySystem.topScope
+        let scope = observabilitySystem.topScope
 
         guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
             explicitDirectory: locations.crossCompilationDestinationsDirectory
@@ -52,7 +52,7 @@ public struct ListDestinations: ParsableCommand {
         let validBundles = try DestinationsBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observability: scope
         )
 
         for bundle in validBundles {

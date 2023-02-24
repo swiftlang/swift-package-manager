@@ -3424,10 +3424,12 @@ final class BuildPlanTests: XCTestCase {
 
         let userDestination = Destination(
             sdkRootDir: AbsolutePath(path: "/fake/sdk"),
-            toolchainBinDir: try UserToolchain.default.destination.toolchainBinDir,
-            extraFlags: BuildFlags(
-                cCompilerFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
-                swiftCompilerFlags: ["-swift-flag-from-json"]
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"]),
+                    .swiftCompiler: .init(extraCLIOptions: ["-swift-flag-from-json"])
+                ],
+                rootPaths: try UserToolchain.default.destination.toolset.rootPaths
             )
         )
         let mockToolchain = try UserToolchain(destination: userDestination)

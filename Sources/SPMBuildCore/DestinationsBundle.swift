@@ -36,7 +36,7 @@ public struct DestinationsBundle {
     public static func getAllValidBundles(
         destinationsDirectory: AbsolutePath,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observability: ObservabilityScope
     ) throws -> [Self] {
         // Get absolute paths to available destination bundles.
         try fileSystem.getDirectoryContents(destinationsDirectory).filter {
@@ -49,10 +49,10 @@ public struct DestinationsBundle {
                 return try Self.parseAndValidate(
                     bundlePath: $0,
                     fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
+                    observability: observability
                 )
             } catch {
-                observabilityScope.emit(
+                observability.emit(
                     .warning(
                         "Couldn't parse `info.json` manifest of a destination bundle at \($0): \(error)"
                     )
@@ -75,7 +75,7 @@ public struct DestinationsBundle {
         fileSystem: FileSystem,
         matching selector: String,
         hostTriple: Triple,
-        observabilityScope: ObservabilityScope
+        observability: ObservabilityScope
     ) throws -> Destination {
         guard let destinationsDirectory = destinationsDirectory else {
             throw StringError(
@@ -88,7 +88,7 @@ public struct DestinationsBundle {
         let validBundles = try DestinationsBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observability: observability
         )
 
         guard !validBundles.isEmpty else {
@@ -100,7 +100,7 @@ public struct DestinationsBundle {
         guard var selectedDestination = validBundles.selectDestination(
             matching: selector,
             hostTriple: hostTriple,
-            observabilityScope: observabilityScope
+            observability: observability
         ) else {
             throw StringError(
                 """
@@ -111,15 +111,7 @@ public struct DestinationsBundle {
             )
         }
 
-        selectedDestination.extraFlags.swiftCompilerFlags += [
-            "-tools-directory", selectedDestination.toolchainBinDir.pathString,
-        ]
-
-        if let sdkDirPath = selectedDestination.sdkRootDir?.pathString {
-            selectedDestination.extraFlags.swiftCompilerFlags += [
-                "-sdk", sdkDirPath,
-            ]
-        }
+        selectedDestination.applyPathCLIOptions()
 
         return selectedDestination
     }
@@ -135,7 +127,7 @@ public struct DestinationsBundle {
     private static func parseAndValidate(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observability: ObservabilityScope
     ) throws -> Self {
         let parsedManifest = try ArtifactsArchiveMetadata.parse(
             fileSystem: fileSystem,
@@ -145,7 +137,7 @@ public struct DestinationsBundle {
         return try parsedManifest.validateDestinationsBundle(
             bundlePath: bundlePath,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observability: observability
         )
     }
 }
@@ -154,7 +146,7 @@ private extension ArtifactsArchiveMetadata {
     func validateDestinationsBundle(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observability: ObservabilityScope
     ) throws -> DestinationsBundle {
         var result = DestinationsBundle(path: bundlePath)
 
@@ -168,7 +160,7 @@ private extension ArtifactsArchiveMetadata {
                     .appending(component: "destination.json")
 
                 guard fileSystem.exists(destinationJSONPath) else {
-                    observabilityScope.emit(
+                    observability.emit(
                         .warning(
                             """
                             Destination metadata file not found at \(
@@ -183,12 +175,12 @@ private extension ArtifactsArchiveMetadata {
 
                 do {
                     let destinations = try Destination.decode(
-                        fromFile: destinationJSONPath, fileSystem: fileSystem
+                        fromFile: destinationJSONPath, fileSystem: fileSystem, observability: observability
                     )
 
                     variants.append(.init(metadata: variantMetadata, destinations: destinations))
                 } catch {
-                    observabilityScope.emit(
+                    observability.emit(
                         .warning(
                             "Couldn't parse destination metadata at \(destinationJSONPath): \(error)"
                         )
@@ -213,7 +205,7 @@ extension Array where Element == DestinationsBundle {
     public func selectDestination(
         matching selector: String,
         hostTriple: Triple,
-        observabilityScope: ObservabilityScope
+        observability: ObservabilityScope
     ) -> Destination? {
         var matchedByID: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
         var matchedByTriple: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
@@ -228,7 +220,7 @@ extension Array where Element == DestinationsBundle {
                     for destination in variant.destinations {
                         if artifactID == selector {
                             if let matchedByID = matchedByID {
-                                observabilityScope.emit(warning:
+                                observability.emit(warning:
                                     """
                                     multiple destinations match ID `\(artifactID)` and host triple \(
                                         hostTriple.tripleString
@@ -244,7 +236,7 @@ extension Array where Element == DestinationsBundle {
 
                         if destination.targetTriple?.tripleString == selector {
                             if let matchedByTriple = matchedByTriple {
-                                observabilityScope.emit(warning:
+                                observability.emit(warning:
                                     """
                                     multiple destinations match target triple `\(selector)` and host triple \(
                                         hostTriple.tripleString
@@ -263,7 +255,7 @@ extension Array where Element == DestinationsBundle {
         }
 
         if let matchedByID = matchedByID, let matchedByTriple = matchedByTriple, matchedByID != matchedByTriple {
-            observabilityScope.emit(warning:
+            observability.emit(warning:
                 """
                 multiple destinations match the query `\(selector)` and host triple \(
                     hostTriple.tripleString

@@ -654,7 +654,11 @@ public final class SwiftTool {
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
-                let destinations = try Destination.decode(fromFile: customDestination, fileSystem: fileSystem)
+                let destinations = try Destination.decode(
+                    fromFile: customDestination,
+                    fileSystem: fileSystem,
+                    observability: observabilityScope
+                )
                 if destinations.count == 1 {
                     destination = destinations[0]
                 } else if destinations.count > 1,
@@ -673,7 +677,7 @@ public final class SwiftTool {
                     fileSystem: fileSystem,
                     matching: destinationSelector,
                     hostTriple: hostTriple,
-                    observabilityScope: observabilityScope
+                    observability: observabilityScope
                 )
             } else {
                 // Otherwise use the host toolchain.
@@ -687,7 +691,7 @@ public final class SwiftTool {
             destination.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
-            destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
+            destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
             destination.sdkRootDir = sdk

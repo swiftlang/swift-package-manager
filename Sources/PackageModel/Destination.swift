@@ -42,7 +42,7 @@ extension DestinationError: CustomStringConvertible {
 }
 
 /// The compilation destination, has information about everything that's required for a certain destination.
-public struct Destination: Encodable, Equatable {
+public struct Destination: Equatable {
     /// The clang/LLVM triple describing the target OS and architecture.
     ///
     /// The triple has the general format <arch><sub>-<vendor>-<sys>-<abi>, where:
@@ -78,16 +78,14 @@ public struct Destination: Encodable, Equatable {
     /// Path to a directory containing the toolchain (compilers/linker) to be used for the compilation.
     @available(*, deprecated, message: "use `toolchainBinDir` instead")
     public var binDir: AbsolutePath {
-        get {
-            toolchainBinDir
-        }
-        set {
-            toolchainBinDir = newValue
-        }
+        toolchainBinDir
     }
 
     /// Path to a directory containing the toolchain (compilers/linker) to be used for the compilation.
-    public var toolchainBinDir: AbsolutePath
+    @available(*, deprecated, message: "use `toolset.rootPaths` instead")
+    public var toolchainBinDir: AbsolutePath {
+        toolset.rootPaths[0]
+    }
 
     /// Additional flags to be passed to the C compiler.
     @available(*, deprecated, message: "use `extraFlags.cCompilerFlags` instead")
@@ -108,10 +106,24 @@ public struct Destination: Encodable, Equatable {
     }
 
     /// Additional flags to be passed to the build tools.
-    public var extraFlags: BuildFlags
+    @available(*, deprecated, message: "use `toolset` and its properties instead")
+    public var extraFlags: BuildFlags {
+        .init(
+            cCompilerFlags: toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
+            cxxCompilerFlags: toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
+            swiftCompilerFlags: toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? [],
+            linkerFlags: toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+            xcbuildFlags: toolset.knownTools[.xcbuild]?.extraCLIOptions ?? []
+        )
+    }
+
+    /// Set of tools and their properties used for building code for this destination. While a serialized destination
+    /// may specify multiple toolset files, these files are consolidated into a single ``Toolset`` value during
+    /// deserialization.
+    public private(set) var toolset: Toolset
 
     /// Creates a compilation destination with the specified properties.
-    @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolchainBinDir:extraFlags)` instead")
+    @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolset:)` instead")
     public init(
         target: Triple? = nil,
         sdk: AbsolutePath?,
@@ -120,14 +132,32 @@ public struct Destination: Encodable, Equatable {
         extraSwiftCFlags: [String] = [],
         extraCPPFlags: [String] = []
     ) {
-        self.hostTriple = nil
-        self.targetTriple = target
-        self.sdkRootDir = sdk
-        self.toolchainBinDir = binDir
-        self.extraFlags = BuildFlags(
-            cCompilerFlags: extraCCFlags,
-            cxxCompilerFlags: extraCPPFlags,
-            swiftCompilerFlags: extraSwiftCFlags
+        self.init(
+            targetTriple: target,
+            sdkRootDir: sdk,
+            toolchainBinDir: binDir,
+            extraFlags: BuildFlags(
+                cCompilerFlags: extraCCFlags,
+                cxxCompilerFlags: extraCPPFlags,
+                swiftCompilerFlags: extraSwiftCFlags
+            )
+        )
+    }
+
+    /// Creates a compilation destination with the specified properties.
+    @available(*, deprecated, message: "use `init(hostTriple:targetTriple:sdkRootDir:toolset:)` instead")
+    public init(
+        hostTriple: Triple? = nil,
+        targetTriple: Triple? = nil,
+        sdkRootDir: AbsolutePath?,
+        toolchainBinDir: AbsolutePath,
+        extraFlags: BuildFlags = BuildFlags()
+    ) {
+        self.init(
+            hostTriple: hostTriple,
+            targetTriple: targetTriple,
+            sdkRootDir: sdkRootDir,
+            toolset: Toolset(toolchainBinDir: toolchainBinDir, buildFlags: extraFlags)
         )
     }
 
@@ -136,14 +166,12 @@ public struct Destination: Encodable, Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         sdkRootDir: AbsolutePath?,
-        toolchainBinDir: AbsolutePath,
-        extraFlags: BuildFlags = BuildFlags()
+        toolset: Toolset
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.sdkRootDir = sdkRootDir
-        self.toolchainBinDir = toolchainBinDir
-        self.extraFlags = extraFlags
+        self.toolset = toolset
     }
 
     /// Returns the bin directory for the host.
@@ -215,8 +243,13 @@ public struct Destination: Encodable, Equatable {
 
         return Destination(
             sdkRootDir: sdkPath,
-            toolchainBinDir: binDir,
-            extraFlags: BuildFlags(cCompilerFlags: extraCCFlags, swiftCompilerFlags: extraSwiftCFlags)
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: extraCCFlags),
+                    .swiftCompiler: .init(extraCLIOptions: extraSwiftCFlags),
+                ],
+                rootPaths: [binDir]
+            )
         )
     }
 
@@ -257,22 +290,44 @@ public struct Destination: Encodable, Equatable {
     /// Returns a default destination of a given target environment
     public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
         if triple.isWASI() {
-            let wasiSysroot = host.toolchainBinDir
+            let wasiSysroot = host.toolset.rootPaths.first?
                 .parentDirectory // usr
                 .appending(components: "share", "wasi-sysroot")
             return Destination(
                 targetTriple: triple,
                 sdkRootDir: wasiSysroot,
-                toolchainBinDir: host.toolchainBinDir
+                toolset: host.toolset
             )
         }
         return nil
+    }
+
+    /// Propagates toolchain and SDK paths known to the destination to `swiftc` CLI options.
+    public mutating func applyPathCLIOptions() {
+        var properties = toolset.knownTools[.swiftCompiler] ?? .init(extraCLIOptions: [])
+        properties.extraCLIOptions.append(contentsOf: toolset.rootPaths.flatMap { ["-tools-directory", $0.pathString] })
+
+        if let sdkDirPath = sdkRootDir?.pathString {
+            properties.extraCLIOptions.append(contentsOf: ["-sdk", sdkDirPath])
+        }
+
+        toolset.knownTools[.swiftCompiler] = properties
+    }
+
+    /// Appends a path to the array of toolset root paths.
+    /// - Parameter toolsetRootPath: new path to add to the destination's toolset.
+    public mutating func add(toolsetRootPath: AbsolutePath) {
+        toolset.rootPaths.append(toolsetRootPath)
     }
 }
 
 extension Destination {
     /// Load a ``Destination`` description from a JSON representation from disk.
-    public static func decode(fromFile path: AbsolutePath, fileSystem: FileSystem) throws -> [Destination] {
+    public static func decode(
+        fromFile path: AbsolutePath,
+        fileSystem: FileSystem,
+        observability: ObservabilityScope
+    ) throws -> [Destination] {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
 
@@ -284,22 +339,28 @@ extension Destination {
         semanticVersion: SemanticVersionInfo,
         fromFile path: AbsolutePath,
         fileSystem: FileSystem,
-        decoder: JSONDecoder
+        decoder: JSONDecoder,
+        observability: ObservabilityScope
     ) throws -> [Destination] {
         switch semanticVersion.version {
         case Version(3, 0, 0):
             let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV3.self)
             let destinationDirectory = path.parentDirectory
 
-            return []
-//            return try destinations.runTimeTriples.map { (triple, destination) in
-//                let triple = try Triple(triple)
+            return try destinations.runTimeTriples.map { triple, properties in
+                let triple = try Triple(triple)
 
-//                return Destination(
-//                    targetTriple: triple,
-//                    sdkRootDir: AbsolutePath(validating: destination.sdkRootPath, relativeTo: destinationDirectory),
-//                    toolchainBinDir: <#T##AbsolutePath#>
-//            }
+                let pathStrings = properties.toolsetPaths ?? []
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                    try $0.merge(with: .init(from: .init(validating: $1, relativeTo: destinationDirectory), at: fileSystem, observability))
+                }
+
+                return Destination(
+                    targetTriple: triple,
+                    sdkRootDir: try .init(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                    toolset: toolset
+                )
+            }
         default:
             throw DestinationError.invalidSchemaVersion
         }
@@ -319,31 +380,34 @@ extension Destination {
             try self.init(
                 targetTriple: destination.target.map { try Triple($0) },
                 sdkRootDir: destination.sdk,
-                toolchainBinDir: destination.binDir,
-                extraFlags: .init(
-                    cCompilerFlags: destination.extraCCFlags,
-                    cxxCompilerFlags: destination.extraCPPFlags,
-                    swiftCompilerFlags: destination.extraSwiftCFlags
+                toolset: .init(
+                    toolchainBinDir: destination.binDir,
+                    buildFlags: .init(
+                        cCompilerFlags: destination.extraCCFlags,
+                        cxxCompilerFlags: destination.extraCPPFlags,
+                        swiftCompilerFlags: destination.extraSwiftCFlags
+                    )
                 )
             )
         case 2:
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV2.self)
             let destinationDirectory = path.parentDirectory
 
-            // TODO: support multiple host and destination triple.
             try self.init(
                 hostTriple: destination.hostTriples.map(Triple.init).first,
                 targetTriple: destination.targetTriples.map(Triple.init).first,
                 sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
-                toolchainBinDir: AbsolutePath(
-                    validating: destination.toolchainBinDir,
-                    relativeTo: destinationDirectory
-                ),
-                extraFlags: .init(
-                    cCompilerFlags: destination.extraCCFlags,
-                    cxxCompilerFlags: destination.extraCXXFlags,
-                    swiftCompilerFlags: destination.extraSwiftCFlags,
-                    linkerFlags: destination.extraLinkerFlags
+                toolset: .init(
+                    toolchainBinDir: AbsolutePath(
+                        validating: destination.toolchainBinDir,
+                        relativeTo: destinationDirectory
+                    ),
+                    buildFlags: .init(
+                        cCompilerFlags: destination.extraCCFlags,
+                        cxxCompilerFlags: destination.extraCXXFlags,
+                        swiftCompilerFlags: destination.extraSwiftCFlags,
+                        linkerFlags: destination.extraLinkerFlags
+                    )
                 )
             )
         default:

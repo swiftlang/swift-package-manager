@@ -65,16 +65,14 @@ private let parsedDestinationV2GNU = Destination(
     hostTriple: hostTriple,
     targetTriple: linuxGNUTargetTriple,
     sdkRootDir: sdkRootAbsolutePath,
-    toolchainBinDir: toolchainBinAbsolutePath,
-    extraFlags: extraFlags
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags )
 )
 
 private let parsedDestinationV2Musl = Destination(
     hostTriple: hostTriple,
     targetTriple: linuxMuslTargetTriple,
     sdkRootDir: sdkRootAbsolutePath,
-    toolchainBinDir: toolchainBinAbsolutePath,
-    extraFlags: extraFlags
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags)
 )
 
 final class DestinationTests: XCTestCase {
@@ -84,7 +82,10 @@ final class DestinationTests: XCTestCase {
             "\(bundleRootPath)/destinationV2.json": ByteString(encodingAsUTF8: destinationV2JSON),
         ])
 
-        let destinationV1 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV1.json")), fileSystem: fs)[0]
+        let system = ObservabilitySystem.makeForTesting()
+        let observability = system.topScope
+
+        let destinationV1 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV1.json")), fileSystem: fs, observability: observability)[0]
 
         var flagsWithoutLinkerFlags = extraFlags
         flagsWithoutLinkerFlags.linkerFlags = []
@@ -94,12 +95,11 @@ final class DestinationTests: XCTestCase {
             Destination(
                 targetTriple: linuxGNUTargetTriple,
                 sdkRootDir: sdkRootAbsolutePath,
-                toolchainBinDir: toolchainBinAbsolutePath,
-                extraFlags: flagsWithoutLinkerFlags
+                toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags)
             )
         )
 
-        let destinationV2 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs)[0]
+        let destinationV2 = try Destination.decode(fromFile: bundleRootPath.appending(.init("destinationV2.json")), fileSystem: fs, observability: observability)[0]
 
         XCTAssertEqual(destinationV2, parsedDestinationV2GNU)
     }
@@ -146,7 +146,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id1",
                 hostTriple: hostTriple,
-                observabilityScope: system.topScope
+                observability: system.topScope
             ),
             parsedDestinationV2GNU
         )
@@ -157,7 +157,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id2",
                 hostTriple: hostTriple,
-                observabilityScope: system.topScope
+                observability: system.topScope
             )
         )
 
@@ -165,7 +165,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id3",
                 hostTriple: hostTriple,
-                observabilityScope: system.topScope
+                observability: system.topScope
             ),
             parsedDestinationV2Musl
         )

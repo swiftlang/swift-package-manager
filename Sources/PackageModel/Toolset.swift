@@ -21,7 +21,7 @@ import struct TSCUtility.Version
 
 /// A set of paths and flags for tools used for building Swift packages. This type unifies pre-existing assorted ways
 /// to specify these properties across SwiftPM codebase.
-public struct Toolset {
+public struct Toolset: Equatable {
     /// Tools currently known and used by SwiftPM.
     public enum KnownTool: String, Hashable, CaseIterable {
         case swiftCompiler
@@ -31,6 +31,7 @@ public struct Toolset {
         case librarian
         case debugger
         case testRunner
+        case xcbuild
     }
 
     /// Properties of a known tool in a ``Toolset``.
@@ -39,15 +40,21 @@ public struct Toolset {
         public fileprivate(set) var path: AbsolutePath?
 
         /// Command-line options to be passed to the tool when it's invoked.
-        public fileprivate(set) var extraCLIOptions: [String]?
+        public internal(set) var extraCLIOptions: [String]
     }
 
     /// A dictionary of known tools in this toolset.
-    public fileprivate(set) var knownTools: [KnownTool: ToolProperties]
+    public internal(set) var knownTools: [KnownTool: ToolProperties]
 
     /// An array of paths specified as `rootPath` in toolset files from which this toolset was formed. May be used
     /// for locating tools that aren't currently listed in ``Toolset/KnownTool``.
-    public fileprivate(set) var rootPaths: [AbsolutePath]
+    public internal(set) var rootPaths: [AbsolutePath]
+}
+
+extension Toolset.ToolProperties {
+    init(path: AbsolutePath) {
+        self.init(path: path, extraCLIOptions: [])
+    }
 }
 
 extension Toolset {
@@ -98,7 +105,7 @@ extension Toolset {
 
             knownTools[knownTool] = ToolProperties(
                 path: toolPath,
-                extraCLIOptions: properties.extraCLIOptions
+                extraCLIOptions: properties.extraCLIOptions ?? []
             )
         }
 
@@ -128,15 +135,11 @@ extension Toolset {
             if newProperties.path != nil {
                 // if `newTool` has `path` specified, it overrides the existing tool completely.
                 knownTools[newTool] = newProperties
-            } else if let newExtraCLIOptions = newProperties.extraCLIOptions, !newExtraCLIOptions.isEmpty {
+            } else if !newProperties.extraCLIOptions.isEmpty {
                 // if `newTool` has no `path` specified, `newExtraCLIOptions` are appended to the existing tool.
                 if var existingTool = knownTools[newTool] {
                     // either update the existing tool and store it back...
-                    if existingTool.extraCLIOptions == nil {
-                        existingTool.extraCLIOptions = newExtraCLIOptions
-                    } else {
-                        existingTool.extraCLIOptions?.append(contentsOf: newExtraCLIOptions)
-                    }
+                    existingTool.extraCLIOptions.append(contentsOf: newProperties.extraCLIOptions)
                     knownTools[newTool] = existingTool
                 } else {
                     // ...or store a new tool if no existing tool is found.
@@ -144,6 +147,17 @@ extension Toolset {
                 }
             }
         }
+    }
+
+    init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags) {
+        self.rootPaths = [toolchainBinDir]
+        self.knownTools = [
+            .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags),
+            .cxxCompiler: .init(extraCLIOptions: buildFlags.cxxCompilerFlags),
+            .swiftCompiler: .init(extraCLIOptions: buildFlags.swiftCompilerFlags),
+            .linker: .init(extraCLIOptions: buildFlags.linkerFlags),
+            .xcbuild: .init(extraCLIOptions: buildFlags.xcbuildFlags ?? []),
+        ]
     }
 }
 
