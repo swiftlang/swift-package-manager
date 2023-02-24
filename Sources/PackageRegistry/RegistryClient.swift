@@ -34,7 +34,10 @@ public final class RegistryClient: Cancellable {
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
 
-    private let availabilityCache = ThreadSafeKeyValueStore<URL, (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)>()
+    private let availabilityCache = ThreadSafeKeyValueStore<
+        URL,
+        (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)
+    >()
 
     public init(
         configuration: RegistryConfiguration,
@@ -289,7 +292,12 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingReleaseInfo(registry: registry, package: package.underlying, version: version, error: $0)
+                    RegistryError.failedRetrievingReleaseInfo(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: $0
+                    )
                 }
             )
         }
@@ -409,7 +417,12 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingManifest(registry: registry, package: package.underlying, version: version, error: $0)
+                    RegistryError.failedRetrievingManifest(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: $0
+                    )
                 }
             )
         }
@@ -527,12 +540,17 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 }.mapError {
-                    RegistryError.failedRetrievingManifest(registry: registry, package: package.underlying, version: version, error: $0)
+                    RegistryError.failedRetrievingManifest(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: $0
+                    )
                 }
             )
         }
     }
-    
+
     public func fetchSourceArchiveChecksum(
         package: PackageIdentity,
         version: Version,
@@ -667,10 +685,20 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 } catch {
-                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(registry: registry, package: package.underlying, version: version, error: error)))
+                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: error
+                    )))
                 }
             case .failure(let error):
-                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(registry: registry, package: package.underlying, version: version, error: error)))
+                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )))
             }
         }
     }
@@ -845,10 +873,20 @@ public final class RegistryClient: Cancellable {
                         throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
                     }
                 } catch {
-                    completion(.failure(RegistryError.failedDownloadingSourceArchive(registry: registry, package: package.underlying, version: version, error: error)))
+                    completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: error
+                    )))
                 }
             case .failure(let error):
-                completion(.failure(RegistryError.failedDownloadingSourceArchive(registry: registry, package: package.underlying, version: version, error: error)))
+                completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: error
+                )))
             }
         }
 
@@ -1150,7 +1188,7 @@ public final class RegistryClient: Cancellable {
         guard registry.supportsAvailability else {
             return completion(.failure(StringError("registry \(registry.url) does not support availability checks.")))
         }
-        
+
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
@@ -1191,21 +1229,22 @@ public final class RegistryClient: Cancellable {
         callbackQueue: DispatchQueue,
         next: @escaping (Error?) -> Void
     ) {
-        let availabilityHandler = { (result: Result<AvailabilityStatus, Error>) in
-            switch result {
-            case .success(let status):
-                switch status {
-                case .available:
-                    return next(.none)
-                case .unavailable:
-                    return next(RegistryError.registryNotAvailable(registry))
-                case .error(let description):
-                    return next(StringError(description))
+        let availabilityHandler: (Result<AvailabilityStatus, Error>)
+            -> Void = { (result: Result<AvailabilityStatus, Error>) in
+                switch result {
+                case .success(let status):
+                    switch status {
+                    case .available:
+                        return next(.none)
+                    case .unavailable:
+                        return next(RegistryError.registryNotAvailable(registry))
+                    case .error(let description):
+                        return next(StringError(description))
+                    }
+                case .failure(let error):
+                    return next(error)
                 }
-            case .failure(let error):
-                return next(error)
             }
-        }
 
         if let cached = self.availabilityCache[registry.url], cached.expires < .now() {
             return availabilityHandler(cached.status)
@@ -1237,7 +1276,10 @@ public final class RegistryClient: Cancellable {
         case 501:
             return RegistryError.authenticationMethodNotSupported
         case 500, 502, 503:
-            return RegistryError.serverError(code: response.statusCode, details: response.body.flatMap{ String(data: $0, encoding: .utf8) } ?? "")
+            return RegistryError.serverError(
+                code: response.statusCode,
+                details: response.body.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            )
         default:
             return RegistryError.invalidResponseStatus(expected: expectedStatus, actual: response.statusCode)
         }
