@@ -832,6 +832,49 @@ public final class RegistryClient: Cancellable {
         }
     }
 
+    public func checkAvailability(
+        registryURL: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<AvailabilityStatus, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+        components.appendPathComponents("availability")
+
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registryURL)))
+        }
+
+        let request = LegacyHTTPClient.Request(
+            method: .get,
+            url: url,
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+        )
+
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+            completion(
+                result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        return .available
+                    case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
+                        return .unavailable
+                    default:
+                        if let error = try? response.parseError(decoder: self.jsonDecoder) {
+                            return .error(error.detail)
+                        }
+                        return .error("unknown server error (\(response.statusCode))")
+                    }
+                }
+            )
+        }
+    }
+
     private func unexpectedStatusError(
         _ response: HTTPClientResponse,
         expectedStatus: [Int]
@@ -893,7 +936,6 @@ public enum RegistryError: Error, CustomStringConvertible {
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
     case failedIdentityLookup(Error)
-    case failedRetrievingRegistryPublishRequirements(Error)
     case failedLoadingPackageArchive(AbsolutePath)
     case failedLoadingPackageMetadata(AbsolutePath)
     case failedPublishing(Error)
@@ -951,8 +993,6 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Failed downloading source archive from registry: \(error)"
         case .failedIdentityLookup(let error):
             return "Failed looking up identity: \(error)"
-        case .failedRetrievingRegistryPublishRequirements(let error):
-            return "Failed retrieving registry publishing requirements: \(error)"
         case .failedLoadingPackageArchive(let path):
             return "Failed loading package archive at '\(path)' for publishing"
         case .failedLoadingPackageMetadata(let path):
@@ -1033,17 +1073,21 @@ extension RegistryClient {
     }
 }
 
-/*
- extension RegistryClient {
-     public enum SignatureFormat {
-         case CMS_1_0_0
-     }
- }*/
-
 extension RegistryClient {
     public enum PublishResult: Equatable {
         case published(URL?)
         case processing(statusURL: URL, retryAfter: Int?)
+    }
+}
+
+extension RegistryClient {
+    public enum AvailabilityStatus: Equatable {
+        case available
+        case unavailable
+        case error(String)
+
+        // internal for testing
+        static var unavailableStatusCodes = [404, 501]
     }
 }
 
@@ -1362,31 +1406,6 @@ extension RegistryClient {
 
             public init(identifiers: [String]) {
                 self.identifiers = identifiers
-            }
-        }
-
-        // marked public for cross module visibility
-        public struct PublishRequirements: Codable {
-            let metadata: Metadata
-            let signing: Signing
-
-            struct Metadata: Codable {
-                let location: [MetadataLocation]
-            }
-
-            enum MetadataLocation: String, Codable {
-                case request = "in-request"
-                case archive = "in-archive"
-            }
-
-            struct Signing: Codable {
-                let required: Bool
-                let acceptedSignatureFormats: [SignatureFormat]
-                let trustedRootCertificates: [String]
-            }
-
-            enum SignatureFormat: String, Codable {
-                case CMS_1_0_0 = "cms-1.0.0"
             }
         }
     }
