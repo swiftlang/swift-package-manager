@@ -12803,7 +12803,8 @@ final class WorkspaceTests: XCTestCase {
                     .init(
                         name: "source-archive",
                         type: "application/zip",
-                        checksum: ""
+                        checksum: "",
+                        signing: nil
                     )
                 ],
                 metadata: .init(description: "")

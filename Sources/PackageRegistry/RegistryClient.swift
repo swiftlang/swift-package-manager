@@ -1623,12 +1623,19 @@ extension RegistryClient {
                 public let name: String
                 public let type: String
                 public let checksum: String?
+                public let signing: Signing?
 
-                public init(name: String, type: String, checksum: String) {
+                public init(name: String, type: String, checksum: String, signing: Signing?) {
                     self.name = name
                     self.type = type
                     self.checksum = checksum
+                    self.signing = signing
                 }
+            }
+            
+            public struct Signing: Codable {
+                public let signatureBase64Encoded: String
+                public let signatureFormat: String
             }
 
             public struct AdditionalMetadata: Codable {

@@ -215,7 +215,8 @@ public class MockRegistry {
                 .init(
                     name: "source-archive",
                     type: "application/zip",
-                    checksum: zipfileChecksum.hexadecimalRepresentation
+                    checksum: zipfileChecksum.hexadecimalRepresentation,
+                    signing: nil
                 ),
             ],
             metadata: .init(
