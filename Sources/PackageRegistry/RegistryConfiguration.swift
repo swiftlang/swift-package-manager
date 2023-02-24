@@ -210,7 +210,7 @@ extension RegistryConfiguration {
                 case error
                 case prompt
                 case warn
-                case silentTrust
+                case silentAllow
             }
 
             public struct ValidationChecks: Hashable, Codable {

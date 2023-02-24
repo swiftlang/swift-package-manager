@@ -65,7 +65,7 @@ final class RegistryConfigurationTests: XCTestCase {
         var registryOverride = RegistryConfiguration.Security.RegistryOverride()
         registryOverride.signing = RegistryConfiguration.Security.Signing()
         registryOverride.signing?.onUnsigned = .silentAllow
-        registryOverride.signing?.onUntrustedCertificate = .silentTrust
+        registryOverride.signing?.onUntrustedCertificate = .silentAllow
         registryOverride.signing?.trustedRootCertificatesPath = "/foo/roots"
         registryOverride.signing?.includeDefaultTrustedRootCertificates = false
         registryOverride.signing?.validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
