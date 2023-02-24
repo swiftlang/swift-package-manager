@@ -45,7 +45,8 @@ public struct DestinationsBundle {
             destinationsDirectory.appending(components: [$0])
         }.compactMap {
             do {
-                // Enumerate available bundles and parse manifests for each of them, then validate supplied destinations.
+                // Enumerate available bundles and parse manifests for each of them, then validate supplied
+                // destinations.
                 return try Self.parseAndValidate(
                     bundlePath: $0,
                     fileSystem: fileSystem,
@@ -82,7 +83,8 @@ public struct DestinationsBundle {
                 """
                 No cross-compilation destinations directory found, specify one
                 with `experimental-destinations-path` option.
-                """)
+                """
+            )
         }
 
         let validBundles = try DestinationsBundle.getAllValidBundles(
@@ -142,8 +144,8 @@ public struct DestinationsBundle {
     }
 }
 
-private extension ArtifactsArchiveMetadata {
-    func validateDestinationsBundle(
+extension ArtifactsArchiveMetadata {
+    fileprivate func validateDestinationsBundle(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observability: ObservabilityScope
@@ -151,7 +153,8 @@ private extension ArtifactsArchiveMetadata {
         var result = DestinationsBundle(path: bundlePath)
 
         for (artifactID, artifactMetadata) in artifacts
-        where artifactMetadata.type == .crossCompilationDestination {
+            where artifactMetadata.type == .crossCompilationDestination
+        {
             var variants = [DestinationsBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
@@ -220,7 +223,8 @@ extension Array where Element == DestinationsBundle {
                     for destination in variant.destinations {
                         if artifactID == selector {
                             if let matchedByID = matchedByID {
-                                observability.emit(warning:
+                                observability.emit(
+                                    warning:
                                     """
                                     multiple destinations match ID `\(artifactID)` and host triple \(
                                         hostTriple.tripleString
@@ -236,7 +240,8 @@ extension Array where Element == DestinationsBundle {
 
                         if destination.targetTriple?.tripleString == selector {
                             if let matchedByTriple = matchedByTriple {
-                                observability.emit(warning:
+                                observability.emit(
+                                    warning:
                                     """
                                     multiple destinations match target triple `\(selector)` and host triple \(
                                         hostTriple.tripleString
@@ -255,7 +260,8 @@ extension Array where Element == DestinationsBundle {
         }
 
         if let matchedByID = matchedByID, let matchedByTriple = matchedByTriple, matchedByID != matchedByTriple {
-            observability.emit(warning:
+            observability.emit(
+                warning:
                 """
                 multiple destinations match the query `\(selector)` and host triple \(
                     hostTriple.tripleString

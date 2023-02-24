@@ -418,7 +418,6 @@ extension Destination {
             throw DestinationError.invalidSchemaVersion
         }
     }
-
 }
 
 /// Integer version of the schema of `destination.json` files used for cross-compilation.

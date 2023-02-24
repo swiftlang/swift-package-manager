@@ -161,7 +161,7 @@ private let parsedDestinationV2GNU = Destination(
     hostTriple: hostTriple,
     targetTriple: linuxGNUTargetTriple,
     sdkRootDir: sdkRootAbsolutePath,
-    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags )
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags)
 )
 
 private let parsedDestinationV2Musl = Destination(
@@ -212,7 +212,7 @@ final class DestinationTests: XCTestCase {
             toolsetInvalidDestinationV3,
             versionInvalidDestinationV3,
             otherToolsNoRoot,
-            someToolsWithRoot
+            someToolsWithRoot,
         ] {
             try fs.writeFileContents(testFile.path, bytes: testFile.json)
         }
@@ -236,7 +236,7 @@ final class DestinationTests: XCTestCase {
                     targetTriple: linuxGNUTargetTriple,
                     sdkRootDir: sdkRootAbsolutePath,
                     toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags)
-                )
+                ),
             ]
         )
 
@@ -288,7 +288,7 @@ final class DestinationTests: XCTestCase {
                                 supportedTriples: [hostTriple]
                             ),
                             destinations: [parsedDestinationV2GNU]
-                        )
+                        ),
                     ],
                     "id2": [
                         .init(
@@ -297,7 +297,7 @@ final class DestinationTests: XCTestCase {
                                 supportedTriples: []
                             ),
                             destinations: [parsedDestinationV2GNU]
-                        )
+                        ),
                     ],
                     "id3": [
                         .init(
@@ -306,10 +306,10 @@ final class DestinationTests: XCTestCase {
                                 supportedTriples: [hostTriple]
                             ),
                             destinations: [parsedDestinationV2Musl]
-                        )
-                    ]
+                        ),
+                    ],
                 ]
-            )
+            ),
         ]
 
         let system = ObservabilitySystem.makeForTesting()

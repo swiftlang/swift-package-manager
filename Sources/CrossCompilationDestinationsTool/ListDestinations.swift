@@ -13,17 +13,17 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import SPMBuildCore
 import PackageModel
+import SPMBuildCore
 import TSCBasic
 
 public struct ListDestinations: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
-            """
-            Print a list of IDs of available cross-compilation destinations available on the filesystem.
-            """
+        """
+        Print a list of IDs of available cross-compilation destinations available on the filesystem.
+        """
     )
 
     @OptionGroup()

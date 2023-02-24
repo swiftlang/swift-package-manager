@@ -12,22 +12,21 @@
 
 /// Build-tool independent flags.
 public struct BuildFlags: Equatable, Encodable {
-    
     /// Flags to pass to the C compiler.
     public var cCompilerFlags: [String]
-    
+
     /// Flags to pass to the C++ compiler.
     public var cxxCompilerFlags: [String]
-    
+
     /// Flags to pass to the Swift compiler.
     public var swiftCompilerFlags: [String]
-    
+
     /// Flags to pass to the linker.
     public var linkerFlags: [String]
-    
+
     /// Flags to pass to xcbuild.
     public var xcbuildFlags: [String]?
-    
+
     public init(
         cCompilerFlags: [String] = [],
         cxxCompilerFlags: [String] = [],

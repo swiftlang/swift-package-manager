@@ -94,11 +94,13 @@ extension Toolset {
 
             guard toolPath != nil || !(properties.extraCLIOptions?.isEmpty ?? true) else {
                 // don't keep track of a tool with no path and CLI options specified.
-                observability.emit(error:
+                observability.emit(
+                    error:
                     """
                     Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \
                     `extraCLIOptions` properties specified with valid values, skipping it.
-                    """)
+                    """
+                )
                 hasEmptyToolConfiguration = true
                 continue
             }
