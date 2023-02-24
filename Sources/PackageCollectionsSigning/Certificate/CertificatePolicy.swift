@@ -29,7 +29,7 @@ import Security
 let appleDistributionIOSMarker = "1.2.840.113635.100.6.1.4"
 let appleDistributionMacOSMarker = "1.2.840.113635.100.6.1.7"
 let appleSwiftPackageCollectionMarker = "1.2.840.113635.100.6.1.35"
-let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
+let appleIntermediateMarkers = ["1.2.840.113635.100.6.2.1", "1.2.840.113635.100.6.2.15"]
 
 // For BoringSSL only - the Security framework recognizes these marker extensions
 #if os(Linux) || os(Windows) || os(Android)
@@ -333,7 +333,7 @@ private struct BoringSSLOCSPClient {
                     let encodedRequest = requestData.base64EncodedString()
                     httpClient.get(url.appendingPathComponent(encodedRequest)) { getResult in
                         defer { group.leave() }
-                        
+
                         switch getResult {
                         case .failure(let error):
                             results.append(.failure(error))
@@ -356,7 +356,7 @@ private struct BoringSSLOCSPClient {
             }
             wrappedCallback(.success(()))
         }
-                    
+
         func processResponse(_ response: LegacyHTTPClient.Response, cacheKey: CacheKey) {
             guard let responseData = response.body else {
                 results.append(.failure(OCSPError.emptyResponseBody))
@@ -364,7 +364,7 @@ private struct BoringSSLOCSPClient {
             }
 
             let bytes = responseData.copyBytes()
-                        
+
             // Convert response to bio then OCSP response
             let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
             defer { CCryptoBoringSSL_BIO_free(bio) }
@@ -375,15 +375,15 @@ private struct BoringSSLOCSPClient {
 
             let response = d2i_OCSP_RESPONSE_bio(bio, nil)
             defer { OCSP_RESPONSE_free(response) }
-            
+
             guard let response = response else {
                 results.append(.failure(OCSPError.responseConversionFailure))
                 return
             }
-            
+
             let basicResp = OCSP_response_get1_basic(response)
             defer { OCSP_BASICRESP_free(basicResp) }
-            
+
             guard let basicResp = basicResp else {
                 results.append(.failure(OCSPError.responseConversionFailure))
                 return
@@ -768,7 +768,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             guard try self.hasExtension(oid: appleSwiftPackageCollectionMarker, in: certChain[0]) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
-            guard try self.hasExtension(oid: appleIntermediateMarker, in: certChain[1]) else {
+            guard try self.hasAppleIntermediateMarker(certificate: certChain[1]) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
 
@@ -872,7 +872,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
             guard try (self.hasExtension(oid: appleDistributionIOSMarker, in: certChain[0]) || self.hasExtension(oid: appleDistributionMacOSMarker, in: certChain[0])) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
-            guard try self.hasExtension(oid: appleIntermediateMarker, in: certChain[1]) else {
+            guard try self.hasAppleIntermediateMarker(certificate: certChain[1]) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
 
@@ -898,6 +898,26 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     }
 }
 
+extension CertificatePolicy {
+    func hasAppleIntermediateMarker(certificate: Certificate) throws -> Bool {
+        var extensionError: Error?
+        for marker in appleIntermediateMarkers {
+            do {
+                if try self.hasExtension(oid: marker, in: certificate) {
+                    return true
+                }
+            } catch {
+                extensionError = error
+            }
+        }
+
+        if let error = extensionError {
+            throw error
+        }
+        return false
+    }
+}
+
 public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
     case `default`(subjectUserID: String?)
     case appleSwiftPackageCollection(subjectUserID: String?)
@@ -905,7 +925,7 @@ public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
 
     /// For internal-use only
     case custom
-    
+
     public var description: String {
         switch self {
         case .default(let subject):
