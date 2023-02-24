@@ -329,9 +329,13 @@ extension Destination {
         observability: ObservabilityScope
     ) throws -> [Destination] {
         let decoder = JSONDecoder.makeWithDefaults()
-        let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
-
-        return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
+        do {
+            let version = try decoder.decode(path: path, fileSystem: fileSystem, as: SemanticVersionInfo.self)
+            return try Self.decode(semanticVersion: version, fromFile: path, fileSystem: fileSystem, decoder: decoder, observability: observability)
+        } catch {
+            let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
+            return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
+        }
     }
 
     /// Load a ``Destination`` description from a semantically versioned JSON representation from disk.
@@ -342,7 +346,7 @@ extension Destination {
         decoder: JSONDecoder,
         observability: ObservabilityScope
     ) throws -> [Destination] {
-        switch semanticVersion.version {
+        switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
             let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV3.self)
             let destinationDirectory = path.parentDirectory
@@ -424,16 +428,16 @@ private struct VersionInfo: Codable {
 
 /// Semantic version of the schema of `destination.json` files used for cross-compilation.
 private struct SemanticVersionInfo: Decodable {
-    let version: Version
+    let schemaVersion: Version
 
     enum CodingKeys: CodingKey {
-        case version
+        case schemaVersion
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.version = try Version(
-            versionString: container.decode(String.self, forKey: .version),
+        self.schemaVersion = try Version(
+            versionString: container.decode(String.self, forKey: .schemaVersion),
             usesLenientParsing: true
         )
     }

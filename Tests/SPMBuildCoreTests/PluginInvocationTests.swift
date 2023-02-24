@@ -1185,13 +1185,23 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "Foo" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets
+                .map(\.underlyingTarget)
+                .filter { $0.name == "Foo" }
+                .first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "Foo")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Construct a toolchain with a made-up host/target triple
             let destination = try Destination.default
-            let toolchain = try UserToolchain(destination: Destination(hostTriple: hostTriple, targetTriple: hostTriple, sdkRootDir: destination.sdkRootDir, toolchainBinDir: destination.toolchainBinDir))
+            let toolchain = try UserToolchain(
+                destination: Destination(
+                    hostTriple: hostTriple,
+                    targetTriple: hostTriple,
+                    sdkRootDir: destination.sdkRootDir,
+                    toolset: destination.toolset
+                )
+            )
 
             // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
