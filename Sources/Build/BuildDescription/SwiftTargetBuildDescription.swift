@@ -94,7 +94,7 @@ public final class SwiftTargetBuildDescription {
     var moduleOutputPath: AbsolutePath {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || self.buildParameters.triple
-            .isLinux() || self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5
+            .isLinux() || self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5 && target.type != .macro
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
             .buildParameters.buildPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")
@@ -213,6 +213,9 @@ public final class SwiftTargetBuildDescription {
     /// The results of running any prebuild commands for this target.
     public let prebuildCommandResults: [PrebuildCommandResult]
 
+    /// Any macro products that this target requires to build.
+    public let requiredMacroProducts: [ResolvedProduct]
+
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
@@ -225,6 +228,7 @@ public final class SwiftTargetBuildDescription {
         buildParameters: BuildParameters,
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
+        requiredMacroProducts: [ResolvedProduct] = [],
         testTargetRole: TestTargetRole? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -250,6 +254,7 @@ public final class SwiftTargetBuildDescription {
         self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
+        self.requiredMacroProducts = requiredMacroProducts
         self.observabilityScope = observabilityScope
 
         // Add any derived files that were declared for any commands from plugin invocations.
@@ -381,6 +386,22 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
+    private func macroArguments() throws -> [String] {
+        var args = [String]()
+
+        #if BUILD_MACROS_AS_DYLIBS
+        self.requiredMacroProducts.forEach { macro in
+            args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", self.buildParameters.binaryPath(for: macro).pathString]
+        }
+        #else
+        if self.requiredMacroProducts.isEmpty == false {
+            throw InternalError("building macros is not supported yet")
+        }
+        #endif
+
+        return args
+    }
+
     /// The arguments needed to compile this target.
     public func compileArguments() throws -> [String] {
         var args = [String]()
@@ -480,6 +501,8 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
+        args += try self.macroArguments()
+
         return args
     }
 
@@ -571,6 +594,7 @@ public final class SwiftTargetBuildDescription {
         result += try self.moduleCacheArgs
         result += self.stdlibArguments
         result += try self.buildSettingsFlags()
+        result += try self.macroArguments()
 
         return result
     }
@@ -626,6 +650,7 @@ public final class SwiftTargetBuildDescription {
         result += try self.buildSettingsFlags()
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         result += self.buildParameters.swiftCompilerFlags
+        result += try self.macroArguments()
         return result
     }
 
@@ -739,6 +764,13 @@ public final class SwiftTargetBuildDescription {
 
         // Other C flags.
         flags += scope.evaluate(.OTHER_CFLAGS).flatMap { ["-Xcc", $0] }
+
+        // Include path for the toolchain's copy of SwiftSyntax.
+        #if BUILD_MACROS_AS_DYLIBS
+        if target.type == .macro {
+            flags += try ["-I", self.buildParameters.toolchain.hostLibDir.pathString]
+        }
+        #endif
 
         return flags
     }

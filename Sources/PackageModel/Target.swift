@@ -34,6 +34,7 @@ public class Target: PolymorphicCodableProtocol {
         case binary
         case plugin
         case snippet
+        case `macro`
     }
 
     /// A reference to a product from a target dependency.
@@ -870,7 +871,7 @@ public extension Sequence where Iterator.Element == Target {
             switch $0.type {
             case .binary:
                 return ($0 as? BinaryTarget)?.containsExecutable == true
-            case .executable, .snippet:
+            case .executable, .snippet, .macro:
                 return true
             default:
                 return false

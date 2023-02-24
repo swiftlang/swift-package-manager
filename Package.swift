@@ -128,7 +128,7 @@ let package = Package(
         .library(
             name: "PackageDescription",
             type: .dynamic,
-            targets: ["PackageDescription"]
+            targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
         .library(
             name: "PackagePlugin",
@@ -515,6 +515,18 @@ let package = Package(
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
             ]),
 
+        // MARK: Support for Swift macros, should eventually move to a plugin-based solution
+
+        .target(
+            name: "CompilerPluginSupport",
+            dependencies: ["PackageDescription"],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ]
+        ),
+
         // MARK: Additional Test Dependencies
 
         .target(
@@ -725,4 +737,9 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
     ]
+}
+
+// Enable building macros as dynamic libraries by default for bring-up.
+for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
+    target.swiftSettings = (target.swiftSettings ?? []) + [ .define("BUILD_MACROS_AS_DYLIBS") ]
 }

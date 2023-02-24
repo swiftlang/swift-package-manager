@@ -852,6 +852,8 @@ public final class PackageBuilder {
             targetType = .test
         case .executable:
             targetType = .executable
+        case .macro:
+            targetType = .macro
         default:
             targetType = sources.computeTargetType()
             if targetType == .executable && manifest.toolsVersion >= .v5_4 && warnAboutImplicitExecutableTargets {
@@ -1220,7 +1222,7 @@ public final class PackageBuilder {
                 guard self.validateLibraryProduct(product, with: targets) else {
                     continue
                 }
-            case .test:
+            case .test, .macro:
                 break
             case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: targets) else {
@@ -1242,7 +1244,7 @@ public final class PackageBuilder {
         // for them.
         let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
             switch product.type {
-            case .library, .plugin, .test:
+            case .library, .plugin, .test, .macro:
                 return []
             case .executable, .snippet:
                 return product.targets
@@ -1303,6 +1305,12 @@ public final class PackageBuilder {
         try targets
             .filter { $0.type == .snippet }
             .map { try Product(package: self.identity, name: $0.name, type: .snippet, targets: [$0]) }
+            .forEach(append)
+
+        // Create implicit macro products
+        try targets
+            .filter { $0.type == .macro }
+            .map { try Product(package: self.identity, name: $0.name, type: .macro, targets: [$0]) }
             .forEach(append)
 
         return products.map{ $0.item }

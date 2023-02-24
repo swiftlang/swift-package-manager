@@ -217,6 +217,8 @@ fileprivate extension SourceCodeFragment {
 	            self.init(enum: "plugin", subnodes: params, multiline: true)
 	        case .test:
 	            self.init(enum: "test", subnodes: params, multiline: true)
+            case .macro:
+                self.init(enum: "macro", subnodes: params, multiline: true)
             }
         }
     }
@@ -312,6 +314,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "binaryTarget", subnodes: params, multiline: true)
         case .plugin:
             self.init(enum: "plugin", subnodes: params, multiline: true)
+        case .macro:
+            self.init(enum: "macro", subnodes: params, multiline: true)
         }
     }
 

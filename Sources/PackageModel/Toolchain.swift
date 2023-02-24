@@ -51,6 +51,12 @@ extension Toolchain {
         return nil
     }
 
+    public var hostLibDir: AbsolutePath {
+        get throws {
+            return try toolchainLibDir.appending(components: ["swift", "host"])
+        }
+    }
+
     public var macosSwiftStdlib: AbsolutePath {
         get throws {
             return try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))

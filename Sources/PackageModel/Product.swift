@@ -101,6 +101,9 @@ public enum ProductType: Equatable, Hashable, Sendable {
     /// A test product.
     case test
 
+    /// A macro product.
+    case `macro`
+
     public var isLibrary: Bool {
         guard case .library = self else { return false }
         return true
@@ -194,6 +197,8 @@ extension ProductType: CustomStringConvertible {
             }
         case .plugin:
             return "plugin"
+        case .macro:
+            return "macro"
         }
     }
 }
@@ -213,7 +218,7 @@ extension ProductFilter: CustomStringConvertible {
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, snippet, plugin, test
+        case library, executable, snippet, plugin, test, `macro`
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -230,6 +235,8 @@ extension ProductType: Codable {
             try container.encodeNil(forKey: .plugin)
         case .test:
             try container.encodeNil(forKey: .test)
+        case .macro:
+            try container.encodeNil(forKey: .macro)
         }
     }
 
@@ -251,6 +258,8 @@ extension ProductType: Codable {
             self = .snippet
         case .plugin:
             self = .plugin
+        case .macro:
+            self = .macro
         }
     }
 }

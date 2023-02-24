@@ -149,6 +149,8 @@ fileprivate extension Target.Kind {
             return "plugins"
         case .snippet:
             return "snippets"
+        case .macro:
+            return "macros"
         }
     }
 }

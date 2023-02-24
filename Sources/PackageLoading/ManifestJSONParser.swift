@@ -530,6 +530,8 @@ extension TargetDescription.TargetType {
             self = .binary
         case .plugin:
             self = .plugin
+        case .macro:
+            self = .macro
         }
     }
 }

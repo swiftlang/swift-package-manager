@@ -615,6 +615,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 if importedTarget.target.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
                 }
+                if importedTarget.target.type == .macro {
+                    return "module '\(importedModule)' is a macro, and cannot be imported by tests and other targets"
+                }
 
                 // Here we can add more checks in the future.
             }
