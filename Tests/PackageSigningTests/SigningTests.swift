@@ -58,9 +58,10 @@ final class SigningTests: XCTestCase {
             verifierConfiguration: .init(),
             observabilityScope: ObservabilitySystem.NOOP
         )
-        XCTAssertEqual(status, SignatureStatus.valid)
 
-        let signingEntity = try SigningEntity(of: signature, signatureFormat: signatureFormat)
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
         XCTAssertNotNil(signingEntity.name)
         XCTAssertNotNil(signingEntity.organizationalUnit)
         XCTAssertNotNil(signingEntity.organization)

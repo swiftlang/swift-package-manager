@@ -38,7 +38,12 @@ public enum SignatureProvider {
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
         let provider = format.provider
-        return try await provider.status(of: signature, for: content, observabilityScope: observabilityScope)
+        return try await provider.status(
+            of: signature,
+            for: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: observabilityScope
+        )
     }
 }
 
@@ -66,7 +71,7 @@ public struct VerifierConfiguration {
 }
 
 public enum SignatureStatus: Equatable {
-    case valid
+    case valid(SigningEntity)
     case invalid(String)
     case certificateInvalid(String)
     case certificateNotTrusted
@@ -97,10 +102,9 @@ protocol SignatureProviderProtocol {
     func status(
         of signature: Data,
         for content: Data,
+        verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus
-
-    func signingEntity(of signature: Data) throws -> SigningEntity
 }
 
 public enum SignatureFormat: String {
@@ -185,6 +189,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
     func status(
         of signature: Data,
         for content: Data,
+        verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
         #if os(macOS)
@@ -250,39 +255,14 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         }
         observabilityScope.emit(debug: "Certificate revocation status: \(String(describing: revocationStatus))")
 
-        return .valid
-        #else
-        fatalError("TO BE IMPLEMENTED")
-        #endif
-    }
-
-    func signingEntity(of signature: Data) throws -> SigningEntity {
-        #if os(macOS)
-        var cmsDecoder: CMSDecoder?
-        var status = CMSDecoderCreate(&cmsDecoder)
-        guard status == errSecSuccess, let cmsDecoder = cmsDecoder else {
-            throw SigningError.decodeInitializationFailed("Unable to create CMSDecoder. Error: \(status)")
-        }
-
-        status = CMSDecoderUpdateMessage(cmsDecoder, [UInt8](signature), signature.count)
-        guard status == errSecSuccess else {
-            throw SigningError
-                .decodeInitializationFailed("Unable to update CMSDecoder with signature. Error: \(status)")
-        }
-        status = CMSDecoderFinalizeMessage(cmsDecoder)
-        guard status == errSecSuccess else {
-            throw SigningError.decodeInitializationFailed("Failed to set up CMSDecoder. Error: \(status)")
-        }
-
         var certificate: SecCertificate?
         status = CMSDecoderCopySignerCert(cmsDecoder, 0, &certificate)
         guard status == errSecSuccess, let certificate = certificate else {
             throw SigningError.signatureInvalid("Unable to extract signing certificate. Error: \(status)")
         }
 
-        return SigningEntity(certificate: certificate)
+        return .valid(SigningEntity(certificate: certificate))
         #else
-        // TODO: decode `data` by `format`, then construct `signedBy` from signing cert
         fatalError("TO BE IMPLEMENTED")
         #endif
     }
