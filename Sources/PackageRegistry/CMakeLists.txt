@@ -17,6 +17,7 @@ target_link_libraries(PackageRegistry PUBLIC
   PackageFingerprint
   PackageLoading
   PackageModel
+  PackageSigning
   TSCBasic
   TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
