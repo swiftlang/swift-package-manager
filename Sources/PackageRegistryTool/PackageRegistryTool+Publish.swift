@@ -86,16 +86,7 @@ extension SwiftPackageRegistryTool {
             }
 
             // compute and validate registry URL
-            let registryURL: URL? = self.registryURL ?? {
-                if let registry = configuration.registry(for: registryIdentity.scope) {
-                    return registry.url
-                }
-                if let registry = configuration.defaultRegistry {
-                    return registry.url
-                }
-                return .none
-            }()
-
+            let registryURL = self.registryURL ?? configuration.registry(for: registryIdentity.scope)?.url
             guard let registryURL = registryURL else {
                 throw ValidationError.unknownRegistry
             }

@@ -74,10 +74,14 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
         self.registry != nil
     }
 
-    public struct RegistryIdentity {
+    public struct RegistryIdentity: CustomStringConvertible {
         public let scope: PackageIdentity.Scope
         public let name: PackageIdentity.Name
         public let underlying: PackageIdentity
+
+        public var description: String {
+            self.underlying.description
+        }
     }
 }
 
@@ -122,7 +126,9 @@ extension PackageIdentity: Codable {
 
 extension PackageIdentity {
     /// Provides a namespace for related packages within a package registry.
-    public struct Scope: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral {
+    public struct Scope: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral,
+        Sendable
+    {
         public let description: String
 
         public init(validating description: String) throws {
@@ -203,7 +209,9 @@ extension PackageIdentity {
     }
 
     /// Uniquely identifies a package in a scope
-    public struct Name: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral {
+    public struct Name: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral,
+        Sendable
+    {
         public let description: String
 
         public init(validating description: String) throws {

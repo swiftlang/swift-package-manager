@@ -69,9 +69,9 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
             let set: (inout RegistryConfiguration) throws -> Void = { configuration in
                 if let scope = scope {
-                    configuration.scopedRegistries[scope] = .init(url: self.registryURL)
+                    configuration.scopedRegistries[scope] = .init(url: self.registryURL, supportsAvailability: false)
                 } else {
-                    configuration.defaultRegistry = .init(url: self.registryURL)
+                    configuration.defaultRegistry = .init(url: self.registryURL, supportsAvailability: false)
                 }
             }
 

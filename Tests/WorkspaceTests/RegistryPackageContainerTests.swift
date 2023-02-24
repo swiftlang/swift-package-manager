@@ -344,7 +344,7 @@ class RegistryPackageContainerTests: XCTestCase {
         var configuration = configuration
         if configuration == nil {
             configuration = PackageRegistry.RegistryConfiguration()
-            configuration!.defaultRegistry = .init(url: "http://localhost")
+            configuration!.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
         }
 
         let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in

@@ -173,10 +173,10 @@ public class RegistryDownloadsManager: Cancellable {
                         self.registryClient.downloadSourceArchive(
                             package: package,
                             version: version,
-                            fileSystem: self.fileSystem,
                             destinationPath: cachedPackagePath,
                             checksumAlgorithm: self.checksumAlgorithm,
                             progressHandler: updateDownloadProgress,
+                            fileSystem: self.fileSystem,
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue
                         ) { result in
@@ -201,10 +201,10 @@ public class RegistryDownloadsManager: Cancellable {
                 self.registryClient.downloadSourceArchive(
                     package: package,
                     version: version,
-                    fileSystem: self.fileSystem,
                     destinationPath: packagePath,
                     checksumAlgorithm: self.checksumAlgorithm,
                     progressHandler: updateDownloadProgress,
+                    fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: callbackQueue
                 ) { result in
@@ -218,10 +218,10 @@ public class RegistryDownloadsManager: Cancellable {
             self.registryClient.downloadSourceArchive(
                 package: package,
                 version: version,
-                fileSystem: self.fileSystem,
                 destinationPath: packagePath,
                 checksumAlgorithm: self.checksumAlgorithm,
                 progressHandler: updateDownloadProgress,
+                fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue
             ) { result in

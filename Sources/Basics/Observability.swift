@@ -290,7 +290,7 @@ public struct Diagnostic: CustomStringConvertible {
         } else if let convertible = error as? DiagnosticDataConvertible {
             message = "\(convertible.diagnosticData)"
         } else if let decodingError = error as? DecodingError { // special case because `LocalizedError` conversion will hide the underlying error
-            message = "\(error)"
+            message = "\(decodingError)"
         } else if let localizedError = error as? LocalizedError {
             message = localizedError.errorDescription ?? localizedError.localizedDescription
         } else {
