@@ -105,6 +105,8 @@ final class URLSessionHTTPClient {
     }
 }
 
+// MARK: - Data
+
 private class DataTaskManager: NSObject, URLSessionDataDelegate {
     private var tasks = ThreadSafeKeyValueStore<Int, DataTask>()
     private let delegateQueue: OperationQueue
@@ -231,6 +233,8 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
     }
 }
 
+// MARK: - Download
+
 private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     private var tasks = ThreadSafeKeyValueStore<Int, DownloadTask>()
     private let delegateQueue: OperationQueue
@@ -353,6 +357,8 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     }
 }
 
+// MARK: - Upload
+
 private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDataDelegate {
     private var tasks = ThreadSafeKeyValueStore<Int, UploadTask>()
     private let sessionDelegateQueue: DispatchQueue
@@ -364,7 +370,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         self.sessionDelegateOperationQueue = OperationQueue()
         self.sessionDelegateOperationQueue.underlyingQueue = self.sessionDelegateQueue
         self.sessionDelegateOperationQueue.name = self.sessionDelegateQueue.label
-        self.sessionDelegateOperationQueue.maxConcurrentOperationCount = 1
+        //self.sessionDelegateOperationQueue.maxConcurrentOperationCount = 2
         super.init()
         self.session = URLSession(
             configuration: configuration,
@@ -399,9 +405,19 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         guard let task = self.tasks[task.taskIdentifier] else {
             return
         }
-        completionHandler(task.inputStream)
-        // FIXME: serious hack here
-        task.runloop.run(until: Date(timeIntervalSinceNow: 10.0))
+
+        do {
+            let (inputStream, runloop) = try task.createStream()
+            completionHandler(inputStream)
+
+            // FIXME: serious hack here
+            runloop.schedule(after: .init(Date().addingTimeInterval(5))) {
+                print("hi")
+            }
+            runloop.run()
+        } catch {
+            task.complete(with: .failure(error))
+        }
     }
 
     func urlSession(
@@ -458,7 +474,6 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         private let streamProvider: () throws -> LegacyHTTPClientRequest.UploadStream?
         private let completionHandler: LegacyHTTPClient.CompletionHandler
         private let progressHandler: LegacyHTTPClient.ProgressHandler?
-        private var streams: Streams!
 
         // URLSession APIs are thread safe
         // calls into this are guarded with dispatchPrecondition
@@ -467,7 +482,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         private var streamBuffer: UploadStreamBuffer = .empty
         private let streamBufferLock = NSLock()
 
-        let runloop: RunLoop
+        private var runloop: RunLoop?
+        private var streams: Streams?
 
         init(
             underlying: URLSessionUploadTask,
@@ -480,10 +496,10 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
 
-            self.runloop = RunLoop.current
-
             super.init()
+        }
 
+        func createStream() throws -> (inputStream: InputStream, runloop: RunLoop) {
             // initialize the stream
             var _input: InputStream?
             var _output: OutputStream?
@@ -498,18 +514,17 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
             }
 
             output.delegate = self
-            output.schedule(in: self.runloop, forMode: .default)
+            output.schedule(in: .current, forMode: .default)
             output.open()
 
+            self.runloop = .current
             self.streams = Streams(input: input, output: output)
+
+            return (inputStream: input, runloop: .current)
         }
 
-        var inputStream: InputStream {
-            self.streams.input
-        }
-
-        var outputStream: OutputStream {
-            self.streams.output
+        var outputStream: OutputStream? {
+            self.streams?.output
         }
 
         var response: HTTPClientResponse? {
@@ -531,12 +546,14 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
 
         func cancel() {
             self.underlying.cancel()
-            self.streams.close()
+            self.streams?.close()
         }
 
         func complete(with result: Result<HTTPClientResponse, Error>) {
             self.completionHandler(result)
-            self.streams.close()
+            self.streams?.close()
+            // FIXME: serious hack here
+            //self.runloop.map{ CFRunLoopStop($0.getCFRunLoop()) }
         }
 
         func progress(totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
@@ -548,7 +565,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
         }
 
         func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-            guard aStream == self.outputStream else {
+            guard let outputStream = self.outputStream, aStream == outputStream else {
                 return
             }
 
@@ -590,7 +607,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                     throw HTTPClientError
                                         .uploadError("Invalid upload state, cannot read upload buffer pointer")
                                 }
-                                return self.outputStream.write(
+                                return outputStream.write(
                                     unsafePointer,
                                     maxLength: Swift.min(totalBytes, Self.bufferSize)
                                 )
@@ -611,7 +628,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                         if let leftover = leftover {
                             // write any left over we could not write before
                             let totalBytes = leftover.count
-                            let bytesWritten = self.outputStream.write(
+                            let bytesWritten = outputStream.write(
                                 leftover,
                                 maxLength: Swift.min(totalBytes, Self.bufferSize)
                             )
@@ -640,7 +657,7 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                                     self.streamBuffer = .empty
                                     inputStream.close()
                                 } else {
-                                    let bytesWritten = self.outputStream.write(
+                                    let bytesWritten = outputStream.write(
                                         buffer,
                                         maxLength: Swift.min(bytesRead, Self.bufferSize)
                                     )
@@ -665,7 +682,8 @@ private class UploadTaskManager: NSObject, URLSessionTaskDelegate, URLSessionDat
                             }
                         }
                     case .empty:
-                        self.streams.output.close()
+                        // done!
+                        outputStream.close()
                     }
                 }
             } catch {
