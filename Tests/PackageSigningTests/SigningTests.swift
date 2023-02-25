@@ -39,20 +39,19 @@ final class SigningTests: XCTestCase {
         XCTAssertNotNil(info.organizationalUnit)
         XCTAssertNotNil(info.organization)
 
-        let signatureProvider = SignatureProvider()
         let content = "per aspera ad astra".data(using: .utf8)!
         let signatureFormat = SignatureFormat.cms_1_0_0
         let signingIdentity = matches[0]
 
         // This call will trigger OS prompt(s) for key access
-        let signature = try await signatureProvider.sign(
+        let signature = try await SignatureProvider.sign(
             content,
             with: signingIdentity,
             in: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        let status = try await signatureProvider.status(
+        let status = try await SignatureProvider.status(
             of: signature,
             for: content,
             in: signatureFormat,

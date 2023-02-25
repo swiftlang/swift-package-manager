@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -159,9 +159,9 @@ extension SwiftPackageRegistryTool.ConfigurationError: CustomStringConvertible {
     var description: String {
         switch self {
         case .missingScope(let scope?):
-            return "no existing entry for scope: \(scope)"
+            return "No existing entry for scope: \(scope)"
         case .missingScope:
-            return "no existing entry for default scope"
+            return "No existing entry for default scope"
         }
     }
 }
@@ -170,11 +170,11 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidURL(let url):
-            return "invalid URL: \(url)"
+            return "Invalid URL: \(url)"
         case .invalidPackageIdentity(let identity):
-            return "invalid package identifier '\(identity)'"
+            return "Invalid package identifier '\(identity)'"
         case .unknownRegistry:
-            return "unknown registry, is one configured?"
+            return "Unknown registry, is one configured?"
         case .unknownCredentialStore:
             return "No credential store available"
         }

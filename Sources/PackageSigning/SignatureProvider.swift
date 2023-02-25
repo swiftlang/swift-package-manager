@@ -17,11 +17,10 @@ import Security
 #endif
 
 import Basics
+import Crypto
 
-public struct SignatureProvider {
-    public init() {}
-
-    public func sign(
+public enum SignatureProvider {
+    public static func sign(
         _ content: Data,
         with identity: SigningIdentity,
         in format: SignatureFormat,
@@ -31,7 +30,7 @@ public struct SignatureProvider {
         return try await provider.sign(content, with: identity, observabilityScope: observabilityScope)
     }
 
-    public func status(
+    public static func status(
         of signature: Data,
         for content: Data,
         in format: SignatureFormat,
@@ -111,6 +110,27 @@ public enum SignatureFormat: String {
         switch self {
         case .cms_1_0_0:
             return CMSSignatureProvider(format: self)
+        }
+    }
+
+    public func privateKey(derRepresentation: Data) throws -> Certificate.PrivateKey {
+        switch self {
+        case .cms_1_0_0:
+            // TODO: don't need this check after https://github.com/apple/swift-package-manager/pull/6138
+            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+                do {
+                    let backingKey = try P256.Signing.PrivateKey(derRepresentation: derRepresentation)
+                    return Certificate.PrivateKey(backingKey)
+                } catch {
+                    throw StringError("Signature format \(self.rawValue) requires ECDSA P-256 key")
+                }
+            } else {
+                fatalError("TO BE IMPLEMENTED")
+            }
+            #else
+            fatalError("TO BE IMPLEMENTED")
+            #endif
         }
     }
 }

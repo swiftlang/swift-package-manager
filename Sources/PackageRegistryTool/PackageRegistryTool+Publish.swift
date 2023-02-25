@@ -17,6 +17,7 @@ import CoreCommands
 import Foundation
 import PackageModel
 import PackageRegistry
+import PackageSigning
 import TSCBasic
 import Workspace
 
@@ -33,42 +34,45 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: [.customLong("id"), .customLong("package-id")], help: "The package identity")
+        @Option(name: [.customLong("id"), .customLong("package-id")], help: "The package identifier.")
         var packageIdentity: PackageIdentity
 
-        @Option(name: [.customLong("version"), .customLong("package-version")], help: "The package version")
+        @Option(
+            name: [.customLong("version"), .customLong("package-version")],
+            help: "The package release version being created."
+        )
         var packageVersion: Version
 
-        @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL")
+        @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL.")
         var registryURL: URL?
 
         @Option(
-            name: .customLong("output-directory"),
-            help: "The path of the directory where output file(s) will be written"
+            name: .customLong("scratch-directory"),
+            help: "The path of the directory where working file(s) will be written."
         )
         var customWorkingDirectory: AbsolutePath?
 
         @Option(
             name: .customLong("metadata-path"),
-            help: "The path to the package metadata JSON file"
+            help: "The path to the package metadata JSON file if it will not be part of the source archive."
         )
         var customMetadataPath: AbsolutePath?
 
         @Option(help: .hidden) // help: "Signature format identifier. Defaults to 'cms-1.0.0'.
-        var signatureFormat: SignatureFormat = .CMS_1_0_0
-
-        @Option(help: "The label of the signing identity to be retrieved from the system's secrets store if supported")
-        var signingIdentity: String?
-
-        @Option(help: "The path to the certificate's PKCS#8 private key (DER-encoded)")
-        var privateKeyPath: AbsolutePath?
+        var signatureFormat: SignatureFormat = .cms_1_0_0
 
         @Option(
-            help: "Paths to all of the certificates (DER-encoded) in the chain. The certificate used for signing must be listed first and the root certificate last."
+            help: "The label of the signing identity to be retrieved from the system's identity store if supported."
         )
-        var certificateChainPaths: [AbsolutePath] = []
+        var signingIdentity: String?
 
-        @Option(help: "Dry run only, prepare the archive and sign it but do not publish to the registry")
+        @Option(help: "The path to the certificate's PKCS#8 private key (DER-encoded).")
+        var privateKeyPath: AbsolutePath?
+
+        @Option(help: "The path to the signing certificate (DER-encoded).")
+        var certificatePath: AbsolutePath?
+
+        @Option(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -134,7 +138,7 @@ extension SwiftPackageRegistryTool {
                     format: self.signatureFormat,
                     signingIdentity: self.signingIdentity,
                     privateKeyPath: self.privateKeyPath,
-                    certificateChainPaths: self.certificateChainPaths
+                    certificatePath: self.certificatePath
                 )
             )
 
@@ -145,15 +149,15 @@ extension SwiftPackageRegistryTool {
             }
 
             if publishConfiguration.signing.privateKeyPath != nil {
-                guard !publishConfiguration.signing.certificateChainPaths.isEmpty else {
+                guard publishConfiguration.signing.certificatePath != nil else {
                     throw StringError(
-                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
+                        "Both 'privateKeyPath' and 'certificatePath' are required when one of them is set."
                     )
                 }
             } else {
-                guard publishConfiguration.signing.certificateChainPaths.isEmpty else {
+                guard publishConfiguration.signing.certificatePath == nil else {
                     throw StringError(
-                        "Both 'privateKeyPath' and 'certificateChainPaths' are required when one of them is set."
+                        "Both 'privateKeyPath' and 'certificatePath' are required when one of them is set."
                     )
                 }
             }
@@ -174,8 +178,11 @@ extension SwiftPackageRegistryTool {
             if publishConfiguration.signing.required {
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 signature = try self.sign(
+                    packageIdentity: self.packageIdentity,
+                    packageVersion: self.packageVersion,
                     archivePath: archivePath,
                     configuration: publishConfiguration.signing,
+                    workingDirectory: workingDirectory,
                     observabilityScope: swiftTool.observabilityScope
                 )
             }
@@ -215,7 +222,7 @@ extension SwiftPackageRegistryTool {
                 )
             case .processing(let statusURL, _):
                 print(
-                    "\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)"
+                    "\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)."
                 )
             }
         }
@@ -255,11 +262,54 @@ extension SwiftPackageRegistryTool {
         }
 
         func sign(
+            packageIdentity: PackageIdentity,
+            packageVersion: Version,
             archivePath: AbsolutePath,
             configuration: PublishConfiguration.Signing,
+            workingDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
         ) throws -> Data {
-            fatalError("not implemented")
+            try _unsafe_wait {
+                let archiveData = try Data(localFileSystem.readFileContents(archivePath).contents)
+
+                var signingIdentity: SigningIdentity?
+                if let signingIdentityLabel = configuration.signingIdentity {
+                    let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
+                    let matches = try await signingIdentityStore.find(by: signingIdentityLabel)
+                    guard !matches.isEmpty else {
+                        throw StringError("'\(signingIdentityLabel)' not found in the system identity store.")
+                    }
+                    // TODO: let user choose if there is more than one match?
+                    signingIdentity = matches.first
+                } else if let privateKeyPath = configuration.privateKeyPath,
+                          let certificatePath = configuration.certificatePath
+                {
+                    let certificateData = try Data(localFileSystem.readFileContents(certificatePath).contents)
+                    let privateKeyData = try Data(localFileSystem.readFileContents(privateKeyPath).contents)
+                    signingIdentity = SwiftSigningIdentity(
+                        certificate: Certificate(derEncoded: certificateData),
+                        privateKey: try configuration.format.privateKey(derRepresentation: privateKeyData)
+                    )
+                }
+
+                guard let signingIdentity = signingIdentity else {
+                    throw StringError("Cannot sign archive without signing identity.")
+                }
+
+                let signature = try await SignatureProvider.sign(
+                    archiveData,
+                    with: signingIdentity,
+                    in: configuration.format,
+                    observabilityScope: observabilityScope
+                )
+
+                let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
+                try localFileSystem.writeFileContents(signaturePath) { stream in
+                    stream.write(signature)
+                }
+
+                return signature
+            }
         }
     }
 }
@@ -287,19 +337,12 @@ struct PublishConfiguration {
         let format: SignatureFormat
         var signingIdentity: String?
         var privateKeyPath: AbsolutePath?
-        var certificateChainPaths: [AbsolutePath]
+        var certificatePath: AbsolutePath?
     }
 }
 
-enum SignatureFormat: ExpressibleByArgument {
-    case CMS_1_0_0
-
-    init?(argument: String) {
-        switch argument.lowercased() {
-        case "cms-1.0.0":
-            self = .CMS_1_0_0
-        default:
-            return nil
-        }
+extension SignatureFormat: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument.lowercased())
     }
 }

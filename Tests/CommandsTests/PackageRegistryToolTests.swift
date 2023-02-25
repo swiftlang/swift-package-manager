@@ -269,6 +269,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     // TODO: Test example with login and password
+    // TODO: test archive signing
 
     func testArchiving() throws {
         #if os(Linux)

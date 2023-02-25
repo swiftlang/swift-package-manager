@@ -17,6 +17,7 @@ import Security
 #endif
 
 import Basics
+import Crypto
 
 public protocol SigningIdentity {
     // TODO: change type to Certificate
@@ -80,22 +81,27 @@ extension SecCertificate {
 
 // MARK: - SigningIdentity created using raw private key and certificate bytes
 
-public struct PrivateKey {}
+// TODO: remove this
+public struct Certificate {
+    public init(derEncoded: Data) {}
 
-public struct Certificate {}
+    public struct PrivateKey {
+        init(_: P256.Signing.PrivateKey) {}
+    }
+}
 
 public struct SwiftSigningIdentity: SigningIdentity {
-    public let key: PrivateKey
     public let certificate: Certificate
+    public let privateKey: Certificate.PrivateKey
 
     public var info: SigningIdentityInfo {
         // TODO: read from cert
         fatalError("TO BE IMPLEMENTED")
     }
 
-    public init(key: PrivateKey, certificate: Certificate) {
-        self.key = key
+    public init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
         self.certificate = certificate
+        self.privateKey = privateKey
     }
 }
 
