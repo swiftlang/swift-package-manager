@@ -7,12 +7,18 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageSigning STATIC
+  SigningEntity/FilePackageSigningEntityStorage.swift
+  SigningEntity/PackageSigningEntityStorage.swift
+  SigningEntity/SigningEntity.swift
   SignatureProvider.swift
-  SigningEntity.swift
   SigningIdentity.swift)
 target_link_libraries(PackageSigning PUBLIC
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
-  Basics)
+  Basics
+  PackageModel
+  TSCBasic
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageSigning PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
