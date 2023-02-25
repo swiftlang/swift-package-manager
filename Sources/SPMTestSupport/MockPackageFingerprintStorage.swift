@@ -26,12 +26,13 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         self.packageFingerprints = packageFingerprints
     }
 
-    public func get(package: PackageIdentity,
-                    version: Version,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void)
-    {
+    public func get(
+        package: PackageIdentity,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+    ) {
         if let fingerprints = self.lock.withLock({ self.packageFingerprints[package]?[version] }) {
             callbackQueue.async {
                 callback(.success(fingerprints))
@@ -43,13 +44,14 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         }
     }
 
-    public func put(package: PackageIdentity,
-                    version: Version,
-                    fingerprint: Fingerprint,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<Void, Error>) -> Void)
-    {
+    public func put(
+        package: PackageIdentity,
+        version: Version,
+        fingerprint: Fingerprint,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
         do {
             try self.lock.withLock {
                 var versionFingerprints = self.packageFingerprints[package] ?? [:]
@@ -79,29 +81,37 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         }
     }
 
-    public func get(package: PackageReference,
-                    version: Version,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
-        self.get(package: package.identity,
-                 version: version,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func get(
+        package: PackageReference,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+    ) {
+        self.get(
+            package: package.identity,
+            version: version,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
-    public func put(package: PackageReference,
-                    version: Version,
-                    fingerprint: Fingerprint,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<Void, Error>) -> Void) {
-        self.put(package: package.identity,
-                 version: version,
-                 fingerprint: fingerprint,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func put(
+        package: PackageReference,
+        version: Version,
+        fingerprint: Fingerprint,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.put(
+            package: package.identity,
+            version: version,
+            fingerprint: fingerprint,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 }
