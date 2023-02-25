@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -31,6 +31,7 @@ public final class MockWorkspace {
     let packages: [MockPackage]
     let customToolsVersion: ToolsVersion?
     let fingerprints: MockPackageFingerprintStorage
+    let signingEntities: MockPackageSigningEntityStorage
     let mirrors: DependencyMirrors
     public var registryClient: RegistryClient
     let registry: MockRegistry
@@ -51,6 +52,7 @@ public final class MockWorkspace {
         packages: [MockPackage] = [],
         toolsVersion customToolsVersion: ToolsVersion? = .none,
         fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
+        signingEntities customSigningEntities: MockPackageSigningEntityStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
         binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
@@ -64,6 +66,7 @@ public final class MockWorkspace {
         self.roots = roots
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
+        self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
         self.mirrors = customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
             locationMapper: self.mirrors.effectiveURL(for:),
@@ -77,7 +80,8 @@ public final class MockWorkspace {
             filesystem: self.fileSystem,
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            fingerprintStorage: self.fingerprints
+            fingerprintStorage: self.fingerprints,
+            signingEntityStorage: self.signingEntities
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.customToolsVersion = customToolsVersion
@@ -271,6 +275,7 @@ public final class MockWorkspace {
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
                 sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
                 fingerprintCheckingMode: .strict,
+                signingEntityCheckingMode: .strict,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 restrictImports: .none
             ),

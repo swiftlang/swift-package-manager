@@ -16,6 +16,7 @@ import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
+import PackageSigning
 import TSCBasic
 
 import struct TSCUtility.Version
@@ -30,6 +31,8 @@ public final class RegistryClient: Cancellable {
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    private let signingEntityStorage: PackageSigningEntityStorage?
+    private let signingEntityCheckingMode: SigningEntityCheckingMode
     private let jsonDecoder: JSONDecoder
 
     private var checksumTOFU: PackageVersionChecksumTOFU!
@@ -43,6 +46,8 @@ public final class RegistryClient: Cancellable {
         configuration: RegistryConfiguration,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
+        signingEntityStorage: PackageSigningEntityStorage?,
+        signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: LegacyHTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
@@ -75,6 +80,8 @@ public final class RegistryClient: Cancellable {
 
         self.httpClient = customHTTPClient ?? LegacyHTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
+        self.signingEntityStorage = signingEntityStorage
+        self.signingEntityCheckingMode = signingEntityCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
 
         self.checksumTOFU = PackageVersionChecksumTOFU(

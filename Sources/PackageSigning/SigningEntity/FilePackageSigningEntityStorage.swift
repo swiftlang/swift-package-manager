@@ -163,7 +163,7 @@ extension PackageIdentity {
 }
 
 extension Dictionary where Key == SigningEntity, Value == Set<Version> {
-    fileprivate func signingEntity(of version: Version) -> SigningEntity? {
+    public func signingEntity(of version: Version) -> SigningEntity? {
         for (signingEntity, versions) in self {
             if versions.contains(version) {
                 return signingEntity

@@ -17,6 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import PackageSigning
 import TSCBasic
 
 import struct TSCUtility.Version
@@ -39,7 +40,8 @@ public class MockRegistry {
         filesystem: FileSystem,
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
-        fingerprintStorage: PackageFingerprintStorage
+        fingerprintStorage: PackageFingerprintStorage,
+        signingEntityStorage: PackageSigningEntityStorage
     ) {
         self.fileSystem = filesystem
         self.identityResolver = identityResolver
@@ -53,6 +55,8 @@ public class MockRegistry {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
             customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
             customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }

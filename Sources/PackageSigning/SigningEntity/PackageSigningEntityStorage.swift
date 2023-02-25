@@ -46,3 +46,8 @@ public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConv
         }
     }
 }
+
+public enum SigningEntityCheckingMode: String {
+    case strict
+    case warn
+}

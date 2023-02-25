@@ -29,7 +29,8 @@ class RegistryDownloadsManagerTests: XCTestCase {
             filesystem: fs,
             identityResolver: DefaultIdentityResolver(),
             checksumAlgorithm: MockHashAlgorithm(),
-            fingerprintStorage: MockPackageFingerprintStorage()
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage()
         )
 
         let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
@@ -160,7 +161,8 @@ class RegistryDownloadsManagerTests: XCTestCase {
             filesystem: fs,
             identityResolver: DefaultIdentityResolver(),
             checksumAlgorithm: MockHashAlgorithm(),
-            fingerprintStorage: MockPackageFingerprintStorage()
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage()
         )
 
         let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
@@ -261,7 +263,8 @@ class RegistryDownloadsManagerTests: XCTestCase {
             filesystem: fs,
             identityResolver: DefaultIdentityResolver(),
             checksumAlgorithm: MockHashAlgorithm(),
-            fingerprintStorage: MockPackageFingerprintStorage()
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage()
         )
 
         let downloadsPath = AbsolutePath.root.appending(components: "registry", "downloads")

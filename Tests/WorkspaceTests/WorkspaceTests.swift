@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,6 +16,7 @@ import PackageFingerprint
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import PackageSigning
 import SourceControl
 import SPMBuildCore
 import SPMTestSupport
@@ -12760,6 +12761,8 @@ final class WorkspaceTests: XCTestCase {
         identityResolver: IdentityResolver? = .none,
         fingerprintStorage: PackageFingerprintStorage? = .none,
         fingerprintCheckingMode: FingerprintCheckingMode = .strict,
+        signingEntityStorage: PackageSigningEntityStorage? = .none,
+        signingEntityCheckingMode: SigningEntityCheckingMode = .strict,
         authorizationProvider: AuthorizationProvider? = .none,
         releasesRequestHandler: LegacyHTTPClient.Handler? = .none,
         versionMetadataRequestHandler: LegacyHTTPClient.Handler? = .none,
@@ -12865,11 +12868,14 @@ final class WorkspaceTests: XCTestCase {
             }
         })
         let fingerprintStorage = fingerprintStorage ?? MockPackageFingerprintStorage()
+        let signingEntityStorage = signingEntityStorage ?? MockPackageSigningEntityStorage()
 
         return RegistryClient(
             configuration: configuration!,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
