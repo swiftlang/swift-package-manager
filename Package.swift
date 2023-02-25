@@ -294,6 +294,7 @@ let package = Package(
             name: "PackageSigning",
             dependencies: [
                 "Basics",
+                "PackageModel",
             ]
         ),
 
