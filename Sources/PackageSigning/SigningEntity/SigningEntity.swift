@@ -18,7 +18,7 @@ import Security
 
 // MARK: - SigningEntity is the entity that generated the signature
 
-public struct SigningEntity {
+public struct SigningEntity: Hashable, Codable, CustomStringConvertible {
     public let type: SigningEntityType?
     public let name: String?
     public let organizationalUnit: String?
@@ -26,6 +26,18 @@ public struct SigningEntity {
 
     public var isRecognized: Bool {
         self.type != nil
+    }
+
+    public init(
+        type: SigningEntityType?,
+        name: String?,
+        organizationalUnit: String?,
+        organization: String?
+    ) {
+        self.type = type
+        self.name = name
+        self.organizationalUnit = organizationalUnit
+        self.organization = organization
     }
 
     public init(of signature: Data, signatureFormat: SignatureFormat) throws {
@@ -62,11 +74,15 @@ public struct SigningEntity {
         // TODO: extract id, name, organization, etc. from cert
         fatalError("TO BE IMPLEMENTED")
     }
+
+    public var description: String {
+        "SigningEntity[type=\(String(describing: self.type)), name=\(String(describing: self.name)), organizationalUnit=\(String(describing: self.organizationalUnit)), organization=\(String(describing: self.organization))]"
+    }
 }
 
 // MARK: - SigningEntity types that SwiftPM recognizes
 
-public enum SigningEntityType {
+public enum SigningEntityType: String, Hashable, Codable {
     case adp // Apple Developer Program
 
     static let oid_adpSwiftPackageMarker = "1.2.840.113635.100.6.1.35"
