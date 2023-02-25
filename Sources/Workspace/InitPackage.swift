@@ -265,7 +265,7 @@ public final class InitPackage {
                 /Packages
                 xcuserdata/
                 DerivedData/
-                .swiftpm/config/registries.json
+                .swiftpm/configuration/registries.json
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
                 .netrc
 
