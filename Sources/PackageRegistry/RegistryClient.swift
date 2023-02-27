@@ -30,9 +30,9 @@ public final class RegistryClient: Cancellable {
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
-    private let fingerprintStorage: PackageFingerprintStorage?
-    private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
+
+    private var checksumTOFU: PackageVersionChecksumTOFU!
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
@@ -75,9 +75,13 @@ public final class RegistryClient: Cancellable {
 
         self.httpClient = customHTTPClient ?? LegacyHTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
-        self.fingerprintStorage = fingerprintStorage
-        self.fingerprintCheckingMode = fingerprintCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
+
+        self.checksumTOFU = PackageVersionChecksumTOFU(
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: fingerprintCheckingMode,
+            registryClient: self
+        )
     }
 
     public var explicitlyConfigured: Bool {
@@ -250,6 +254,77 @@ public final class RegistryClient: Cancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
     ) {
+        self._getRawPackageVersionMetadata(
+            registry: registry,
+            package: package,
+            version: version,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue
+        ) { result in
+            completion(
+                result.tryMap { versionMetadata in
+                    PackageVersionMetadata(
+                        registry: registry,
+                        licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
+                        readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
+                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) }
+                    )
+                }
+            )
+        }
+    }
+
+    func getRawPackageVersionMetadata(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
+    ) {
+        let completion = self.makeAsync(completion, on: callbackQueue)
+
+        let underlying = {
+            self._getRawPackageVersionMetadata(
+                registry: registry,
+                package: package,
+                version: version,
+                timeout: timeout,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: completion
+            )
+        }
+
+        if registry.supportsAvailability {
+            self.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue
+            ) { error in
+                if let error = error {
+                    return completion(.failure(error))
+                }
+                underlying()
+            }
+        } else {
+            underlying()
+        }
+    }
+
+    // TODO: add caching
+    // marked internal for testing
+    func _getRawPackageVersionMetadata(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
+    ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
@@ -275,16 +350,9 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     switch response.statusCode {
                     case 200:
-                        let versionMetadata = try response.parseJSON(
+                        return try response.parseJSON(
                             Serialization.VersionMetadata.self,
                             decoder: self.jsonDecoder
-                        )
-
-                        return PackageVersionMetadata(
-                            registry: registry,
-                            licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
-                            readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
-                            repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) }
                         )
                     case 404:
                         throw RegistryError.packageVersionNotFound
@@ -551,158 +619,6 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    public func fetchSourceArchiveChecksum(
-        package: PackageIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard let registryIdentity = package.registry else {
-            return completion(.failure(RegistryError.invalidPackageIdentity(package)))
-        }
-
-        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
-        }
-
-        let underlying = {
-            self.fetchSourceArchiveChecksum(
-                registry: registry,
-                package: registryIdentity,
-                version: version,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        }
-
-        if registry.supportsAvailability {
-            self.withAvailabilityCheck(
-                registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { error in
-                if let error = error {
-                    return completion(.failure(error))
-                }
-                underlying()
-            }
-        } else {
-            underlying()
-        }
-    }
-
-    // marked internal for testing
-    func fetchSourceArchiveChecksum(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
-        }
-        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version)")
-
-        guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
-        }
-
-        let request = LegacyHTTPClient.Request(
-            method: .get,
-            url: url,
-            headers: [
-                "Accept": self.acceptHeader(mediaType: .json),
-            ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
-        )
-
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            switch result {
-            case .success(let response):
-                do {
-                    switch response.statusCode {
-                    case 200:
-                        let versionMetadata = try response.parseJSON(
-                            Serialization.VersionMetadata.self,
-                            decoder: self.jsonDecoder
-                        )
-                        guard let sourceArchive = versionMetadata.resources
-                            .first(where: { $0.name == "source-archive" })
-                        else {
-                            throw RegistryError.missingSourceArchive
-                        }
-
-                        guard let checksum = sourceArchive.checksum else {
-                            throw RegistryError.invalidSourceArchive
-                        }
-
-                        if let fingerprintStorage = self.fingerprintStorage {
-                            fingerprintStorage.put(
-                                package: package.underlying,
-                                version: version,
-                                fingerprint: .init(origin: .registry(registry.url), value: checksum),
-                                observabilityScope: observabilityScope,
-                                callbackQueue: callbackQueue
-                            ) { storageResult in
-                                switch storageResult {
-                                case .success:
-                                    completion(.success(checksum))
-                                case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
-                                    switch self.fingerprintCheckingMode {
-                                    case .strict:
-                                        completion(.failure(
-                                            RegistryError
-                                                .checksumChanged(latest: checksum, previous: existing.value)
-                                        ))
-                                    case .warn:
-                                        observabilityScope
-                                            .emit(
-                                                warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
-                                            )
-                                        completion(.success(checksum))
-                                    }
-                                case .failure(let error):
-                                    completion(.failure(error))
-                                }
-                            }
-                        } else {
-                            completion(.success(checksum))
-                        }
-                    case 404:
-                        throw RegistryError.packageVersionNotFound
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
-                    }
-                } catch {
-                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version,
-                        error: error
-                    )))
-                }
-            case .failure(let error):
-                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
-                    registry: registry,
-                    package: package.underlying,
-                    version: version,
-                    error: error
-                )))
-            }
-        }
-    }
-
     public func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
@@ -818,54 +734,56 @@ public final class RegistryClient: Cancellable {
                         try response.validateAPIVersion(isOptional: true)
                         try response.validateContentType(.zip)
 
-                        withExpectedChecksum { result in
-                            switch result {
-                            case .success(let expectedChecksum):
-                                do {
-                                    let contents = try fileSystem.readFileContents(downloadPath)
-                                    let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
+                        do {
+                            let contents = try fileSystem.readFileContents(downloadPath)
+                            let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
 
-                                    if expectedChecksum != actualChecksum {
-                                        switch self.fingerprintCheckingMode {
-                                        case .strict:
-                                            return completion(.failure(
-                                                RegistryError
-                                                    .invalidChecksum(expected: expectedChecksum, actual: actualChecksum)
-                                            ))
-                                        case .warn:
-                                            observabilityScope
-                                                .emit(
-                                                    warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)"
-                                                )
+                            self.checksumTOFU.check(
+                                registry: registry,
+                                package: package,
+                                version: version,
+                                checksum: actualChecksum,
+                                timeout: timeout,
+                                observabilityScope: observabilityScope,
+                                callbackQueue: callbackQueue
+                            ) { tofuResult in
+                                switch tofuResult {
+                                case .success:
+                                    do {
+                                        // validate that the destination does not already exist (again, as this is
+                                        // async)
+                                        guard !fileSystem.exists(destinationPath) else {
+                                            throw RegistryError.pathAlreadyExists(destinationPath)
                                         }
+                                        try fileSystem.createDirectory(destinationPath, recursive: true)
+                                        // extract the content
+                                        let archiver = self.archiverProvider(fileSystem)
+                                        // TODO: Bail if archive contains relative paths or overlapping files
+                                        archiver.extract(from: downloadPath, to: destinationPath) { result in
+                                            defer { try? fileSystem.removeFileTree(downloadPath) }
+                                            completion(result.tryMap {
+                                                // strip first level component
+                                                try fileSystem.stripFirstLevel(of: destinationPath)
+                                            }.mapError { error in
+                                                StringError(
+                                                    "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
+                                                )
+                                            })
+                                        }
+                                    } catch {
+                                        completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                                            registry: registry,
+                                            package: package.underlying,
+                                            version: version,
+                                            error: error
+                                        )))
                                     }
-                                    // validate that the destination does not already exist (again, as this is async)
-                                    guard !fileSystem.exists(destinationPath) else {
-                                        throw RegistryError.pathAlreadyExists(destinationPath)
-                                    }
-                                    try fileSystem.createDirectory(destinationPath, recursive: true)
-                                    // extract the content
-                                    let archiver = self.archiverProvider(fileSystem)
-                                    // TODO: Bail if archive contains relative paths or overlapping files
-                                    archiver.extract(from: downloadPath, to: destinationPath) { result in
-                                        defer { try? fileSystem.removeFileTree(downloadPath) }
-                                        completion(result.tryMap {
-                                            // strip first level component
-                                            try fileSystem.stripFirstLevel(of: destinationPath)
-                                        }.mapError { error in
-                                            StringError(
-                                                "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
-                                            )
-                                        })
-                                    }
-                                } catch {
-                                    completion(.failure(RegistryError.failedToComputeChecksum(error)))
+                                case .failure(let error):
+                                    completion(.failure(error))
                                 }
-                            case .failure(let error as RegistryError):
-                                completion(.failure(error))
-                            case .failure(let error):
-                                completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
                             }
+                        } catch {
+                            throw RegistryError.failedToComputeChecksum(error)
                         }
                     case 404:
                         throw RegistryError.packageVersionNotFound
@@ -887,51 +805,6 @@ public final class RegistryClient: Cancellable {
                     version: version,
                     error: error
                 )))
-            }
-        }
-
-        // We either use a previously recorded checksum, or fetch it from the registry
-        func withExpectedChecksum(body: @escaping (Result<String, Error>) -> Void) {
-            if let fingerprintStorage = self.fingerprintStorage {
-                fingerprintStorage.get(
-                    package: package.underlying,
-                    version: version,
-                    kind: .registry,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
-                ) { result in
-                    switch result {
-                    case .success(let fingerprint):
-                        body(.success(fingerprint.value))
-                    case .failure(let error):
-                        if error as? PackageFingerprintStorageError != .notFound {
-                            observabilityScope
-                                .emit(
-                                    error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)"
-                                )
-                        }
-                        // Try fetching checksum from registry again no matter which kind of error it is
-                        self.fetchSourceArchiveChecksum(
-                            registry: registry,
-                            package: package,
-                            version: version,
-                            timeout: timeout,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue,
-                            completion: body
-                        )
-                    }
-                }
-            } else {
-                self.fetchSourceArchiveChecksum(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    timeout: timeout,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue,
-                    completion: body
-                )
             }
         }
     }
@@ -1315,7 +1188,6 @@ public enum RegistryError: Error, CustomStringConvertible {
     case missingSourceArchive
     case invalidSourceArchive
     case unsupportedHashAlgorithm(String)
-    case failedToDetermineExpectedChecksum(Error)
     case failedToComputeChecksum(Error)
     case checksumChanged(latest: String, previous: String)
     case invalidChecksum(expected: String, actual: String)
@@ -1364,8 +1236,6 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Invalid registry source archive"
         case .unsupportedHashAlgorithm(let algorithm):
             return "Unsupported hash algorithm '\(algorithm)'"
-        case .failedToDetermineExpectedChecksum(let error):
-            return "Failed determining registry source archive checksum: \(error)"
         case .failedToComputeChecksum(let error):
             return "Failed computing registry source archive checksum: \(error)"
         case .checksumChanged(let latest, let previous):
