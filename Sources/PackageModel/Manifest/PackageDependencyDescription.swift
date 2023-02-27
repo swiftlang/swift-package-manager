@@ -14,6 +14,8 @@ import Foundation
 import Basics
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Represents a package dependency.
 public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)

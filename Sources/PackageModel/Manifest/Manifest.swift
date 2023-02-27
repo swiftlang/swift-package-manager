@@ -14,6 +14,8 @@ import Basics
 import TSCBasic
 import Foundation
 
+import struct TSCUtility.Version
+
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
 public final class Manifest: Sendable {
