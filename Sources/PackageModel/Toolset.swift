@@ -62,8 +62,12 @@ extension Toolset {
     /// - Parameters:
     ///   - path: absolute path on the `fileSystem`.
     ///   - fileSystem: file system from which the toolset should be read.
-    ///   - observability: an instance of `ObservabilityScope` to log warnings about unknown or invalid tools.
-    public init(from toolsetPath: AbsolutePath, at fileSystem: FileSystem, _ observability: ObservabilityScope) throws {
+    ///   - observabilityScope: an instance of `ObservabilityScope` to log warnings about unknown or invalid tools.
+    public init(
+        from toolsetPath: AbsolutePath,
+        at fileSystem: FileSystem,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(path: toolsetPath, fileSystem: fileSystem, as: DecodedToolset.self)
         guard decoded.schemaVersion == Version(1, 0, 0) else {
@@ -76,7 +80,7 @@ extension Toolset {
         var hasEmptyToolConfiguration = false
         for (tool, properties) in decoded.tools {
             guard let knownTool = KnownTool(rawValue: tool) else {
-                observability.emit(warning: "Unknown tool `\(tool)` in toolset configuration at `\(toolsetPath)`")
+                observabilityScope.emit(warning: "Unknown tool `\(tool)` in toolset configuration at `\(toolsetPath)`")
                 continue
             }
 
@@ -94,7 +98,7 @@ extension Toolset {
 
             guard toolPath != nil || !(properties.extraCLIOptions?.isEmpty ?? true) else {
                 // don't keep track of a tool with no path and CLI options specified.
-                observability.emit(
+                observabilityScope.emit(
                     error:
                     """
                     Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \

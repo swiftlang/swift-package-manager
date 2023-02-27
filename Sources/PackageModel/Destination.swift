@@ -362,7 +362,13 @@ extension Destination {
 
                 let pathStrings = properties.toolsetPaths ?? []
                 let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
-                    try $0.merge(with: .init(from: .init(validating: $1, relativeTo: destinationDirectory), at: fileSystem, observability))
+                    try $0.merge(
+                        with: Toolset(
+                            from: .init(validating: $1, relativeTo: destinationDirectory),
+                            at: fileSystem,
+                            observabilityScope
+                        )
+                    )
                 }
 
                 return Destination(
