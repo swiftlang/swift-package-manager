@@ -841,8 +841,15 @@ with the following sections:
 | `source-archive`  | `application/zip`  | The source archive of the package.        | REQUIRED          |
 | `metadata`        | `application/json` | Additional information about the release. | OPTIONAL          |
 
-A client MUST set a `Content-Type` header with the value `multipart/form-data`,
-and a `Content-Length` header with the total size of the body in bytes.
+A client MUST set a `Content-Type` header with the value 
+`multipart/form-data`. `boundary` can be any string.
+
+A client MAY use any valid value (e.g., `binary`) for the
+`Content-Transfer-Encoding` header.
+
+A client SHOULD set the `Content-Length` header with 
+the total size of the body in bytes.
+
 A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
 
@@ -1327,7 +1334,7 @@ paths:
           schema:
             type: string
             enum:
-              - application/vnd.swift.registry.v1+json
+              - multipart/form-data
       responses:
         "100":
           description: ""
