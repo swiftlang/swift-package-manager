@@ -171,7 +171,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
+        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
             return
         }
 

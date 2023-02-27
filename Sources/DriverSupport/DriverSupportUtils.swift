@@ -12,6 +12,7 @@
 
 import SwiftDriver
 import Basics
+import PackageModel
 import class TSCBasic.Process
 import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
@@ -22,10 +23,10 @@ public class DriverSupport {
     public init() {}
 
     // This checks supported _frontend_ flags, which are not necessarily supported in the driver.
-    public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
+    public static func checkSupportedFrontendFlags(flags: Set<String>, toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
         do {
             let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
-            let driver = try Driver(args: ["swiftc"], executor: executor)
+            let driver = try Driver(args: ["swiftc"], executor: executor, compilerExecutableDir: toolchain.swiftCompilerPath.parentDirectory)
             return driver.supportedFrontendFlags.intersection(flags) == flags
         } catch {
             return false
