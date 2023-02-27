@@ -745,7 +745,7 @@ public final class RegistryClient: Cancellable {
                             let contents = try fileSystem.readFileContents(downloadPath)
                             let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
 
-                            self.checksumTOFU.check(
+                            self.checksumTOFU.validate(
                                 registry: registry,
                                 package: package,
                                 version: version,

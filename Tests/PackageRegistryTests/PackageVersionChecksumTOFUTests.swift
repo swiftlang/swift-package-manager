@@ -95,7 +95,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // so we fetch metadata to get the expected checksum,
         // then save it to storage for future reference.
         XCTAssertNoThrow(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -190,7 +190,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // from value in storage, and because of .strict mode,
         // an error is thrown.
         XCTAssertThrowsError(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -277,7 +277,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // from value in storage, but because of .warn mode,
         // no error is thrown.
         XCTAssertNoThrow(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -335,7 +335,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // from value in storage, and because of .strict mode,
         // an error is thrown.
         XCTAssertThrowsError(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -391,7 +391,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // from value in storage, and because of .strict mode,
         // an error is thrown.
         XCTAssertThrowsError(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -441,7 +441,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // from value in storage, and because of .strict mode,
         // an error is thrown.
         XCTAssertThrowsError(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -497,7 +497,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
         XCTAssertNoThrow(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -551,7 +551,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // Since the checksums don't match, and because of
         // .strict mode, an error is thrown.
         XCTAssertThrowsError(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -611,7 +611,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         // The checksums don't match, but because of
         // .warn mode, no error is thrown.
         XCTAssertNoThrow(
-            try tofu.check(
+            try tofu.validate(
                 registry: registry,
                 package: package,
                 version: version,
@@ -628,7 +628,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 }
 
 extension PackageVersionChecksumTOFU {
-    fileprivate func check(
+    fileprivate func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -636,7 +636,7 @@ extension PackageVersionChecksumTOFU {
         observabilityScope: ObservabilityScope? = nil
     ) throws {
         try tsc_await {
-            self.check(
+            self.validate(
                 registry: registry,
                 package: package,
                 version: version,

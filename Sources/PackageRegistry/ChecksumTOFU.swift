@@ -34,7 +34,7 @@ struct PackageVersionChecksumTOFU {
         self.registryClient = registryClient
     }
 
-    func check(
+    func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
