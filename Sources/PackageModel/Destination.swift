@@ -326,12 +326,18 @@ extension Destination {
     public static func decode(
         fromFile path: AbsolutePath,
         fileSystem: FileSystem,
-        observability: ObservabilityScope
+        observabilityScope: ObservabilityScope
     ) throws -> [Destination] {
         let decoder = JSONDecoder.makeWithDefaults()
         do {
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: SemanticVersionInfo.self)
-            return try Self.decode(semanticVersion: version, fromFile: path, fileSystem: fileSystem, decoder: decoder, observability: observability)
+            return try Self.decode(
+                semanticVersion: version,
+                fromFile: path,
+                fileSystem: fileSystem,
+                decoder: decoder,
+                observabilityScope: observabilityScope
+            )
         } catch {
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
             return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
@@ -344,7 +350,7 @@ extension Destination {
         fromFile path: AbsolutePath,
         fileSystem: FileSystem,
         decoder: JSONDecoder,
-        observability: ObservabilityScope
+        observabilityScope: ObservabilityScope
     ) throws -> [Destination] {
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):

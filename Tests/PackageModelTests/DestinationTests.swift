@@ -223,7 +223,7 @@ final class DestinationTests: XCTestCase {
         let destinationV1Decoded = try Destination.decode(
             fromFile: destinationV1.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         )
 
         var flagsWithoutLinkerFlags = extraFlags
@@ -243,7 +243,7 @@ final class DestinationTests: XCTestCase {
         let destinationV2Decoded = try Destination.decode(
             fromFile: destinationV2.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         )
 
         XCTAssertEqual(destinationV2Decoded, [parsedDestinationV2GNU])
@@ -251,7 +251,7 @@ final class DestinationTests: XCTestCase {
         let toolsetNoRootDestinationV3Decoded = try Destination.decode(
             fromFile: toolsetNoRootDestinationV3.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestinationV3])
@@ -259,7 +259,7 @@ final class DestinationTests: XCTestCase {
         let toolsetRootDestinationV3Decoded = try Destination.decode(
             fromFile: toolsetRootDestinationV3.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         )
 
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestinationV3])
@@ -267,12 +267,12 @@ final class DestinationTests: XCTestCase {
         XCTAssertThrowsError(try Destination.decode(
             fromFile: toolsetInvalidDestinationV3.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         ))
         XCTAssertThrowsError(try Destination.decode(
             fromFile: versionInvalidDestinationV3.path,
             fileSystem: fs,
-            observability: observability
+            observabilityScope: observability
         ))
     }
 
@@ -318,7 +318,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id1",
                 hostTriple: hostTriple,
-                observability: system.topScope
+                observabilityScope: system.topScope
             ),
             parsedDestinationV2GNU
         )
@@ -329,7 +329,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id2",
                 hostTriple: hostTriple,
-                observability: system.topScope
+                observabilityScope: system.topScope
             )
         )
 
@@ -337,7 +337,7 @@ final class DestinationTests: XCTestCase {
             bundles.selectDestination(
                 matching: "id3",
                 hostTriple: hostTriple,
-                observability: system.topScope
+                observabilityScope: system.topScope
             ),
             parsedDestinationV2Musl
         )

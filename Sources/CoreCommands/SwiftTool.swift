@@ -111,7 +111,7 @@ extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        return .init()
+        .init()
     }
 }
 
@@ -143,7 +143,8 @@ public final class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+                .load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -584,15 +585,15 @@ public final class SwiftTool {
 
     /// Returns the user toolchain to compile the actual product.
     public func getDestinationToolchain() throws -> UserToolchain {
-        return try _destinationToolchain.get()
+        try _destinationToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
-        return try _hostToolchain.get()
+        try _hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
-        return try _manifestLoader.get()
+        try _manifestLoader.get()
     }
 
     public func canUseCachedBuildManifest() throws -> Bool {
@@ -612,7 +613,7 @@ public final class SwiftTool {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -714,7 +715,7 @@ public final class SwiftTool {
                 let destinations = try Destination.decode(
                     fromFile: customDestination,
                     fileSystem: fileSystem,
-                    observability: observabilityScope
+                    observabilityScope: observabilityScope
                 )
                 if destinations.count == 1 {
                     destination = destinations[0]
@@ -736,7 +737,7 @@ public final class SwiftTool {
                     fileSystem: fileSystem,
                     matching: destinationSelector,
                     hostTriple: hostTriple,
-                    observability: observabilityScope
+                    observabilityScope: observabilityScope
                 )
             } else {
                 // Otherwise use the host toolchain.
@@ -958,8 +959,8 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
     }
 }
 
-public extension Basics.Diagnostic {
-    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+extension Basics.Diagnostic {
+    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }
