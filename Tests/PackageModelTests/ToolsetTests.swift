@@ -85,11 +85,22 @@ private let someToolsWithRoot = (
     """#
 )
 
+private let someToolsWithRelativeRoot = (
+    path: try! AbsolutePath(validating: "/tools/someToolsWithRelativeRoot.json"),
+    json: #"""
+    {
+        "schemaVersion": "1.0",
+        "rootPath": "relative/custom",
+        "cCompiler": { "extraCLIOptions": \#(newCCompilerOptions) }
+    }
+    """#
+)
+
 final class ToolsetTests: XCTestCase {
     func testToolset() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.createDirectory(.init(validating: "/tools"))
-        for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot] {
+        for testFile in [compilersNoRoot, noValidToolsNoRoot, unknownToolsNoRoot, otherToolsNoRoot, someToolsWithRoot, someToolsWithRelativeRoot] {
             try fileSystem.writeFileContents(testFile.path, data: .init(testFile.json.utf8))
         }
         let observability = ObservabilitySystem.makeForTesting()
@@ -189,6 +200,15 @@ final class ToolsetTests: XCTestCase {
         XCTAssertEqual(
             otherToolsToolset.knownTools[.debugger],
             Toolset.ToolProperties(path: usrBinTools[.debugger]!)
+        )
+
+        let someToolsWithRelativeRoot = try Toolset(from: someToolsWithRelativeRoot.path, at: fileSystem, observability.topScope)
+        XCTAssertEqual(
+            someToolsWithRelativeRoot,
+            Toolset(
+                knownTools: [.cCompiler: .init(extraCLIOptions: newCCompilerOptions)],
+                rootPaths: [try AbsolutePath(validating: "/tools/relative/custom")]
+            )
         )
     }
 }
