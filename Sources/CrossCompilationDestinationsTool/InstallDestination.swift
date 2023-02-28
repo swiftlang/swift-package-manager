@@ -25,7 +25,7 @@ public struct InstallDestination: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
-        Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle
+        Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle \
         is at a remote location, it's downloaded to local filesystem first.
         """
     )
