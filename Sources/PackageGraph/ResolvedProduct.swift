@@ -45,7 +45,7 @@ public final class ResolvedProduct {
     /// Note: This property is only valid for executable products.
     public var executableTarget: ResolvedTarget {
         get throws {
-            guard type == .executable || type == .snippet else {
+            guard type == .executable || type == .snippet || type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
             guard let underlyingExecutableTarget = targets.map({ $0.underlyingTarget }).executables.first, let executableTarget = targets.first(where: { $0.underlyingTarget == underlyingExecutableTarget }) else {

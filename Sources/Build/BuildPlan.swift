@@ -413,6 +413,30 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
+        var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
+        // Create product description for each product we have in the package graph that is eligible.
+        for product in graph.allProducts where product.shouldCreateProductDescription {
+            guard let package = graph.package(for: product) else {
+                throw InternalError("unknown package for \(product)")
+            }
+            // Determine the appropriate tools version to use for the product.
+            // This can affect what flags to pass and other semantics.
+            let toolsVersion = package.manifest.toolsVersion
+            productMap[product] = try ProductBuildDescription(
+                package: package,
+                product: product,
+                toolsVersion: toolsVersion,
+                buildParameters: buildParameters,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+        }
+        let macroProductsByTarget = productMap.keys.filter { $0.type == .macro }.reduce(into: [ResolvedTarget: ResolvedProduct]()) {
+            if let target = $1.targets.first {
+                $0[target] = $1
+            }
+        }
+
         // Create build target description for each target which we need to plan.
         // Plugin targets are noted, since they need to be compiled, but they do
         // not get directly incorporated into the build description that will be
@@ -448,6 +472,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 guard let package = graph.package(for: target) else {
                     throw InternalError("package not found for \(target)")
                 }
+
+                let requiredMacroProducts = try target.recursiveTargetDependencies().filter { $0.underlyingTarget.type == .macro }.compactMap { macroProductsByTarget[$0] }
+
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     package: package,
                     target: target,
@@ -456,6 +483,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     buildParameters: buildParameters,
                     buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
+                    requiredMacroProducts: requiredMacroProducts,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope)
                 )
@@ -507,25 +535,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 derivedTestTargetsMap[item.product] = derivedTestTargets
             }
-        }
-
-        var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
-        // Create product description for each product we have in the package graph that is eligible.
-        for product in graph.allProducts where product.shouldCreateProductDescription {
-            guard let package = graph.package(for: product) else {
-                throw InternalError("unknown package for \(product)")
-            }
-            // Determine the appropriate tools version to use for the product.
-            // This can affect what flags to pass and other semantics.
-            let toolsVersion = package.manifest.toolsVersion
-            productMap[product] = try ProductBuildDescription(
-                package: package,
-                product: product,
-                toolsVersion: toolsVersion,
-                buildParameters: buildParameters,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            )
         }
 
         self.productMap = productMap
@@ -701,7 +710,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 switch product.type {
                 case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
-                case .library(.dynamic), .test, .executable, .snippet:
+                case .library(.dynamic), .test, .executable, .snippet, .macro:
                     return []
                 }
             }
@@ -758,6 +767,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         tools.forEach { availableTools[$0.name] = $0.executablePath  }
                     case.unknown:
                         throw InternalError("unknown binary target '\(target.name)' type")
+                    }
+                case .macro:
+                    if product.type == .macro {
+                        staticTargets.append(target)
                     }
                 case .plugin:
                     continue

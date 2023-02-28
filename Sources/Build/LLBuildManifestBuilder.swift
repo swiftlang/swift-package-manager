@@ -592,7 +592,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .snippet, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic), .macro:
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -641,6 +641,11 @@ extension LLBuildManifestBuilder {
                     environment: command.configuration.environment,
                     workingDirectory: command.configuration.workingDirectory?.pathString)
             }
+        }
+
+        // Depend on any required macro product's output.
+        try target.requiredMacroProducts.forEach { macro in
+            try inputs.append(.virtual(macro.getLLBuildTargetName(config: buildConfig)))
         }
 
         return inputs
@@ -746,7 +751,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .snippet, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic), .macro:
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -959,9 +964,12 @@ extension ResolvedTarget {
 
 extension ResolvedProduct {
     public func getLLBuildTargetName(config: String) throws -> String {
+        let potentialExecutableTargetName = "\(name)-\(config).exe"
+        let potentialLibraryTargetName = "\(name)-\(config).dylib"
+
         switch type {
         case .library(.dynamic):
-            return "\(name)-\(config).dylib"
+            return potentialLibraryTargetName
         case .test:
             return "\(name)-\(config).test"
         case .library(.static):
@@ -969,7 +977,13 @@ extension ResolvedProduct {
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .executable, .snippet:
-            return "\(name)-\(config).exe"
+            return potentialExecutableTargetName
+        case .macro:
+            #if BUILD_MACROS_AS_DYLIBS
+            return potentialLibraryTargetName
+            #else
+            return potentialExecutableTargetName
+            #endif
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
         }

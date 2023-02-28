@@ -21,6 +21,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         case system
         case binary
         case plugin
+        case `macro`
     }
 
     /// Represents a target's dependency on another entity.
@@ -208,6 +209,15 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+        case .macro:
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }

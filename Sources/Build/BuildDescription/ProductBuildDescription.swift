@@ -177,7 +177,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         let containsSwiftTargets = self.product.containsSwiftTargets
 
+        let derivedProductType: ProductType
         switch self.product.type {
+        case .macro:
+            #if BUILD_MACROS_AS_DYLIBS
+            derivedProductType = .library(.dynamic)
+            #else
+            derivedProductType = .executable
+            #endif
+        default:
+            derivedProductType = self.product.type
+        }
+
+        switch derivedProductType {
+        case .macro:
+            throw InternalError("macro not supported") // should never be reached
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .library(.static):
@@ -221,7 +235,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
             if executableTarget.underlyingTarget is SwiftTarget, self.toolsVersion >= .v5_5,
-               self.buildParameters.canRenameEntrypointFunctionName
+               self.buildParameters.canRenameEntrypointFunctionName, executableTarget.underlyingTarget.type != .macro
             {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
@@ -247,7 +261,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             switch self.product.type {
             case .library(let type):
                 useStdlibRpath = type == .dynamic
-            case .test, .executable, .snippet:
+            case .test, .executable, .snippet, .macro:
                 useStdlibRpath = true
             case .plugin:
                 throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
@@ -301,6 +315,13 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         if self.fileSystem.isDirectory(toolchainLibDir) {
             args += ["-L", toolchainLibDir.pathString]
         }
+
+        // Library search path for the toolchain's copy of SwiftSyntax.
+        #if BUILD_MACROS_AS_DYLIBS
+        if product.type == .macro {
+            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+        }
+        #endif
 
         return args
     }

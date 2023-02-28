@@ -32,7 +32,7 @@ extension Basics.Diagnostic {
         switch product.type {
         case .library(.automatic):
             typeString = ""
-        case .executable, .snippet, .plugin, .test,
+        case .executable, .snippet, .plugin, .test, .macro,
              .library(.dynamic), .library(.static):
             typeString = " (\(product.type))"
         }

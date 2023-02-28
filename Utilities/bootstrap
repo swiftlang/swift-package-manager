@@ -437,7 +437,7 @@ def install_swiftpm(prefix, args):
         dest = os.path.join(prefix, "libexec", "swift", "pm")
         install_binary(args, "swiftpm-xctest-helper", dest)
 
-    # Install the PackageDescription library and associated modules.
+    # Install the PackageDescription/CompilerPluginSupport libraries and associated modules.
     dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
     install_dylib(args, "PackageDescription", dest, ["PackageDescription"])
 
@@ -520,6 +520,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
 
     if platform.system() == 'Darwin':
         call(["sed", "-i", "", "s/macosx10.10/macosx%s/" % (g_macos_deployment_target), "build.ninja"], cwd=build_dir)
+        call(["sed", "-i", "", "s/CompilerPluginSupport.swiftinterface .*pm\/ManifestAPI\/PackageDescription.swiftinterface/CompilerPluginSupport.swiftinterface/", "build.ninja"], cwd=build_dir)
 
     call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
 
@@ -603,7 +604,7 @@ def build_swiftpm_with_cmake(args):
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
-    build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin"], args.project_root, args.bootstrap_dir)
+    build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin", "CompilerPluginSupport"], args.project_root, args.bootstrap_dir)
 
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.build_dirs["llbuild"])

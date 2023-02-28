@@ -352,7 +352,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
-        case .plugin:
+        case .plugin, .macro:
             return
         }
     }
@@ -372,6 +372,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             return
         case .plugin:
             // Package plugin targets.
+            return
+        case .macro:
+            // Macros are not supported when using XCBuild, similar to package plugins.
             return
         }
     }
@@ -1436,6 +1439,8 @@ extension ProductType {
             return .library
         case .plugin:
             return .plugin
+        case .macro:
+            return .macro
         }
     }
 }

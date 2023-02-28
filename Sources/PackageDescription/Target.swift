@@ -37,6 +37,8 @@ public final class Target {
         case binary
         /// A target that provides a package plugin.
         case plugin
+        /// A target that provides a Swift macro.
+        case `macro`
     }
 
     /// The different types of a target's dependency on another entity.
@@ -232,7 +234,8 @@ public final class Target {
     }
 
     /// Construct a target.
-    private init(
+    @_spi(PackageDescriptionInternal)
+    public init(
         name: String,
         dependencies: [Dependency],
         path: String?,
@@ -320,6 +323,20 @@ public final class Target {
                 pkgConfig == nil &&
                 providers == nil &&
                 pluginCapability != nil &&
+                cSettings == nil &&
+                cxxSettings == nil &&
+                swiftSettings == nil &&
+                linkerSettings == nil &&
+                pluginUsages == nil
+            )
+        case .macro:
+            precondition(
+                url == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil &&
                 cSettings == nil &&
                 cxxSettings == nil &&
                 swiftSettings == nil &&
