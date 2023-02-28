@@ -76,14 +76,9 @@ extension Toolset {
             )
         }
 
-        let rootPaths: [AbsolutePath]
-        if let rootPath = decoded.rootPath {
-            rootPaths = [
-                try AbsolutePath(validating: rootPath, relativeTo: toolsetPath.parentDirectory)
-            ]
-        } else {
-            rootPaths = []
-        }
+        let rootPaths = try decoded.rootPath.map {
+            [try AbsolutePath(validating: $0, relativeTo: toolsetPath.parentDirectory)]
+        } ?? []
 
         var knownTools = [KnownTool: ToolProperties]()
         var hasEmptyToolConfiguration = false
