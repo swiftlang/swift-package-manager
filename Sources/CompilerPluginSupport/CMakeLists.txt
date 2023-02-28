@@ -13,13 +13,8 @@ target_link_libraries(CompilerPluginSupport PRIVATE
 
 target_compile_options(CompilerPluginSupport PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)
-target_compile_options(CompilerPluginSupport PUBLIC
-  $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
-  set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftinterface)
-  target_compile_options(CompilerPluginSupport PUBLIC
-    $<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
   target_link_options(CompilerPluginSupport PRIVATE
     "SHELL:-Xlinker -install_name -Xlinker @rpath/CompilerPluginSupport.dylib")
 endif()
@@ -45,19 +40,11 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
     INSTALL_RPATH "$ORIGIN/../../$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
 endif()
 
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
-  install(FILES
-    ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftinterface
-    ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftdoc
-    DESTINATION lib/swift/pm/ManifestAPI
-  )
-else()
-  install(FILES
-    ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftmodule
-    ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftdoc
-    DESTINATION lib/swift/pm/ManifestAPI
-  )
-endif()
+install(FILES
+  ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftmodule
+  ${CMAKE_BINARY_DIR}/pm/ManifestAPI/CompilerPluginSupport.swiftdoc
+  DESTINATION lib/swift/pm/ManifestAPI
+)
 
 install(TARGETS CompilerPluginSupport
   DESTINATION lib/swift/pm/ManifestAPI)

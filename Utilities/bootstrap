@@ -520,7 +520,6 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
 
     if platform.system() == 'Darwin':
         call(["sed", "-i", "", "s/macosx10.10/macosx%s/" % (g_macos_deployment_target), "build.ninja"], cwd=build_dir)
-        call(["sed", "-i", "", "s/CompilerPluginSupport.swiftinterface .*pm\/ManifestAPI\/PackageDescription.swiftinterface/CompilerPluginSupport.swiftinterface/", "build.ninja"], cwd=build_dir)
 
     call(ninja_cmd + ninja_args, cwd=build_dir, verbose=args.verbose)
 
