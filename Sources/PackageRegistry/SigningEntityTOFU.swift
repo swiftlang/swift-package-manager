@@ -58,7 +58,8 @@ struct PackageSigningEntityTOFU {
                 ) { isOKResult in
                     switch isOKResult {
                     case .success(let shouldWrite):
-                        guard shouldWrite, let signingEntity = signingEntity else {
+                        // We only use certain type(s) of signing entity for TOFU
+                        guard shouldWrite, let signingEntity = signingEntity, signingEntity.type != nil else {
                             return completion(.success(()))
                         }
                         self.writeToStorage(
