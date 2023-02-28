@@ -24,6 +24,7 @@ import XCTest
 let defaultRegistryBaseURL = URL("https://packages.example.com")
 let customRegistryBaseURL = URL("https://custom.packages.example.com")
 
+@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 final class PackageRegistryToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
@@ -270,7 +271,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     // TODO: Test example with login and password
     // TODO: test archive signing
-
     func testArchiving() throws {
         #if os(Linux)
         // needed for archiving

@@ -27,15 +27,28 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
-            Set.self,
-            Unset.self,
-            Login.self,
-            Logout.self,
-            Publish.self,
-        ],
+        subcommands: Self.subcommands,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
+
+    private static var subcommands: [ParsableCommand.Type]{
+        if #available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) {
+            return [
+                Set.self,
+                Unset.self,
+                Login.self,
+                Logout.self,
+                Publish.self
+            ] as [ParsableCommand.Type]
+        } else {
+            return [
+                Set.self,
+                Unset.self,
+                Login.self,
+                Logout.self
+            ] as [ParsableCommand.Type]
+        }
+    }
 
     @OptionGroup()
     var globalOptions: GlobalOptions
