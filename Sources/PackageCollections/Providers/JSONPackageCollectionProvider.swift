@@ -417,6 +417,8 @@ extension PackageModel.ProductType {
             self = .snippet
         case .test:
             self = .test
+        case .macro:
+            self = .macro
         }
     }
 }

@@ -340,12 +340,15 @@ extension PackageCollectionModel.V1 {
 
         /// A test product.
         case test
+        
+        /// A macro product.
+        case `macro`
     }
 }
 
 extension PackageCollectionModel.V1.ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, plugin, snippet, test
+        case library, executable, plugin, snippet, test, `macro`
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -362,6 +365,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             try container.encodeNil(forKey: .snippet)
         case .test:
             try container.encodeNil(forKey: .test)
+        case .macro:
+            try container.encodeNil(forKey: .macro)
         }
     }
 
@@ -383,6 +388,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             self = .snippet
         case .test:
             self = .test
+        case .macro:
+            self = .macro
         }
     }
 }
