@@ -72,6 +72,8 @@ public struct SwiftPackageTool: ParsableCommand {
     @OptionGroup()
     var globalOptions: GlobalOptions
 
+    public static var _errorLabel: String { "error" }
+
     public init() {}
 }
 

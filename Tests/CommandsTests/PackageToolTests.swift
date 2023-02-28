@@ -1571,7 +1571,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
             }
 
-            // Runnning with output as absolute path within package root
+            // Running with output as absolute path within package root
             do {
                 let destination = packageRoot.appending(component: "Bar-1.2.3.zip")
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
@@ -1601,7 +1601,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderrOutput)""#)
             }
 
-            // Runnning with output as absolute path to existing directory
+            // Running with output as absolute path to existing directory
             do {
                 let destination = AbsolutePath.root
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
