@@ -181,7 +181,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     func didDownloadAllBinaryArtifacts() {}
 }
 
-public extension SwiftCommand {
+public extension _SwiftCommand {
     var workspaceDelegateProvider: WorkspaceDelegateProvider {
         return {
             ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)

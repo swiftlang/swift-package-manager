@@ -71,17 +71,28 @@ public typealias WorkspaceDelegateProvider = (
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
 
-public protocol SwiftCommand: ParsableCommand {
-    var globalOptions: GlobalOptions { get }
+public protocol _SwiftCommand {
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
-
     func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider
+}
+
+extension _SwiftCommand {
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        return .init()
+    }
+}
+
+public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
+
     func run(_ swiftTool: SwiftTool) throws
 }
 
 extension SwiftCommand {
+    public static var _errorLabel: String { "error" }
+
     public func run() throws {
         let swiftTool = try SwiftTool(
             options: globalOptions,
@@ -107,11 +118,41 @@ extension SwiftCommand {
             throw error
         }
     }
+}
 
+public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
+
+    func run(_ swiftTool: SwiftTool) async throws
+}
+
+extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        .init()
+    public func run() async throws {
+        let swiftTool = try SwiftTool(
+            options: globalOptions,
+            toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
+            workspaceDelegateProvider: self.workspaceDelegateProvider,
+            workspaceLoaderProvider: self.workspaceLoaderProvider
+        )
+        swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
+        var toolError: Error? = .none
+        do {
+            try await self.run(swiftTool)
+            if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
+                throw ExitCode.failure
+            }
+        } catch {
+            toolError = error
+        }
+
+        // wait for all observability items to process
+        swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
+
+        if let error = toolError {
+            throw error
+        }
     }
 }
 

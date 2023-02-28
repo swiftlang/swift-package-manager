@@ -55,6 +55,7 @@ extension URL: @unchecked Sendable {}
 
 // https://forums.swift.org/t/using-async-functions-from-synchronous-functions-and-breaking-all-the-rules/59782/3
 /// Unsafely awaits an async function from a synchronous context.
+/*
 public func _unsafe_wait<ResultType>(_ f: @escaping () async throws -> ResultType) throws -> ResultType {
     let box = Box<ResultType>()
     let sema = DispatchSemaphore(value: 0)
@@ -78,3 +79,4 @@ public func _unsafe_wait<ResultType>(_ f: @escaping () async throws -> ResultTyp
 private class Box<ResultType> {
     var result: Result<ResultType, Error>?
 }
+*/

@@ -19,7 +19,8 @@ import PackageRegistry
 import TSCBasic
 import Workspace
 
-public struct SwiftPackageRegistryTool: ParsableCommand {
+@available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
+public struct SwiftPackageRegistryTool: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
@@ -41,7 +42,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
     public init() {}
 
-    struct Set: SwiftCommand {
+    struct Set: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Set a custom registry"
         )
@@ -62,7 +63,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             self.url
         }
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             try self.registryURL.validateRegistryURL()
 
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
@@ -84,7 +85,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         }
     }
 
-    struct Unset: SwiftCommand {
+    struct Unset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove a configured registry"
         )
@@ -98,7 +99,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let unset: (inout RegistryConfiguration) throws -> Void = { configuration in

@@ -24,7 +24,7 @@ import Workspace
 import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
-    struct Publish: SwiftCommand {
+    struct Publish: AsyncSwiftCommand {
         static let metadataFilename = "package-metadata.json"
 
         static let configuration = CommandConfiguration(
@@ -75,7 +75,7 @@ extension SwiftPackageRegistryTool {
         @Option(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let configuration = try getRegistriesConfig(swiftTool).configuration
 
             // validate package location
@@ -177,7 +177,7 @@ extension SwiftPackageRegistryTool {
             var signature: Data? = .none
             if publishConfiguration.signing.required {
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
-                signature = try self.sign(
+                signature = try await self.sign(
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     archivePath: archivePath,
@@ -198,20 +198,16 @@ extension SwiftPackageRegistryTool {
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
             // TODO: handle signature
-            let result = try tsc_await { callback in
-                registryClient.publish(
-                    registryURL: registryURL,
-                    packageIdentity: self.packageIdentity,
-                    packageVersion: self.packageVersion,
-                    packageArchive: archivePath,
-                    packageMetadata: self.customMetadataPath,
-                    signature: signature,
-                    fileSystem: localFileSystem,
-                    observabilityScope: swiftTool.observabilityScope,
-                    callbackQueue: .sharedConcurrent,
-                    completion: callback
-                )
-            }
+            let result = try await registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: self.packageIdentity,
+                packageVersion: self.packageVersion,
+                packageArchive: archivePath,
+                packageMetadata: self.customMetadataPath,
+                signature: signature,
+                fileSystem: localFileSystem,
+                observabilityScope: swiftTool.observabilityScope
+            )
 
             switch result {
             case .published(.none):
@@ -268,48 +264,46 @@ extension SwiftPackageRegistryTool {
             configuration: PublishConfiguration.Signing,
             workingDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
-        ) throws -> Data {
-            try _unsafe_wait {
-                let archiveData = try Data(localFileSystem.readFileContents(archivePath).contents)
+        ) async throws -> Data {
+            let archiveData = try Data(localFileSystem.readFileContents(archivePath).contents)
 
-                var signingIdentity: SigningIdentity?
-                if let signingIdentityLabel = configuration.signingIdentity {
-                    let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-                    let matches = try await signingIdentityStore.find(by: signingIdentityLabel)
-                    guard !matches.isEmpty else {
-                        throw StringError("'\(signingIdentityLabel)' not found in the system identity store.")
-                    }
-                    // TODO: let user choose if there is more than one match?
-                    signingIdentity = matches.first
-                } else if let privateKeyPath = configuration.privateKeyPath,
-                          let certificatePath = configuration.certificatePath
-                {
-                    let certificateData = try Data(localFileSystem.readFileContents(certificatePath).contents)
-                    let privateKeyData = try Data(localFileSystem.readFileContents(privateKeyPath).contents)
-                    signingIdentity = SwiftSigningIdentity(
-                        certificate: Certificate(derEncoded: certificateData),
-                        privateKey: try configuration.format.privateKey(derRepresentation: privateKeyData)
-                    )
+            var signingIdentity: SigningIdentity?
+            if let signingIdentityLabel = configuration.signingIdentity {
+                let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
+                let matches = try await signingIdentityStore.find(by: signingIdentityLabel)
+                guard !matches.isEmpty else {
+                    throw StringError("'\(signingIdentityLabel)' not found in the system identity store.")
                 }
-
-                guard let signingIdentity = signingIdentity else {
-                    throw StringError("Cannot sign archive without signing identity.")
-                }
-
-                let signature = try await SignatureProvider.sign(
-                    archiveData,
-                    with: signingIdentity,
-                    in: configuration.format,
-                    observabilityScope: observabilityScope
+                // TODO: let user choose if there is more than one match?
+                signingIdentity = matches.first
+            } else if let privateKeyPath = configuration.privateKeyPath,
+                      let certificatePath = configuration.certificatePath
+            {
+                let certificateData = try Data(localFileSystem.readFileContents(certificatePath).contents)
+                let privateKeyData = try Data(localFileSystem.readFileContents(privateKeyPath).contents)
+                signingIdentity = SwiftSigningIdentity(
+                    certificate: Certificate(derEncoded: certificateData),
+                    privateKey: try configuration.format.privateKey(derRepresentation: privateKeyData)
                 )
-
-                let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
-                try localFileSystem.writeFileContents(signaturePath) { stream in
-                    stream.write(signature)
-                }
-
-                return signature
             }
+
+            guard let signingIdentity = signingIdentity else {
+                throw StringError("Cannot sign archive without signing identity.")
+            }
+
+            let signature = try await SignatureProvider.sign(
+                archiveData,
+                with: signingIdentity,
+                in: configuration.format,
+                observabilityScope: observabilityScope
+            )
+
+            let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
+            try localFileSystem.writeFileContents(signaturePath) { stream in
+                stream.write(signature)
+            }
+
+            return signature
         }
     }
 }
@@ -344,5 +338,35 @@ struct PublishConfiguration {
 extension SignatureFormat: ExpressibleByArgument {
     public init?(argument: String) {
         self.init(rawValue: argument.lowercased())
+    }
+}
+
+// TODO: migrate registry client to async
+extension RegistryClient {
+    public func publish(
+        registryURL: URL,
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageArchive: AbsolutePath,
+        packageMetadata: AbsolutePath?,
+        signature: Data?,
+        timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) async throws -> PublishResult {
+        try await withCheckedThrowingContinuation { continuation in
+            self.publish(
+                registryURL: registryURL,
+                packageIdentity: packageIdentity,
+                packageVersion: packageVersion,
+                packageArchive: packageArchive,
+                packageMetadata: packageMetadata,
+                signature: signature,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                callbackQueue: .sharedConcurrent,
+                completion: continuation.resume(with:)
+            )
+        }
     }
 }

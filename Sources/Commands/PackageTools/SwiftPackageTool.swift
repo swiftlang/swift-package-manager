@@ -73,8 +73,6 @@ public struct SwiftPackageTool: ParsableCommand {
     var globalOptions: GlobalOptions
 
     public init() {}
-
-    public static var _errorLabel: String { "error" }
 }
 
 extension SwiftPackageTool {
