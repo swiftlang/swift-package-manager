@@ -74,7 +74,7 @@ public enum SignatureStatus: Equatable {
     case valid(SigningEntity)
     case invalid(String)
     case certificateInvalid(String)
-    case certificateNotTrusted
+    case certificateNotTrusted // TODO: include signer details
 }
 
 extension Certificate {

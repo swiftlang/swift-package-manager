@@ -7,11 +7,13 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageRegistry STATIC
+  ChecksumTOFU.swift
   Registry.swift
   RegistryConfiguration.swift
   RegistryClient.swift
   RegistryDownloadsManager.swift
-  ChecksumTOFU.swift)
+  SignatureValidation.swift
+  SigningEntityTOFU.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
   PackageFingerprint

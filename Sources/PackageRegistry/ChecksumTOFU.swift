@@ -104,9 +104,7 @@ struct PackageVersionChecksumTOFU {
                 ) { result in
                     switch result {
                     case .success(let metadata):
-                        guard let sourceArchive = metadata.resources
-                            .first(where: { $0.name == "source-archive" })
-                        else {
+                        guard let sourceArchive = metadata.sourceArchive else {
                             return completion(.failure(RegistryError.missingSourceArchive))
                         }
 

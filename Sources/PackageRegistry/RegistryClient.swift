@@ -26,20 +26,25 @@ import struct TSCUtility.Version
 public final class RegistryClient: Cancellable {
     private static let apiVersion: APIVersion = .v1
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
+    private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
     private let configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
-    private let signingEntityStorage: PackageSigningEntityStorage?
-    private let signingEntityCheckingMode: SigningEntityCheckingMode
     private let jsonDecoder: JSONDecoder
 
     private var checksumTOFU: PackageVersionChecksumTOFU!
+    private let signingEntityTOFU: PackageSigningEntityTOFU
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
         (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)
+    >()
+    
+    private let metadataCache = ThreadSafeKeyValueStore<
+        MetadataCacheKey,
+        (metadata: Serialization.VersionMetadata, expires: DispatchTime)
     >()
 
     public init(
@@ -80,10 +85,12 @@ public final class RegistryClient: Cancellable {
 
         self.httpClient = customHTTPClient ?? LegacyHTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
-        self.signingEntityStorage = signingEntityStorage
-        self.signingEntityCheckingMode = signingEntityCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
 
+        self.signingEntityTOFU = PackageSigningEntityTOFU(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
         self.checksumTOFU = PackageVersionChecksumTOFU(
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
@@ -321,7 +328,6 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    // TODO: add caching
     // marked internal for testing
     func _getRawPackageVersionMetadata(
         registry: Registry,
@@ -333,6 +339,11 @@ public final class RegistryClient: Cancellable {
         completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
+        
+        let cacheKey = MetadataCacheKey(registry: registry, package: package)
+        if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
+            return completion(.success(cached.metadata))
+        }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -357,10 +368,12 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     switch response.statusCode {
                     case 200:
-                        return try response.parseJSON(
+                        let metadata = try response.parseJSON(
                             Serialization.VersionMetadata.self,
                             decoder: self.jsonDecoder
                         )
+                        self.metadataCache[cacheKey] = (metadata: metadata, expires: .now() + Self.metadataCacheTTL)
+                        return metadata
                     case 404:
                         throw RegistryError.packageVersionNotFound
                     default:
@@ -1182,6 +1195,11 @@ public final class RegistryClient: Cancellable {
         options.authorizationProvider = self.authorizationProvider
         return options
     }
+    
+    private struct MetadataCacheKey: Hashable {
+        let registry: Registry
+        let package: PackageIdentity.RegistryIdentity
+    }
 }
 
 public enum RegistryError: Error, CustomStringConvertible {
@@ -1216,6 +1234,18 @@ public enum RegistryError: Error, CustomStringConvertible {
     case registryNotAvailable(Registry)
     case packageNotFound
     case packageVersionNotFound
+    case sourceArchiveNotSigned(registry: Registry, package: PackageIdentity, version: Version)
+    case failedLoadingSignature
+    case failedRetrievingSourceArchiveSignature(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case missingConfiguration(details: String)
+    case missingSignatureFormat
+    case unknownSignatureFormat(String)
+    case invalidSignature(reason: String)
+    case invalidSigningCertificate(reason: String)
+    case signerNotTrusted
+    case failedToValidateSignature(Error)
+    case signingEntityForReleaseHasChanged(package: PackageIdentity, version: Version, latest: SigningEntity?, previous: SigningEntity)
+    case signingEntityForPackageHasChanged(package: PackageIdentity, latest: SigningEntity?, previous: SigningEntity)
 
     public var description: String {
         switch self {
@@ -1280,11 +1310,35 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .forbidden:
             return "Forbidden"
         case .registryNotAvailable(let registry):
-            return "registry at '\(registry.url)' is not available at this time, please try again later"
+            return "Registry at '\(registry.url)' is not available at this time, please try again later"
         case .packageNotFound:
-            return "package not found on registry"
+            return "Package not found on registry"
         case .packageVersionNotFound:
-            return "package version not found on registry"
+            return "Package version not found on registry"
+        case .sourceArchiveNotSigned(let registry, let packageIdentity, let version):
+            return "'\(packageIdentity)@\(version)' source archive from '\(registry)' is not signed"
+        case .failedLoadingSignature:
+            return "Failed loading signature for validation"
+        case .failedRetrievingSourceArchiveSignature(let registry, let packageIdentity, let version, let error):
+            return "Failed retrieving '\(packageIdentity)@\(version)' source archive signature from '\(registry)': \(error)"
+        case .missingConfiguration(let details):
+            return "Unable to proceed because of missing configuration: \(details)"
+        case .missingSignatureFormat:
+            return "Missing signature format"
+        case .unknownSignatureFormat(let format):
+            return "Unknown signature format: \(format)"
+        case .invalidSignature(let reason):
+            return "Signature is invalid: \(reason)"
+        case .invalidSigningCertificate(let reason):
+            return "The signing certificate is invalid: \(reason)"
+        case .signerNotTrusted:
+            return "The signer is not trusted"
+        case .failedToValidateSignature(let error):
+            return "Failed to validate signature: \(error)"
+        case .signingEntityForReleaseHasChanged(let package, let version, let latest, let previous):
+            return "The signing entity '\(String(describing: latest))' for '\(package)@\(version)' is different from the previously recorded value '\(previous)'"
+        case .signingEntityForPackageHasChanged(let package, let latest, let previous):
+            return "The signing entity '\(String(describing: latest))' for '\(package)' is different from the previously recorded value '\(previous)'"
         }
     }
 }
@@ -1613,6 +1667,10 @@ extension RegistryClient {
             public let version: String
             public let resources: [Resource]
             public let metadata: AdditionalMetadata?
+            
+            var sourceArchive: Resource? {
+                self.resources.first(where: { $0.name == "source-archive" })
+            }
 
             public init(
                 id: String,

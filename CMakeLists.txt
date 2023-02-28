@@ -1,6 +1,6 @@
 # This source file is part of the Swift open source project
 #
-# Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+# Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -54,6 +54,7 @@ if(FIND_PM_DEPS)
   find_package(ArgumentParser CONFIG REQUIRED)
   find_package(SwiftDriver CONFIG REQUIRED)
   find_package(SwiftCollections CONFIG REQUIRED)
+  find_package(SwiftCrypto CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)

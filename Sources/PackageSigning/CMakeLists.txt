@@ -16,6 +16,7 @@ target_link_libraries(PackageSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
+  Crypto
   PackageModel
   TSCBasic
   TSCUtility)
