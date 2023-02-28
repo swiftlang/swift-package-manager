@@ -54,16 +54,22 @@ public struct ToolWorkspaceConfiguration {
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
 
-    public init(wantsMultipleTestProducts: Bool = false,
-                wantsREPLProduct: Bool = false)
-    {
+    public init(
+        wantsMultipleTestProducts: Bool = false,
+        wantsREPLProduct: Bool = false
+    ) {
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
 }
 
-public typealias WorkspaceDelegateProvider = (_ observabilityScope: ObservabilityScope, _ outputHandler: @escaping (String, Bool) -> Void, _ progressHandler: @escaping (Int64, Int64, String?) -> Void) -> WorkspaceDelegate
-public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope) -> WorkspaceLoader
+public typealias WorkspaceDelegateProvider = (
+    _ observabilityScope: ObservabilityScope,
+    _ outputHandler: @escaping (String, Bool) -> Void,
+    _ progressHandler: @escaping (Int64, Int64, String?) -> Void
+) -> WorkspaceDelegate
+public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
+    -> WorkspaceLoader
 
 public protocol SwiftCommand: ParsableCommand {
     var globalOptions: GlobalOptions { get }
@@ -105,7 +111,7 @@ extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        return .init()
+        .init()
     }
 }
 
@@ -137,7 +143,8 @@ public final class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+                .load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -201,17 +208,34 @@ public final class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    public convenience init(options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(), workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
+    public convenience init(
+        options: GlobalOptions,
+        toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(),
+        workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+    ) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
         // CLI commands that have user facing output, use stdout directly to emit the final result
         // this means that the build output from "swift build" goes to stdout
         // but the build output from "swift test" goes to stderr, while the tests output go to stdout
-        try self.init(outputStream: TSCBasic.stderrStream, options: options, toolWorkspaceConfiguration: toolWorkspaceConfiguration, workspaceDelegateProvider: workspaceDelegateProvider, workspaceLoaderProvider: workspaceLoaderProvider)
+        try self.init(
+            outputStream: TSCBasic.stderrStream,
+            options: options,
+            toolWorkspaceConfiguration: toolWorkspaceConfiguration,
+            workspaceDelegateProvider: workspaceDelegateProvider,
+            workspaceLoaderProvider: workspaceLoaderProvider
+        )
     }
 
     // marked internal for testing
-    internal init(outputStream: OutputByteStream, options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration, workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
+    internal init(
+        outputStream: OutputByteStream,
+        options: GlobalOptions,
+        toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
+        workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+    ) throws {
         self.fileSystem = localFileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
@@ -283,7 +307,8 @@ public final class SwiftTool {
                 var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
-                    to: sigaction.__Unnamed_union___sigaction_handler.self)
+                    to: sigaction.__Unnamed_union___sigaction_handler.self
+                )
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
                 #endif
@@ -308,11 +333,15 @@ public final class SwiftTool {
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: options.locations.crossCompilationDestinationsDirectory
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(
+            options: options,
+            fileSystem: fileSystem
         )
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try fileSystem
+            .getSharedCrossCompilationDestinationsDirectory(
+                explicitDirectory: options.locations.crossCompilationDestinationsDirectory
+            )
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -334,12 +363,18 @@ public final class SwiftTool {
         // --enable-test-discovery should never be called on darwin based platforms
         #if canImport(Darwin)
         if options.build.enableTestDiscovery {
-            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope
+                .emit(
+                    warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms"
+                )
         }
         #endif
 
         if options.caching.shouldDisableManifestCaching {
-            observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+            observabilityScope
+                .emit(
+                    warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead"
+                )
         }
 
         if let _ = options.security.netrcFilePath, options.security.netrc == false {
@@ -357,7 +392,11 @@ public final class SwiftTool {
             return workspace
         }
 
-        let delegate = self.workspaceDelegateProvider(self.observabilityScope, self.observabilityHandler.print, self.observabilityHandler.progress)
+        let delegate = self.workspaceDelegateProvider(
+            self.observabilityScope,
+            self.observabilityHandler.print,
+            self.observabilityHandler.progress
+        )
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
@@ -417,13 +456,25 @@ public final class SwiftTool {
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
-            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+            let newPath = Workspace.DefaultLocations
+                .mirrorsConfigurationFile(
+                    at: multiRootPackageDataFile
+                        .appending(components: "xcshareddata", "swiftpm", "configuration")
+                )
+            return try Workspace.migrateMirrorsConfiguration(
+                from: legacyPath,
+                to: newPath,
+                observabilityScope: observabilityScope
+            )
         } else {
             // migrate from legacy location
             let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
             let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+            return try Workspace.migrateMirrorsConfiguration(
+                from: legacyPath,
+                to: newPath,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -441,7 +492,10 @@ public final class SwiftTool {
         authorization.keychain = self.options.security.keychain ? .enabled : .disabled
         #endif
 
-        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeAuthorizationProvider(
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
     }
 
     public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
@@ -457,7 +511,10 @@ public final class SwiftTool {
         authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
         #endif
 
-        return try authorization.makeRegistryAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeRegistryAuthorizationProvider(
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
     }
 
     /// Resolve the dependencies.
@@ -481,7 +538,8 @@ public final class SwiftTool {
     /// Fetch and load the complete package graph.
     ///
     /// - Parameters:
-    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
+    /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
     public func loadPackageGraph(
         explicitProduct: String? = nil,
@@ -527,15 +585,15 @@ public final class SwiftTool {
 
     /// Returns the user toolchain to compile the actual product.
     public func getDestinationToolchain() throws -> UserToolchain {
-        return try _destinationToolchain.get()
+        try _destinationToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
-        return try _hostToolchain.get()
+        try _hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
-        return try _manifestLoader.get()
+        try _manifestLoader.get()
     }
 
     public func canUseCachedBuildManifest() throws -> Bool {
@@ -555,7 +613,7 @@ public final class SwiftTool {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -654,9 +712,24 @@ public final class SwiftTool {
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
-                destination = try Destination(fromFile: customDestination, fileSystem: fileSystem)
-            } else if let target = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
+                let destinations = try Destination.decode(
+                    fromFile: customDestination,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
+                )
+                if destinations.count == 1 {
+                    destination = destinations[0]
+                } else if destinations.count > 1,
+                          let triple = options.build.customCompileTriple,
+                          let matchingDestination = destinations.first(where: { $0.targetTriple == triple })
+                {
+                    destination = matchingDestination
+                } else {
+                    return .failure(DestinationError.noDestinationsDecoded(customDestination))
+                }
+            } else if let triple = options.build.customCompileTriple,
+                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
+            {
                 destination = targetDestination
             } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
                 destination = try DestinationsBundle.selectDestination(
@@ -678,7 +751,7 @@ public final class SwiftTool {
             destination.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
-            destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
+            destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
             destination.sdkRootDir = sdk
@@ -886,8 +959,8 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
     }
 }
 
-public extension Basics.Diagnostic {
-    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+extension Basics.Diagnostic {
+    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

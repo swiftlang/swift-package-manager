@@ -63,7 +63,7 @@ class PackageModelTests: XCTestCase {
         let destination = Destination(
             targetTriple: triple,
             sdkRootDir: sdkDir,
-            toolchainBinDir: toolchainPath.appending(components: "usr", "bin")
+            toolset: .init(toolchainBinDir: toolchainPath.appending(components: "usr", "bin"), buildFlags: .init())
         )
 
         XCTAssertEqual(
@@ -116,7 +116,7 @@ class PackageModelTests: XCTestCase {
 
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDir: bin, useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
                         extraSwiftFlags: ["-Xswiftc", "-use-ld=lld"]
                     ),
                     lld
@@ -124,7 +124,7 @@ class PackageModelTests: XCTestCase {
 
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDir: bin, useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
                         extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link\(suffix)"]
                     ),
                     not
@@ -132,7 +132,7 @@ class PackageModelTests: XCTestCase {
 
                 try XCTAssertThrowsError(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDir: bin, useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
                         extraSwiftFlags: []
                     )
                 )

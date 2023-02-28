@@ -40,4 +40,5 @@
 ## Rules
 
 # Prefer `&&` over `,` comma in `if`, `guard` or `while` conditions.
---disable andOperator
+# Preserve `nil` default value (Optional `var`s are `nil` by default).
+--disable andOperator,redundantNilInit 
