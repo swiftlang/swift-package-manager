@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct TSCUtility.Version
+
 /// Represents a platform.
 public struct Platform: Equatable, Hashable, Codable {
     /// The name of the platform.

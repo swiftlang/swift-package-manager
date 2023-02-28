@@ -14,6 +14,8 @@ import TSCBasic
 
 import Foundation
 
+import struct TSCUtility.Version
+
 /// Represents a Swift language version.
 public struct SwiftLanguageVersion: Sendable {
 

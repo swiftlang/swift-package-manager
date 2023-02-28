@@ -13,8 +13,7 @@
 import Basics
 import struct Foundation.URL
 import TSCBasic
-// Re-export Version from PackageModel, since it is a key part of the model.
-@_exported import struct TSCUtility.Version
+import struct TSCUtility.Version
 
 import enum TSCUtility.PackageLocation
 import struct TSCUtility.PolymorphicCodableArray
