@@ -14,6 +14,7 @@ set_target_properties(DriverSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 target_link_libraries(DriverSupport PUBLIC
   Basics
+  PackageModel
   SwiftDriver)
 
 if(USE_CMAKE_INSTALL)

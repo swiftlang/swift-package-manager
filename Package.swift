@@ -326,7 +326,8 @@ let package = Package(
         .target(
             name: "DriverSupport",
             dependencies: [
-		"Basics",
+                "Basics",
+                "PackageModel",
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"]
