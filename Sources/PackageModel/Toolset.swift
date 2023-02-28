@@ -76,6 +76,15 @@ extension Toolset {
             )
         }
 
+        let rootPaths: [AbsolutePath]
+        if let rootPath = decoded.rootPath {
+            rootPaths = [
+                try AbsolutePath(validating: rootPath, relativeTo: toolsetPath.parentDirectory)
+            ]
+        } else {
+            rootPaths = []
+        }
+
         var knownTools = [KnownTool: ToolProperties]()
         var hasEmptyToolConfiguration = false
         for (tool, properties) in decoded.tools {
@@ -89,7 +98,7 @@ extension Toolset {
                 if let absolutePath = try? AbsolutePath(validating: path) {
                     toolPath = absolutePath
                 } else {
-                    let rootPath = decoded.rootPath ?? toolsetPath.parentDirectory
+                    let rootPath = rootPaths.first ?? toolsetPath.parentDirectory
                     toolPath = rootPath.appending(RelativePath(path))
                 }
             } else {
@@ -117,13 +126,6 @@ extension Toolset {
 
         guard !hasEmptyToolConfiguration else {
             throw StringError("Toolset configuration at `\(toolsetPath)` has at least one tool with no properties.")
-        }
-
-        let rootPaths: [AbsolutePath]
-        if let rootPath = decoded.rootPath {
-            rootPaths = [rootPath]
-        } else {
-            rootPaths = []
         }
 
         self.init(knownTools: knownTools, rootPaths: rootPaths)
@@ -174,7 +176,7 @@ private struct DecodedToolset {
 
     /// Root path of the toolset, if present. When filling in ``Toolset.ToolProperties/path``, if a raw path string in
     /// ``DecodedToolset`` is inferred to be relative, it's resolved as absolute path relatively to `rootPath`.
-    let rootPath: AbsolutePath?
+    let rootPath: String?
 
     /// Dictionary of raw tools that haven't been validated yet to match ``Toolset.KnownTool``.
     var tools: [String: ToolProperties]
@@ -206,7 +208,7 @@ extension DecodedToolset: Decodable {
             versionString: container.decode(String.self, forKey: .schemaVersion),
             usesLenientParsing: true
         )
-        self.rootPath = try container.decodeIfPresent(AbsolutePath.self, forKey: .rootPath)
+        self.rootPath = try container.decodeIfPresent(String.self, forKey: .rootPath)
 
         self.tools = [String: DecodedToolset.ToolProperties]()
         for key in container.allKeys {
