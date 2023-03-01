@@ -144,6 +144,7 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
+        #if swift(>=5.5.2)
         Task {
             do {
                 let signatureStatus = try await SignatureProvider.status(
@@ -191,6 +192,7 @@ struct SignatureValidation {
                 completion(.failure(RegistryError.failedToValidateSignature(error)))
             }
         }
+        #endif
     }
 
     private func getSourceArchiveSignature(
