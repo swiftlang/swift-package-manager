@@ -95,10 +95,10 @@ public struct SwiftBuildTool: SwiftCommand {
         version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup()
+    @OptionGroup(title: "Global options")
     public var globalOptions: GlobalOptions
 
-    @OptionGroup()
+    @OptionGroup(title: "Build options")
     var options: BuildToolOptions
 
     public func run(_ swiftTool: SwiftTool) throws {
