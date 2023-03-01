@@ -339,8 +339,7 @@ final class DestinationTests: XCTestCase {
         )) {
             XCTAssertTrue(
                 ($0 as? StringError)?.description
-                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: " ?? false
-                )
+                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
             )
         }
     }
