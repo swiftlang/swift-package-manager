@@ -439,7 +439,7 @@ def install_swiftpm(prefix, args):
 
     # Install the PackageDescription/CompilerPluginSupport libraries and associated modules.
     dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
-    install_dylib(args, "PackageDescription", dest, ["PackageDescription"])
+    install_dylib(args, "PackageDescription", dest, ["PackageDescription", "CompilerPluginSupport"])
 
     # Install the PackagePlugin library and associated modules.
     dest = os.path.join(prefix, "lib", "swift", "pm", "PluginAPI")
