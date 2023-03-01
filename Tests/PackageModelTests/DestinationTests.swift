@@ -92,8 +92,8 @@ private let toolsetRootDestinationV3 = (
     """#)
 )
 
-private let toolsetInvalidDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/toolsetInvalidDestinationV3.json"),
+private let missingToolsetDestinationV3 = (
+    path: try! AbsolutePath(validating: "\(bundleRootPath)/missingToolsetDestinationV3.json"),
     json: ByteString(encodingAsUTF8: #"""
     {
         "runTimeTriples": {
@@ -107,8 +107,8 @@ private let toolsetInvalidDestinationV3 = (
     """#)
 )
 
-private let versionInvalidDestinationV3 = (
-    path: try! AbsolutePath(validating: "\(bundleRootPath)/versionInvalidDestinationV3.json"),
+private let invalidVersionDestinationV3 = (
+    path: try! AbsolutePath(validating: "\(bundleRootPath)/invalidVersionDestinationV3.json"),
     json: ByteString(encodingAsUTF8: #"""
     {
         "runTimeTriples": {
@@ -118,6 +118,21 @@ private let versionInvalidDestinationV3 = (
             }
         },
         "schemaVersion": "2.9"
+    }
+    """#)
+)
+
+private let invalidToolsetDestinationV3 = (
+    path: try! AbsolutePath(validating: "\(bundleRootPath)/invalidToolsetDestinationV3.json"),
+    json: ByteString(encodingAsUTF8: #"""
+    {
+        "runTimeTriples": {
+            "\#(linuxGNUTargetTriple.tripleString)": {
+                "sdkRootPath": "\#(sdkRootDir)",
+                "toolsetPaths": ["/tools/invalidToolset.json"]
+            }
+        },
+        "schemaVersion": "3.0"
     }
     """#)
 )
@@ -150,6 +165,36 @@ private let someToolsWithRoot = (
         "linker": { "path": "ld" },
         "librarian": { "path": "llvm-ar" },
         "debugger": { "path": "\#(usrBinTools[.debugger]!)" }
+    }
+    """#)
+)
+
+private let invalidToolset = (
+    path: try! AbsolutePath(validating: "/tools/invalidToolset.json"),
+    json: ByteString(encodingAsUTF8: #"""
+    {
+      "rootPath" : "swift.xctoolchain\/usr\/bin",
+      "tools" : [
+        "linker",
+        {
+          "path" : "ld.lld"
+        },
+        "swiftCompiler",
+        {
+          "extraCLIOptions" : [
+            "-use-ld=lld",
+            "-Xlinker",
+            "-R\/usr\/lib\/swift\/linux\/"
+          ]
+        },
+        "cxxCompiler",
+        {
+          "extraCLIOptions" : [
+            "-lstdc++"
+          ]
+        }
+      ],
+      "schemaVersion" : "1.0"
     }
     """#)
 )
@@ -209,10 +254,12 @@ final class DestinationTests: XCTestCase {
             destinationV2,
             toolsetNoRootDestinationV3,
             toolsetRootDestinationV3,
-            toolsetInvalidDestinationV3,
-            versionInvalidDestinationV3,
+            missingToolsetDestinationV3,
+            invalidVersionDestinationV3,
+            invalidToolsetDestinationV3,
             otherToolsNoRoot,
             someToolsWithRoot,
+            invalidToolset,
         ] {
             try fs.writeFileContents(testFile.path, bytes: testFile.json)
         }
@@ -265,15 +312,36 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestinationV3])
 
         XCTAssertThrowsError(try Destination.decode(
-            fromFile: toolsetInvalidDestinationV3.path,
+            fromFile: missingToolsetDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
-        ))
+        )) {
+            XCTAssertEqual(
+                $0 as? StringError,
+                StringError(
+                    """
+                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
+                    system
+                    """
+                )
+            )
+        }
         XCTAssertThrowsError(try Destination.decode(
-            fromFile: versionInvalidDestinationV3.path,
+            fromFile: invalidVersionDestinationV3.path,
             fileSystem: fs,
             observabilityScope: observability
         ))
+
+        XCTAssertThrowsError(try Destination.decode(
+            fromFile: invalidToolsetDestinationV3.path,
+            fileSystem: fs,
+            observabilityScope: observability
+        )) {
+            XCTAssertTrue(
+                ($0 as? StringError)?.description
+                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: ") ?? false
+            )
+        }
     }
 
     func testSelectDestination() throws {
