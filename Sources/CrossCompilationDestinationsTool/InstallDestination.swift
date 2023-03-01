@@ -55,7 +55,7 @@ public struct InstallDestination: ParsableCommand {
             destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
         }
 
-        let observabilitySystem = ObservabilitySystem.swiftTool(logLevel: .info)
+        let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
 
         if
@@ -65,7 +65,12 @@ public struct InstallDestination: ParsableCommand {
         {
             let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
                 let client = LegacyHTTPClient()
-                client.execute(.init(method: .get, url: bundleURL), progress: nil, completion: completion)
+                client.execute(
+                    .init(method: .get, url: bundleURL),
+                    observabilityScope: observabilityScope,
+                    progress: nil,
+                    completion: completion
+                )
             }
 
             guard let body = response.body else {
@@ -91,6 +96,6 @@ public struct InstallDestination: ParsableCommand {
             throw StringError("Argument `\(bundlePathOrURL)` is neither a valid filesystem path nor a URL.")
         }
 
-        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+        print("Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
     }
 }
