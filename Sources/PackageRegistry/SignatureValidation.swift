@@ -124,9 +124,11 @@ struct SignatureValidation {
                     if case RegistryError.sourceArchiveNotSigned = error {
                         // Source archive is not signed
                         // TODO: Call delegate to prompt user to continue with unsigned package or error.
+                        fatalError("TO BE IMPLEMENTED")
                     } else {
                         // Cannot determine if source archive is signed or not
                         // TODO: Call delegate to prompt user to continue with package as if it were unsigned or error.
+                        fatalError("TO BE IMPLEMENTED")
                     }
                 case .warn:
                     observabilityScope.emit(warning: "\(error)")
@@ -184,7 +186,7 @@ struct SignatureValidation {
                         completion(.failure(RegistryError.signerNotTrusted))
                     case .prompt:
                         // TODO: Call delegate to prompt user to continue with package or error.
-                        ()
+                        fatalError("TO BE IMPLEMENTED")
                     case .warn:
                         // TODO: populate error with signer detail
                         observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")
