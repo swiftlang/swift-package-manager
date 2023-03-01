@@ -52,31 +52,3 @@ extension URL: UnsafeSendable {}
 // As of Swift 5.7 and 5.8 swift-corelibs-foundation doesn't have `Sendable` annotations yet.
 extension URL: @unchecked Sendable {}
 #endif
-
-// https://forums.swift.org/t/using-async-functions-from-synchronous-functions-and-breaking-all-the-rules/59782/3
-/// Unsafely awaits an async function from a synchronous context.
-/*
-public func _unsafe_wait<ResultType>(_ f: @escaping () async throws -> ResultType) throws -> ResultType {
-    let box = Box<ResultType>()
-    let sema = DispatchSemaphore(value: 0)
-    Task {
-        do {
-            let val = try await f()
-            box.result = .success(val)
-        } catch {
-            box.result = .failure(error)
-        }
-        sema.signal()
-    }
-    sema.wait()
-
-    guard let result = try box.result?.get() else {
-        throw StringError("No result available")
-    }
-    return result
-}
-
-private class Box<ResultType> {
-    var result: Result<ResultType, Error>?
-}
-*/
