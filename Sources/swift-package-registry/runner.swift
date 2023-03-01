@@ -13,4 +13,9 @@
 import Commands
 import PackageRegistryTool
 
-SwiftPackageRegistryTool.main()
+@main
+struct Runner {
+    static func main() async {
+        await SwiftPackageRegistryTool.main()
+    }
+}

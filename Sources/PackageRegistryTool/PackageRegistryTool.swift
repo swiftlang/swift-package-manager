@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,29 +19,43 @@ import PackageRegistry
 import TSCBasic
 import Workspace
 
-public struct SwiftPackageRegistryTool: ParsableCommand {
+@available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
+public struct SwiftPackageRegistryTool: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
         abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
-            Set.self,
-            Unset.self,
-            Login.self,
-            Logout.self,
-            Publish.self,
-        ],
+        subcommands: Self.subcommands,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
+
+    private static var subcommands: [ParsableCommand.Type]{
+        if #available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) {
+            return [
+                Set.self,
+                Unset.self,
+                Login.self,
+                Logout.self,
+                Publish.self
+            ] as [ParsableCommand.Type]
+        } else {
+            return [
+                Set.self,
+                Unset.self,
+                Login.self,
+                Logout.self
+            ] as [ParsableCommand.Type]
+        }
+    }
 
     @OptionGroup()
     var globalOptions: GlobalOptions
 
     public init() {}
 
-    struct Set: SwiftCommand {
+    struct Set: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Set a custom registry"
         )
@@ -62,7 +76,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             self.url
         }
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             try self.registryURL.validateRegistryURL()
 
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
@@ -84,7 +98,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         }
     }
 
-    struct Unset: SwiftCommand {
+    struct Unset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove a configured registry"
         )
@@ -98,7 +112,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
-        func run(_ swiftTool: SwiftTool) throws {
+        func run(_ swiftTool: SwiftTool) async throws {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
@@ -159,9 +173,9 @@ extension SwiftPackageRegistryTool.ConfigurationError: CustomStringConvertible {
     var description: String {
         switch self {
         case .missingScope(let scope?):
-            return "no existing entry for scope: \(scope)"
+            return "No existing entry for scope: \(scope)"
         case .missingScope:
-            return "no existing entry for default scope"
+            return "No existing entry for default scope"
         }
     }
 }
@@ -170,11 +184,11 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidURL(let url):
-            return "invalid URL: \(url)"
+            return "Invalid URL: \(url)"
         case .invalidPackageIdentity(let identity):
-            return "invalid package identifier '\(identity)'"
+            return "Invalid package identifier '\(identity)'"
         case .unknownRegistry:
-            return "unknown registry, is one configured?"
+            return "Unknown registry, is one configured?"
         case .unknownCredentialStore:
             return "No credential store available"
         }

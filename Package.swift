@@ -293,6 +293,7 @@ let package = Package(
         .target(
             name: "PackageSigning",
             dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
                 "Basics",
                 "PackageModel",
             ]
@@ -436,6 +437,7 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
