@@ -201,7 +201,7 @@ struct SignatureValidation {
             }
         }
         #else
-        completion(.success(.none))
+        completion(.failure(InternalError("package signature validation not supported")))
         #endif
     }
 
