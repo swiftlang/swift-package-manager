@@ -712,7 +712,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
         }
     }
 
@@ -743,7 +743,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["CustomName.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
         }
     }
 
