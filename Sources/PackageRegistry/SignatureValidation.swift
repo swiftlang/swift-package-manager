@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if swift(>=5.5.2)
+import _Concurrency
+#endif
+
 import Dispatch
 import struct Foundation.Data
 
