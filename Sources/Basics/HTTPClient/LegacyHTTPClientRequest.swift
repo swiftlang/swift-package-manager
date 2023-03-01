@@ -64,20 +64,46 @@ public struct LegacyHTTPClientRequest {
         )
     }
 
+    // upload request
+    public static func upload(
+        method: UploadMethod = .post,
+        url: URL,
+        headers: HTTPClientHeaders = .init(),
+        options: Options = .init(),
+        streamProvider: @escaping () throws -> LegacyHTTPClientRequest.UploadStream?
+    ) -> Self {
+        self.init(
+            kind: .upload(method, streamProvider: streamProvider),
+            url: url,
+            headers: headers,
+            body: nil,
+            options: options
+        )
+    }
+
     public var method: HTTPMethod {
         switch self.kind {
         case .generic(let method):
             return method
         case .download:
             return .get
+        case .upload(let method, _):
+            switch method {
+            case .post:
+                return .post
+            case .put:
+                return .put
+            }
         }
     }
 
-    public typealias FileMoveCompletion = @Sendable (Error?) -> ()
+    public typealias FileMoveCompletion = @Sendable (Error?)
+        -> Void
 
     public enum Kind {
         case generic(HTTPMethod)
         case download(fileSystem: FileSystem, destination: AbsolutePath)
+        case upload(UploadMethod, streamProvider: () throws -> LegacyHTTPClientRequest.UploadStream?)
     }
 
     public struct Options {
@@ -109,5 +135,15 @@ public struct LegacyHTTPClientRequest {
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
         public var callbackQueue: DispatchQueue?
+    }
+
+    public enum UploadMethod {
+        case post
+        case put
+    }
+
+    public enum UploadStream {
+        case chunk(Data)
+        case stream(InputStream)
     }
 }

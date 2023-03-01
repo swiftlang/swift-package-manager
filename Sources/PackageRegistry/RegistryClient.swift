@@ -947,6 +947,7 @@ public final class RegistryClient: Cancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
+        progressHandler: ((_ bytesSent: Int64, _ totalBytes: Int64?) -> Void)?,
         completion: @escaping (Result<PublishResult, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
@@ -965,63 +966,41 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.invalidURL(registryURL)))
         }
 
-        // TODO: don't load the entire file in memory
-        guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
+        guard fileSystem.exists(packageArchive) else {
             return completion(.failure(RegistryError.failedLoadingPackageArchive(packageArchive)))
         }
-        var metadataContent: String? = .none
+
         if let packageMetadata = packageMetadata {
-            do {
-                metadataContent = try fileSystem.readFileContents(packageMetadata)
-            } catch {
+            guard fileSystem.exists(packageMetadata) else {
                 return completion(.failure(RegistryError.failedLoadingPackageMetadata(packageMetadata)))
             }
         }
 
-        // TODO: add generic support for upload requests in Basics
-        let boundary = UUID().uuidString
-        var body = Data()
-
-        // archive field
-        body.append(contentsOf: """
-        --\(boundary)\r
-        Content-Disposition: form-data; name=\"source-archive\"\r
-        Content-Type: application/zip\r
-        Content-Transfer-Encoding: binary\r
-        \r\n
-        """.utf8)
-        body.append(packageArchiveContent)
-
-        // metadata field
-        if let metadataContent = metadataContent {
-            body.append(contentsOf: """
-            \r
-            --\(boundary)\r
-            Content-Disposition: form-data; name=\"metadata\"\r
-            Content-Type: application/json\r
-            Content-Transfer-Encoding: quoted-printable\r
-            \r
-            \(metadataContent)
-            """.utf8)
+        var uploadStreamProvider: UploadStreamProvider
+        do {
+            uploadStreamProvider = try UploadStreamProvider(
+                archivePath: packageArchive,
+                metadataPath: packageMetadata
+            )
+        } catch {
+            return completion(.failure(StringError("failed constructing upload stream")))
         }
 
-        // footer
-        body.append(contentsOf: "\r\n--\(boundary)--\r\n".utf8)
-
-        let request = LegacyHTTPClient.Request(
+        let request = LegacyHTTPClient.Request.upload(
             method: .put,
             url: url,
             headers: [
-                "Content-Type": "multipart/form-data;boundary=\"\(boundary)\"",
+                "Content-Type": "multipart/form-data;boundary=\"\(uploadStreamProvider.boundary)\"",
+                "Content-Length": "\(uploadStreamProvider.streamSize)",
                 "Accept": self.acceptHeader(mediaType: .json),
                 "Expect": "100-continue",
                 "Prefer": "respond-async",
             ],
-            body: body,
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
+            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
+            streamProvider: { try uploadStreamProvider.next() }
         )
 
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
+        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
             completion(
                 result.tryMap { response in
                     switch response.statusCode {
@@ -1045,6 +1024,127 @@ public final class RegistryClient: Cancellable {
                     RegistryError.failedPublishing($0)
                 }
             )
+        }
+
+        struct UploadStreamProvider {
+            let boundary: String
+            let stream: [LegacyHTTPClientRequest.UploadStream]
+            let streamSize: Int64
+            var streamIndex = 0
+
+            init(archivePath: AbsolutePath, metadataPath: AbsolutePath?) throws {
+                self.boundary = UUID().uuidString
+
+                let (stream, streamSize) = try Self.makeStream(
+                    archivePath: archivePath,
+                    metadataPath: metadataPath,
+                    boundary: boundary
+                )
+
+                self.stream = stream
+                self.streamSize = streamSize
+            }
+
+
+            static func makeStream(
+                archivePath: AbsolutePath,
+                metadataPath: AbsolutePath?,
+                boundary: String
+            ) throws -> ([LegacyHTTPClientRequest.UploadStream], Int64) {
+                var content = [LegacyHTTPClientRequest.UploadStream]()
+                var contentSize: Int64 = 0
+                var next = StreamItem.archiveHeader
+                while next != .done {
+                    switch next {
+                    case .archiveHeader:
+                        next = .archiveContent
+                        let data = Data("""
+                            --\(boundary)\r
+                            Content-Disposition: form-data; name=\"source-archive\"\r
+                            Content-Type: application/zip\r
+                            Content-Transfer-Encoding: binary\r
+                            \r\n
+                            """.utf8
+                        )
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .archiveContent:
+                        next = .archiveFooter
+                        guard let stream = InputStream(fileAtPath: archivePath.pathString) else {
+                            throw StringError("failed creating input stream for '\(archivePath)'")
+                        }
+                        content.append(.stream(stream))
+                        // FIXME: is there a better way?
+                        if let attributes = (try? FileManager.default.attributesOfItem(atPath: archivePath.pathString)) {
+                            if let size = attributes[.size] as? Int64 {
+                                contentSize += size
+                            }
+                        }
+                    case .archiveFooter:
+                        let data: Data
+                        if let metadataPath = metadataPath {
+                            next = .metadataHeader(metadataPath)
+                            data = Data("\r\n".utf8)
+                        } else {
+                            next = .done
+                            data = Data("\r\n--\(boundary)--\r\n".utf8)
+                        }
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .metadataHeader(let metadataPath):
+                        next = .metadataContent(metadataPath)
+                        let data = Data("""
+                            --\(boundary)\r
+                            Content-Disposition: form-data; name=\"metadata\"\r
+                            Content-Type: application/json\r
+                            Content-Transfer-Encoding: quoted-printable\r
+                            \r\n
+                            """.utf8
+                        )
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .metadataContent(let metadataPath):
+                        next = .metadataFooter
+                        guard let stream = InputStream(fileAtPath: metadataPath.pathString) else {
+                            throw StringError("failed creating input stream for '\(metadataPath)'")
+                        }
+                        content.append(.stream(stream))
+                        // FIXME: is there a better way?
+                        if let attributes = (try? FileManager.default.attributesOfItem(atPath: metadataPath.pathString)) {
+                            if let size = attributes[.size] as? Int64 {
+                                contentSize += size
+                            }
+                        }
+                    case .metadataFooter:
+                        next = .done
+                        let data = Data("\r\n--\(boundary)--\r\n".utf8)
+                        content.append(.chunk(data))
+                        contentSize += Int64(data.count)
+                    case .done:
+                        break
+                    }
+                }
+                return (content, contentSize)
+            }
+
+            mutating func next() throws -> LegacyHTTPClientRequest.UploadStream? {
+                if self.streamIndex >= self.stream.count {
+                    return .none
+                }
+                let item = self.stream[self.streamIndex]
+                self.streamIndex += 1
+                return item
+            }
+
+            enum StreamItem: Equatable {
+                case archiveHeader
+                case archiveContent
+                case archiveFooter
+                case metadataHeader(AbsolutePath)
+                case metadataContent(AbsolutePath)
+                case metadataFooter
+                case done
+            }
         }
     }
 
@@ -1385,7 +1485,7 @@ extension HTTPClientResponse {
     fileprivate func parseError(
         decoder: JSONDecoder
     ) throws -> RegistryClient.ServerError {
-        try self.validateAPIVersion()
+        try self.validateAPIVersion(isOptional: true)
         try self.validateContentType(.error)
 
         guard let data = self.body else {

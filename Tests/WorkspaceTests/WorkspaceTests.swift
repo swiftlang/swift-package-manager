@@ -8159,6 +8159,8 @@ final class WorkspaceTests: XCTestCase {
                 } catch {
                     completion(.failure(error))
                 }
+            default:
+                completion(.failure(StringError("invalid request \(request.kind)")))
             }
         })
 
@@ -8500,6 +8502,8 @@ final class WorkspaceTests: XCTestCase {
                     )
 
                     completion(.success(.okay()))
+                case .upload:
+                    completion(.failure(StringError("invalid request: \(request.kind)")))
                 }
             } catch {
                 completion(.failure(error))
@@ -8584,6 +8588,8 @@ final class WorkspaceTests: XCTestCase {
 
                 case .download:
                     completion(.success(.notFound()))
+                case .upload:
+                    completion(.failure(StringError("invalid request: \(request.kind)")))
                 }
             } catch {
                 completion(.failure(error))

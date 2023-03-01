@@ -16,4 +16,5 @@ public enum HTTPClientError: Error, Equatable {
     case circuitBreakerTriggered
     case responseTooLarge(Int64)
     case downloadError(String)
+    case uploadError(String)
 }

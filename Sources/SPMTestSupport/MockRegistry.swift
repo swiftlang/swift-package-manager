@@ -121,6 +121,8 @@ public class MockRegistry {
                     destination: destination
                 )
                 completion(.success(response))
+            case .upload:
+                completion(.failure(StringError("invalid request: \(request.kind)")))
             }
         } catch {
             completion(.failure(error))

@@ -1968,12 +1968,21 @@ final class RegistryClientTests: XCTestCase {
         let metadataContent = UUID().uuidString
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.put, publishURL):
+            switch (request.kind, request.url) {
+            case (.upload(.put, let streamProvider), publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
-                // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                var buffer = Data()
+                while let part = try? streamProvider() {
+                    switch part {
+                    case .chunk(let data):
+                        buffer.append(data)
+                    case .stream(let inputStream):
+                        buffer.append(inputStream)
+                    }
+                }
+
+                let body = String(data: buffer, encoding: .utf8)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -2032,12 +2041,21 @@ final class RegistryClientTests: XCTestCase {
         let metadataContent = UUID().uuidString
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.put, publishURL):
+            switch (request.kind, request.url) {
+            case (.upload(.put, let streamProvider), publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
-                // TODO: implement multipart form parsing
-                let body = String(data: request.body!, encoding: .utf8)
+                var buffer = Data()
+                while let part = try? streamProvider() {
+                    switch part {
+                    case .chunk(let data):
+                        buffer.append(data)
+                    case .stream(let inputStream):
+                        buffer.append(inputStream)
+                    }
+                }
+
+                let body = String(data: buffer, encoding: .utf8)
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
 
@@ -2463,7 +2481,8 @@ extension RegistryClient {
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
         signature: Data?,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        progressHandler: ((Int64, Int64?) -> Void)? = .none
     ) throws -> RegistryClient.PublishResult {
         try tsc_await {
             self.publish(
@@ -2476,6 +2495,7 @@ extension RegistryClient {
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
+                progressHandler: progressHandler,
                 completion: $0
             )
         }
@@ -2590,6 +2610,21 @@ struct UnavailableServerErrorHandler {
             completion(
                 .failure(StringError("unexpected request"))
             )
+        }
+    }
+}
+
+extension Data {
+    mutating func append(_ inputStream: InputStream) {
+        inputStream.open()
+        while inputStream.hasBytesAvailable {
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
+            if bytesRead == 0 {
+                inputStream.close()
+            } else {
+                self.append(contentsOf: buffer.prefix(bytesRead))
+            }
         }
     }
 }

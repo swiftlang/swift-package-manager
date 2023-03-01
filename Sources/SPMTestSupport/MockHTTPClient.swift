@@ -30,6 +30,8 @@ extension LegacyHTTPClient {
                 } catch {
                     completion(.failure(error))
                 }
+            case .upload:
+                completion(.success(.okay(body: request.url.absoluteString)))
             }
         }
         return LegacyHTTPClient(handler: handler)
