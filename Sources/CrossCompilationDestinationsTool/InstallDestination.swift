@@ -38,7 +38,7 @@ public struct InstallDestination: ParsableCommand {
 
     public init() {}
 
-    public func run() async throws {
+    public func run() throws {
         let fileSystem = localFileSystem
 
         guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
@@ -46,7 +46,7 @@ public struct InstallDestination: ParsableCommand {
         ) else {
             let expectedPath = try fileSystem.swiftPMCrossCompilationDestinationsDirectory
             throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: \(expectedPath)"
+                "Couldn't find or create a directory where cross-compilation destinations are stored: `\(expectedPath)`"
             )
         }
 
@@ -55,7 +55,7 @@ public struct InstallDestination: ParsableCommand {
             destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
         }
 
-        let observabilitySystem = ObservabilitySystem.swiftTool()
+        let observabilitySystem = ObservabilitySystem.swiftTool(logLevel: .info)
         let observabilityScope = observabilitySystem.topScope
 
         if
@@ -69,7 +69,7 @@ public struct InstallDestination: ParsableCommand {
             }
 
             guard let body = response.body else {
-                throw StringError("No downloadable data available at URL \(bundleURL).")
+                throw StringError("No downloadable data available at URL `\(bundleURL)`.")
             }
 
             let fileName = bundleURL.lastPathComponent
@@ -83,14 +83,14 @@ public struct InstallDestination: ParsableCommand {
         {
             let destinationPath = destinationsDirectory.appending(component: bundleName)
             if fileSystem.exists(destinationPath) {
-                throw StringError("Destination artifact bundle with name \(bundleName) is already installed.")
+                throw StringError("Destination artifact bundle with name `\(bundleName)` is already installed.")
             } else {
                 try fileSystem.copy(from: bundlePath, to: destinationPath)
             }
         } else {
-            throw StringError("Argument \(bundlePathOrURL) is neither a valid filesystem path nor a URL.")
+            throw StringError("Argument `\(bundlePathOrURL)` is neither a valid filesystem path nor a URL.")
         }
 
-        observabilityScope.emit(info: "Destination artifact bundle at \(bundlePathOrURL) successfully installed.")
+        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
     }
 }
