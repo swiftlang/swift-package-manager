@@ -156,7 +156,7 @@ public final class SwiftTargetBuildDescription {
         switch self.target.type {
         case .library, .test:
             return true
-        case .executable, .snippet:
+        case .executable, .snippet, .macro:
             // This deactivates heuristics in the Swift compiler that treats single-file modules and source files
             // named "main.swift" specially w.r.t. whether they can have an entry point.
             //
@@ -394,8 +394,13 @@ public final class SwiftTargetBuildDescription {
             args += ["-Xfrontend", "-load-plugin-library", "-Xfrontend", self.buildParameters.binaryPath(for: macro).pathString]
         }
         #else
-        if self.requiredMacroProducts.isEmpty == false {
-            throw InternalError("building macros is not supported yet")
+        try self.requiredMacroProducts.forEach { macro in
+            if let macroTarget = macro.targets.first {
+                let executablePath = self.buildParameters.binaryPath(for: macro).pathString
+                args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
+            } else {
+                throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this
+            }
         }
         #endif
 
