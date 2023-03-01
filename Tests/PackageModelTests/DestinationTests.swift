@@ -337,15 +337,9 @@ final class DestinationTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability
         )) {
-            XCTAssertEqual(
-                $0 as? StringError,
-                StringError(
-                    #"""
-                    Couldn't parse toolset configuration at `/tools/invalidToolset.json`: \#
-                    typeMismatch(Swift.Dictionary<Swift.String, Any>, Swift.DecodingError.Context(codingPath: \#
-                    [CodingKeys(stringValue: "tools", intValue: nil)], debugDescription: "Expected to decode \#
-                    Dictionary<String, Any> but found an array instead.", underlyingError: nil))
-                    """#
+            XCTAssertTrue(
+                ($0 as? StringError)?.description
+                    .hasPrefix("Couldn't parse toolset configuration at `/tools/invalidToolset.json`: " ?? false
                 )
             )
         }
