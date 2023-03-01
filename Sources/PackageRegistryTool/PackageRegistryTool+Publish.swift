@@ -25,7 +25,7 @@ import Workspace
 import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
+    @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
     struct Publish: AsyncSwiftCommand {
         static let metadataFilename = "package-metadata.json"
 
@@ -345,7 +345,7 @@ extension SignatureFormat: ExpressibleByArgument {
 
 // TODO: migrate registry client to async
 extension RegistryClient {
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
+    @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
     public func publish(
         registryURL: URL,
         packageIdentity: PackageIdentity,
