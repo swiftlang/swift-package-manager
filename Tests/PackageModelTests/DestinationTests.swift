@@ -318,7 +318,11 @@ final class DestinationTests: XCTestCase {
         )) {
             XCTAssertEqual(
                 $0 as? StringError,
-                StringError("Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file system")
+                StringError("""
+                    Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
+                    system
+                    """
+                )
             )
         }
         XCTAssertThrowsError(try Destination.decode(
@@ -334,7 +338,14 @@ final class DestinationTests: XCTestCase {
         )) {
             XCTAssertEqual(
                 $0 as? StringError,
-                StringError(#"Couldn't parse toolset configuration at `/tools/invalidToolset.json`: typeMismatch(Swift.Dictionary<Swift.String, Any>, Swift.DecodingError.Context(codingPath: [CodingKeys(stringValue: "tools", intValue: nil)], debugDescription: "Expected to decode Dictionary<String, Any> but found an array instead.", underlyingError: nil))"#)
+                StringError(
+                    #"""
+                    Couldn't parse toolset configuration at `/tools/invalidToolset.json`: \#
+                    typeMismatch(Swift.Dictionary<Swift.String, Any>, Swift.DecodingError.Context(codingPath: \#
+                    [CodingKeys(stringValue: "tools", intValue: nil)], debugDescription: "Expected to decode \#
+                    Dictionary<String, Any> but found an array instead.", underlyingError: nil))
+                    """#
+                )
             )
         }
     }
