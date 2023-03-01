@@ -49,17 +49,17 @@ struct PackageSigningEntityTOFU {
         ) { result in
             switch result {
             case .success(let signerVersions):
-                self.isSigningEntityOK(
+                self.validateSigningEntity(
                     package: package,
                     version: version,
                     signingEntity: signingEntity,
                     signerVersions: signerVersions,
                     observabilityScope: observabilityScope
-                ) { isOKResult in
-                    switch isOKResult {
+                ) { validateResult in
+                    switch validateResult {
                     case .success(let shouldWrite):
                         // We only use certain type(s) of signing entity for TOFU
-                        guard shouldWrite, let signingEntity = signingEntity, signingEntity.type != nil else {
+                        guard shouldWrite, let signingEntity = signingEntity, signingEntity.isRecognized else {
                             return completion(.success(()))
                         }
                         self.writeToStorage(
@@ -81,7 +81,7 @@ struct PackageSigningEntityTOFU {
         }
     }
 
-    private func isSigningEntityOK(
+    private func validateSigningEntity(
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         signingEntity: SigningEntity?,
@@ -91,7 +91,7 @@ struct PackageSigningEntityTOFU {
     ) {
         // Package is never signed.
         // If signingEntity is nil, it means package remains unsigned, which is OK. (none -> none)
-        // Otherwise, we are now assigning a signing entity, which is also OK. (none -> some)
+        // Otherwise, package has gained a signing entity, which is also OK. (none -> some)
         if signerVersions.isEmpty {
             return completion(.success(true))
         }
@@ -102,8 +102,10 @@ struct PackageSigningEntityTOFU {
         // e.g., change of package ownership, package author decides to stop signing releases, etc.
         // Instead of failing, we should allow and prompt user to add/replace/remove signing entity.
 
+        // We recorded the version's signer previously
         if let signerForVersion = signerVersions.signingEntity(of: version) {
-            // We recorded a different signer for the given version before. This is NOT OK.
+            // The given signer is different
+            // TODO: This could indicate a legitimate change in package ownership
             guard signerForVersion == signingEntity else {
                 return self.handleSigningEntityChanged(
                     package: package,
@@ -115,11 +117,12 @@ struct PackageSigningEntityTOFU {
                     completion(result.tryMap { false })
                 }
             }
-            // Signer remains the same, which could be nil, for the version.
-            completion(.success(false))
+            // Signer remains the same for the version
+            return completion(.success(false))
         }
 
         switch signingEntity {
+        // Is the package changing from one signer to another?
         case .some(let signingEntity):
             // Check signer(s) of other version(s)
             if let otherSigner = signerVersions.keys.filter({ $0 != signingEntity }).first {
@@ -137,15 +140,29 @@ struct PackageSigningEntityTOFU {
                 // Package doesn't have any other signer besides the given one, which is good.
                 completion(.success(true))
             }
+        // Or is the package going from having a signer to .none?
         case .none:
             let versionSigners = signerVersions.versionSigners
-            let sortedSignedVersions = Array(versionSigners.keys).sorted(by: <)
-            for signedVersion in sortedSignedVersions {
-                // If the given version is semantically newer than any signed version,
-                // then it must be signed. (i.e., when a package starts being signed
-                // at a version, then all future versions must be signed.)
-                // TODO: we might want to allow package becoming unsigned
-                if version > signedVersion, let versionSigner = versionSigners[signedVersion] {
+            // If the given version is semantically newer than any signed version,
+            // then it must be signed. (i.e., when a package starts being signed
+            // at a version, then all future versions must be signed.)
+            // TODO: We might want to allow package becoming unsigned
+            //
+            // Here we try to handle the scenario where there is more than
+            // one major version branch, and signing didn't start from the beginning
+            // for both of them. For example, suppose a project has 1.x and 2.x active
+            // major versions, and signing starts at 1.2.0 and 2.2.0. The first version
+            // that SwiftPM downloads is 1.5.0, which is signed and signer gets recorded.
+            //   - When unsigned v1.1.0 is downloaded, we don't fail because it's
+            //     an older version (i.e., < 1.5.0) and we allow it to be unsigned.
+            //   - When unsigned v1.6.0 is downloaded, we fail because it's
+            //     a newer version (i.e., < 1.5.0) and we assume it to be signed.
+            //   - When unsigned v2.0.0 is downloaded, we don't fail because we haven't
+            //     seen a signed 2.x release yet, so we assume 2.x releases are not signed.
+            let olderSignedVersions = versionSigners.keys.filter { $0.major == version.major && $0 < version }
+                .sorted(by: >)
+            for signedVersion in olderSignedVersions {
+                if let versionSigner = versionSigners[signedVersion] {
                     return self.handleSigningEntityChanged(
                         package: package,
                         latest: signingEntity,
@@ -156,7 +173,7 @@ struct PackageSigningEntityTOFU {
                     }
                 }
             }
-            // Assume this is an older version before package started getting signed
+            // Assume the given version is an older version before package started getting signed
             completion(.success(false))
         }
     }
@@ -208,7 +225,7 @@ struct PackageSigningEntityTOFU {
     ) {
         switch self.signingEntityCheckingMode {
         case .strict:
-            completion(.failure(RegistryError.signingEntityForReleaseHasChanged(
+            completion(.failure(RegistryError.signingEntityForReleaseChanged(
                 package: package.underlying,
                 version: version,
                 latest: latest,
@@ -232,10 +249,10 @@ struct PackageSigningEntityTOFU {
     ) {
         switch self.signingEntityCheckingMode {
         case .strict:
-            completion(.failure(
-                RegistryError
-                    .signingEntityForPackageHasChanged(package: package.underlying, latest: latest, previous: existing)
-            ))
+            completion(.failure(RegistryError.signingEntityForPackageChanged(
+                package: package.underlying,
+                latest: latest, previous: existing
+            )))
         case .warn:
             observabilityScope
                 .emit(

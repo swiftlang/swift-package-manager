@@ -41,7 +41,7 @@ public final class RegistryClient: Cancellable {
         URL,
         (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)
     >()
-    
+
     private let metadataCache = ThreadSafeKeyValueStore<
         MetadataCacheKey,
         (metadata: Serialization.VersionMetadata, expires: DispatchTime)
@@ -339,7 +339,7 @@ public final class RegistryClient: Cancellable {
         completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
-        
+
         let cacheKey = MetadataCacheKey(registry: registry, package: package)
         if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
             return completion(.success(cached.metadata))
@@ -1195,7 +1195,7 @@ public final class RegistryClient: Cancellable {
         options.authorizationProvider = self.authorizationProvider
         return options
     }
-    
+
     private struct MetadataCacheKey: Hashable {
         let registry: Registry
         let package: PackageIdentity.RegistryIdentity
@@ -1236,7 +1236,12 @@ public enum RegistryError: Error, CustomStringConvertible {
     case packageVersionNotFound
     case sourceArchiveNotSigned(registry: Registry, package: PackageIdentity, version: Version)
     case failedLoadingSignature
-    case failedRetrievingSourceArchiveSignature(registry: Registry, package: PackageIdentity, version: Version, error: Error)
+    case failedRetrievingSourceArchiveSignature(
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
+        error: Error
+    )
     case missingConfiguration(details: String)
     case missingSignatureFormat
     case unknownSignatureFormat(String)
@@ -1244,8 +1249,13 @@ public enum RegistryError: Error, CustomStringConvertible {
     case invalidSigningCertificate(reason: String)
     case signerNotTrusted
     case failedToValidateSignature(Error)
-    case signingEntityForReleaseHasChanged(package: PackageIdentity, version: Version, latest: SigningEntity?, previous: SigningEntity)
-    case signingEntityForPackageHasChanged(package: PackageIdentity, latest: SigningEntity?, previous: SigningEntity)
+    case signingEntityForReleaseChanged(
+        package: PackageIdentity,
+        version: Version,
+        latest: SigningEntity?,
+        previous: SigningEntity
+    )
+    case signingEntityForPackageChanged(package: PackageIdentity, latest: SigningEntity?, previous: SigningEntity)
 
     public var description: String {
         switch self {
@@ -1335,9 +1345,9 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "The signer is not trusted"
         case .failedToValidateSignature(let error):
             return "Failed to validate signature: \(error)"
-        case .signingEntityForReleaseHasChanged(let package, let version, let latest, let previous):
+        case .signingEntityForReleaseChanged(let package, let version, let latest, let previous):
             return "The signing entity '\(String(describing: latest))' for '\(package)@\(version)' is different from the previously recorded value '\(previous)'"
-        case .signingEntityForPackageHasChanged(let package, let latest, let previous):
+        case .signingEntityForPackageChanged(let package, let latest, let previous):
             return "The signing entity '\(String(describing: latest))' for '\(package)' is different from the previously recorded value '\(previous)'"
         }
     }
@@ -1667,7 +1677,7 @@ extension RegistryClient {
             public let version: String
             public let resources: [Resource]
             public let metadata: AdditionalMetadata?
-            
+
             var sourceArchive: Resource? {
                 self.resources.first(where: { $0.name == "source-archive" })
             }
@@ -1697,7 +1707,7 @@ extension RegistryClient {
                     self.signing = signing
                 }
             }
-            
+
             public struct Signing: Codable {
                 public let signatureBase64Encoded: String
                 public let signatureFormat: String
