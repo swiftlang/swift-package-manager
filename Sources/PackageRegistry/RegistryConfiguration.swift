@@ -122,11 +122,29 @@ extension RegistryConfiguration {
             self.packageOverrides = [:]
         }
 
+        // for testing
+        init(
+            default: Global,
+            registryOverrides: [String: RegistryOverride] = [:],
+            scopeOverrides: [PackageIdentity.Scope: ScopePackageOverride] = [:],
+            packageOverrides: [PackageIdentity.RegistryIdentity: ScopePackageOverride] = [:]
+        ) {
+            self.default = `default`
+            self.registryOverrides = registryOverrides
+            self.scopeOverrides = scopeOverrides
+            self.packageOverrides = packageOverrides
+        }
+
         public struct Global: Hashable, Codable {
             public var signing: Signing?
 
             public init() {
                 self.signing = nil
+            }
+
+            // for testing
+            init(signing: Signing) {
+                self.signing = signing
             }
         }
 

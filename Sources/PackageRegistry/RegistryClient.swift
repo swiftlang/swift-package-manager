@@ -34,8 +34,8 @@ public final class RegistryClient: Cancellable {
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let jsonDecoder: JSONDecoder
 
-    private var checksumTOFU: PackageVersionChecksumTOFU!
-    private let signingEntityTOFU: PackageSigningEntityTOFU
+    private(set) var checksumTOFU: PackageVersionChecksumTOFU!
+    private(set) var signatureValidation: SignatureValidation!
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
@@ -87,13 +87,14 @@ public final class RegistryClient: Cancellable {
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
 
-        self.signingEntityTOFU = PackageSigningEntityTOFU(
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
         self.checksumTOFU = PackageVersionChecksumTOFU(
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
+            registryClient: self
+        )
+        self.signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
             registryClient: self
         )
     }

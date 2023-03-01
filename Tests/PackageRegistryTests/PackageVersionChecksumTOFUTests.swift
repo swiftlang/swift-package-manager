@@ -85,11 +85,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
         // Checksum for package version not found in storage,
         // so we fetch metadata to get the expected checksum,
@@ -180,11 +176,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
         // We get expected checksum from metadata but it's different
         // from value in storage, and because of .strict mode,
@@ -265,12 +257,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
-
+        let tofu = registryClient.checksumTOFU!
         let observability = ObservabilitySystem.makeForTesting()
 
         // We get expected checksum from metadata and it's different
@@ -325,15 +312,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
-        // We get expected checksum from metadata but it's different
-        // from value in storage, and because of .strict mode,
-        // an error is thrown.
         XCTAssertThrowsError(
             try tofu.validate(
                 registry: registry,
@@ -381,15 +361,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
-        // We get expected checksum from metadata but it's different
-        // from value in storage, and because of .strict mode,
-        // an error is thrown.
         XCTAssertThrowsError(
             try tofu.validate(
                 registry: registry,
@@ -431,15 +404,8 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
-        // We get expected checksum from metadata but it's different
-        // from value in storage, and because of .strict mode,
-        // an error is thrown.
         XCTAssertThrowsError(
             try tofu.validate(
                 registry: registry,
@@ -488,11 +454,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
@@ -540,11 +502,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
+        let tofu = registryClient.checksumTOFU!
 
         // Checksum for package version found in storage,
         // so we just compare that with the given checksum.
@@ -598,12 +556,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             fingerprintCheckingMode: fingerprintCheckingMode
         )
 
-        let tofu = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: registryClient
-        )
-
+        let tofu = registryClient.checksumTOFU!
         let observability = ObservabilitySystem.makeForTesting()
 
         // Checksum for package version found in storage,

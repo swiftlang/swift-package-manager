@@ -20,19 +20,19 @@ import PackageSigning
 import struct TSCUtility.Version
 
 struct SignatureValidation {
-    private let registryClient: RegistryClient
     private let signingEntityTOFU: PackageSigningEntityTOFU
+    private let registryClient: RegistryClient
 
     init(
-        registryClient: RegistryClient,
         signingEntityStorage: PackageSigningEntityStorage?,
-        signingEntityCheckingMode: SigningEntityCheckingMode
+        signingEntityCheckingMode: SigningEntityCheckingMode,
+        registryClient: RegistryClient
     ) {
-        self.registryClient = registryClient
         self.signingEntityTOFU = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode
         )
+        self.registryClient = registryClient
     }
 
     func validate(
@@ -58,6 +58,8 @@ struct SignatureValidation {
         ) { result in
             completion(
                 result.tryMap { signingEntity in
+                    // Always do signing entity TOFU check at the end,
+                    // whether the package is signed or not.
                     self.signingEntityTOFU.validate(
                         package: package,
                         version: version,
@@ -124,10 +126,10 @@ struct SignatureValidation {
                     }
                 case .warn:
                     observabilityScope.emit(warning: "\(error)")
-                    completion(.success(nil))
+                    completion(.success(.none))
                 case .silentAllow:
                     // Continue without logging
-                    completion(.success(nil))
+                    completion(.success(.none))
                 }
             }
         }
@@ -182,16 +184,18 @@ struct SignatureValidation {
                     case .warn:
                         // TODO: populate error with signer detail
                         observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")
-                        completion(.success(nil))
+                        completion(.success(.none))
                     case .silentAllow:
                         // Continue without logging
-                        completion(.success(nil))
+                        completion(.success(.none))
                     }
                 }
             } catch {
                 completion(.failure(RegistryError.failedToValidateSignature(error)))
             }
         }
+        #else
+        completion(.success(.none))
         #endif
     }
 
@@ -212,43 +216,42 @@ struct SignatureValidation {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            completion(
-                result.tryMap { metadata in
-                    guard let sourceArchive = metadata.sourceArchive else {
-                        throw RegistryError.missingSourceArchive
-                    }
-                    guard let signatureBase64Encoded = sourceArchive.signing?.signatureBase64Encoded else {
-                        throw RegistryError.sourceArchiveNotSigned(
-                            registry: registry,
-                            package: package.underlying,
-                            version: version
-                        )
-                    }
-                    guard let signatureData = Data(base64Encoded: signatureBase64Encoded) else {
-                        throw RegistryError.failedLoadingSignature
-                    }
-                    guard let signatureFormatString = sourceArchive.signing?.signatureFormat else {
-                        throw RegistryError.missingSignatureFormat
-                    }
-                    guard let signatureFormat = SignatureFormat(rawValue: signatureFormatString) else {
-                        throw RegistryError.unknownSignatureFormat(signatureFormatString)
-                    }
-                    return (signatureData, signatureFormat)
-                }.mapError { error in
-                    let actualError: Error
-                    if case RegistryError.failedRetrievingReleaseInfo(_, _, _, let error) = error {
-                        actualError = error
-                    } else {
-                        actualError = error
-                    }
-                    return RegistryError.failedRetrievingSourceArchiveSignature(
+            switch result {
+            case .success(let metadata):
+                guard let sourceArchive = metadata.sourceArchive else {
+                    return completion(.failure(RegistryError.missingSourceArchive))
+                }
+                guard let signatureBase64Encoded = sourceArchive.signing?.signatureBase64Encoded else {
+                    return completion(.failure(RegistryError.sourceArchiveNotSigned(
                         registry: registry,
                         package: package.underlying,
-                        version: version,
-                        error: actualError
-                    )
+                        version: version
+                    )))
                 }
-            )
+                guard let signatureData = Data(base64Encoded: signatureBase64Encoded) else {
+                    return completion(.failure(RegistryError.failedLoadingSignature))
+                }
+                guard let signatureFormatString = sourceArchive.signing?.signatureFormat else {
+                    return completion(.failure(RegistryError.missingSignatureFormat))
+                }
+                guard let signatureFormat = SignatureFormat(rawValue: signatureFormatString) else {
+                    return completion(.failure(RegistryError.unknownSignatureFormat(signatureFormatString)))
+                }
+                completion(.success((signatureData, signatureFormat)))
+            case .failure(let error):
+                let actualError: Error
+                if case RegistryError.failedRetrievingReleaseInfo(_, _, _, let error) = error {
+                    actualError = error
+                } else {
+                    actualError = error
+                }
+                completion(.failure(RegistryError.failedRetrievingSourceArchiveSignature(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    error: actualError
+                )))
+            }
         }
     }
 }
