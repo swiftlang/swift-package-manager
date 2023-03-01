@@ -69,10 +69,18 @@ extension Toolset {
         _ observabilityScope: ObservabilityScope
     ) throws {
         let decoder = JSONDecoder()
-        let decoded = try decoder.decode(path: toolsetPath, fileSystem: fileSystem, as: DecodedToolset.self)
+
+        let decoded: DecodedToolset
+        do {
+            decoded = try decoder.decode(path: toolsetPath, fileSystem: fileSystem, as: DecodedToolset.self)
+        } catch {
+            // Throw a more detailed warning that includes the location of the toolset file we couldn't parse.
+            throw StringError("Couldn't parse toolset configuration at `\(toolsetPath)`: \(error)")
+        }
+
         guard decoded.schemaVersion == Version(1, 0, 0) else {
             throw StringError(
-                "Unsupported `schemaVersion` \(decoded.schemaVersion) in toolset configuration at \(toolsetPath)"
+                "Unsupported `schemaVersion` \(decoded.schemaVersion) in toolset configuration at `\(toolsetPath)`"
             )
         }
 

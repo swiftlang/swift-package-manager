@@ -338,7 +338,7 @@ extension Destination {
                 decoder: decoder,
                 observabilityScope: observabilityScope
             )
-        } catch {
+        } catch DecodingError.keyNotFound {
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
             return try [Destination(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
         }
@@ -441,16 +441,14 @@ private struct VersionInfo: Codable {
 private struct SemanticVersionInfo: Decodable {
     let schemaVersion: Version
 
-    enum CodingKeys: CodingKey {
+    enum CodingKeys: String, CodingKey {
         case schemaVersion
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.schemaVersion = try Version(
-            versionString: container.decode(String.self, forKey: .schemaVersion),
-            usesLenientParsing: true
-        )
+        let versionString = try container.decode(String.self, forKey: .schemaVersion)
+        self.schemaVersion = try Version(versionString: versionString, usesLenientParsing: true)
     }
 }
 
