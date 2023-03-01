@@ -318,7 +318,8 @@ final class DestinationTests: XCTestCase {
         )) {
             XCTAssertEqual(
                 $0 as? StringError,
-                StringError("""
+                StringError(
+                    """
                     Couldn't parse toolset configuration at `/tools/asdf.json`: /tools/asdf.json doesn't exist in file \
                     system
                     """
