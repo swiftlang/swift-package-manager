@@ -17,7 +17,7 @@ import Security
 #endif
 
 import Basics
-import Crypto
+@_implementationOnly import Crypto
 
 public enum SignatureProvider {
     public static func sign(

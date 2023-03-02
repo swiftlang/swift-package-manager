@@ -17,7 +17,7 @@ import Security
 #endif
 
 import Basics
-import Crypto
+@_implementationOnly import Crypto
 
 public protocol SigningIdentity {
     // TODO: change type to Certificate
