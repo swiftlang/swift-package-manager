@@ -1,6 +1,6 @@
 # This source file is part of the Swift open source project
 #
-# Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
+# Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -22,6 +22,7 @@ add_library(Commands
   PackageTools/ResetCommands.swift
   PackageTools/Resolve.swift
   PackageTools/ShowDependencies.swift
+  PackageTools/Sign.swift
   PackageTools/SwiftPackageTool.swift
   PackageTools/ToolsVersionCommand.swift
   PackageTools/Update.swift
@@ -51,6 +52,7 @@ target_link_libraries(Commands PUBLIC
   Build
   CoreCommands
   PackageGraph
+  PackageSigning
   SourceControl
   TSCBasic
   TSCUtility

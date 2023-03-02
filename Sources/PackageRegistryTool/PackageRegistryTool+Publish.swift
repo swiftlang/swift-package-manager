@@ -36,13 +36,10 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: [.customLong("id"), .customLong("package-id")], help: "The package identifier.")
+        @Argument(help: "The package identifier.")
         var packageIdentity: PackageIdentity
 
-        @Option(
-            name: [.customLong("version"), .customLong("package-version")],
-            help: "The package release version being created."
-        )
+        @Argument(help: "The package release version being created.")
         var packageVersion: Version
 
         @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL.")
@@ -74,7 +71,7 @@ extension SwiftPackageRegistryTool {
         @Option(help: "The path to the signing certificate (DER-encoded).")
         var certificatePath: AbsolutePath?
 
-        @Option(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
+        @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
         func run(_ swiftTool: SwiftTool) async throws {
@@ -269,45 +266,16 @@ extension SwiftPackageRegistryTool {
             workingDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
         ) async throws -> Data {
-            let archiveData = try Data(localFileSystem.readFileContents(archivePath).contents)
-
-            var signingIdentity: SigningIdentity?
-            if let signingIdentityLabel = configuration.signingIdentity {
-                let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-                let matches = try await signingIdentityStore.find(by: signingIdentityLabel)
-                guard !matches.isEmpty else {
-                    throw StringError("'\(signingIdentityLabel)' not found in the system identity store.")
-                }
-                // TODO: let user choose if there is more than one match?
-                signingIdentity = matches.first
-            } else if let privateKeyPath = configuration.privateKeyPath,
-                      let certificatePath = configuration.certificatePath
-            {
-                let certificateData = try Data(localFileSystem.readFileContents(certificatePath).contents)
-                let privateKeyData = try Data(localFileSystem.readFileContents(privateKeyPath).contents)
-                signingIdentity = SwiftSigningIdentity(
-                    certificate: Certificate(derEncoded: certificateData),
-                    privateKey: try configuration.format.privateKey(derRepresentation: privateKeyData)
-                )
-            }
-
-            guard let signingIdentity = signingIdentity else {
-                throw StringError("Cannot sign archive without signing identity.")
-            }
-
-            let signature = try await SignatureProvider.sign(
-                archiveData,
-                with: signingIdentity,
-                in: configuration.format,
+            let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
+            return try await PackageSigningCommand.sign(
+                archivePath: archivePath,
+                signaturePath: signaturePath,
+                signingIdentityLabel: configuration.signingIdentity,
+                privateKeyPath: configuration.privateKeyPath,
+                certificatePath: configuration.certificatePath,
+                signatureFormat: configuration.format,
                 observabilityScope: observabilityScope
             )
-
-            let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
-            try localFileSystem.writeFileContents(signaturePath) { stream in
-                stream.write(signature)
-            }
-
-            return signature
         }
     }
 }
@@ -336,12 +304,6 @@ struct PublishConfiguration {
         var signingIdentity: String?
         var privateKeyPath: AbsolutePath?
         var certificatePath: AbsolutePath?
-    }
-}
-
-extension SignatureFormat: ExpressibleByArgument {
-    public init?(argument: String) {
-        self.init(rawValue: argument.lowercased())
     }
 }
 

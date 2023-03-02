@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -2951,6 +2951,119 @@ final class PackageToolTests: CommandsTestCase {
             // Load the package graph.
             let _ = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+    
+    // TODO: test archive signing
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
+    func testArchiveSigning() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let signing = SwiftPackageTool.Sign()
+
+        // git repo
+        try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+
+            initGitRepo(packageDirectory)
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try publishTool.archiveSource(
+                packageIdentity: packageIdentity,
+                packageVersion: "1.3.5",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            try validatePackageArchive(at: archivePath)
+            XCTAssertTrue(archivePath.isDescendant(of: workingDirectory))
+        }
+
+        // not a git repo
+        try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try publishTool.archiveSource(
+                packageIdentity: packageIdentity,
+                packageVersion: "1.5.4",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            try validatePackageArchive(at: archivePath)
+        }
+
+        // canonical metadata location
+        try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+
+            // metadata file
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(component: metadataFilename),
+                bytes: ""
+            )
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try publishTool.archiveSource(
+                packageIdentity: packageIdentity,
+                packageVersion: "0.3.1",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try validatePackageArchive(at: archivePath)
+            XCTAssertFileExists(extractedPath.appending(component: metadataFilename))
+        }
+
+        @discardableResult
+        func validatePackageArchive(at archivePath: AbsolutePath) throws -> AbsolutePath {
+            XCTAssertFileExists(archivePath)
+            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(extractPath)
+            try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
+            try localFileSystem.stripFirstLevel(of: extractPath)
+            XCTAssertFileExists(extractPath.appending(component: "Package.swift"))
+            return extractPath
         }
     }
 }
