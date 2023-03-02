@@ -294,9 +294,11 @@ public final class SQLite {
     }
 }
 
+#if swift(>=5.6)
 // Explicitly mark this class as non-Sendable
 @available(*, unavailable)
 extension SQLite: Sendable {}
+#endif
 
 private func sqlite_callback(
     _ ctx: UnsafeMutableRawPointer?,
