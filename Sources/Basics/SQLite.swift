@@ -167,7 +167,7 @@ public struct SQLite {
 
     /// Represents a row returned by called step() on a prepared statement.
     public struct Row {
-        /// The pointer to the prepared statment.
+        /// The pointer to the prepared statement.
         let stmt: OpaquePointer
 
         /// Get integer at the given column index.
@@ -199,7 +199,7 @@ public struct SQLite {
         static let SQLITE_STATIC = unsafeBitCast(0, to: sqlite3_destructor_type.self)
         static let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-        /// The pointer to the prepared statment.
+        /// The pointer to the prepared statement.
         let stmt: OpaquePointer
 
         public init(db: OpaquePointer, query: String) throws {
