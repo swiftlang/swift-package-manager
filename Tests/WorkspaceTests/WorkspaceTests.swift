@@ -12387,7 +12387,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("No registry configured for 'org' scope"), severity: .error)
+                result.check(diagnostic: .equal("no registry configured for 'org' scope"), severity: .error)
             }
         }
     }
@@ -12443,7 +12443,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching 'org.foo' releases list from 'http://localhost': boom"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo' releases list from 'http://localhost': boom"), severity: .error)
                 }
             }
         }
@@ -12462,7 +12462,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching 'org.foo' releases list from 'http://localhost': Server error 500: Internal Server Error"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo' releases list from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
                 }
             }
         }
@@ -12519,7 +12519,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': boom"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': boom"), severity: .error)
                 }
             }
         }
@@ -12538,7 +12538,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': Server error 500: Internal Server Error"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
                 }
             }
         }
@@ -12595,7 +12595,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': boom"), severity: .error)
+                    result.check(diagnostic: .equal("failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': boom"), severity: .error)
                 }
             }
         }
@@ -12614,7 +12614,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': Server error 500: Internal Server Error"), severity: .error)
+                    result.check(diagnostic: .equal("failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
                 }
             }
         }
@@ -12671,7 +12671,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': boom"), severity: .error)
+                    result.check(diagnostic: .equal("failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': boom"), severity: .error)
                 }
             }
         }
@@ -12690,7 +12690,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': Server error 500: Internal Server Error"), severity: .error)
+                    result.check(diagnostic: .equal("failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
                 }
             }
         }
