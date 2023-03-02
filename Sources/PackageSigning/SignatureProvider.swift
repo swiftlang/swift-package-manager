@@ -14,10 +14,11 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
+import CryptoKit // TODO: remove when we can import Crypto
 #endif
 
 import Basics
-@_implementationOnly import Crypto
+//import Crypto
 
 public enum SignatureProvider {
     public static func sign(
