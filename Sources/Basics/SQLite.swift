@@ -17,7 +17,7 @@ import TSCBasic
 @_implementationOnly import SPMSQLite3
 
 /// A minimal SQLite wrapper.
-public struct SQLite {
+public final class SQLite {
     /// The location of the database.
     public let location: Location
 
@@ -57,7 +57,7 @@ public struct SQLite {
     }
 
     @available(*, deprecated, message: "use init(location:configuration) instead")
-    public init(dbPath: AbsolutePath) throws {
+    public convenience init(dbPath: AbsolutePath) throws {
         try self.init(location: .path(dbPath))
     }
 
@@ -293,6 +293,12 @@ public struct SQLite {
         case databaseFull
     }
 }
+
+#if swift(>=5.6)
+// Explicitly mark this class as non-Sendable
+@available(*, unavailable)
+extension SQLite: Sendable {}
+#endif
 
 private func sqlite_callback(
     _ ctx: UnsafeMutableRawPointer?,
