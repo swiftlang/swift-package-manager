@@ -17,7 +17,7 @@ import PackageModel
 import SPMBuildCore
 import TSCBasic
 
-public struct ListDestinations: ParsableCommand {
+public struct ListDestinations: DestinationCommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
@@ -32,22 +32,9 @@ public struct ListDestinations: ParsableCommand {
     public init() {}
 
     public func run() throws {
-        let fileSystem = localFileSystem
         let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
-
-        guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: locations.crossCompilationDestinationsDirectory
-        ) else {
-            let expectedPath = try fileSystem.swiftPMCrossCompilationDestinationsDirectory
-            throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: \(expectedPath)"
-            )
-        }
-
-        if !fileSystem.exists(destinationsDirectory) {
-            destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
-        }
+        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
         let validBundles = try DestinationsBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
