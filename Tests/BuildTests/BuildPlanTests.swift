@@ -540,7 +540,7 @@ final class BuildPlanTests: XCTestCase {
     func testPackageNameFlag() throws {
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, stderr) = try executeSwiftBuild(fixturePath.appending(component: "appPkg"), extraArgs: ["-v"])
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "appPkg"), extraArgs: ["-v"])
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
             XCTAssertMatch(stdout, .contains("-module-name Bar"))
