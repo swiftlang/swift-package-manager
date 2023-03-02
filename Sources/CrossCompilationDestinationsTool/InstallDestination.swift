@@ -10,19 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import ArgumentParser
 import Basics
 import CoreCommands
 import Foundation
 
-import func TSCBasic.tsc_await
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
+import func TSCBasic.tsc_await
 
-public struct InstallDestination: ParsableCommand {
-    public static let configuration = CommandConfiguration(
+struct InstallDestination: DestinationCommand {
+    static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
         Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle \
@@ -36,32 +35,15 @@ public struct InstallDestination: ParsableCommand {
     @Argument(help: "A local filesystem path or a URL of an artifact bundle to install.")
     var bundlePathOrURL: String
 
-    public init() {}
-
-    public func run() throws {
-        let fileSystem = localFileSystem
-
-        guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: locations.crossCompilationDestinationsDirectory
-        ) else {
-            let expectedPath = try fileSystem.swiftPMCrossCompilationDestinationsDirectory
-            throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: `\(expectedPath)`"
-            )
-        }
-
-        // FIXME: generalize path calculation and creation with `ListDestinations` subcommand
-        if !fileSystem.exists(destinationsDirectory) {
-            destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
-        }
-
+    func run() throws {
         let observabilitySystem = ObservabilitySystem.swiftTool()
         let observabilityScope = observabilitySystem.topScope
+        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
         if
             let bundleURL = URL(string: bundlePathOrURL),
             let scheme = bundleURL.scheme,
-                scheme == "http" || scheme == "https"
+            scheme == "http" || scheme == "https"
         {
             let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
                 let client = LegacyHTTPClient()
@@ -79,12 +61,12 @@ public struct InstallDestination: ParsableCommand {
 
             let fileName = bundleURL.lastPathComponent
 
-            try fileSystem.writeFileContents(destinationsDirectory.appending(component: fileName), data: body)
+            try self.fileSystem.writeFileContents(destinationsDirectory.appending(component: fileName), data: body)
         } else if
-            let cwd = fileSystem.currentWorkingDirectory,
+            let cwd = self.fileSystem.currentWorkingDirectory,
             let bundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd),
             let bundleName = bundlePath.components.last,
-            fileSystem.exists(bundlePath)
+            self.fileSystem.exists(bundlePath)
         {
             let destinationPath = destinationsDirectory.appending(component: bundleName)
             if fileSystem.exists(destinationPath) {

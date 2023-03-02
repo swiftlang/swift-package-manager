@@ -7,8 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(CrossCompilationDestinationsTool
+  DestinationCommand.swift
   InstallDestination.swift
   ListDestinations.swift
+  RemoveDestination.swift
   SwiftDestinationTool.swift)
 target_link_libraries(CrossCompilationDestinationsTool PUBLIC
   ArgumentParser

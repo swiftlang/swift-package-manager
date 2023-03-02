@@ -22,8 +22,10 @@ public struct SwiftDestinationTool: ParsableCommand {
         subcommands: [
             InstallDestination.self,
             ListDestinations.self,
+            RemoveDestination.self,
         ],
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     public init() {}
 }
