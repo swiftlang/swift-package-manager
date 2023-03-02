@@ -87,7 +87,9 @@ public struct Certificate {
     public init(derEncoded: Data) {}
 
     public struct PrivateKey {
+        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         init(_: P256.Signing.PrivateKey) {}
+        #endif
     }
 }
 
