@@ -294,10 +294,10 @@ let package = Package(
         .target(
             name: "PackageSigning",
             dependencies: [
-                // TODO: uncomment once we resolve build problems
-//                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 "Basics",
                 "PackageModel",
+                .product(name: "X509", package: "swift-certificates"),
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -733,6 +733,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-certificates.git", branch: "main"),
     ]
 } else {
     package.dependencies += [
@@ -742,6 +743,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
+        .package(path: "../swift-certificates"),
     ]
 }
 
