@@ -1,12 +1,12 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -89,9 +89,9 @@ extension Platform {
     }
 }
 
-public extension Platform {
+extension Platform {
     /// The file extension used for a dynamic library on this platform.
-    var dynamicLibraryExtension: String {
+    public var dynamicLibraryExtension: String {
         switch self {
         case .darwin: return ".dylib"
         case .linux, .android: return ".so"
@@ -99,7 +99,7 @@ public extension Platform {
         }
     }
 
-    var executableExtension: String {
+    public var executableExtension: String {
         switch self {
         case .windows: return ".exe"
         case .linux, .android, .darwin: return ""
