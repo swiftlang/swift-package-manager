@@ -27,7 +27,7 @@ import struct TSCUtility.Triple
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
-    let driverSupport = DriverSupport()
+    private let driverSupport = DriverSupport()
 
     /// The j argument.
     private var j: String {
@@ -538,48 +538,23 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testPackageNameFlag() throws {
-        guard driverSupport.checkSupportedDriverFlags(flags: ["package-name"]) else {
-          throw XCTSkip("driver should be 5.9+ to accept -package-name")
-        }
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let root = tmpPath.appending(components: "root")
-            let dep = tmpPath.appending(components: "dep")
-
-            // Create root package.
-            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending(component: "Package.swift")) {
-                $0 <<< """
-                // swift-tools-version:5.7
-                import PackageDescription
-                let package = Package(
-                name: "rootPkg",
-                dependencies: [.package(path: "../dep")],
-                targets: [.target(name: "root", dependencies: ["dep"])]
-                )
-                """
+        let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
+        try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+            let (stdout, stderr) = try executeSwiftBuild(fixturePath.appending(component: "appPkg"), extraArgs: ["-v"])
+            XCTAssertMatch(stdout, .contains("-module-name Foo"))
+            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
+            XCTAssertMatch(stdout, .contains("-module-name Bar"))
+            XCTAssertMatch(stdout, .contains("-module-name Baz"))
+            XCTAssertMatch(stdout, .contains("-module-name App"))
+            XCTAssertMatch(stdout, .contains("-module-name exe"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
+                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
+                // The manifest toolsversion must be >= 5.9 to pass down -package-name
+                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(stdout, .contains("-package-name"))
             }
-
-            // Create dependency.
-            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
-                $0 <<< """
-                // swift-tools-version:5.8
-
-                import PackageDescription
-                let package = Package(
-                name: "depPkg",
-                products: [.library(name: "dep", targets: ["dep"])],
-                targets: [.target(name: "dep")]
-                )
-                """
-            }
-            let (stdout, _) = try executeSwiftBuild(root, extraArgs: ["-v"])
-            XCTAssertMatch(stdout, .contains("-module-name dep"))
-            // FIXME: rdar://105305875
-//            XCTAssertMatch(stdout, .contains("-package-name deppkg"))
-            XCTAssertMatch(stdout, .contains("-module-name root"))
-//            XCTAssertMatch(stdout, .contains("-package-name rootpkg"))
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }

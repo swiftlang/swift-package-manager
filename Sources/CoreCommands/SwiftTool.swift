@@ -246,6 +246,8 @@ public final class SwiftTool {
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
+    private let driverSupport = DriverSupport()
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
@@ -722,7 +724,7 @@ public final class SwiftTool {
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-                canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
+                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
                 ),
                 sanitizers: options.build.enabledSanitizers,
@@ -832,11 +834,11 @@ public final class SwiftTool {
 
             var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
             // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
+            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
             }
 
