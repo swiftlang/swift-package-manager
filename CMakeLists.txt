@@ -54,7 +54,6 @@ if(FIND_PM_DEPS)
   find_package(ArgumentParser CONFIG REQUIRED)
   find_package(SwiftDriver CONFIG REQUIRED)
   find_package(SwiftCollections CONFIG REQUIRED)
-  find_package(SwiftASN1 CONFIG REQUIRED)
   find_package(SwiftCertificates CONFIG REQUIRED)
 endif()
 
