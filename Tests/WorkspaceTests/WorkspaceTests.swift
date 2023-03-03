@@ -12780,6 +12780,7 @@ final class WorkspaceTests: XCTestCase {
         if configuration == nil {
             configuration = PackageRegistry.RegistryConfiguration()
             configuration!.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
+            configuration!.security = .testDefault
         }
 
         let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in

@@ -149,8 +149,8 @@ final class RegistryConfigurationTests: XCTestCase {
             "security": {
                 "default": {
                     "signing": {
-                        "onUnsigned": "prompt",
-                        "onUntrustedCertificate": "prompt",
+                        "onUnsigned": "error",
+                        "onUntrustedCertificate": "error",
                         "trustedRootCertificatesPath": "~/.swiftpm/security/trusted-root-certs/",
                         "includeDefaultTrustedRootCertificates": true,
                         "validationChecks": {
@@ -200,8 +200,8 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
         XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.loginAPIPath, "/v1/login")
-        XCTAssertEqual(configuration.security?.default.signing?.onUnsigned, .prompt)
-        XCTAssertEqual(configuration.security?.default.signing?.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(configuration.security?.default.signing?.onUnsigned, .error)
+        XCTAssertEqual(configuration.security?.default.signing?.onUntrustedCertificate, .error)
         XCTAssertEqual(
             configuration.security?.default.signing?.trustedRootCertificatesPath,
             "~/.swiftpm/security/trusted-root-certs/"
@@ -392,8 +392,8 @@ final class RegistryConfigurationTests: XCTestCase {
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
         let signing = configuration.signing(for: package, registry: registry)
 
-        XCTAssertEqual(signing.onUnsigned, .prompt)
-        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.onUnsigned, .warn)
+        XCTAssertEqual(signing.onUntrustedCertificate, .warn)
         XCTAssertNil(signing.trustedRootCertificatesPath)
         XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
@@ -426,7 +426,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .error)
-        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.onUntrustedCertificate, .warn)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/custom/roots")
         XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .enabled)
@@ -465,7 +465,7 @@ final class RegistryConfigurationTests: XCTestCase {
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
         let signing = configuration.signing(for: package, registry: registry)
 
-        XCTAssertEqual(signing.onUnsigned, .prompt)
+        XCTAssertEqual(signing.onUnsigned, .warn)
         XCTAssertEqual(signing.onUntrustedCertificate, .warn)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/foo/roots")
         XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
@@ -501,8 +501,8 @@ final class RegistryConfigurationTests: XCTestCase {
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
         let signing = configuration.signing(for: package, registry: registry)
 
-        XCTAssertEqual(signing.onUnsigned, .prompt)
-        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.onUnsigned, .warn)
+        XCTAssertEqual(signing.onUntrustedCertificate, .warn)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/roots")
         XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
@@ -537,8 +537,8 @@ final class RegistryConfigurationTests: XCTestCase {
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
         let signing = configuration.signing(for: package, registry: registry)
 
-        XCTAssertEqual(signing.onUnsigned, .prompt)
-        XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
+        XCTAssertEqual(signing.onUnsigned, .warn)
+        XCTAssertEqual(signing.onUntrustedCertificate, .warn)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/linkedlist/roots")
         XCTAssertEqual(signing.includeDefaultTrustedRootCertificates, true)
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)

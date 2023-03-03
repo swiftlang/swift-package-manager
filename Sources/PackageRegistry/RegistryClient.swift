@@ -763,45 +763,62 @@ public final class RegistryClient: Cancellable {
                             let contents = try fileSystem.readFileContents(downloadPath)
                             let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
 
-                            self.checksumTOFU.validate(
+                            self.signatureValidation.validate(
                                 registry: registry,
                                 package: package,
                                 version: version,
-                                checksum: actualChecksum,
+                                content: Data(contents.contents),
+                                configuration: self.configuration.signing(for: package, registry: registry),
                                 timeout: timeout,
                                 observabilityScope: observabilityScope,
                                 callbackQueue: callbackQueue
-                            ) { tofuResult in
-                                switch tofuResult {
+                            ) { signatureResult in
+                                switch signatureResult {
                                 case .success:
-                                    do {
-                                        // validate that the destination does not already exist (again, as this is
-                                        // async)
-                                        guard !fileSystem.exists(destinationPath) else {
-                                            throw RegistryError.pathAlreadyExists(destinationPath)
+                                    self.checksumTOFU.validate(
+                                        registry: registry,
+                                        package: package,
+                                        version: version,
+                                        checksum: actualChecksum,
+                                        timeout: timeout,
+                                        observabilityScope: observabilityScope,
+                                        callbackQueue: callbackQueue
+                                    ) { checksumResult in
+                                        switch checksumResult {
+                                        case .success:
+                                            do {
+                                                // validate that the destination does not already exist (again, as this
+                                                // is
+                                                // async)
+                                                guard !fileSystem.exists(destinationPath) else {
+                                                    throw RegistryError.pathAlreadyExists(destinationPath)
+                                                }
+                                                try fileSystem.createDirectory(destinationPath, recursive: true)
+                                                // extract the content
+                                                let archiver = self.archiverProvider(fileSystem)
+                                                // TODO: Bail if archive contains relative paths or overlapping files
+                                                archiver.extract(from: downloadPath, to: destinationPath) { result in
+                                                    defer { try? fileSystem.removeFileTree(downloadPath) }
+                                                    completion(result.tryMap {
+                                                        // strip first level component
+                                                        try fileSystem.stripFirstLevel(of: destinationPath)
+                                                    }.mapError { error in
+                                                        StringError(
+                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
+                                                        )
+                                                    })
+                                                }
+                                            } catch {
+                                                completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                                                    registry: registry,
+                                                    package: package.underlying,
+                                                    version: version,
+                                                    error: error
+                                                )))
+                                            }
+                                        case .failure(let error):
+                                            completion(.failure(error))
                                         }
-                                        try fileSystem.createDirectory(destinationPath, recursive: true)
-                                        // extract the content
-                                        let archiver = self.archiverProvider(fileSystem)
-                                        // TODO: Bail if archive contains relative paths or overlapping files
-                                        archiver.extract(from: downloadPath, to: destinationPath) { result in
-                                            defer { try? fileSystem.removeFileTree(downloadPath) }
-                                            completion(result.tryMap {
-                                                // strip first level component
-                                                try fileSystem.stripFirstLevel(of: destinationPath)
-                                            }.mapError { error in
-                                                StringError(
-                                                    "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
-                                                )
-                                            })
-                                        }
-                                    } catch {
-                                        completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                                            registry: registry,
-                                            package: package.underlying,
-                                            version: version,
-                                            error: error
-                                        )))
                                     }
                                 case .failure(let error):
                                     completion(.failure(error))
