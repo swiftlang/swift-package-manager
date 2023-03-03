@@ -12,7 +12,7 @@
 
 import struct Foundation.Data
 
-#if os(macOS)
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Security
 import CryptoKit // TODO: remove when we can import Crypto
 #endif
