@@ -294,8 +294,7 @@ let package = Package(
         .target(
             name: "PackageSigning",
             dependencies: [
-                // TODO: uncomment once we resolve build problems
-//                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 "Basics",
                 "PackageModel",
             ],

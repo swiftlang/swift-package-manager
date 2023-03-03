@@ -4,7 +4,7 @@
 """
  This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -184,6 +184,7 @@ def parse_global_args(args):
     args.source_dirs["tsc"]                   = os.path.join(args.project_root, "..", "swift-tools-support-core")
     args.source_dirs["yams"]                  = os.path.join(args.project_root, "..", "yams")
     args.source_dirs["swift-argument-parser"] = os.path.join(args.project_root, "..", "swift-argument-parser")
+    args.source_dirs["swift-crypto"]          = os.path.join(args.project_root, "..", "swift-crypto")
     args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
     args.source_dirs["swift-system"]          = os.path.join(args.project_root, "..", "swift-system")
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
@@ -351,6 +352,7 @@ def build(args):
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
         build_dependency(args, "swift-collections")
+        build_dependency(args, "swift-crypto")
         build_swiftpm_with_cmake(args)
 
     build_swiftpm_with_swiftpm(args,integrated_swift_driver=False)
@@ -594,6 +596,7 @@ def build_swiftpm_with_cmake(args):
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR="              + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
         "-DArgumentParser_DIR="   + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
+        "-DSwiftCrypto_DIR="      + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
         "-DSwiftDriver_DIR="      + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
         "-DSwiftSystem_DIR="      + os.path.join(args.build_dirs["swift-system"],          "cmake/modules"),
         "-DSwiftCollections_DIR=" + os.path.join(args.build_dirs["swift-collections"],     "cmake/modules"),
@@ -611,6 +614,7 @@ def build_swiftpm_with_cmake(args):
     if platform.system() == "Darwin":
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["yams"],                  "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-argument-parser"], "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
@@ -724,6 +728,7 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["llbuild"],               "lib"),
             os.path.join(args.build_dirs["yams"],                  "lib"),
             os.path.join(args.build_dirs["swift-argument-parser"], "lib"),
+            os.path.join(args.build_dirs["swift-crypto"],          "lib"),
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
             os.path.join(args.build_dirs["swift-system"],          "lib"),
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
