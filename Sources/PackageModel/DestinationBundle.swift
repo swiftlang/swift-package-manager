@@ -11,12 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageModel
 import TSCBasic
 import TSCUtility
 
 /// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
-public struct DestinationsBundle {
+public struct DestinationBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
         let destinations: [Destination]
@@ -87,7 +86,7 @@ public struct DestinationsBundle {
             )
         }
 
-        let validBundles = try DestinationsBundle.getAllValidBundles(
+        let validBundles = try DestinationBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
@@ -149,13 +148,13 @@ extension ArtifactsArchiveMetadata {
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> DestinationsBundle {
-        var result = DestinationsBundle(path: bundlePath)
+    ) throws -> DestinationBundle {
+        var result = DestinationBundle(path: bundlePath)
 
         for (artifactID, artifactMetadata) in artifacts
             where artifactMetadata.type == .crossCompilationDestination
         {
-            var variants = [DestinationsBundle.Variant]()
+            var variants = [DestinationBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
                 let destinationJSONPath = try bundlePath
@@ -198,7 +197,7 @@ extension ArtifactsArchiveMetadata {
     }
 }
 
-extension Array where Element == DestinationsBundle {
+extension Array where Element == DestinationBundle {
     /// Select destinations matching a given query and host triple from a `self` array of available destinations.
     /// - Parameters:
     ///   - query: either an artifact ID or target triple to filter with.
@@ -210,8 +209,8 @@ extension Array where Element == DestinationsBundle {
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) -> Destination? {
-        var matchedByID: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
-        var matchedByTriple: (path: AbsolutePath, variant: DestinationsBundle.Variant, destination: Destination)?
+        var matchedByID: (path: AbsolutePath, variant: DestinationBundle.Variant, destination: Destination)?
+        var matchedByTriple: (path: AbsolutePath, variant: DestinationBundle.Variant, destination: Destination)?
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {

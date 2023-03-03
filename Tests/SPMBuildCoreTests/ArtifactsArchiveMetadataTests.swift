@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SPMBuildCore
+import PackageModel
 import TSCBasic
 import XCTest
 

@@ -346,7 +346,7 @@ final class DestinationTests: XCTestCase {
 
     func testSelectDestination() throws {
         let bundles = [
-            DestinationsBundle(
+            DestinationBundle(
                 path: try AbsolutePath(validating: "/destination.artifactsbundle"),
                 artifacts: [
                     "id1": [

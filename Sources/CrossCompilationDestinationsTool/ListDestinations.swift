@@ -36,7 +36,7 @@ public struct ListDestinations: DestinationCommand {
         let observabilityScope = observabilitySystem.topScope
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
-        let validBundles = try DestinationsBundle.getAllValidBundles(
+        let validBundles = try DestinationBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope

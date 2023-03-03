@@ -776,7 +776,7 @@ public final class SwiftTool {
             {
                 destination = targetDestination
             } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
-                destination = try DestinationsBundle.selectDestination(
+                destination = try DestinationBundle.selectDestination(
                     fromBundlesAt: sharedCrossCompilationDestinationsDirectory,
                     fileSystem: fileSystem,
                     matching: destinationSelector,

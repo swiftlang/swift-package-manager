@@ -7,11 +7,13 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageModel
+  ArtifactsArchiveMetadata.swift
   BuildConfiguration.swift
   BuildEnvironment.swift
   BuildFlags.swift
   BuildSettings.swift
   Destination.swift
+  DestinationBundle.swift
   Diagnostics.swift
   IdentityResolver.swift
   Manifest/Manifest.swift
