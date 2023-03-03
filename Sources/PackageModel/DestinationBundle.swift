@@ -135,7 +135,7 @@ public struct DestinationBundle {
             rootPath: bundlePath
         )
 
-        return try parsedManifest.validateDestinationsBundle(
+        return try parsedManifest.validateDestinationBundle(
             bundlePath: bundlePath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
@@ -144,7 +144,7 @@ public struct DestinationBundle {
 }
 
 extension ArtifactsArchiveMetadata {
-    fileprivate func validateDestinationsBundle(
+    fileprivate func validateDestinationBundle(
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
