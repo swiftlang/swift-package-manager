@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import PackageModel
 import TSCBasic
 import TSCUtility
 

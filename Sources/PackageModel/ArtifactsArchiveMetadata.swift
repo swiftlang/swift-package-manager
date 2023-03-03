@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import PackageModel
 import TSCBasic
 
 import struct TSCUtility.Triple
@@ -27,9 +26,9 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Artifact: Equatable {
-        let type: ArtifactType
+        public let type: ArtifactType
         let version: String
-        let variants: [Variant]
+        public let variants: [Variant]
 
         public init(type: ArtifactsArchiveMetadata.ArtifactType, version: String, variants: [Variant]) {
             self.type = type
@@ -48,8 +47,8 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Variant: Equatable {
-        let path: String
-        let supportedTriples: [Triple]
+        public let path: String
+        public let supportedTriples: [Triple]
 
         public init(path: String, supportedTriples: [Triple]) {
             self.path = path

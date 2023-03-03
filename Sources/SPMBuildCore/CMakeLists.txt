@@ -7,14 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SPMBuildCore
-  ArtifactsArchiveMetadata.swift
   BinaryTarget+Extensions.swift
   BuildParameters.swift
   BuildSystem.swift
   BuildSystemCommand.swift
   BuildSystemDelegate.swift
   BuiltTestProduct.swift
-  DestinationsBundle.swift
   PluginContextSerializer.swift
   PluginInvocation.swift
   PluginMessages.swift
