@@ -293,9 +293,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     // TODO: Test example with login and password
-    // TODO: test archive signing
+
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func testArchiving() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         #if os(Linux)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
@@ -413,6 +416,61 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try localFileSystem.stripFirstLevel(of: extractPath)
             XCTAssertFileExists(extractPath.appending(component: "Package.swift"))
             return extractPath
+        }
+    }
+
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
+    func testArchiveSigning() async throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        let observabilityScope = ObservabilitySystem.makeForTesting().topScope
+
+        // TODO: complete this test
+        // certificate and private key
+        /*
+        try await withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "fake.zip")
+            try localFileSystem.writeFileContents(archivePath, string: "test")
+
+            let privateKeyPath = temporaryDirectory.appending(component: "private-key")
+            // TODO: write the private key
+            let certificatePath = temporaryDirectory.appending(component: "certificate")
+            // TODO: write the cert
+
+            let signaturePath = temporaryDirectory.appending(component: "signature")
+
+            let signature = try await PackageArchiveSigner.sign(
+                archivePath: archivePath,
+                signaturePath: signaturePath,
+                mode: .certificate(certificate: certificatePath, privateKey: privateKeyPath),
+                signatureFormat: .cms_1_0_0,
+                fileSystem: localFileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            let content: Data = try localFileSystem.readFileContents(signaturePath)
+            XCTAssertEqual(signature, content)
+            // TODO: test that the signature is correct
+        }*/
+
+        // basic validation
+        try withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "fake.zip")
+            try localFileSystem.writeFileContents(archivePath, bytes: [])
+
+            let signaturePath = temporaryDirectory.appending(component: "signature")
+
+            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
+                [
+                    "sign",
+                    archivePath.pathString,
+                    signaturePath.pathString
+                ]
+            )
+            let error = try result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 1), try! result.utf8Output() + result.utf8stderrOutput())
+            XCTAssertMatch(error, .contains("Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided"))
         }
     }
 }

@@ -46,9 +46,13 @@ private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
     defer { SetConsoleMode(hStdIn, dwMode) }
 
     var dwNumberOfCharsRead: DWORD = 0
-    _ = ReadConsoleA(hStdIn, StaticStorage.buffer.baseAddress,
-                     DWORD(StaticStorage.buffer.count), &dwNumberOfCharsRead,
-                     nil)
+    _ = ReadConsoleA(
+        hStdIn,
+        StaticStorage.buffer.baseAddress,
+        DWORD(StaticStorage.buffer.count),
+        &dwNumberOfCharsRead,
+        nil
+    )
     return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
 }
 #endif

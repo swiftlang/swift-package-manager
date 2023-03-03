@@ -12,9 +12,4 @@
 
 import Commands
 
-@main
-struct Runner {
-    static func main() async {
-        await SwiftPackageTool.main()
-    }
-}
+SwiftPackageTool.main()

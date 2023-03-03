@@ -36,10 +36,10 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The package identifier.")
+        @Argument(help: .init("The package identifier.", valueName: "pacakge-id"))
         var packageIdentity: PackageIdentity
 
-        @Argument(help: "The package release version being created.")
+        @Argument(help: .init("The package release version being created.", valueName: "pacakge-version"))
         var packageVersion: Version
 
         @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL.")
@@ -149,20 +149,6 @@ extension SwiftPackageRegistryTool {
                 )
             }
 
-            if publishConfiguration.signing.privateKeyPath != nil {
-                guard publishConfiguration.signing.certificatePath != nil else {
-                    throw StringError(
-                        "Both 'privateKeyPath' and 'certificatePath' are required when one of them is set."
-                    )
-                }
-            } else {
-                guard publishConfiguration.signing.certificatePath == nil else {
-                    throw StringError(
-                        "Both 'privateKeyPath' and 'certificatePath' are required when one of them is set."
-                    )
-                }
-            }
-
             // step 2: generate source archive for the package release
             swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
             let archivePath = try self.archiveSource(
@@ -177,12 +163,38 @@ extension SwiftPackageRegistryTool {
             // step 3: sign the source archive if needed
             var signature: Data? = .none
             if publishConfiguration.signing.required {
+                // compute signing mode
+                let signingMode: PackageArchiveSigner.SigningMode
+                switch (
+                    publishConfiguration.signing.signingIdentity,
+                    publishConfiguration.signing.certificatePath,
+                    publishConfiguration.signing.privateKeyPath
+                ) {
+                case (.none, .some, .none):
+                    throw StringError(
+                        "both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                    )
+                case (.none, .none, .some):
+                    throw StringError(
+                        "both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                    )
+                case (.none, .some(let certificatePath), .some(let privateKeyPath)):
+                    signingMode = .certificate(certificate: certificatePath, privateKey: privateKeyPath)
+                case (.some(let signingStoreLabel), .none, .none):
+                    signingMode = .identityStore(signingStoreLabel)
+                default:
+                    throw StringError(
+                        "either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided."
+                    )
+                }
+
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 signature = try await self.sign(
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     archivePath: archivePath,
-                    configuration: publishConfiguration.signing,
+                    mode: signingMode,
+                    format: publishConfiguration.signing.format,
                     workingDirectory: workingDirectory,
                     observabilityScope: swiftTool.observabilityScope
                 )
@@ -262,18 +274,18 @@ extension SwiftPackageRegistryTool {
             packageIdentity: PackageIdentity,
             packageVersion: Version,
             archivePath: AbsolutePath,
-            configuration: PublishConfiguration.Signing,
+            mode: PackageArchiveSigner.SigningMode,
+            format: SignatureFormat,
             workingDirectory: AbsolutePath,
             observabilityScope: ObservabilityScope
         ) async throws -> Data {
             let signaturePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).sig")
-            return try await PackageSigningCommand.sign(
+            return try await PackageArchiveSigner.sign(
                 archivePath: archivePath,
                 signaturePath: signaturePath,
-                signingIdentityLabel: configuration.signingIdentity,
-                privateKeyPath: configuration.privateKeyPath,
-                certificatePath: configuration.certificatePath,
-                signatureFormat: configuration.format,
+                mode: mode,
+                signatureFormat: format,
+                fileSystem: localFileSystem,
                 observabilityScope: observabilityScope
             )
         }

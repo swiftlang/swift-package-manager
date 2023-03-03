@@ -19,7 +19,7 @@ import CoreCommands
 import PackageSigning
 import TSCBasic
 
-extension SwiftPackageTool {
+extension SwiftPackageRegistryTool {
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     struct Sign: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
@@ -29,10 +29,13 @@ extension SwiftPackageTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The path to the package source archive to be signed.")
+        @Argument(help: .init("The path to the package source archive to be signed.", valueName: "archive-path"))
         var sourceArchivePath: AbsolutePath
 
-        @Argument(help: "The path the output signature file will be written to.")
+        @Argument(help: .init(
+            "The path the output signature file will be written to.",
+            valueName: "signature-output-path"
+        ))
         var signaturePath: AbsolutePath
 
         @Option(help: .hidden) // help: "Signature format identifier. Defaults to 'cms-1.0.0'.
@@ -55,36 +58,34 @@ extension SwiftPackageTool {
                 throw StringError("Source archive not found at '\(self.sourceArchivePath)'.")
             }
 
-            // Check if privateKeyPath and certificatePath are set
-            if self.privateKeyPath != nil {
-                guard self.certificatePath != nil else {
-                    throw StringError(
-                        "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
-                    )
-                }
-            } else {
-                guard self.certificatePath == nil else {
-                    throw StringError(
-                        "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
-                    )
-                }
-            }
-
-            // Either signingIdentity or (privateKeyPath, certificatePath) is required
-            guard self.signingIdentity != nil || self.privateKeyPath != nil else {
+            // compute signing mode
+            let signingMode: PackageArchiveSigner.SigningMode
+            switch (self.signingIdentity, self.certificatePath, self.privateKeyPath) {
+            case (.none, .some, .none):
+                throw StringError(
+                    "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                )
+            case (.none, .none, .some):
+                throw StringError(
+                    "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                )
+            case (.none, .some(let certificatePath), .some(let privateKeyPath)):
+                signingMode = .certificate(certificate: certificatePath, privateKey: privateKeyPath)
+            case (.some(let signingStoreLabel), .none, .none):
+                signingMode = .identityStore(signingStoreLabel)
+            default:
                 throw StringError(
                     "Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided."
                 )
             }
 
             swiftTool.observabilityScope.emit(info: "signing the archive at '\(self.sourceArchivePath)'")
-            try await PackageSigningCommand.sign(
+            try await PackageArchiveSigner.sign(
                 archivePath: self.sourceArchivePath,
                 signaturePath: self.signaturePath,
-                signingIdentityLabel: self.signingIdentity,
-                privateKeyPath: self.privateKeyPath,
-                certificatePath: self.certificatePath,
+                mode: signingMode,
                 signatureFormat: self.signatureFormat,
+                fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope
             )
         }
@@ -97,41 +98,35 @@ extension SignatureFormat: ExpressibleByArgument {
     }
 }
 
-public enum PackageSigningCommand {
+public enum PackageArchiveSigner {
     @discardableResult
     public static func sign(
         archivePath: AbsolutePath,
         signaturePath: AbsolutePath,
-        signingIdentityLabel: String?,
-        privateKeyPath: AbsolutePath?,
-        certificatePath: AbsolutePath?,
+        mode: SigningMode,
         signatureFormat: SignatureFormat,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) async throws -> Data {
-        let archiveData = try Data(localFileSystem.readFileContents(archivePath).contents)
+        let archiveData: Data = try fileSystem.readFileContents(archivePath)
 
-        var signingIdentity: SigningIdentity?
-        if let signingIdentityLabel = signingIdentityLabel {
+        let signingIdentity: SigningIdentity
+        switch mode {
+        case .identityStore(let label):
             let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-            let matches = try await signingIdentityStore.find(by: signingIdentityLabel)
-            guard !matches.isEmpty else {
-                throw StringError("'\(signingIdentityLabel)' not found in the system identity store.")
+            let matches = try await signingIdentityStore.find(by: label)
+            guard let identity = matches.first else {
+                throw StringError("'\(label)' not found in the system identity store.")
             }
             // TODO: let user choose if there is more than one match?
-            signingIdentity = matches.first
-        } else if let privateKeyPath = privateKeyPath,
-                  let certificatePath = certificatePath
-        {
-            let certificateData = try Data(localFileSystem.readFileContents(certificatePath).contents)
-            let privateKeyData = try Data(localFileSystem.readFileContents(privateKeyPath).contents)
+            signingIdentity = identity
+        case .certificate(let certificatePath, let privateKeyPath):
+            let certificateData: Data = try fileSystem.readFileContents(certificatePath)
+            let privateKeyData: Data = try fileSystem.readFileContents(privateKeyPath)
             signingIdentity = SwiftSigningIdentity(
                 certificate: Certificate(derEncoded: certificateData),
                 privateKey: try signatureFormat.privateKey(derRepresentation: privateKeyData)
             )
-        }
-
-        guard let signingIdentity = signingIdentity else {
-            throw StringError("Cannot sign archive without signing identity.")
         }
 
         let signature = try await SignatureProvider.sign(
@@ -141,10 +136,15 @@ public enum PackageSigningCommand {
             observabilityScope: observabilityScope
         )
 
-        try localFileSystem.writeFileContents(signaturePath) { stream in
+        try fileSystem.writeFileContents(signaturePath) { stream in
             stream.write(signature)
         }
 
         return signature
+    }
+
+    public enum SigningMode {
+        case identityStore(String)
+        case certificate(certificate: AbsolutePath, privateKey: AbsolutePath)
     }
 }

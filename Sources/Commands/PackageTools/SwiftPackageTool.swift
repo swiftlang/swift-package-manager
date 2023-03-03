@@ -26,22 +26,20 @@ import XCBuildSupport
 import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
-@available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
-public struct SwiftPackageTool: AsyncParsableCommand {
+public struct SwiftPackageTool: ParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: Self.subcommands
-            + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+        subcommands: Self.subcommands,
         defaultSubcommand: DefaultCommand.self,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
     private static var subcommands: [ParsableCommand.Type] {
-        let subcommands: [ParsableCommand.Type] = [
+        var subcommands: [ParsableCommand.Type] = [
             Clean.self,
             PurgeCache.self,
             Reset.self,
@@ -73,11 +71,11 @@ public struct SwiftPackageTool: AsyncParsableCommand {
             DefaultCommand.self,
         ]
 
-        if #available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) {
-            return subcommands + [Sign.self]
-        } else {
-            return subcommands
+        if ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" {
+            subcommands += [Learn.self]
         }
+
+        return subcommands
     }
 
     @OptionGroup()
