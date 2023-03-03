@@ -81,7 +81,7 @@ for language in swift-or-c bash python; do
 EOF
         ;;
       bash)
-        exceptions=( -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*" )
+        exceptions=( -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*" -o -path "*/.build/*" )
         matching_files=( -name '*.sh' )
         cat > "$tmp" <<"EOF"
 #!/bin/bash
@@ -99,7 +99,7 @@ EOF
 EOF
       ;;
       python)
-        exceptions=( -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*" )
+        exceptions=( -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*"  -o -path "*/.build/*" )
         matching_files=( -name '*.py' )
         cat > "$tmp" <<"EOF"
 #!/usr/bin/env python3
