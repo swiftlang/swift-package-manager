@@ -36,10 +36,10 @@ extension SwiftPackageRegistryTool {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: .init("The package identifier.", valueName: "pacakge-id"))
+        @Argument(help: .init("The package identifier.", valueName: "package-id"))
         var packageIdentity: PackageIdentity
 
-        @Argument(help: .init("The package release version being created.", valueName: "pacakge-version"))
+        @Argument(help: .init("The package release version being created.", valueName: "package-version"))
         var packageVersion: Version
 
         @Option(name: [.customLong("url"), .customLong("registry-url")], help: "The registry URL.")
