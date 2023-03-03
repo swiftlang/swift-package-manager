@@ -42,6 +42,11 @@ public struct ListDestinations: DestinationCommand {
             observabilityScope: observabilityScope
         )
 
+        guard !validBundles.isEmpty else {
+            print("No cross-compilation destinations are currently installed.")
+            return
+        }
+
         for bundle in validBundles {
             bundle.artifacts.keys.forEach { print($0) }
         }
