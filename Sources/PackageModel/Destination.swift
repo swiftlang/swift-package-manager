@@ -26,6 +26,9 @@ public enum DestinationError: Swift.Error {
 
     /// No valid destinations were decoded from a destination file.
     case noDestinationsDecoded(AbsolutePath)
+
+    /// Path used for storing destination configuration data is not a directory.
+    case configurationPathIsNotDirectory(AbsolutePath)
 }
 
 extension DestinationError: CustomStringConvertible {
@@ -37,6 +40,8 @@ extension DestinationError: CustomStringConvertible {
             return problem
         case .noDestinationsDecoded(let path):
             return "no valid destinations were decoded from a destination file at path `\(path)`"
+        case .configurationPathIsNotDirectory(let path):
+            return "path used for storing configuration files is not a directory: `\(path)`"
         }
     }
 }
@@ -122,6 +127,21 @@ public struct Destination: Equatable {
     /// deserialization.
     public private(set) var toolset: Toolset
 
+    /// Path containing Swift resources for dynamic linking.
+    fileprivate let swiftResourcesPath: AbsolutePath?
+
+    /// Path containing Swift resources for static linking.
+    fileprivate let swiftStaticResourcesPath: AbsolutePath?
+
+    /// Array of paths containing headers.
+    fileprivate let includeSearchPaths: [AbsolutePath]?
+
+    /// Array of paths containing libraries.
+    fileprivate let librarySearchPaths: [AbsolutePath]?
+
+    /// Array of paths containing toolset files.
+    fileprivate let toolsetPaths: [AbsolutePath]?
+
     /// Creates a compilation destination with the specified properties.
     @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolset:)` instead")
     public init(
@@ -166,12 +186,22 @@ public struct Destination: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         sdkRootDir: AbsolutePath?,
-        toolset: Toolset
+        toolset: Toolset,
+        swiftResourcesPath: AbsolutePath? = nil,
+        swiftStaticResourcesPath: AbsolutePath? = nil,
+        includeSearchPaths: [AbsolutePath]? = nil,
+        librarySearchPaths: [AbsolutePath]? = nil,
+        toolsetPaths: [AbsolutePath]? = nil
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.sdkRootDir = sdkRootDir
         self.toolset = toolset
+        self.swiftResourcesPath = swiftResourcesPath
+        self.swiftStaticResourcesPath = swiftStaticResourcesPath
+        self.includeSearchPaths = includeSearchPaths
+        self.librarySearchPaths = librarySearchPaths
+        self.toolsetPaths = toolsetPaths
     }
 
     /// Returns the bin directory for the host.
@@ -354,7 +384,7 @@ extension Destination {
     ) throws -> [Destination] {
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
-            let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV3.self)
+            let destinations = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
             let destinationDirectory = path.parentDirectory
 
             return try destinations.runTimeTriples.map { triple, properties in
@@ -371,10 +401,25 @@ extension Destination {
                     )
                 }
 
-                return Destination(
+                return try Destination(
                     targetTriple: triple,
-                    sdkRootDir: try .init(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
-                    toolset: toolset
+                    sdkRootDir: AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                    toolset: toolset,
+                    swiftResourcesPath: properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    swiftStaticResourcesPath: properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    includeSearchPaths: properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    } ?? [],
+                    librarySearchPaths: properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    } ?? [],
+                    toolsetPaths: properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    } ?? []
                 )
             }
         default:
@@ -392,7 +437,7 @@ extension Destination {
         // Check schema version.
         switch version.version {
         case 1:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV1.self)
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV1.self)
             try self.init(
                 targetTriple: destination.target.map { try Triple($0) },
                 sdkRootDir: destination.sdk,
@@ -406,7 +451,7 @@ extension Destination {
                 )
             )
         case 2:
-            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DecodedDestinationV2.self)
+            let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV2.self)
             let destinationDirectory = path.parentDirectory
 
             try self.init(
@@ -429,6 +474,27 @@ extension Destination {
         default:
             throw DestinationError.invalidSchemaVersion
         }
+    }
+
+    /// Encodes a destination into its serialized form, which is a pair of its run time triple and paths configuration.
+    /// Returns a pair that can be used to reconstruct a `SerializedDestinationV3` value for storage. `nil` if
+    /// required configuration properties aren't available on `self`, which can happen if `Destination` was decoded
+    /// from different schema versions or constructed manually without providing valid values for such properties.
+    var serialized: (Triple, SerializedDestinationV3.TripleProperties)? {
+        guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.sdkRootDir else {
+            return nil
+        }
+
+        return (
+            runTimeTriple,
+            .init(
+                sdkRootPath: sdkRootDir.pathString,
+                swiftResourcesPath: self.swiftResourcesPath?.pathString,
+                swiftStaticResourcesPath: self.swiftStaticResourcesPath?.pathString,
+                includeSearchPaths: self.includeSearchPaths?.map(\.pathString) ?? [],
+                librarySearchPaths: self.librarySearchPaths?.map(\.pathString) ?? [],
+                toolsetPaths: self.toolsetPaths?.map(\.pathString) ?? []
+            ))
     }
 }
 
@@ -453,7 +519,7 @@ private struct SemanticVersionInfo: Decodable {
 }
 
 /// Represents v1 schema of `destination.json` files used for cross-compilation.
-private struct DecodedDestinationV1: Codable {
+private struct SerializedDestinationV1: Codable {
     let target: String?
     let sdk: AbsolutePath?
     let binDir: AbsolutePath
@@ -472,7 +538,7 @@ private struct DecodedDestinationV1: Codable {
 }
 
 /// Represents v2 schema of `destination.json` files used for cross-compilation.
-private struct DecodedDestinationV2: Codable {
+private struct SerializedDestinationV2: Codable {
     let sdkRootDir: String
     let toolchainBinDir: String
     let hostTriples: [String]
@@ -484,25 +550,25 @@ private struct DecodedDestinationV2: Codable {
 }
 
 /// Represents v3 schema of `destination.json` files used for cross-compilation.
-private struct DecodedDestinationV3: Decodable {
-    struct TripleProperties: Decodable {
+struct SerializedDestinationV3: Decodable {
+    struct TripleProperties: Codable {
         /// Path relative to `destination.json` containing SDK root.
-        let sdkRootPath: String
+        var sdkRootPath: String
 
         /// Path relative to `destination.json` containing Swift resources for dynamic linking.
-        let swiftResourcesPath: String?
+        var swiftResourcesPath: String?
 
         /// Path relative to `destination.json` containing Swift resources for static linking.
-        let swiftStaticResourcesPath: String?
+        var swiftStaticResourcesPath: String?
 
         /// Array of paths relative to `destination.json` containing headers.
-        let includeSearchPaths: [String]?
+        var includeSearchPaths: [String]?
 
         /// Array of paths relative to `destination.json` containing libraries.
-        let librarySearchPaths: [String]?
+        var librarySearchPaths: [String]?
 
         /// Array of paths relative to `destination.json` containing toolset files.
-        let toolsetPaths: [String]?
+        var toolsetPaths: [String]?
     }
 
     /// Mapping of triple strings to corresponding properties of such run-time triple.
