@@ -113,11 +113,7 @@ struct CoreCertificate {
 
 #elseif os(Linux) || os(Windows) || os(Android)
 final class BoringSSLCertificate {
-    #if CRYPTO_v2
     typealias Pointer = OpaquePointer
-    #else
-    typealias Pointer = UnsafeMutablePointer<X509>
-    #endif
     
     private let underlying: Pointer
 
@@ -203,11 +199,7 @@ final class BoringSSLCertificate {
 }
 
 private extension CertificateName {
-    #if CRYPTO_v2
     typealias Pointer = OpaquePointer
-    #else
-    typealias Pointer = UnsafeMutablePointer<X509_NAME>
-    #endif
     
     init(x509Name: Pointer) {
         func getStringValue(from name: Pointer, of nid: CInt) -> String? {

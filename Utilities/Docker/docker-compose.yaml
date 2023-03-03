@@ -41,6 +41,8 @@ services:
       - ../../../swift-llbuild:/code/llbuild:z
       - ../../../swift-system:/code/swift-system:z
       - ../../../swift-collections:/code/swift-collections:z
+      - ../../../swift-asn1:/code/swift-asn1:z
+      - ../../../swift-certificates:/code/swift-certificates:z
     working_dir: /code/swift-package-manager
     cap_drop:
       - CAP_NET_RAW

@@ -55,6 +55,7 @@ if(FIND_PM_DEPS)
   find_package(SwiftDriver CONFIG REQUIRED)
   find_package(SwiftCollections CONFIG REQUIRED)
   find_package(SwiftCertificates CONFIG REQUIRED)
+  find_package(SwiftCrypto CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)

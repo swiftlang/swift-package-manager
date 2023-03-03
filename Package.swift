@@ -55,13 +55,6 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V1"] == nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.2.3" : "1.1.7"
-var swiftSettings: [SwiftSetting] = []
-if useSwiftCryptoV2 {
-    swiftSettings.append(.define("CRYPTO_v2"))
-}
-
 var packageCollectionsSigningTargets = [Target]()
 var packageCollectionsSigningDeps: [Target.Dependency] = [
     "Basics",
@@ -96,8 +89,7 @@ packageCollectionsSigningTargets.append(
     .target(
          /** Package collections signing */
          name: "PackageCollectionsSigning",
-         dependencies: packageCollectionsSigningDeps,
-         swiftSettings: swiftSettings
+         dependencies: packageCollectionsSigningDeps
     )
 )
 
@@ -730,7 +722,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.3.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-certificates.git", branch: "main"),
