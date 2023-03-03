@@ -98,6 +98,7 @@ extension SignatureFormat: ExpressibleByArgument {
     }
 }
 
+@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public enum PackageArchiveSigner {
     @discardableResult
     public static func sign(

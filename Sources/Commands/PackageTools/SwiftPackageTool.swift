@@ -33,13 +33,7 @@ public struct SwiftPackageTool: ParsableCommand {
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: Self.subcommands,
-        defaultSubcommand: DefaultCommand.self,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
-    )
-
-    private static var subcommands: [ParsableCommand.Type] {
-        var subcommands: [ParsableCommand.Type] = [
+        subcommands: [
             Clean.self,
             PurgeCache.self,
             Reset.self,
@@ -70,13 +64,10 @@ public struct SwiftPackageTool: ParsableCommand {
 
             DefaultCommand.self,
         ]
-
-        if ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" {
-            subcommands += [Learn.self]
-        }
-
-        return subcommands
-    }
+            + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+        defaultSubcommand: DefaultCommand.self,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup()
     var globalOptions: GlobalOptions

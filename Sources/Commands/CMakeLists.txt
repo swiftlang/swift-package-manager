@@ -22,7 +22,6 @@ add_library(Commands
   PackageTools/ResetCommands.swift
   PackageTools/Resolve.swift
   PackageTools/ShowDependencies.swift
-  PackageTools/Sign.swift
   PackageTools/SwiftPackageTool.swift
   PackageTools/ToolsVersionCommand.swift
   PackageTools/Update.swift
@@ -52,7 +51,6 @@ target_link_libraries(Commands PUBLIC
   Build
   CoreCommands
   PackageGraph
-  PackageSigning
   SourceControl
   TSCBasic
   TSCUtility

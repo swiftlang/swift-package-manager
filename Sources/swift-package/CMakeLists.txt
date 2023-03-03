@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-package
-  runner.swift)
+  main.swift)
 target_link_libraries(swift-package PRIVATE
   Commands
   TSCBasic)
