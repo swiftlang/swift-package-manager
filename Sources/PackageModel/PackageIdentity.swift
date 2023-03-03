@@ -74,7 +74,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
         self.registry != nil
     }
 
-    public struct RegistryIdentity: CustomStringConvertible {
+    public struct RegistryIdentity: Hashable, CustomStringConvertible {
         public let scope: PackageIdentity.Scope
         public let name: PackageIdentity.Name
         public let underlying: PackageIdentity

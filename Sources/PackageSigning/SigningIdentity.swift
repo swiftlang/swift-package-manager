@@ -14,10 +14,11 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
+import CryptoKit // TODO: remove when we can import Crypto
 #endif
 
 import Basics
-import Crypto
+//import Crypto
 
 public protocol SigningIdentity {
     // TODO: change type to Certificate
@@ -86,7 +87,9 @@ public struct Certificate {
     public init(derEncoded: Data) {}
 
     public struct PrivateKey {
+        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         init(_: P256.Signing.PrivateKey) {}
+        #endif
     }
 }
 

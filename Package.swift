@@ -4,7 +4,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -204,7 +204,8 @@ let package = Package(
                 "Basics",
                 "PackageFingerprint",
                 "PackageLoading",
-                "PackageModel"
+                "PackageModel",
+                "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -293,10 +294,12 @@ let package = Package(
         .target(
             name: "PackageSigning",
             dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"),
+                // TODO: uncomment once we resolve build problems
+//                .product(name: "Crypto", package: "swift-crypto"),
                 "Basics",
                 "PackageModel",
-            ]
+            ],
+            exclude: ["CMakeLists.txt"]
         ),
 
         // MARK: Package Manager Functionality
@@ -348,6 +351,7 @@ let package = Package(
                 "PackageGraph",
                 "PackageModel",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
             ],
@@ -373,7 +377,6 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Build",
-                "PackageFingerprint",
                 "PackageLoading",
                 "PackageModel",
                 "PackageGraph",
@@ -540,6 +543,7 @@ let package = Package(
                 "PackageGraph",
                 "PackageLoading",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",

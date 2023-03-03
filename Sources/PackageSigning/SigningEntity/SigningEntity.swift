@@ -40,11 +40,6 @@ public struct SigningEntity: Hashable, Codable, CustomStringConvertible {
         self.organization = organization
     }
 
-    public init(of signature: Data, signatureFormat: SignatureFormat) throws {
-        let provider = signatureFormat.provider
-        self = try provider.signingEntity(of: signature)
-    }
-
     #if os(macOS)
     init(certificate: SecCertificate) {
         self.type = certificate.signingEntityType

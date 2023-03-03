@@ -127,6 +127,8 @@ extension SwiftPackageRegistryTool {
                 configuration: configuration,
                 fingerprintStorage: .none,
                 fingerprintCheckingMode: .strict,
+                signingEntityStorage: .none,
+                signingEntityCheckingMode: .strict,
                 authorizationProvider: authorizationProvider
             )
 

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,6 +19,7 @@ import PackageModel
 import PackageFingerprint
 import PackageGraph
 import PackageRegistry
+import PackageSigning
 import SourceControl
 import TSCBasic
 
@@ -350,6 +351,7 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: .none,
             customFingerprints: .none,
+            customSigningEntities: .none,
             customMirrors: .none,
             customToolsVersion: .none,
             customHostToolchain: customHostToolchain,
@@ -486,6 +488,7 @@ public class Workspace {
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration? = .none,
         customFingerprints: PackageFingerprintStorage? = .none,
+        customSigningEntities: PackageSigningEntityStorage? = .none,
         customMirrors: DependencyMirrors? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customHostToolchain: UserToolchain? = .none,
@@ -510,6 +513,7 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: customRegistriesConfiguration,
             customFingerprints: customFingerprints,
+            customSigningEntities: customSigningEntities,
             customMirrors: customMirrors,
             customToolsVersion: customToolsVersion,
             customHostToolchain: customHostToolchain,
@@ -537,6 +541,7 @@ public class Workspace {
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration?,
         customFingerprints: PackageFingerprintStorage?,
+        customSigningEntities: PackageSigningEntityStorage?,
         customMirrors: DependencyMirrors?,
         customToolsVersion: ToolsVersion?,
         customHostToolchain: UserToolchain?,
@@ -598,6 +603,13 @@ public class Workspace {
                 directoryPath: $0
             )
         }
+        
+        let signingEntities = customSigningEntities ?? location.sharedSigningEntitiesDirectory.map {
+            FilePackageSigningEntityStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
 
         let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
             fileSystem: fileSystem,
@@ -608,7 +620,9 @@ public class Workspace {
         let registryClient = customRegistryClient ?? RegistryClient(
             configuration: registriesConfiguration,
             fingerprintStorage: fingerprints,
-            fingerprintCheckingMode: configuration.fingerprintCheckingMode,
+            fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
+            signingEntityStorage: signingEntities,
+            signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
             authorizationProvider: registryAuthorizationProvider
         )
 
@@ -3044,7 +3058,7 @@ extension Workspace: PackageContainerProvider {
                             manifestLoader: self.manifestLoader,
                             currentToolsVersion: self.currentToolsVersion,
                             fingerprintStorage: self.fingerprints,
-                            fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
+                            fingerprintCheckingMode: FingerprintCheckingMode.map(self.configuration.fingerprintCheckingMode),
                             observabilityScope: observabilityScope
                         )
                     }
@@ -3125,6 +3139,28 @@ extension Workspace: PackageContainerProvider {
 
         // Save the state.
         try self.state.save()
+    }
+}
+
+extension FingerprintCheckingMode {
+    static func map(_ checkingMode: WorkspaceConfiguration.CheckingMode) -> FingerprintCheckingMode {
+        switch checkingMode {
+        case .strict:
+            return .strict
+        case .warn:
+            return .warn
+        }
+    }
+}
+
+extension SigningEntityCheckingMode {
+    static func map(_ checkingMode: WorkspaceConfiguration.CheckingMode) -> SigningEntityCheckingMode {
+        switch checkingMode {
+        case .strict:
+            return .strict
+        case .warn:
+            return .warn
+        }
     }
 }
 

@@ -16,6 +16,7 @@ import PackageFingerprint
 import PackageLoading
 import PackageModel
 @testable import PackageRegistry
+import PackageSigning
 import SPMTestSupport
 import TSCBasic
 import XCTest
@@ -1033,6 +1034,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -1116,6 +1119,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict, // intended for this test; don't change
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -1205,6 +1210,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .warn, // intended for this test; don't change
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -1322,6 +1329,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -1445,6 +1454,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
@@ -1498,6 +1509,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: .none,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient
         )
 
@@ -1548,6 +1561,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: .none,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient
         )
 
@@ -1594,6 +1609,8 @@ final class RegistryClientTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: .none,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient
         )
 
@@ -2498,12 +2515,16 @@ func makeRegistryClient(
     httpClient: LegacyHTTPClient,
     authorizationProvider: AuthorizationProvider? = .none,
     fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
-    fingerprintCheckingMode: FingerprintCheckingMode = .strict
+    fingerprintCheckingMode: FingerprintCheckingMode = .strict,
+    signingEntityStorage: PackageSigningEntityStorage = MockPackageSigningEntityStorage(),
+    signingEntityCheckingMode: SigningEntityCheckingMode = .strict
 ) -> RegistryClient {
     RegistryClient(
         configuration: configuration,
         fingerprintStorage: fingerprintStorage,
         fingerprintCheckingMode: fingerprintCheckingMode,
+        signingEntityStorage: signingEntityStorage,
+        signingEntityCheckingMode: signingEntityCheckingMode,
         authorizationProvider: authorizationProvider,
         customHTTPClient: httpClient,
         customArchiverProvider: { _ in MockArchiver() }

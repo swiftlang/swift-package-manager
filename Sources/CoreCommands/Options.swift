@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,8 +13,6 @@
 import ArgumentParser
 
 import struct Foundation.URL
-
-import enum PackageFingerprint.FingerprintCheckingMode
 
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
@@ -30,6 +28,8 @@ import struct TSCBasic.StringError
 
 import struct TSCUtility.Triple
 import struct TSCUtility.Version
+
+import struct Workspace.WorkspaceConfiguration
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}
@@ -217,7 +217,10 @@ public struct SecurityOptions: ParsableArguments {
     #endif
 
     @Option(name: .customLong("resolver-fingerprint-checking"))
-    public var fingerprintCheckingMode: FingerprintCheckingMode = .strict
+    public var fingerprintCheckingMode: WorkspaceConfiguration.CheckingMode = .strict
+
+    @Option(name: .customLong("resolver-signing-entity-checking"))
+    public var signingEntityCheckingMode: WorkspaceConfiguration.CheckingMode = .warn
 }
 
 public struct ResolverOptions: ParsableArguments {
@@ -473,7 +476,7 @@ extension AbsolutePath: ExpressibleByArgument {
     }
 }
 
-extension FingerprintCheckingMode: ExpressibleByArgument {
+extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {
     public init?(argument: String) {
         self.init(rawValue: argument)
     }

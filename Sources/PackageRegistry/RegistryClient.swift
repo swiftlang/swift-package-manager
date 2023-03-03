@@ -16,6 +16,7 @@ import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
+import PackageSigning
 import TSCBasic
 
 import struct TSCUtility.Version
@@ -25,6 +26,7 @@ import struct TSCUtility.Version
 public final class RegistryClient: Cancellable {
     private static let apiVersion: APIVersion = .v1
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
+    private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
     private let configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
@@ -32,17 +34,29 @@ public final class RegistryClient: Cancellable {
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let jsonDecoder: JSONDecoder
 
-    private var checksumTOFU: PackageVersionChecksumTOFU!
+    // TODO: Both of these make HTTP call to fetch package version metadata.
+    // Perhaps one way to optimize is introduce `PackageValidation` that
+    // wraps around these, and have it fetch the metadata then feed it to each.
+    // This way we would only fetch metadata once per download archive transaction.
+    private(set) var checksumTOFU: PackageVersionChecksumTOFU!
+    private(set) var signatureValidation: SignatureValidation!
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
         (status: Result<AvailabilityStatus, Error>, expires: DispatchTime)
     >()
 
+    private let metadataCache = ThreadSafeKeyValueStore<
+        MetadataCacheKey,
+        (metadata: Serialization.VersionMetadata, expires: DispatchTime)
+    >()
+
     public init(
         configuration: RegistryConfiguration,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
+        signingEntityStorage: PackageSigningEntityStorage?,
+        signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: LegacyHTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
@@ -80,6 +94,11 @@ public final class RegistryClient: Cancellable {
         self.checksumTOFU = PackageVersionChecksumTOFU(
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
+            registryClient: self
+        )
+        self.signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
             registryClient: self
         )
     }
@@ -314,7 +333,6 @@ public final class RegistryClient: Cancellable {
         }
     }
 
-    // TODO: add caching
     // marked internal for testing
     func _getRawPackageVersionMetadata(
         registry: Registry,
@@ -326,6 +344,11 @@ public final class RegistryClient: Cancellable {
         completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
+
+        let cacheKey = MetadataCacheKey(registry: registry, package: package)
+        if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
+            return completion(.success(cached.metadata))
+        }
 
         guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
             return completion(.failure(RegistryError.invalidURL(registry.url)))
@@ -350,10 +373,12 @@ public final class RegistryClient: Cancellable {
                 result.tryMap { response in
                     switch response.statusCode {
                     case 200:
-                        return try response.parseJSON(
+                        let metadata = try response.parseJSON(
                             Serialization.VersionMetadata.self,
                             decoder: self.jsonDecoder
                         )
+                        self.metadataCache[cacheKey] = (metadata: metadata, expires: .now() + Self.metadataCacheTTL)
+                        return metadata
                     case 404:
                         throw RegistryError.packageVersionNotFound
                     default:
@@ -738,7 +763,7 @@ public final class RegistryClient: Cancellable {
                             let contents = try fileSystem.readFileContents(downloadPath)
                             let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
 
-                            self.checksumTOFU.check(
+                            self.checksumTOFU.validate(
                                 registry: registry,
                                 package: package,
                                 version: version,
@@ -1175,6 +1200,11 @@ public final class RegistryClient: Cancellable {
         options.authorizationProvider = self.authorizationProvider
         return options
     }
+
+    private struct MetadataCacheKey: Hashable {
+        let registry: Registry
+        let package: PackageIdentity.RegistryIdentity
+    }
 }
 
 public enum RegistryError: Error, CustomStringConvertible {
@@ -1209,75 +1239,121 @@ public enum RegistryError: Error, CustomStringConvertible {
     case registryNotAvailable(Registry)
     case packageNotFound
     case packageVersionNotFound
+    case sourceArchiveNotSigned(registry: Registry, package: PackageIdentity, version: Version)
+    case failedLoadingSignature
+    case failedRetrievingSourceArchiveSignature(
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
+        error: Error
+    )
+    case missingConfiguration(details: String)
+    case missingSignatureFormat
+    case unknownSignatureFormat(String)
+    case invalidSignature(reason: String)
+    case invalidSigningCertificate(reason: String)
+    case signerNotTrusted
+    case failedToValidateSignature(Error)
+    case signingEntityForReleaseChanged(
+        package: PackageIdentity,
+        version: Version,
+        latest: SigningEntity?,
+        previous: SigningEntity
+    )
+    case signingEntityForPackageChanged(package: PackageIdentity, latest: SigningEntity?, previous: SigningEntity)
 
     public var description: String {
         switch self {
         case .registryNotConfigured(let scope):
             if let scope = scope {
-                return "No registry configured for '\(scope)' scope"
+                return "no registry configured for '\(scope)' scope"
             } else {
-                return "No registry configured'"
+                return "no registry configured'"
             }
         case .invalidPackageIdentity(let packageIdentity):
-            return "Invalid package identifier '\(packageIdentity)'"
+            return "invalid package identifier '\(packageIdentity)'"
         case .invalidURL(let url):
-            return "Invalid URL '\(url)'"
+            return "invalid URL '\(url)'"
         case .invalidResponseStatus(let expected, let actual):
-            return "Invalid registry response status '\(actual)', expected '\(expected)'"
+            return "invalid registry response status '\(actual)', expected '\(expected)'"
         case .invalidContentVersion(let expected, let actual):
-            return "Invalid registry response content version '\(actual ?? "")', expected '\(expected)'"
+            return "invalid registry response content version '\(actual ?? "")', expected '\(expected)'"
         case .invalidContentType(let expected, let actual):
-            return "Invalid registry response content type '\(actual ?? "")', expected '\(expected)'"
+            return "invalid registry response content type '\(actual ?? "")', expected '\(expected)'"
         case .invalidResponse:
-            return "Invalid registry response"
+            return "invalid registry response"
         case .missingSourceArchive:
-            return "Missing registry source archive"
+            return "missing registry source archive"
         case .invalidSourceArchive:
-            return "Invalid registry source archive"
+            return "invalid registry source archive"
         case .unsupportedHashAlgorithm(let algorithm):
-            return "Unsupported hash algorithm '\(algorithm)'"
+            return "unsupported hash algorithm '\(algorithm)'"
         case .failedToComputeChecksum(let error):
-            return "Failed computing registry source archive checksum: \(error)"
+            return "failed computing registry source archive checksum: \(error)"
         case .checksumChanged(let latest, let previous):
-            return "The latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
+            return "the latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
         case .invalidChecksum(let expected, let actual):
-            return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
+            return "invalid registry source archive checksum '\(actual)', expected '\(expected)'"
         case .pathAlreadyExists(let path):
-            return "Path already exists '\(path)'"
+            return "path already exists '\(path)'"
         case .failedRetrievingReleases(let registry, let packageIdentity, let error):
-            return "Failed fetching '\(packageIdentity)' releases list from '\(registry)': \(error)"
+            return "failed fetching '\(packageIdentity)' releases list from '\(registry)': \(error)"
         case .failedRetrievingReleaseInfo(let registry, let packageIdentity, let version, let error):
-            return "Failed fetching '\(packageIdentity)@\(version)' release information from '\(registry)': \(error)"
+            return "failed fetching '\(packageIdentity)@\(version)' release information from '\(registry)': \(error)"
         case .failedRetrievingReleaseChecksum(let registry, let packageIdentity, let version, let error):
-            return "Failed fetching '\(packageIdentity)@\(version)' release checksum from '\(registry)': \(error)"
+            return "failed fetching '\(packageIdentity)@\(version)' release checksum from '\(registry)': \(error)"
         case .failedRetrievingManifest(let registry, let packageIdentity, let version, let error):
-            return "Failed retrieving '\(packageIdentity)@\(version)' manifest from '\(registry)': \(error)"
+            return "failed retrieving '\(packageIdentity)@\(version)' manifest from '\(registry)': \(error)"
         case .failedDownloadingSourceArchive(let registry, let packageIdentity, let version, let error):
-            return "Failed downloading '\(packageIdentity)@\(version)' source archive from '\(registry)': \(error)"
+            return "failed downloading '\(packageIdentity)@\(version)' source archive from '\(registry)': \(error)"
         case .failedIdentityLookup(let registry, let scmURL, let error):
-            return "Failed looking up identity for '\(scmURL)' on '\(registry)': \(error)"
+            return "failed looking up identity for '\(scmURL)' on '\(registry)': \(error)"
         case .failedLoadingPackageArchive(let path):
-            return "Failed loading package archive at '\(path)' for publishing"
+            return "failed loading package archive at '\(path)' for publishing"
         case .failedLoadingPackageMetadata(let path):
-            return "Failed loading package metadata at '\(path)' for publishing"
+            return "failed loading package metadata at '\(path)' for publishing"
         case .failedPublishing(let error):
-            return "Failed publishing: \(error)"
+            return "failed publishing: \(error)"
         case .missingPublishingLocation:
-            return "Response missing registry source archive"
+            return "response missing registry source archive"
         case .serverError(let code, let details):
-            return "Server error \(code): \(details)"
+            return "server error \(code): \(details)"
         case .unauthorized:
-            return "Missing or invalid authentication credentials"
+            return "missing or invalid authentication credentials"
         case .authenticationMethodNotSupported:
-            return "Authentication method not supported"
+            return "authentication method not supported"
         case .forbidden:
-            return "Forbidden"
+            return "forbidden"
         case .registryNotAvailable(let registry):
             return "registry at '\(registry.url)' is not available at this time, please try again later"
         case .packageNotFound:
             return "package not found on registry"
         case .packageVersionNotFound:
             return "package version not found on registry"
+        case .sourceArchiveNotSigned(let registry, let packageIdentity, let version):
+            return "'\(packageIdentity)@\(version)' source archive from '\(registry)' is not signed"
+        case .failedLoadingSignature:
+            return "failed loading signature for validation"
+        case .failedRetrievingSourceArchiveSignature(let registry, let packageIdentity, let version, let error):
+            return "failed retrieving '\(packageIdentity)@\(version)' source archive signature from '\(registry)': \(error)"
+        case .missingConfiguration(let details):
+            return "unable to proceed because of missing configuration: \(details)"
+        case .missingSignatureFormat:
+            return "missing signature format"
+        case .unknownSignatureFormat(let format):
+            return "unknown signature format: \(format)"
+        case .invalidSignature(let reason):
+            return "signature is invalid: \(reason)"
+        case .invalidSigningCertificate(let reason):
+            return "the signing certificate is invalid: \(reason)"
+        case .signerNotTrusted:
+            return "the signer is not trusted"
+        case .failedToValidateSignature(let error):
+            return "failed to validate signature: \(error)"
+        case .signingEntityForReleaseChanged(let package, let version, let latest, let previous):
+            return "the signing entity '\(String(describing: latest))' for '\(package)@\(version)' is different from the previously recorded value '\(previous)'"
+        case .signingEntityForPackageChanged(let package, let latest, let previous):
+            return "the signing entity '\(String(describing: latest))' for '\(package)' is different from the previously recorded value '\(previous)'"
         }
     }
 }
@@ -1607,6 +1683,10 @@ extension RegistryClient {
             public let resources: [Resource]
             public let metadata: AdditionalMetadata?
 
+            var sourceArchive: Resource? {
+                self.resources.first(where: { $0.name == "source-archive" })
+            }
+
             public init(
                 id: String,
                 version: String,
@@ -1623,12 +1703,19 @@ extension RegistryClient {
                 public let name: String
                 public let type: String
                 public let checksum: String?
+                public let signing: Signing?
 
-                public init(name: String, type: String, checksum: String) {
+                public init(name: String, type: String, checksum: String, signing: Signing?) {
                     self.name = name
                     self.type = type
                     self.checksum = checksum
+                    self.signing = signing
                 }
+            }
+
+            public struct Signing: Codable {
+                public let signatureBase64Encoded: String
+                public let signatureFormat: String
             }
 
             public struct AdditionalMetadata: Codable {

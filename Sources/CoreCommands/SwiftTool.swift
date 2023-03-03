@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -463,6 +463,7 @@ public final class SwiftTool {
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
+                signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
                 restrictImports: .none
             ),

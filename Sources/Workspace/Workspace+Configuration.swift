@@ -115,6 +115,11 @@ extension Workspace {
         public var sharedFingerprintsDirectory: AbsolutePath? {
             self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
         }
+        
+        /// Path to the shared directory where package signing records are kept.
+        public var sharedSigningEntitiesDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending(component: "signing-entities") }
+        }
 
         /// Path to the shared trusted root certificates directory.
         public var sharedTrustedRootCertificatesDirectory: AbsolutePath? {
@@ -679,8 +684,11 @@ public struct WorkspaceConfiguration {
     /// Enables the shared dependencies cache. Enabled by default.
     public var sharedDependenciesCacheEnabled: Bool
 
-    ///  Fingerprint checking mode. Defaults to warn.
-    public var fingerprintCheckingMode: FingerprintCheckingMode
+    ///  Fingerprint checking mode. Defaults to strict.
+    public var fingerprintCheckingMode: CheckingMode
+    
+    ///  Signing entity checking mode. Defaults to warn.
+    public var signingEntityCheckingMode: CheckingMode
 
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
@@ -701,7 +709,8 @@ public struct WorkspaceConfiguration {
         createREPLProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
-        fingerprintCheckingMode: FingerprintCheckingMode,
+        fingerprintCheckingMode: CheckingMode,
+        signingEntityCheckingMode: CheckingMode,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
@@ -712,6 +721,7 @@ public struct WorkspaceConfiguration {
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
+        self.signingEntityCheckingMode = signingEntityCheckingMode
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.restrictImports = restrictImports
     }
@@ -726,6 +736,7 @@ public struct WorkspaceConfiguration {
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
+            signingEntityCheckingMode: .warn,
             sourceControlToRegistryDependencyTransformation: .disabled,
             restrictImports: .none
         )
@@ -735,6 +746,11 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+    }
+
+    public enum CheckingMode: String {
+        case strict
+        case warn
     }
 }
 

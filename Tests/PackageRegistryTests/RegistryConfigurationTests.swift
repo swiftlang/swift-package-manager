@@ -65,7 +65,7 @@ final class RegistryConfigurationTests: XCTestCase {
         var registryOverride = RegistryConfiguration.Security.RegistryOverride()
         registryOverride.signing = RegistryConfiguration.Security.Signing()
         registryOverride.signing?.onUnsigned = .silentAllow
-        registryOverride.signing?.onUntrustedCertificate = .silentTrust
+        registryOverride.signing?.onUntrustedCertificate = .silentAllow
         registryOverride.signing?.trustedRootCertificatesPath = "/foo/roots"
         registryOverride.signing?.includeDefaultTrustedRootCertificates = false
         registryOverride.signing?.validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
@@ -80,7 +80,7 @@ final class RegistryConfigurationTests: XCTestCase {
         scopeOverride.signing?.includeDefaultTrustedRootCertificates = false
         security.scopeOverrides[scope] = scopeOverride
         // packageOverrides
-        let packageIdentity = PackageIdentity.plain("mona.LinkedList")
+        let packageIdentity = PackageIdentity.plain("mona.LinkedList").registry!
         var packageOverride = RegistryConfiguration.Security.ScopePackageOverride()
         packageOverride.signing = RegistryConfiguration.Security.ScopePackageOverride.Signing()
         packageOverride.signing?.trustedRootCertificatesPath = "/mona/LinkedList/roots"
@@ -244,12 +244,12 @@ final class RegistryConfigurationTests: XCTestCase {
             false
         )
         XCTAssertEqual(
-            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList")]?.signing?
+            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList").registry!]?.signing?
                 .trustedRootCertificatesPath,
             "/mona/LinkedList/roots"
         )
         XCTAssertEqual(
-            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList")]?.signing?
+            configuration.security?.packageOverrides[PackageIdentity.plain("mona.LinkedList").registry!]?.signing?
                 .includeDefaultTrustedRootCertificates,
             false
         )
@@ -388,9 +388,9 @@ final class RegistryConfigurationTests: XCTestCase {
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        let signing = try configuration.signing(for: package, registry: registry)
+        let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
         XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
@@ -421,9 +421,9 @@ final class RegistryConfigurationTests: XCTestCase {
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        let signing = try configuration.signing(for: package, registry: registry)
+        let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .error)
         XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
@@ -461,9 +461,9 @@ final class RegistryConfigurationTests: XCTestCase {
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        let signing = try configuration.signing(for: package, registry: registry)
+        let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
         XCTAssertEqual(signing.onUntrustedCertificate, .warn)
@@ -497,9 +497,9 @@ final class RegistryConfigurationTests: XCTestCase {
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        let signing = try configuration.signing(for: package, registry: registry)
+        let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
         XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
@@ -533,9 +533,9 @@ final class RegistryConfigurationTests: XCTestCase {
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
         let registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        let signing = try configuration.signing(for: package, registry: registry)
+        let signing = configuration.signing(for: package, registry: registry)
 
         XCTAssertEqual(signing.onUnsigned, .prompt)
         XCTAssertEqual(signing.onUntrustedCertificate, .prompt)
@@ -544,7 +544,7 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertEqual(signing.validationChecks?.certificateExpiration, .disabled)
         XCTAssertEqual(signing.validationChecks?.certificateRevocation, .disabled)
     }
-    
+
     func testGetSigning_multipleOverrides() throws {
         let json = #"""
         {
@@ -584,27 +584,27 @@ final class RegistryConfigurationTests: XCTestCase {
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
         // Package override wins
-        var package = PackageIdentity.plain("mona.LinkedList")
+        var package = PackageIdentity.plain("mona.LinkedList").registry!
         var registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        var signing = try configuration.signing(for: package, registry: registry)
+        var signing = configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/linkedlist/roots")
-        
+
         // No package override, closest match is scope override
-        package = PackageIdentity.plain("mona.Trie")
+        package = PackageIdentity.plain("mona.Trie").registry!
         registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        signing = try configuration.signing(for: package, registry: registry)
+        signing = configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/mona/roots")
-        
+
         // No package override, closest match is registry override
-        package = PackageIdentity.plain("foo.bar")
+        package = PackageIdentity.plain("foo.bar").registry!
         registry = Registry(url: "https://packages.example.com", supportsAvailability: false)
-        signing = try configuration.signing(for: package, registry: registry)
+        signing = configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/foo/roots")
-        
+
         // Global override
-        package = PackageIdentity.plain("foo.bar")
+        package = PackageIdentity.plain("foo.bar").registry!
         registry = Registry(url: "https://other.example.com", supportsAvailability: false)
-        signing = try configuration.signing(for: package, registry: registry)
+        signing = configuration.signing(for: package, registry: registry)
         XCTAssertEqual(signing.trustedRootCertificatesPath, "/custom/roots")
     }
 }

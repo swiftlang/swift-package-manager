@@ -55,7 +55,7 @@ public struct RegistryConfiguration: Hashable {
     }
 
     public func registry(for scope: PackageIdentity.Scope) -> Registry? {
-        self.scopedRegistries[scope] ?? self.defaultRegistry    
+        self.scopedRegistries[scope] ?? self.defaultRegistry
     }
 
     public var explicitlyConfigured: Bool {
@@ -67,14 +67,10 @@ public struct RegistryConfiguration: Hashable {
         return self.registryAuthentication[host]
     }
 
-    public func signing(for package: PackageIdentity, registry: Registry) throws -> Security.Signing {
-        guard let registryIdentity = package.registry else {
-            throw StringError("Only package identity in <scope>.<name> format is supported: '\(package)'")
-        }
-
+    public func signing(for package: PackageIdentity.RegistryIdentity, registry: Registry) -> Security.Signing {
         let global = self.security?.default.signing
         let registryOverrides = registry.url.host.flatMap { host in self.security?.registryOverrides[host]?.signing }
-        let scopeOverrides = self.security?.scopeOverrides[registryIdentity.scope]?.signing
+        let scopeOverrides = self.security?.scopeOverrides[package.scope]?.signing
         let packageOverrides = self.security?.packageOverrides[package]?.signing
 
         var signing = Security.Signing.default
@@ -117,7 +113,7 @@ extension RegistryConfiguration {
         public var `default`: Global
         public var registryOverrides: [String: RegistryOverride]
         public var scopeOverrides: [PackageIdentity.Scope: ScopePackageOverride]
-        public var packageOverrides: [PackageIdentity: ScopePackageOverride]
+        public var packageOverrides: [PackageIdentity.RegistryIdentity: ScopePackageOverride]
 
         public init() {
             self.default = Global()
@@ -126,11 +122,29 @@ extension RegistryConfiguration {
             self.packageOverrides = [:]
         }
 
+        // for testing
+        init(
+            default: Global,
+            registryOverrides: [String: RegistryOverride] = [:],
+            scopeOverrides: [PackageIdentity.Scope: ScopePackageOverride] = [:],
+            packageOverrides: [PackageIdentity.RegistryIdentity: ScopePackageOverride] = [:]
+        ) {
+            self.default = `default`
+            self.registryOverrides = registryOverrides
+            self.scopeOverrides = scopeOverrides
+            self.packageOverrides = packageOverrides
+        }
+
         public struct Global: Hashable, Codable {
             public var signing: Signing?
 
             public init() {
                 self.signing = nil
+            }
+
+            // for testing
+            init(signing: Signing) {
+                self.signing = signing
             }
         }
 
@@ -210,7 +224,7 @@ extension RegistryConfiguration {
                 case error
                 case prompt
                 case warn
-                case silentTrust
+                case silentAllow
             }
 
             public struct ValidationChecks: Hashable, Codable {
@@ -412,10 +426,9 @@ extension RegistryConfiguration.Security: Codable {
             [String: ScopePackageOverride].self,
             forKey: .packageOverrides
         ) ?? [:]
-        var packageOverrides: [PackageIdentity: ScopePackageOverride] = [:]
+        var packageOverrides: [PackageIdentity.RegistryIdentity: ScopePackageOverride] = [:]
         for (key, packageOverride) in packageOverridesContainer {
-            let packageIdentity = PackageIdentity.plain(key)
-            guard packageIdentity.isRegistry else {
+            guard let packageIdentity = PackageIdentity.plain(key).registry else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .packageOverrides,
                     in: container,

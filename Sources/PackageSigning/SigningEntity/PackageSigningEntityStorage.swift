@@ -36,6 +36,27 @@ public protocol PackageSigningEntityStorage {
     )
 }
 
+extension Dictionary where Key == SigningEntity, Value == Set<Version> {
+    public func signingEntity(of version: Version) -> SigningEntity? {
+        for (signingEntity, versions) in self {
+            if versions.contains(version) {
+                return signingEntity
+            }
+        }
+        return nil
+    }
+
+    public var versionSigners: [Version: SigningEntity] {
+        var versionSigners = [Version: SigningEntity]()
+        for (signingEntity, versions) in self {
+            versions.forEach { version in
+                versionSigners[version] = signingEntity
+            }
+        }
+        return versionSigners
+    }
+}
+
 public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConvertible {
     case conflict(package: PackageIdentity, version: Version, given: SigningEntity, existing: SigningEntity)
 
@@ -45,4 +66,9 @@ public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConv
             return "\(package)@\(version) was previously signed by \(existing), which is different from \(given)."
         }
     }
+}
+
+public enum SigningEntityCheckingMode: String {
+    case strict
+    case warn
 }
