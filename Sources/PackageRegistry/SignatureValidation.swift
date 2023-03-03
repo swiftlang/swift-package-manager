@@ -60,20 +60,21 @@ struct SignatureValidation {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            completion(
-                result.tryMap { signingEntity in
-                    // Always do signing entity TOFU check at the end,
-                    // whether the package is signed or not.
-                    self.signingEntityTOFU.validate(
-                        package: package,
-                        version: version,
-                        signingEntity: signingEntity,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue,
-                        completion: completion
-                    )
-                }
-            )
+            switch result {
+            case .success(let signingEntity):
+                // Always do signing entity TOFU check at the end,
+                // whether the package is signed or not.
+                self.signingEntityTOFU.validate(
+                    package: package,
+                    version: version,
+                    signingEntity: signingEntity,
+                    observabilityScope: observabilityScope,
+                    callbackQueue: callbackQueue,
+                    completion: completion
+                )
+            case .failure(let error):
+                completion(.failure(error))
+            }
         }
     }
 
@@ -120,16 +121,17 @@ struct SignatureValidation {
                 switch onUnsigned {
                 case .error:
                     completion(.failure(error))
-                case .prompt:
-                    if case RegistryError.sourceArchiveNotSigned = error {
-                        // Source archive is not signed
-                        // TODO: Call delegate to prompt user to continue with unsigned package or error.
-                        fatalError("TO BE IMPLEMENTED")
-                    } else {
-                        // Cannot determine if source archive is signed or not
-                        // TODO: Call delegate to prompt user to continue with package as if it were unsigned or error.
-                        fatalError("TO BE IMPLEMENTED")
-                    }
+//                case .prompt:
+//                    if case RegistryError.sourceArchiveNotSigned = error {
+//                        // Source archive is not signed
+//                        // TODO: Call delegate to prompt user to continue with unsigned package or error.
+//                        fatalError("TO BE IMPLEMENTED")
+//                    } else {
+//                        // Cannot determine if source archive is signed or not
+//                        // TODO: Call delegate to prompt user to continue with package as if it were unsigned or
+//                        /error.
+//                        fatalError("TO BE IMPLEMENTED")
+//                    }
                 case .warn:
                     observabilityScope.emit(warning: "\(error)")
                     completion(.success(.none))
@@ -184,9 +186,9 @@ struct SignatureValidation {
                     case .error:
                         // TODO: populate error with signer detail
                         completion(.failure(RegistryError.signerNotTrusted))
-                    case .prompt:
-                        // TODO: Call delegate to prompt user to continue with package or error.
-                        fatalError("TO BE IMPLEMENTED")
+//                    case .prompt:
+//                        // TODO: Call delegate to prompt user to continue with package or error.
+//                        fatalError("TO BE IMPLEMENTED")
                     case .warn:
                         // TODO: populate error with signer detail
                         observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")

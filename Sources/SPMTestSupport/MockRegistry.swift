@@ -50,6 +50,7 @@ public class MockRegistry {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = .init(url: Self.mockRegistryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         self.registryClient = RegistryClient(
             configuration: configuration,
@@ -173,7 +174,10 @@ public class MockRegistry {
         let metadata = RegistryClient.Serialization.PackageMetadata(
             releases: versions.keys
                 .reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
-                    partial[item] = .init(url: "\(Self.mockRegistryURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)")
+                    partial[item] =
+                        .init(
+                            url: "\(Self.mockRegistryURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)"
+                        )
                 }
         )
 
@@ -437,4 +441,16 @@ private struct MockRegistryArchiver: Archiver {
         let content: String = try self.fileSystem.readFileContents(path)
         return content.split(separator: "\n").map(String.init)
     }
+}
+
+extension RegistryConfiguration.Security {
+    public static let testDefault: RegistryConfiguration.Security = {
+        var signing = RegistryConfiguration.Security.Signing()
+        signing.onUnsigned = .silentAllow
+        signing.onUntrustedCertificate = .silentAllow
+
+        var security = RegistryConfiguration.Security()
+        security.default.signing = signing
+        return security
+    }()
 }

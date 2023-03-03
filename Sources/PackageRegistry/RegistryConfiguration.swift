@@ -159,8 +159,8 @@ extension RegistryConfiguration {
         public struct Signing: Hashable, Codable {
             static let `default`: Signing = {
                 var signing = Signing()
-                signing.onUnsigned = .prompt
-                signing.onUntrustedCertificate = .prompt
+                signing.onUnsigned = .warn
+                signing.onUntrustedCertificate = .warn
                 signing.trustedRootCertificatesPath = nil
                 signing.includeDefaultTrustedRootCertificates = true
 
@@ -215,14 +215,14 @@ extension RegistryConfiguration {
 
             public enum OnUnsignedAction: String, Hashable, Codable {
                 case error
-                case prompt
+//                case prompt
                 case warn
                 case silentAllow
             }
 
             public enum OnUntrustedCertificateAction: String, Hashable, Codable {
                 case error
-                case prompt
+//                case prompt
                 case warn
                 case silentAllow
             }

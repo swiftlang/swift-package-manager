@@ -1024,6 +1024,7 @@ final class RegistryClientTests: XCTestCase {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -1106,6 +1107,7 @@ final class RegistryClientTests: XCTestCase {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -1197,6 +1199,7 @@ final class RegistryClientTests: XCTestCase {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -1323,6 +1326,7 @@ final class RegistryClientTests: XCTestCase {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         let fingerprintStorage = MockPackageFingerprintStorage()
         let registryClient = RegistryClient(
@@ -1448,6 +1452,7 @@ final class RegistryClientTests: XCTestCase {
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         let fingerprintStorage = MockPackageFingerprintStorage()
         let registryClient = RegistryClient(
