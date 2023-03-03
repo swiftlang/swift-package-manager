@@ -13,7 +13,6 @@ add_library(PackageSigning STATIC
   SignatureProvider.swift
   SigningIdentity.swift)
 target_link_libraries(PackageSigning PUBLIC
-  $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
   # Crypto ## TODO: uncomment once we resolve build problems
