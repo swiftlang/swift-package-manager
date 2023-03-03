@@ -14,8 +14,9 @@ import Foundation
 import XCTest
 
 import Basics
-import PackageSigning
+@testable import PackageSigning
 import SPMTestSupport
+import X509
 
 final class SigningTests: XCTestCase {
     #if swift(>=5.5.2)
@@ -34,10 +35,10 @@ final class SigningTests: XCTestCase {
         let matches = try await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
-        let info = matches[0].info
-        XCTAssertNotNil(info.commonName)
-        XCTAssertNotNil(info.organizationalUnit)
-        XCTAssertNotNil(info.organization)
+        let subject = try Certificate(secIdentity: matches[0] as! SecIdentity).subject
+        XCTAssertNotNil(subject.commonName)
+        XCTAssertNotNil(subject.organizationalUnitName)
+        XCTAssertNotNil(subject.organizationName)
 
         let content = "per aspera ad astra".data(using: .utf8)!
         let signatureFormat = SignatureFormat.cms_1_0_0

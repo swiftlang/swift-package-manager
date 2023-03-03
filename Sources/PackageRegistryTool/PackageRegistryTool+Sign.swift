@@ -124,9 +124,10 @@ public enum PackageArchiveSigner {
         case .certificate(let certificatePath, let privateKeyPath):
             let certificateData: Data = try fileSystem.readFileContents(certificatePath)
             let privateKeyData: Data = try fileSystem.readFileContents(privateKeyPath)
-            signingIdentity = SwiftSigningIdentity(
-                certificate: Certificate(derEncoded: certificateData),
-                privateKey: try signatureFormat.privateKey(derRepresentation: privateKeyData)
+            signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: certificateData,
+                derEncodedPrivateKey: privateKeyData,
+                privateKeyType: signatureFormat.signingKeyType
             )
         }
 

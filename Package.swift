@@ -287,9 +287,9 @@ let package = Package(
             name: "PackageSigning",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "X509", package: "swift-certificates"),
                 "Basics",
                 "PackageModel",
-                .product(name: "X509", package: "swift-certificates"),
             ],
             exclude: ["CMakeLists.txt"]
         ),

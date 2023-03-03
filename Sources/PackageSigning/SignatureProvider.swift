@@ -12,9 +12,8 @@
 
 import struct Foundation.Data
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Security
-import CryptoKit // TODO: remove when we can import Crypto
 #endif
 
 import Basics
@@ -50,7 +49,7 @@ public enum SignatureProvider {
 }
 
 public struct VerifierConfiguration {
-    public var trustedRoots: [Certificate]
+    public var trustedRoots: [Data]
     public var certificateExpiration: CertificateExpiration
     public var certificateRevocation: CertificateRevocation
 
@@ -79,12 +78,10 @@ public enum SignatureStatus: Equatable {
     case certificateNotTrusted // TODO: include signer details
 }
 
-extension Certificate {
-    public enum RevocationStatus {
-        case valid
-        case revoked
-        case unknown
-    }
+public enum CertificateRevocationStatus {
+    case valid
+    case revoked
+    case unknown
 }
 
 public enum SigningError: Error {
@@ -109,34 +106,24 @@ protocol SignatureProviderProtocol {
     ) async throws -> SignatureStatus
 }
 
+public enum SigningKeyType {
+    case p256
+}
+
 public enum SignatureFormat: String {
     case cms_1_0_0 = "cms-1.0.0"
+    
+    public var signingKeyType: SigningKeyType {
+        switch self {
+        case .cms_1_0_0:
+            return .p256
+        }
+    }
 
     var provider: SignatureProviderProtocol {
         switch self {
         case .cms_1_0_0:
             return CMSSignatureProvider(format: self)
-        }
-    }
-
-    public func privateKey(derRepresentation: Data) throws -> Certificate.PrivateKey {
-        switch self {
-        case .cms_1_0_0:
-            // TODO: don't need this check after https://github.com/apple/swift-package-manager/pull/6138
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-            if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
-                do {
-                    let backingKey = try P256.Signing.PrivateKey(derRepresentation: derRepresentation)
-                    return Certificate.PrivateKey(backingKey)
-                } catch {
-                    throw StringError("Signature format \(self.rawValue) requires ECDSA P-256 key")
-                }
-            } else {
-                fatalError("TO BE IMPLEMENTED")
-            }
-            #else
-            fatalError("TO BE IMPLEMENTED")
-            #endif
         }
     }
 }
@@ -249,7 +236,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             return .certificateNotTrusted
         }
 
-        var revocationStatus: Certificate.RevocationStatus?
+        var revocationStatus: CertificateRevocationStatus?
         if let trustResult = SecTrustCopyResult(trust) as? [String: Any],
            let trustRevocationChecked = trustResult[kSecTrustRevocationChecked as String] as? Bool
         {
@@ -263,7 +250,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             throw SigningError.signatureInvalid("Unable to extract signing certificate. Error: \(status)")
         }
 
-        return .valid(SigningEntity(certificate: certificate))
+        return .valid(SigningEntity(certificate: try Certificate(secCertificate: certificate)))
         #else
         fatalError("TO BE IMPLEMENTED")
         #endif
