@@ -78,10 +78,18 @@ public struct Destination: Equatable {
     }
 
     /// Root directory path of the SDK used to compile for the destination.
-    public var sdkRootDir: AbsolutePath?
+    @available(*, deprecated, message: "use `pathsConfiguration.sdkRootPath` instead")
+    public var sdkRootDir: AbsolutePath? {
+        get {
+            pathsConfiguration.sdkRootPath
+        }
+        set {
+            pathsConfiguration.sdkRootPath = newValue
+        }
+    }
 
     /// Path to a directory containing the toolchain (compilers/linker) to be used for the compilation.
-    @available(*, deprecated, message: "use `toolchainBinDir` instead")
+    @available(*, deprecated, message: "use `toolset.rootPaths` instead")
     public var binDir: AbsolutePath {
         toolchainBinDir
     }
@@ -93,19 +101,19 @@ public struct Destination: Equatable {
     }
 
     /// Additional flags to be passed to the C compiler.
-    @available(*, deprecated, message: "use `extraFlags.cCompilerFlags` instead")
+    @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCCFlags: [String] {
         extraFlags.cCompilerFlags
     }
 
     /// Additional flags to be passed to the Swift compiler.
-    @available(*, deprecated, message: "use `extraFlags.swiftCompilerFlags` instead")
+    @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
     }
 
     /// Additional flags to be passed to the C++ compiler.
-    @available(*, deprecated, message: "use `extraFlags.cxxCompilerFlags` instead")
+    @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCPPFlags: [String] {
         extraFlags.cxxCompilerFlags
     }
@@ -127,20 +135,44 @@ public struct Destination: Equatable {
     /// deserialization.
     public private(set) var toolset: Toolset
 
-    /// Path containing Swift resources for dynamic linking.
-    fileprivate let swiftResourcesPath: AbsolutePath?
+    public struct PathsConfiguration: Equatable {
+        public init(
+            sdkRootPath: AbsolutePath?,
+            swiftResourcesPath: AbsolutePath? = nil,
+            swiftStaticResourcesPath: AbsolutePath? = nil,
+            includeSearchPaths: [AbsolutePath]? = nil,
+            librarySearchPaths: [AbsolutePath]? = nil,
+            toolsetPaths: [AbsolutePath]? = nil
+        ) {
+            self.sdkRootPath = sdkRootPath
+            self.swiftResourcesPath = swiftResourcesPath
+            self.swiftStaticResourcesPath = swiftStaticResourcesPath
+            self.includeSearchPaths = includeSearchPaths
+            self.librarySearchPaths = librarySearchPaths
+            self.toolsetPaths = toolsetPaths
+        }
 
-    /// Path containing Swift resources for static linking.
-    fileprivate let swiftStaticResourcesPath: AbsolutePath?
+        /// Root directory path of the SDK used to compile for the destination.
+        public var sdkRootPath: AbsolutePath?
 
-    /// Array of paths containing headers.
-    fileprivate let includeSearchPaths: [AbsolutePath]?
+        /// Path containing Swift resources for dynamic linking.
+        private(set) var swiftResourcesPath: AbsolutePath?
 
-    /// Array of paths containing libraries.
-    fileprivate let librarySearchPaths: [AbsolutePath]?
+        /// Path containing Swift resources for static linking.
+        private(set) var swiftStaticResourcesPath: AbsolutePath?
 
-    /// Array of paths containing toolset files.
-    fileprivate let toolsetPaths: [AbsolutePath]?
+        /// Array of paths containing headers.
+        private(set) var includeSearchPaths: [AbsolutePath]?
+
+        /// Array of paths containing libraries.
+        private(set) var librarySearchPaths: [AbsolutePath]?
+
+        /// Array of paths containing toolset files.
+        private(set) var toolsetPaths: [AbsolutePath]?
+    }
+
+    /// Configuration of file system paths used by this destination when building.
+    public var pathsConfiguration: PathsConfiguration
 
     /// Creates a compilation destination with the specified properties.
     @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolset:)` instead")
@@ -165,7 +197,7 @@ public struct Destination: Equatable {
     }
 
     /// Creates a compilation destination with the specified properties.
-    @available(*, deprecated, message: "use `init(hostTriple:targetTriple:sdkRootDir:toolset:)` instead")
+    @available(*, deprecated, message: "use `init(hostTriple:targetTriple:toolset:pathsConfiguration:)` instead")
     public init(
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
@@ -176,8 +208,8 @@ public struct Destination: Equatable {
         self.init(
             hostTriple: hostTriple,
             targetTriple: targetTriple,
-            sdkRootDir: sdkRootDir,
-            toolset: Toolset(toolchainBinDir: toolchainBinDir, buildFlags: extraFlags)
+            toolset: Toolset(toolchainBinDir: toolchainBinDir, buildFlags: extraFlags),
+            pathsConfiguration: .init(sdkRootPath: sdkRootDir)
         )
     }
 
@@ -185,23 +217,13 @@ public struct Destination: Equatable {
     public init(
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
-        sdkRootDir: AbsolutePath?,
         toolset: Toolset,
-        swiftResourcesPath: AbsolutePath? = nil,
-        swiftStaticResourcesPath: AbsolutePath? = nil,
-        includeSearchPaths: [AbsolutePath]? = nil,
-        librarySearchPaths: [AbsolutePath]? = nil,
-        toolsetPaths: [AbsolutePath]? = nil
+        pathsConfiguration: PathsConfiguration
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
-        self.sdkRootDir = sdkRootDir
         self.toolset = toolset
-        self.swiftResourcesPath = swiftResourcesPath
-        self.swiftStaticResourcesPath = swiftStaticResourcesPath
-        self.includeSearchPaths = includeSearchPaths
-        self.librarySearchPaths = librarySearchPaths
-        self.toolsetPaths = toolsetPaths
+        self.pathsConfiguration = pathsConfiguration
     }
 
     /// Returns the bin directory for the host.
@@ -272,14 +294,14 @@ public struct Destination: Equatable {
         #endif
 
         return Destination(
-            sdkRootDir: sdkPath,
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: extraCCFlags),
                     .swiftCompiler: .init(extraCLIOptions: extraSwiftCFlags),
                 ],
                 rootPaths: [binDir]
-            )
+            ),
+            pathsConfiguration: .init(sdkRootPath: sdkPath)
         )
     }
 
@@ -325,8 +347,8 @@ public struct Destination: Equatable {
                 .appending(components: "share", "wasi-sysroot")
             return Destination(
                 targetTriple: triple,
-                sdkRootDir: wasiSysroot,
-                toolset: host.toolset
+                toolset: host.toolset,
+                pathsConfiguration: .init(sdkRootPath: wasiSysroot)
             )
         }
         return nil
@@ -334,20 +356,20 @@ public struct Destination: Equatable {
 
     /// Propagates toolchain and SDK paths known to the destination to `swiftc` CLI options.
     public mutating func applyPathCLIOptions() {
-        var properties = toolset.knownTools[.swiftCompiler] ?? .init(extraCLIOptions: [])
-        properties.extraCLIOptions.append(contentsOf: toolset.rootPaths.flatMap { ["-tools-directory", $0.pathString] })
+        var properties = self.toolset.knownTools[.swiftCompiler] ?? .init(extraCLIOptions: [])
+        properties.extraCLIOptions.append(contentsOf: self.toolset.rootPaths.flatMap { ["-tools-directory", $0.pathString] })
 
-        if let sdkDirPath = sdkRootDir?.pathString {
+        if let sdkDirPath = self.pathsConfiguration.sdkRootPath?.pathString {
             properties.extraCLIOptions.append(contentsOf: ["-sdk", sdkDirPath])
         }
 
-        toolset.knownTools[.swiftCompiler] = properties
+        self.toolset.knownTools[.swiftCompiler] = properties
     }
 
     /// Appends a path to the array of toolset root paths.
     /// - Parameter toolsetRootPath: new path to add to the destination's toolset.
     public mutating func add(toolsetRootPath: AbsolutePath) {
-        toolset.rootPaths.append(toolsetRootPath)
+        self.toolset.rootPaths.append(toolsetRootPath)
     }
 }
 
@@ -403,23 +425,25 @@ extension Destination {
 
                 return try Destination(
                     targetTriple: triple,
-                    sdkRootDir: AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
                     toolset: toolset,
-                    swiftResourcesPath: properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    swiftStaticResourcesPath: properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    includeSearchPaths: properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    librarySearchPaths: properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    toolsetPaths: properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    }
+                    pathsConfiguration: .init(
+                        sdkRootPath: AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                        swiftResourcesPath: properties.swiftResourcesPath.map {
+                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        },
+                        swiftStaticResourcesPath: properties.swiftStaticResourcesPath.map {
+                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        },
+                        includeSearchPaths: properties.includeSearchPaths?.map {
+                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        },
+                        librarySearchPaths: properties.librarySearchPaths?.map {
+                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        },
+                        toolsetPaths: properties.toolsetPaths?.map {
+                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                        }
+                    )
                 )
             }
         default:
@@ -440,7 +464,6 @@ extension Destination {
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV1.self)
             try self.init(
                 targetTriple: destination.target.map { try Triple($0) },
-                sdkRootDir: destination.sdk,
                 toolset: .init(
                     toolchainBinDir: destination.binDir,
                     buildFlags: .init(
@@ -448,7 +471,8 @@ extension Destination {
                         cxxCompilerFlags: destination.extraCPPFlags,
                         swiftCompilerFlags: destination.extraSwiftCFlags
                     )
-                )
+                ),
+                pathsConfiguration: .init(sdkRootPath: destination.sdk)
             )
         case 2:
             let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV2.self)
@@ -457,7 +481,6 @@ extension Destination {
             try self.init(
                 hostTriple: destination.hostTriples.map(Triple.init).first,
                 targetTriple: destination.targetTriples.map(Triple.init).first,
-                sdkRootDir: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory),
                 toolset: .init(
                     toolchainBinDir: AbsolutePath(
                         validating: destination.toolchainBinDir,
@@ -469,6 +492,9 @@ extension Destination {
                         swiftCompilerFlags: destination.extraSwiftCFlags,
                         linkerFlags: destination.extraLinkerFlags
                     )
+                ),
+                pathsConfiguration: .init(
+                    sdkRootPath: AbsolutePath(validating: destination.sdkRootDir, relativeTo: destinationDirectory)
                 )
             )
         default:
@@ -481,7 +507,7 @@ extension Destination {
     /// required configuration properties aren't available on `self`, which can happen if `Destination` was decoded
     /// from different schema versions or constructed manually without providing valid values for such properties.
     var serialized: (Triple, SerializedDestinationV3.TripleProperties)? {
-        guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.sdkRootDir else {
+        guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
             return nil
         }
 
@@ -489,11 +515,11 @@ extension Destination {
             runTimeTriple,
             .init(
                 sdkRootPath: sdkRootDir.pathString,
-                swiftResourcesPath: self.swiftResourcesPath?.pathString,
-                swiftStaticResourcesPath: self.swiftStaticResourcesPath?.pathString,
-                includeSearchPaths: self.includeSearchPaths?.map(\.pathString),
-                librarySearchPaths: self.librarySearchPaths?.map(\.pathString),
-                toolsetPaths: self.toolsetPaths?.map(\.pathString)
+                swiftResourcesPath: self.pathsConfiguration.swiftResourcesPath?.pathString,
+                swiftStaticResourcesPath: self.pathsConfiguration.swiftStaticResourcesPath?.pathString,
+                includeSearchPaths: self.pathsConfiguration.includeSearchPaths?.map(\.pathString),
+                librarySearchPaths: self.pathsConfiguration.librarySearchPaths?.map(\.pathString),
+                toolsetPaths: self.pathsConfiguration.toolsetPaths?.map(\.pathString)
             ))
     }
 }

@@ -205,20 +205,19 @@ private let toolchainBinAbsolutePath = bundleRootPath.appending(toolchainBinDir)
 private let parsedDestinationV2GNU = Destination(
     hostTriple: hostTriple,
     targetTriple: linuxGNUTargetTriple,
-    sdkRootDir: sdkRootAbsolutePath,
-    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags)
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
+    pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
 private let parsedDestinationV2Musl = Destination(
     hostTriple: hostTriple,
     targetTriple: linuxMuslTargetTriple,
-    sdkRootDir: sdkRootAbsolutePath,
-    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags)
+    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: extraFlags),
+    pathsConfiguration: .init(sdkRootPath: sdkRootAbsolutePath)
 )
 
 private let parsedToolsetNoRootDestinationV3 = Destination(
     targetTriple: linuxGNUTargetTriple,
-    sdkRootDir: bundleRootPath.appending(sdkRootDir),
     toolset: .init(
         knownTools: [
             .librarian: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.librarian]!)")),
@@ -227,13 +226,15 @@ private let parsedToolsetNoRootDestinationV3 = Destination(
         ],
         rootPaths: []
     ),
-    toolsetPaths: ["/tools/otherToolsNoRoot.json"]
-        .map { try! AbsolutePath(validating: $0) }
+    pathsConfiguration: .init(
+        sdkRootPath: bundleRootPath.appending(sdkRootDir),
+        toolsetPaths: ["/tools/otherToolsNoRoot.json"]
+            .map { try! AbsolutePath(validating: $0) }
+    )
 )
 
 private let parsedToolsetRootDestinationV3 = Destination(
     targetTriple: linuxGNUTargetTriple,
-    sdkRootDir: bundleRootPath.appending(sdkRootDir),
     toolset: .init(
         knownTools: [
             .cCompiler: .init(extraCLIOptions: cCompilerOptions),
@@ -243,8 +244,11 @@ private let parsedToolsetRootDestinationV3 = Destination(
         ],
         rootPaths: [try! AbsolutePath(validating: "/custom")]
     ),
-    toolsetPaths: ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
-        .map { try! AbsolutePath(validating: $0) }
+    pathsConfiguration: .init(
+        sdkRootPath: bundleRootPath.appending(sdkRootDir),
+        toolsetPaths: ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
+            .map { try! AbsolutePath(validating: $0) }
+    )
 )
 
 final class DestinationTests: XCTestCase {
@@ -285,8 +289,10 @@ final class DestinationTests: XCTestCase {
             [
                 Destination(
                     targetTriple: linuxGNUTargetTriple,
-                    sdkRootDir: sdkRootAbsolutePath,
-                    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags)
+                    toolset: .init(toolchainBinDir: toolchainBinAbsolutePath, buildFlags: flagsWithoutLinkerFlags),
+                    pathsConfiguration: .init(
+                        sdkRootPath: sdkRootAbsolutePath
+                    )
                 ),
             ]
         )

@@ -315,7 +315,7 @@ public final class UserToolchain: Toolchain {
     ) throws -> [String] {
         let swiftCompilerFlags = destination.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
 
-        guard let sdkDir = destination.sdkRootDir else {
+        guard let sdkDir = destination.pathsConfiguration.sdkRootPath else {
             if triple.isWindows() {
                 // Windows uses a variable named SDKROOT to determine the root of
                 // the SDK.  This is not the same value as the SDKROOT parameter
@@ -481,7 +481,7 @@ public final class UserToolchain: Toolchain {
             extraSwiftFlags: self.extraFlags.swiftCompilerFlags
         )
 
-        if let sdkDir = destination.sdkRootDir {
+        if let sdkDir = destination.pathsConfiguration.sdkRootPath {
             self.extraFlags.cCompilerFlags = [
                 triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString,
             ] + (destination.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [])
@@ -553,7 +553,7 @@ public final class UserToolchain: Toolchain {
             swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
-            sdkRootPath: self.destination.sdkRootDir,
+            sdkRootPath: self.destination.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath
         )
     }
@@ -643,7 +643,7 @@ public final class UserToolchain: Toolchain {
         } else if triple.isWindows() {
             let sdkRoot: AbsolutePath
 
-            if let sdkDir = destination.sdkRootDir {
+            if let sdkDir = destination.pathsConfiguration.sdkRootPath {
                 sdkRoot = sdkDir
             } else if let SDKROOT = environment["SDKROOT"], let sdkDir = try? AbsolutePath(validating: SDKROOT) {
                 sdkRoot = sdkDir

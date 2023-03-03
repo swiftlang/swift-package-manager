@@ -1198,8 +1198,8 @@ class PluginInvocationTests: XCTestCase {
                 destination: Destination(
                     hostTriple: hostTriple,
                     targetTriple: hostTriple,
-                    sdkRootDir: destination.sdkRootDir,
-                    toolset: destination.toolset
+                    toolset: destination.toolset,
+                    pathsConfiguration: destination.pathsConfiguration
                 )
             )
 

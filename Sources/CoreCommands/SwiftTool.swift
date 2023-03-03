@@ -798,7 +798,7 @@ public final class SwiftTool {
             destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
-            destination.sdkRootDir = sdk
+            destination.pathsConfiguration.sdkRootPath = sdk
         }
         destination.architectures = options.build.architectures
 
