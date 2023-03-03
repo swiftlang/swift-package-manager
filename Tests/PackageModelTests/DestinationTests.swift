@@ -226,7 +226,9 @@ private let parsedToolsetNoRootDestinationV3 = Destination(
             .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
         ],
         rootPaths: []
-    )
+    ),
+    toolsetPaths: ["/tools/otherToolsNoRoot.json"]
+        .map { try! AbsolutePath(validating: $0) }
 )
 
 private let parsedToolsetRootDestinationV3 = Destination(
@@ -240,7 +242,9 @@ private let parsedToolsetRootDestinationV3 = Destination(
             .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
         ],
         rootPaths: [try! AbsolutePath(validating: "/custom")]
-    )
+    ),
+    toolsetPaths: ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
+        .map { try! AbsolutePath(validating: $0) }
 )
 
 final class DestinationTests: XCTestCase {

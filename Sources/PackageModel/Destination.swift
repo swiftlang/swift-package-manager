@@ -413,13 +413,13 @@ extension Destination {
                     },
                     includeSearchPaths: properties.includeSearchPaths?.map {
                         try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    } ?? [],
+                    },
                     librarySearchPaths: properties.librarySearchPaths?.map {
                         try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    } ?? [],
+                    },
                     toolsetPaths: properties.toolsetPaths?.map {
                         try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    } ?? []
+                    }
                 )
             }
         default:
@@ -491,9 +491,9 @@ extension Destination {
                 sdkRootPath: sdkRootDir.pathString,
                 swiftResourcesPath: self.swiftResourcesPath?.pathString,
                 swiftStaticResourcesPath: self.swiftStaticResourcesPath?.pathString,
-                includeSearchPaths: self.includeSearchPaths?.map(\.pathString) ?? [],
-                librarySearchPaths: self.librarySearchPaths?.map(\.pathString) ?? [],
-                toolsetPaths: self.toolsetPaths?.map(\.pathString) ?? []
+                includeSearchPaths: self.includeSearchPaths?.map(\.pathString),
+                librarySearchPaths: self.librarySearchPaths?.map(\.pathString),
+                toolsetPaths: self.toolsetPaths?.map(\.pathString)
             ))
     }
 }
