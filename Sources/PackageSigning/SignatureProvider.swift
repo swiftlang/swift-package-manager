@@ -19,6 +19,7 @@ import CryptoKit // TODO: remove when we can import Crypto
 
 import Basics
 //import Crypto
+@_implementationOnly import X509
 
 public enum SignatureProvider {
     public static func sign(
