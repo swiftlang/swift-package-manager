@@ -31,21 +31,22 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
-    private static var subcommands: [ParsableCommand.Type]{
+    private static var subcommands: [ParsableCommand.Type] {
         if #available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) {
             return [
                 Set.self,
                 Unset.self,
                 Login.self,
                 Logout.self,
-                Publish.self
+                Publish.self,
+                Sign.self,
             ] as [ParsableCommand.Type]
         } else {
             return [
                 Set.self,
                 Unset.self,
                 Login.self,
-                Logout.self
+                Logout.self,
             ] as [ParsableCommand.Type]
         }
     }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,16 +13,15 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import TSCBasic
-import SPMBuildCore
-import PackageModel
-import PackageLoading
-import PackageGraph
-import SourceControl
-import XCBuildSupport
-import Workspace
 import Foundation
+import PackageGraph
+import PackageLoading
 import PackageModel
+import SourceControl
+import SPMBuildCore
+import TSCBasic
+import Workspace
+import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 
@@ -62,12 +61,13 @@ public struct SwiftPackageTool: ParsableCommand {
             ArchiveSource.self,
             CompletionTool.self,
             PluginCommand.self,
-            
+
             DefaultCommand.self,
         ]
-        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+            + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
         defaultSubcommand: DefaultCommand.self,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup()
     var globalOptions: GlobalOptions
@@ -78,11 +78,13 @@ public struct SwiftPackageTool: ParsableCommand {
 }
 
 extension SwiftPackageTool {
-    // This command is the default when no other subcommand is passed. It is not shown in the help and is never invoked directly.
+    // This command is the default when no other subcommand is passed. It is not shown in the help and is never invoked
+    // directly.
     struct DefaultCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: nil,
-            shouldDisplay: false)
+            shouldDisplay: false
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -103,8 +105,7 @@ extension SwiftPackageTool {
             // Check for edge cases and unknown options to match the behavior in the absence of plugins.
             if command.isEmpty {
                 throw ValidationError("Unknown argument '\(command)'")
-            }
-            else if command.starts(with: "-") {
+            } else if command.starts(with: "-") {
                 throw ValidationError("Unknown option '\(command)'")
             }
 
@@ -122,10 +123,14 @@ extension SwiftPackageTool {
 extension PluginCommand.PluginOptions {
     func merged(with other: Self) -> Self {
         // validate against developer mistake
-        assert(Mirror(reflecting: self).children.count == 3, "Property added to PluginOptions without updating merged(with:)!")
+        assert(
+            Mirror(reflecting: self).children.count == 3,
+            "Property added to PluginOptions without updating merged(with:)!"
+        )
         // actual merge
         var merged = self
-        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other.allowWritingToPackageDirectory
+        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other
+            .allowWritingToPackageDirectory
         merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
         if other.allowNetworkConnections != .none {
             merged.allowNetworkConnections = other.allowNetworkConnections
