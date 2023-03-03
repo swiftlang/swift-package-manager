@@ -426,7 +426,7 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let packageDir = AbsolutePath(path: "/tmp/MyLibrary")
-        let manifest = Manifest(
+        let manifest = Manifest.createManifest(
             displayName: "MyLibrary",
             path: packageDir.appending(component: "Package.swift"),
             packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
@@ -464,7 +464,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
-            name: "thisPkg",
+            displayName: "thisPkg",
             path: .init(path: "/thisPkg"),
             toolsVersion: .v5_7,
             dependencies: [
@@ -530,7 +530,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testPluginNetworkingPermissionGeneration() throws {
         let manifest = Manifest.createRootManifest(
-            name: "thisPkg",
+            displayName: "thisPkg",
             path: .init(path: "/thisPkg"),
             toolsVersion: .v5_9,
             dependencies: [],

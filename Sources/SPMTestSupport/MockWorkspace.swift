@@ -214,7 +214,7 @@ public final class MockWorkspace {
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: packageLocation, version: v)] = try Manifest(
+                manifests[.init(url: packageLocation, version: v)] = try Manifest.createManifest(
                     displayName: package.name,
                     path: manifestPath,
                     packageKind: packageKind,

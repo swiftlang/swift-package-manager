@@ -15,10 +15,9 @@ import PackageModel
 import TSCBasic
 import struct TSCUtility.Version
 
-public extension Manifest {
-
-    static func createRootManifest(
-        name: String,
+extension Manifest {
+    public static func createRootManifest(
+        displayName: String,
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -34,7 +33,7 @@ public extension Manifest {
         targets: [TargetDescription] = []
     ) -> Manifest {
         Self.createManifest(
-            name: name,
+            displayName: displayName,
             path: path,
             packageKind: .root(path),
             packageLocation: path.pathString,
@@ -53,8 +52,8 @@ public extension Manifest {
         )
     }
 
-    static func createFileSystemManifest(
-        name: String,
+    public static func createFileSystemManifest(
+        displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -70,7 +69,7 @@ public extension Manifest {
         targets: [TargetDescription] = []
     ) -> Manifest {
         Self.createManifest(
-            name: name,
+            displayName: displayName,
             path: path,
             packageKind: .fileSystem(path),
             packageLocation: path.pathString,
@@ -89,8 +88,8 @@ public extension Manifest {
         )
     }
 
-    static func createLocalSourceControlManifest(
-        name: String,
+    public static func createLocalSourceControlManifest(
+        displayName: String,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -106,7 +105,7 @@ public extension Manifest {
         targets: [TargetDescription] = []
     ) -> Manifest {
         Self.createManifest(
-            name: name,
+            displayName: displayName,
             path: path,
             packageKind: .localSourceControl(path),
             packageLocation: path.pathString,
@@ -125,8 +124,8 @@ public extension Manifest {
         )
     }
 
-    static func createRemoteSourceControlManifest(
-        name: String,
+    public static func createRemoteSourceControlManifest(
+        displayName: String,
         url: URL,
         path: AbsolutePath,
         defaultLocalization: String? = nil,
@@ -143,7 +142,7 @@ public extension Manifest {
         targets: [TargetDescription] = []
     ) -> Manifest {
         Self.createManifest(
-            name: name,
+            displayName: displayName,
             path: path,
             packageKind: .remoteSourceControl(url),
             packageLocation: url.absoluteString,
@@ -162,8 +161,8 @@ public extension Manifest {
         )
     }
 
-    static func createManifest(
-        name: String,
+    public static func createManifest(
+        displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
         packageLocation: String? = nil,
@@ -180,14 +179,15 @@ public extension Manifest {
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) -> Manifest {
-        return Manifest(
-            displayName: name,
+        Manifest(
+            displayName: displayName,
             path: path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
             version: version,
+            revision: .none,
             toolsVersion: toolsVersion,
             pkgConfig: pkgConfig,
             providers: providers,
@@ -200,14 +200,16 @@ public extension Manifest {
         )
     }
 
-    func with(location: String) -> Manifest {
-        return Manifest(
+    public func with(location: String) -> Manifest {
+        Manifest(
             displayName: self.displayName,
             path: self.path,
             packageKind: self.packageKind,
             packageLocation: location,
+            defaultLocalization: self.defaultLocalization,
             platforms: self.platforms,
             version: self.version,
+            revision: self.revision,
             toolsVersion: self.toolsVersion,
             pkgConfig: self.pkgConfig,
             providers: self.providers,

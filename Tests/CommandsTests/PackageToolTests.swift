@@ -545,7 +545,7 @@ final class PackageToolTests: CommandsTestCase {
         ])
 
         let manifestA = Manifest.createRootManifest(
-            name: "PackageA",
+            displayName: "PackageA",
             path: .init(path: "/PackageA"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -561,7 +561,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestB = Manifest.createFileSystemManifest(
-            name: "PackageB",
+            displayName: "PackageB",
             path: .init(path: "/PackageB"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -577,7 +577,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestC = Manifest.createFileSystemManifest(
-            name: "PackageC",
+            displayName: "PackageC",
             path: .init(path: "/PackageC"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -592,7 +592,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestD = Manifest.createFileSystemManifest(
-            name: "PackageD",
+            displayName: "PackageD",
             path: .init(path: "/PackageD"),
             toolsVersion: .v5_3,
             products: [

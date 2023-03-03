@@ -2657,7 +2657,7 @@ final class WorkspaceTests: XCTestCase {
                 productFilter: settings.productFilter
             )
 
-            workspace.manifestLoader.manifests[fooKey] = Manifest(
+            workspace.manifestLoader.manifests[fooKey] = Manifest.createManifest(
                 displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
@@ -10275,7 +10275,7 @@ final class WorkspaceTests: XCTestCase {
                 } else {
                     callbackQueue.async {
                         completion(.success(
-                            Manifest(
+                            Manifest.createManifest(
                                 displayName: packageIdentity.description,
                                 path: manifestPath,
                                 packageKind: packageKind,

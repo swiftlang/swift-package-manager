@@ -43,7 +43,7 @@ class PIFBuilderTests: XCTestCase {
                 fileSystem: fs,
                 manifests: [
                     Manifest.createLocalSourceControlManifest(
-                        name: "B",
+                        displayName: "B",
                         path: .init(path: "/B"),
                         toolsVersion: .v5_2,
                         products: [
@@ -55,7 +55,7 @@ class PIFBuilderTests: XCTestCase {
                             .init(name: "B1", dependencies: ["B2"]),
                         ]),
                     Manifest.createRootManifest(
-                        name: "A",
+                        displayName: "A",
                         path: .init(path: "/A"),
                         toolsVersion: .v5_2,
                         dependencies: [
@@ -114,7 +114,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     packageKind: .root(.init(path: "/Foo")),
                     defaultLocalization: "fr",
@@ -127,7 +127,7 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "FooTests", type: .test),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
@@ -397,7 +397,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -419,7 +419,7 @@ class PIFBuilderTests: XCTestCase {
                         ])
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
@@ -731,7 +731,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -753,7 +753,7 @@ class PIFBuilderTests: XCTestCase {
                         ])
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
@@ -979,7 +979,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -998,7 +998,7 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
@@ -1181,7 +1181,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
@@ -1197,7 +1197,7 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
@@ -1479,7 +1479,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "App",
+                    displayName: "App",
                     path: .init(path: "/App"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("main")),
@@ -1492,7 +1492,7 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         .init(name: "BarLib", type: .library(.dynamic), targets: ["Lib"]),
@@ -1702,7 +1702,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
@@ -1755,7 +1755,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     packageKind: .root(.init(path: "/Bar")),
                     toolsVersion: .v4_2,
@@ -1813,7 +1813,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
@@ -1932,7 +1932,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_3,
                     products: [
@@ -2006,7 +2006,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_3,
                     products: [
@@ -2222,7 +2222,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5,
                     products: [
@@ -2436,7 +2436,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     packageKind: .root(.init(path: "/Foo")),
                     toolsVersion: .v5_3,
@@ -2505,7 +2505,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
@@ -2555,7 +2555,7 @@ class PIFBuilderTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "MyLib",
+                    displayName: "MyLib",
                     path: .init(path: "/MyLib"),
                     toolsVersion: .v5,
                     products: [
