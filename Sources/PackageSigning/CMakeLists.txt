@@ -13,7 +13,7 @@ add_library(PackageSigning STATIC
   SigningEntity/SigningEntity.swift
   SignatureProvider.swift
   SigningIdentity.swift
-  X509Extensions)
+  X509Extensions.swift)
 target_link_libraries(PackageSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
