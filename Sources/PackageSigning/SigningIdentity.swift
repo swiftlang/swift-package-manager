@@ -79,7 +79,7 @@ public struct SigningIdentityStore {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess else {
-            self.observabilityScope.emit(warning: "Error while searching for '\(label)' in Keychain: \(status)")
+            self.observabilityScope.emit(warning: "Failed to search for '\(label)' in Keychain: status \(status)")
             return []
         }
 
@@ -90,7 +90,7 @@ public struct SigningIdentityStore {
             guard status == errSecSuccess, let identity = identity else {
                 self.observabilityScope
                     .emit(
-                        warning: "Error while trying to create SecIdentity from SecCertificate[\(secCertificate)]: \(status)"
+                        warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]: status \(status)"
                     )
                 return nil
             }

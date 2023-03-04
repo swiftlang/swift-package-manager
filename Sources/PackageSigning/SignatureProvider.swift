@@ -17,8 +17,8 @@ import Security
 #endif
 
 import Basics
-//import Crypto
-@_implementationOnly import X509
+@_implementationOnly import SwiftASN1
+@_implementationOnly @_spi(CMS) import X509
 
 public enum SignatureProvider {
     public static func sign(
@@ -89,6 +89,47 @@ public enum SigningError: Error {
     case decodeInitializationFailed(String)
     case signingFailed(String)
     case signatureInvalid(String)
+    case keyDoesNotSupportSignatureAlgorithm
+    case unsupportedSigningIdentity
+}
+
+// MARK: - Signature formats and their provider
+
+public enum SignatureFormat: String {
+    case cms_1_0_0 = "cms-1.0.0"
+
+    public var signingKeyType: SigningKeyType {
+        switch self {
+        case .cms_1_0_0:
+            return .p256
+        }
+    }
+
+    var provider: SignatureProviderProtocol {
+        switch self {
+        case .cms_1_0_0:
+            return CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        }
+    }
+}
+
+public enum SigningKeyType {
+    case p256
+    // RSA support is internal/testing only, thus not included
+}
+
+enum SignatureAlgorithm {
+    case ecdsaP256
+    case rsa
+
+    var certificateSignatureAlgorithm: Certificate.SignatureAlgorithm {
+        switch self {
+        case .ecdsaP256:
+            return .ecdsaWithSHA256
+        case .rsa:
+            return .sha256WithRSAEncryption
+        }
+    }
 }
 
 protocol SignatureProviderProtocol {
@@ -106,34 +147,13 @@ protocol SignatureProviderProtocol {
     ) async throws -> SignatureStatus
 }
 
-public enum SigningKeyType {
-    case p256
-}
-
-public enum SignatureFormat: String {
-    case cms_1_0_0 = "cms-1.0.0"
-    
-    public var signingKeyType: SigningKeyType {
-        switch self {
-        case .cms_1_0_0:
-            return .p256
-        }
-    }
-
-    var provider: SignatureProviderProtocol {
-        switch self {
-        case .cms_1_0_0:
-            return CMSSignatureProvider(format: self)
-        }
-    }
-}
+// MARK: - CMS signature provider
 
 struct CMSSignatureProvider: SignatureProviderProtocol {
-    let format: SignatureFormat
+    let signatureAlgorithm: SignatureAlgorithm
 
-    init(format: SignatureFormat) {
-        precondition(format.rawValue.hasPrefix("cms-"), "Unsupported signature format '\(format)'")
-        self.format = format
+    init(signatureAlgorithm: SignatureAlgorithm) {
+        self.signatureAlgorithm = signatureAlgorithm
     }
 
     func sign(
@@ -141,38 +161,38 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         with identity: SigningIdentity,
         observabilityScope: ObservabilityScope
     ) async throws -> Data {
-        try self.validate(identity: identity)
-
-        #if os(macOS)
+        #if canImport(Darwin)
         if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
-            var cmsEncoder: CMSEncoder?
-            var status = CMSEncoderCreate(&cmsEncoder)
-            guard status == errSecSuccess, let cmsEncoder = cmsEncoder else {
-                throw SigningError.encodeInitializationFailed("Unable to create CMSEncoder. Error: \(status)")
+            let secIdentity = identity as! SecIdentity // !-safe because we ensure type above
+
+            var privateKey: SecKey?
+            let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &privateKey)
+            guard keyStatus == errSecSuccess, let privateKey = privateKey else {
+                throw SigningError.signingFailed("unable to get private key from SecIdentity: status \(keyStatus)")
             }
 
-            CMSEncoderAddSigners(cmsEncoder, identity as! SecIdentity)
-            CMSEncoderSetHasDetachedContent(cmsEncoder, true) // Detached signature
-            CMSEncoderSetSignerAlgorithm(cmsEncoder, kCMSEncoderDigestAlgorithmSHA256)
-            CMSEncoderAddSignedAttributes(cmsEncoder, CMSSignedAttributes.attrSigningTime)
-            CMSEncoderSetCertificateChainMode(cmsEncoder, .signerOnly)
+            let signatureData = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
 
-            var contentArray = Array(content)
-            CMSEncoderUpdateContent(cmsEncoder, &contentArray, content.count)
-
-            var signature: CFData?
-            status = CMSEncoderCopyEncodedContent(cmsEncoder, &signature)
-            guard status == errSecSuccess, let signature = signature else {
-                throw SigningError.signingFailed("Signing failed. Error: \(status)")
-            }
-
-            return signature as Data
-        } else {
-            fatalError("TO BE IMPLEMENTED")
+            let signature = try CMS.sign(
+                signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signatureData)),
+                signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                certificate: try Certificate(secIdentity: secIdentity)
+            )
+            return Data(signature)
         }
-        #else
-        fatalError("TO BE IMPLEMENTED")
         #endif
+
+        guard let swiftSigningIdentity = identity as? SwiftSigningIdentity else {
+            throw SigningError.unsupportedSigningIdentity
+        }
+
+        let signature = try CMS.sign(
+            content,
+            signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+            certificate: swiftSigningIdentity.certificate,
+            privateKey: swiftSigningIdentity.privateKey
+        )
+        return Data(signature)
     }
 
     func status(
@@ -181,86 +201,62 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
-        #if os(macOS)
-        var cmsDecoder: CMSDecoder?
-        var status = CMSDecoderCreate(&cmsDecoder)
-        guard status == errSecSuccess, let cmsDecoder = cmsDecoder else {
-            throw SigningError.decodeInitializationFailed("Unable to create CMSDecoder. Error: \(status)")
-        }
-
-        CMSDecoderSetDetachedContent(cmsDecoder, content as CFData)
-
-        status = CMSDecoderUpdateMessage(cmsDecoder, [UInt8](signature), signature.count)
-        guard status == errSecSuccess else {
-            return .invalid("Unable to update CMSDecoder with signature. Error: \(status)")
-        }
-        status = CMSDecoderFinalizeMessage(cmsDecoder)
-        guard status == errSecSuccess else {
-            return .invalid("Failed to set up CMSDecoder. Error: \(status)")
-        }
-
-        var signerStatus = CMSSignerStatus.needsDetachedContent
-        var certificateVerifyResult: OSStatus = errSecSuccess
-        var trust: SecTrust?
-
-        // TODO: build policy based on user config
-        let basicPolicy = SecPolicyCreateBasicX509()
-        let revocationPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod)
-        CMSDecoderCopySignerStatus(
-            cmsDecoder,
-            0,
-            [basicPolicy, revocationPolicy] as CFArray,
-            true,
-            &signerStatus,
-            &trust,
-            &certificateVerifyResult
+        let result = await CMS.isValidSignature(
+            dataBytes: content,
+            signatureBytes: signature,
+            trustRoots: CertificateStore(
+                try verifierConfiguration.trustedRoots
+                    .map { try Certificate(derEncoded: Array($0)) }
+            ),
+            // TODO: build policies based on config
+            policy: PolicySet(policies: [])
         )
 
-        guard certificateVerifyResult == errSecSuccess else {
-            return .certificateInvalid("Certificate verify result: \(certificateVerifyResult)")
-        }
-        guard signerStatus == .valid else {
-            return .invalid("Signer status: \(signerStatus)")
-        }
-
-        guard let trust = trust else {
-            return .certificateNotTrusted
-        }
-
-        // TODO: user configured trusted roots
-        SecTrustSetNetworkFetchAllowed(trust, true)
-        //        SecTrustSetAnchorCertificates(trust, trustedCAs as CFArray)
-        //        SecTrustSetAnchorCertificatesOnly(trust, true)
-
-        guard SecTrustEvaluateWithError(trust, nil) else {
-            return .certificateNotTrusted
-        }
-
-        var revocationStatus: CertificateRevocationStatus?
-        if let trustResult = SecTrustCopyResult(trust) as? [String: Any],
-           let trustRevocationChecked = trustResult[kSecTrustRevocationChecked as String] as? Bool
-        {
-            revocationStatus = trustRevocationChecked ? .valid : .revoked
-        }
-        observabilityScope.emit(debug: "Certificate revocation status: \(String(describing: revocationStatus))")
-
-        var certificate: SecCertificate?
-        status = CMSDecoderCopySignerCert(cmsDecoder, 0, &certificate)
-        guard status == errSecSuccess, let certificate = certificate else {
-            throw SigningError.signatureInvalid("Unable to extract signing certificate. Error: \(status)")
-        }
-
-        return .valid(SigningEntity(certificate: try Certificate(secCertificate: certificate)))
-        #else
-        fatalError("TO BE IMPLEMENTED")
-        #endif
-    }
-
-    private func validate(identity: SigningIdentity) throws {
-        switch self.format {
-        case .cms_1_0_0:
-            // TODO: key must be EC
-            ()
+        switch result {
+        case .validSignature(let valid):
+            let signingEntity = SigningEntity(certificate: valid.signer)
+            return .valid(signingEntity)
+        case .unableToValidateSigner(let failure):
+            if failure.validationFailures.isEmpty {
+                return .certificateNotTrusted
+            } else {
+                return .certificateInvalid("\(failure.validationFailures)") // TODO: format error message
+            }
+        case .invalidCMSBlock(let error):
+            return .invalid(error.reason)
         }
     }
 }
+
+#if canImport(Darwin)
+extension SecKey {
+    func sign(content: Data, algorithm: SignatureAlgorithm) throws -> Data {
+        let secKeyAlgorithm: SecKeyAlgorithm
+        switch algorithm {
+        case .ecdsaP256:
+            secKeyAlgorithm = .ecdsaSignatureMessageX962SHA256
+        case .rsa:
+            secKeyAlgorithm = .rsaSignatureMessagePKCS1v15SHA256
+        }
+
+        guard SecKeyIsAlgorithmSupported(self, .sign, secKeyAlgorithm) else {
+            throw SigningError.keyDoesNotSupportSignatureAlgorithm
+        }
+
+        var error: Unmanaged<CFError>?
+        // TODO: algorithm depends on signature format
+        guard let signatureData = SecKeyCreateSignature(
+            self,
+            secKeyAlgorithm,
+            content as CFData,
+            &error
+        ) as Data? else {
+            if let error = error?.takeRetainedValue() as Error? {
+                throw SigningError.signingFailed("\(error)")
+            }
+            throw SigningError.signingFailed("Failed to sign with SecKey")
+        }
+        return signatureData
+    }
+}
+#endif

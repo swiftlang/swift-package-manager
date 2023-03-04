@@ -30,9 +30,9 @@ final class SigningEntityTests: XCTestCase {
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)
-            XCTAssertEqual("Test (EC)", signingEntity.name)
-            XCTAssertEqual("Test (EC)", signingEntity.organizationalUnit)
-            XCTAssertEqual("Test (EC)", signingEntity.organization)
+            XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
+            XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
         }
     }
 
@@ -47,9 +47,9 @@ final class SigningEntityTests: XCTestCase {
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)
-            XCTAssertEqual("Test (RSA)", signingEntity.name)
-            XCTAssertEqual("Test (RSA)", signingEntity.organizationalUnit)
-            XCTAssertEqual("Test (RSA)", signingEntity.organization)
+            XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
+            XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
         }
     }
 
@@ -70,8 +70,8 @@ final class SigningEntityTests: XCTestCase {
 
         let certificate = try Certificate(secIdentity: matches[0] as! SecIdentity)
         let signingEntity = SigningEntity(certificate: certificate)
-        XCTAssertNotNil(signingEntity.name)
-        XCTAssertNotNil(signingEntity.organizationalUnit)
-        XCTAssertNotNil(signingEntity.organization)
+        XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
+        XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
+        XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
     }
 }

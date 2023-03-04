@@ -31,7 +31,7 @@ extension Certificate {
         var secCertificate: SecCertificate?
         let status = SecIdentityCopyCertificate(secIdentity, &secCertificate)
         guard status == errSecSuccess, let secCertificate = secCertificate else {
-            throw StringError("Failed to get certificate from SecIdentity. Error: \(status)")
+            throw StringError("failed to get certificate from SecIdentity: status \(status)")
         }
         self = try Certificate(secCertificate: secCertificate)
     }
