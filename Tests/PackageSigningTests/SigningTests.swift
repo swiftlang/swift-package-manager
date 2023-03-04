@@ -23,7 +23,7 @@ import X509
 
 #if swift(>=5.5.2)
 final class SigningTests: XCTestCase {
-    func testEndToEndWithCMS1_0_0() async throws {
+    func testCMS1_0_0EndToEnd() async throws {
         let signingIdentity = try tsc_await { self.ecTestSigningIdentity(callback: $0) }
         let content = "per aspera ad astra".data(using: .utf8)!
 
@@ -114,6 +114,54 @@ final class SigningTests: XCTestCase {
         XCTAssertEqual("Test (RSA)", signingEntity.organization)
     }
 
+    func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
+        #if os(macOS)
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+        #else
+        throw XCTSkip("Skipping test on unsupported platform")
+        #endif
+
+        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
+            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
+        }
+        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+        let matches = try await identityStore.find(by: label)
+        XCTAssertTrue(!matches.isEmpty)
+
+        let signingIdentity = matches[0]
+        let content = "per aspera ad astra".data(using: .utf8)!
+
+        let signatureFormat = SignatureFormat.cms_1_0_0
+        // This call will trigger OS prompt(s) for key access
+        let signature = try await SignatureProvider.sign(
+            content,
+            with: signingIdentity,
+            in: signatureFormat,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        var verifierConfiguration = VerifierConfiguration()
+        verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
+
+        let status = try await SignatureProvider.status(
+            of: signature,
+            for: content,
+            in: signatureFormat,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+        XCTAssertNotNil(signingEntity.name)
+        XCTAssertNotNil(signingEntity.organizationalUnit)
+        XCTAssertNotNil(signingEntity.organization)
+    }
+
     func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
         #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
@@ -124,7 +172,9 @@ final class SigningTests: XCTestCase {
         throw XCTSkip("Skipping test on unsupported platform")
         #endif
 
-        let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_RSA_LABEL"] ?? "<USER ID>"
+        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_RSA_LABEL"] else {
+            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")
+        }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = try await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
@@ -132,6 +182,52 @@ final class SigningTests: XCTestCase {
         let signingIdentity = matches[0]
         let content = "per aspera ad astra".data(using: .utf8)!
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
+
+        // This call will trigger OS prompt(s) for key access
+        let signature = try await cmsProvider.sign(
+            content,
+            with: signingIdentity,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        var verifierConfiguration = VerifierConfiguration()
+        verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
+
+        let status = try await cmsProvider.status(
+            of: signature,
+            for: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+        XCTAssertNotNil(signingEntity.name)
+        XCTAssertNotNil(signingEntity.organizationalUnit)
+        XCTAssertNotNil(signingEntity.organization)
+    }
+
+    func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
+        #if os(macOS)
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+        #else
+        throw XCTSkip("Skipping test on unsupported platform")
+        #endif
+
+        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
+            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
+        }
+        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+        let matches = try await identityStore.find(by: label)
+        XCTAssertTrue(!matches.isEmpty)
+
+        let signingIdentity = matches[0]
+        let content = "per aspera ad astra".data(using: .utf8)!
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
 
         // This call will trigger OS prompt(s) for key access
         let signature = try await cmsProvider.sign(

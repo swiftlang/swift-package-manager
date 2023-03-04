@@ -88,7 +88,9 @@ final class SigningIdentityTests: XCTestCase {
         throw XCTSkip("Skipping test on unsupported platform")
         #endif
 
-        let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] ?? "<USER ID>"
+        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] else {
+            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
+        }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = try await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
