@@ -18,6 +18,7 @@ import Basics
 import CoreCommands
 import PackageSigning
 import TSCBasic
+@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity init at L128 fails
 
 extension SwiftPackageRegistryTool {
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)

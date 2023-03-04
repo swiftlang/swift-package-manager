@@ -244,7 +244,6 @@ extension SecKey {
         }
 
         var error: Unmanaged<CFError>?
-        // TODO: algorithm depends on signature format
         guard let signatureData = SecKeyCreateSignature(
             self,
             secKeyAlgorithm,
