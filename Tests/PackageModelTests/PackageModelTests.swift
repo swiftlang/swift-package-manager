@@ -62,8 +62,8 @@ class PackageModelTests: XCTestCase {
 
         let destination = Destination(
             targetTriple: triple,
-            sdkRootDir: sdkDir,
-            toolset: .init(toolchainBinDir: toolchainPath.appending(components: "usr", "bin"), buildFlags: .init())
+            toolset: .init(toolchainBinDir: toolchainPath.appending(components: "usr", "bin"), buildFlags: .init()),
+            pathsConfiguration: .init(sdkRootPath: sdkDir)
         )
 
         XCTAssertEqual(
