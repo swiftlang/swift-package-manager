@@ -33,6 +33,7 @@ add_library(PackageModel
   Platform.swift
   PlatformRegistry.swift
   Product.swift
+  RegistryReleaseMetadata.swift
   Resource.swift
   Sanitizers.swift
   Snippets/Model/Snippet.swift

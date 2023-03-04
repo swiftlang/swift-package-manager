@@ -21,17 +21,18 @@ import struct TSCUtility.Version
 struct PackageVersionChecksumTOFU {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
-
-    private let registryClient: RegistryClient
+    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
+        .PackageVersionMetadata
 
     init(
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        registryClient: RegistryClient
+        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
+            .PackageVersionMetadata
     ) {
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
-        self.registryClient = registryClient
+        self.versionMetadataProvider = versionMetadataProvider
     }
 
     func validate(
@@ -94,49 +95,36 @@ struct PackageVersionChecksumTOFU {
                 //   - No storage available
                 //   - Checksum not found in storage
                 //   - Reading from storage resulted in error
-                self.registryClient.getRawPackageVersionMetadata(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    timeout: timeout,
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
-                ) { result in
-                    switch result {
-                    case .success(let metadata):
-                        guard let sourceArchive = metadata.sourceArchive else {
-                            return completion(.failure(RegistryError.missingSourceArchive))
-                        }
-
-                        guard let checksum = sourceArchive.checksum else {
-                            return completion(.failure(RegistryError.invalidSourceArchive))
-                        }
-
-                        self.writeToStorage(
-                            registry: registry,
-                            package: package,
-                            version: version,
-                            checksum: checksum,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue
-                        ) { writeResult in
-                            completion(writeResult.tryMap { _ in checksum })
-                        }
-                    case .failure(RegistryError.failedRetrievingReleaseInfo(_, _, _, let error)):
-                        completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
-                            registry: registry,
-                            package: package.underlying,
-                            version: version,
-                            error: error
-                        )))
-                    case .failure(let error):
-                        completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
-                            registry: registry,
-                            package: package.underlying,
-                            version: version,
-                            error: error
-                        )))
+                do {
+                    let versionMetadata = try self.versionMetadataProvider(package, version)
+                    guard let sourceArchiveResource = versionMetadata.sourceArchive else {
+                        throw RegistryError.missingSourceArchive
                     }
+                    guard let checksum = sourceArchiveResource.checksum else {
+                        throw RegistryError.sourceArchiveMissingChecksum(
+                            registry: registry,
+                            package: package.underlying,
+                            version: version
+                        )
+                    }
+
+                    self.writeToStorage(
+                        registry: registry,
+                        package: package,
+                        version: version,
+                        checksum: checksum,
+                        observabilityScope: observabilityScope,
+                        callbackQueue: callbackQueue
+                    ) { writeResult in
+                        completion(writeResult.tryMap { _ in checksum })
+                    }
+                } catch {
+                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        error: error
+                    )))
                 }
             }
         }

@@ -245,6 +245,14 @@ final class RegistryClientTests: XCTestCase {
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try registryClient.getPackageVersionMetadata(package: identity, version: version)
+        XCTAssertEqual(metadata.resources.count, 1)
+        XCTAssertEqual(metadata.resources[0].name, "source-archive")
+        XCTAssertEqual(metadata.resources[0].type, "application/zip")
+        XCTAssertEqual(
+            metadata.resources[0].checksum,
+            "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+        )
+        XCTAssertEqual(metadata.author?.name, "J. Appleseed")
         XCTAssertEqual(metadata.licenseURL, URL("https://github.com/mona/LinkedList/license"))
         XCTAssertEqual(metadata.readmeURL, URL("https://github.com/mona/LinkedList/readme"))
         XCTAssertEqual(metadata.repositoryURLs!, [
@@ -352,199 +360,6 @@ final class RegistryClientTests: XCTestCase {
         XCTAssertThrowsError(
             try registryClient
                 .getPackageVersionMetadata(package: identity, version: version)
-        ) { error in
-            guard case RegistryError.registryNotAvailable(registry) = error
-            else {
-                return XCTFail("unexpected error: '\(error)'")
-            }
-        }
-    }
-
-    func testGetRawPackageVersionMetadata() throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let releaseURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-
-        let handler: LegacyHTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.get, releaseURL):
-                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
-
-                let data = #"""
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-                        }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
-                    }
-                }
-                """#.data(using: .utf8)!
-
-                completion(.success(.init(
-                    statusCode: 200,
-                    headers: .init([
-                        .init(name: "Content-Length", value: "\(data.count)"),
-                        .init(name: "Content-Type", value: "application/json"),
-                        .init(name: "Content-Version", value: "1"),
-                    ]),
-                    body: data
-                )))
-            default:
-                completion(.failure(StringError("method and url should match")))
-            }
-        }
-
-        let httpClient = LegacyHTTPClient(handler: handler)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        let registry = Registry(url: registryURL, supportsAvailability: false)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        let metadata = try registryClient.getRawPackageVersionMetadata(
-            registry: registry,
-            package: package,
-            version: version
-        )
-        XCTAssertEqual(metadata.id, "mona.LinkedList")
-        XCTAssertEqual(metadata.version, "1.1.1")
-        XCTAssertEqual(metadata.resources.count, 1)
-        XCTAssertEqual(metadata.resources[0].name, "source-archive")
-        XCTAssertEqual(metadata.resources[0].type, "application/zip")
-        XCTAssertEqual(
-            metadata.resources[0].checksum,
-            "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
-        )
-        XCTAssertEqual(metadata.metadata?.author?.name, "J. Appleseed")
-        XCTAssertEqual(metadata.metadata?.licenseURL, "https://github.com/mona/LinkedList/license")
-        XCTAssertEqual(metadata.metadata?.readmeURL, "https://github.com/mona/LinkedList/readme")
-        XCTAssertEqual(metadata.metadata?.repositoryURLs, [
-            "https://github.com/mona/LinkedList",
-            "ssh://git@github.com:mona/LinkedList.git",
-            "git@github.com:mona/LinkedList.git",
-        ])
-    }
-
-    func testRawGetPackageVersionMetadata_404() throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let releaseURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-
-        let serverErrorHandler = ServerErrorHandler(
-            method: .get,
-            url: releaseURL,
-            errorCode: 404,
-            errorDescription: UUID().uuidString
-        )
-
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        let registry = Registry(url: registryURL, supportsAvailability: false)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient.getRawPackageVersionMetadata(registry: registry, package: package, version: version)
-        ) { error in
-            guard case RegistryError
-                .failedRetrievingReleaseInfo(
-                    registry: registry,
-                    package: identity,
-                    version: version,
-                    error: RegistryError.packageVersionNotFound
-                ) = error
-            else {
-                return XCTFail("unexpected error: '\(error)'")
-            }
-        }
-    }
-
-    func testGetRawPackageVersionMetadata_ServerError() throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-        let releaseURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
-
-        let serverErrorHandler = ServerErrorHandler(
-            method: .get,
-            url: releaseURL,
-            errorCode: Int.random(in: 405 ..< 500),
-            errorDescription: UUID().uuidString
-        )
-
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        let registry = Registry(url: registryURL, supportsAvailability: false)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient.getRawPackageVersionMetadata(registry: registry, package: package, version: version)
-        ) { error in
-            guard case RegistryError
-                .failedRetrievingReleaseInfo(
-                    registry: registry,
-                    package: identity,
-                    version: version,
-                    error: RegistryError.serverError(
-                        code: serverErrorHandler.errorCode,
-                        details: serverErrorHandler.errorDescription
-                    )
-                ) = error
-            else {
-                return XCTFail("unexpected error: '\(error)'")
-            }
-        }
-    }
-
-    func testRawGetPackageVersionMetadata_RegistryNotAvailable() throws {
-        let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
-        let package = identity.registry!
-        let version = Version("1.1.1")
-
-        let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
-
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
-        httpClient.configuration.circuitBreakerStrategy = .none
-        httpClient.configuration.retryStrategy = .none
-
-        let registry = Registry(url: registryURL, supportsAvailability: true)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
-        XCTAssertThrowsError(
-            try registryClient.getRawPackageVersionMetadata(registry: registry, package: package, version: version)
         ) { error in
             guard case RegistryError.registryNotAvailable(registry) = error
             else {
@@ -986,6 +801,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
@@ -993,6 +809,42 @@ final class RegistryClientTests: XCTestCase {
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
@@ -1070,12 +922,50 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
@@ -1162,12 +1052,50 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
@@ -1494,6 +1422,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let serverErrorHandler = ServerErrorHandler(
@@ -1503,7 +1432,33 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: "not found"
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [],
+                    "metadata": {}
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -1546,6 +1501,7 @@ final class RegistryClientTests: XCTestCase {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
         let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
         let serverErrorHandler = ServerErrorHandler(
@@ -1555,7 +1511,33 @@ final class RegistryClientTests: XCTestCase {
             errorDescription: UUID().uuidString
         )
 
-        let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [],
+                    "metadata": {}
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                serverErrorHandler.handle(request: request, progress: nil, completion: completion)
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
 
@@ -2369,10 +2351,10 @@ extension RegistryClient {
         }
     }
 
-    fileprivate func getPackageVersionMetadata(
+    func getPackageVersionMetadata(
         package: PackageIdentity,
         version: Version
-    ) throws -> RegistryClient.PackageVersionMetadata {
+    ) throws -> PackageVersionMetadata {
         try tsc_await {
             self.getPackageVersionMetadata(
                 package: package,
@@ -2384,21 +2366,14 @@ extension RegistryClient {
         }
     }
 
-    fileprivate func getRawPackageVersionMetadata(
-        registry: Registry,
+    func getPackageVersionMetadata(
         package: PackageIdentity.RegistryIdentity,
         version: Version
-    ) throws -> RegistryClient.Serialization.VersionMetadata {
-        try tsc_await {
-            self.getRawPackageVersionMetadata(
-                registry: registry,
-                package: package,
-                version: version,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) throws -> PackageVersionMetadata {
+        try self.getPackageVersionMetadata(
+            package: package.underlying,
+            version: version
+        )
     }
 
     fileprivate func getAvailableManifests(
