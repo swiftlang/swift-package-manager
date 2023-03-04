@@ -28,7 +28,6 @@ import enum TSCUtility.Diagnostics
 import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
-
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
         let sandbox = AbsolutePath(path: "/tmp/ws/")

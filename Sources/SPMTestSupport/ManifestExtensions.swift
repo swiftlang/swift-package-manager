@@ -179,9 +179,9 @@ extension Manifest {
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) -> Manifest {
-        Manifest(
+        return Manifest(
             displayName: displayName,
-            path: path.appending(component: Manifest.filename),
+            path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename) ,
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
             defaultLocalization: defaultLocalization,
