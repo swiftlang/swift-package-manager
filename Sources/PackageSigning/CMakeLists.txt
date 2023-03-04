@@ -8,11 +8,13 @@
 
 add_library(PackageSigning STATIC
   embedded_resources.swift
+  CertificateStores.swift
   SigningEntity/FilePackageSigningEntityStorage.swift
   SigningEntity/PackageSigningEntityStorage.swift
   SigningEntity/SigningEntity.swift
   SignatureProvider.swift
   SigningIdentity.swift
+  VerifierPolicies.swift
   X509Extensions.swift)
 target_link_libraries(PackageSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>

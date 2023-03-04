@@ -27,11 +27,13 @@ final class SigningEntityTests: XCTestCase {
             )
             let certificate = try Certificate(certificateBytes)
 
-            let signingEntity = SigningEntity(certificate: certificate)
-            XCTAssertNil(signingEntity.type)
-            XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
-            XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
-            XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
+            let signingEntity = SigningEntity.from(certificate: certificate)
+            guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+                return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            }
+            XCTAssertEqual(name, certificate.subject.commonName)
+            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(organization, certificate.subject.organizationName)
         }
     }
 
@@ -44,11 +46,13 @@ final class SigningEntityTests: XCTestCase {
             )
             let certificate = try Certificate(certificateBytes)
 
-            let signingEntity = SigningEntity(certificate: certificate)
-            XCTAssertNil(signingEntity.type)
-            XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
-            XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
-            XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
+            let signingEntity = SigningEntity.from(certificate: certificate)
+            guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+                return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            }
+            XCTAssertEqual(name, certificate.subject.commonName)
+            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(organization, certificate.subject.organizationName)
         }
     }
 
@@ -63,14 +67,21 @@ final class SigningEntityTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = await identityStore.find(by: label)
+        let matches = identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let certificate = try Certificate(secIdentity: matches[0] as! SecIdentity)
-        let signingEntity = SigningEntity(certificate: certificate)
-        XCTAssertEqual(signingEntity.name, certificate.subject.commonName)
-        XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
-        XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
+        let signingEntity = SigningEntity.from(certificate: certificate)
+        switch signingEntity {
+        case .recognized(_, let name, let organizationalUnit, let organization):
+            XCTAssertEqual(name, certificate.subject.commonName)
+            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(organization, certificate.subject.organizationName)
+        case .unrecognized(let name, let organizationalUnit, let organization):
+            XCTAssertEqual(name, certificate.subject.commonName)
+            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+            XCTAssertEqual(organization, certificate.subject.organizationName)
+        }
     }
     #endif
 }

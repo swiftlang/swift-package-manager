@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Foundation.Data
+import struct Foundation.Date
 
 #if canImport(Security)
 @_implementationOnly import Security
@@ -19,6 +20,8 @@ import struct Foundation.Data
 import Basics
 @_implementationOnly import SwiftASN1
 @_implementationOnly @_spi(CMS) import X509
+
+// MARK: - Public signature API
 
 public enum SignatureProvider {
     public static func sign(
@@ -56,17 +59,32 @@ public enum SignatureProvider {
 
 public struct VerifierConfiguration {
     public var trustedRoots: [[UInt8]]
+    public var includeDefaultTrustStore: Bool
     public var certificateExpiration: CertificateExpiration
     public var certificateRevocation: CertificateRevocation
 
+    // for testing
+    init(
+        trustedRoots: [[UInt8]],
+        includeDefaultTrustStore: Bool,
+        certificateExpiration: CertificateExpiration,
+        certificateRevocation: CertificateRevocation
+    ) {
+        self.trustedRoots = trustedRoots
+        self.includeDefaultTrustStore = includeDefaultTrustStore
+        self.certificateExpiration = certificateExpiration
+        self.certificateRevocation = certificateRevocation
+    }
+
     public init() {
         self.trustedRoots = []
+        self.includeDefaultTrustStore = true
         self.certificateExpiration = .disabled
         self.certificateRevocation = .disabled
     }
 
     public enum CertificateExpiration {
-        case enabled
+        case enabled(validationTime: Date?)
         case disabled
     }
 
@@ -84,19 +102,14 @@ public enum SignatureStatus: Equatable {
     case certificateNotTrusted(SigningEntity)
 }
 
-public enum CertificateRevocationStatus {
-    case valid
-    case revoked
-    case unknown
-}
-
 public enum SigningError: Error {
     case signingFailed(String)
     case keyDoesNotSupportSignatureAlgorithm
     case signingIdentityNotSupported
+    case unableToValidateSignature(String)
 }
 
-// MARK: - Signature formats and their provider
+// MARK: - Signature formats and providers
 
 public enum SignatureFormat: String {
     case cms_1_0_0 = "cms-1.0.0"
@@ -155,9 +168,14 @@ protocol SignatureProviderProtocol {
 
 struct CMSSignatureProvider: SignatureProviderProtocol {
     let signatureAlgorithm: SignatureAlgorithm
+    let httpClient: HTTPClient
 
-    init(signatureAlgorithm: SignatureAlgorithm) {
+    init(
+        signatureAlgorithm: SignatureAlgorithm,
+        customHTTPClient: HTTPClient? = .none
+    ) {
         self.signatureAlgorithm = signatureAlgorithm
+        self.httpClient = customHTTPClient ?? HTTPClient()
     }
 
     func sign(
@@ -220,33 +238,49 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
-        let result = await CMS.isValidSignature(
-            dataBytes: content,
-            signatureBytes: signature,
-            // TODO: pass default intermediates
-            additionalIntermediateCertificates: [],
-            trustRoots: CertificateStore(
-                try verifierConfiguration.trustedRoots.map { try Certificate($0) }
-            ),
-            // TODO: build policies based on config
-            policy: PolicySet(policies: [])
-        )
-
-        switch result {
-        case .success(let valid):
-            let signingEntity = SigningEntity(certificate: valid.signer)
-            return .valid(signingEntity)
-        case .failure(CMS.VerificationError.unableToValidateSigner(let failure)):
-            if failure.validationFailures.isEmpty {
-                let signingEntity = SigningEntity(certificate: failure.signer)
-                return .certificateNotTrusted(signingEntity)
-            } else {
-                return .certificateInvalid("\(failure.validationFailures)") // TODO: format error message
+        do {
+            var trustRoots: [Certificate] = []
+            if verifierConfiguration.includeDefaultTrustStore {
+                trustRoots.append(contentsOf: CertificateStores.defaultTrustRoots)
             }
-        case .failure(CMS.VerificationError.invalidCMSBlock(let error)):
-            return .invalid(error.reason)
-        case .failure(let error):
-            return .invalid("\(error)")
+            trustRoots.append(contentsOf: try verifierConfiguration.trustedRoots.map { try Certificate($0) })
+
+            let result = await CMS.isValidSignature(
+                dataBytes: content,
+                signatureBytes: signature,
+                // The intermediates supplied here will be combined with those
+                // included in the signature to build cert chain for validation.
+                //
+                // Those who use ADP certs for signing are not required to provide
+                // the entire cert chain, thus we must supply WWDR intermediates
+                // here so that the chain can be constructed during validation.
+                // Whether the signing cert is trusted still depends on whether
+                // the WWDR roots are in the trust store or not, which by default
+                // they are but user may disable that through configuration.
+                additionalIntermediateCertificates: Certificates.wwdrIntermediates,
+                trustRoots: CertificateStore(trustRoots),
+                policy: self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
+            )
+
+            switch result {
+            case .success(let valid):
+                let signingEntity = SigningEntity.from(certificate: valid.signer)
+                return .valid(signingEntity)
+            case .failure(CMS.VerificationError.unableToValidateSigner(let failure)):
+                if failure.validationFailures.isEmpty {
+                    let signingEntity = SigningEntity.from(certificate: failure.signer)
+                    return .certificateNotTrusted(signingEntity)
+                } else {
+                    observabilityScope.emit(info: "cannot validate certificate chain. Validation failures: \(failure.validationFailures)")
+                    return .certificateInvalid("failures: \(failure.validationFailures.map { $0.policyFailureReason })")
+                }
+            case .failure(CMS.VerificationError.invalidCMSBlock(let error)):
+                return .invalid(error.reason)
+            case .failure(let error):
+                return .invalid("\(error)")
+            }
+        } catch {
+            throw SigningError.unableToValidateSignature("\(error)")
         }
     }
 }

@@ -24,8 +24,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntitySeenForTheFirstTime() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
-            type: .adp, // This makes isRecognized == true
+        let signingEntity = SigningEntity.recognized(
+            type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
@@ -50,7 +50,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` meets requirement to be used for TOFU
-        // (i.e., its type is non-nil), so it should be saved to storage.
+        // (i.e., it's .recognized), so it should be saved to storage.
         let signedVersions = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
@@ -100,8 +100,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testUnrecognizedSigningEntityShouldNotBeSaved() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
-            type: nil, // This makes isRecognized == false
+        let signingEntity = SigningEntity.unrecognized(
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
@@ -125,7 +124,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             )
         )
 
-        // `signingEntity` is not recognized, so it should not be saved to storage.
+        // `signingEntity` is not .recognized, so it should not be saved to storage.
         let signedVersions = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
@@ -140,7 +139,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntityMatchesStorageForSameVersion() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
@@ -171,13 +170,13 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntityDoesNotMatchStorageForSameVersion_strictMode() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -225,13 +224,13 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntityDoesNotMatchStorageForSameVersion_warnMode() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -284,7 +283,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
@@ -328,13 +327,13 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -383,13 +382,13 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -442,7 +441,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -487,7 +486,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.6.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -538,7 +537,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.6.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -592,7 +591,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("2.0.0")
         let existingVersions = Set([Version("1.5.0"), Version("3.0.0")])
-        let existingSigner = SigningEntity(
+        let existingSigner = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -638,7 +637,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testWriteConflictsWithStorage_strictMode() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
@@ -670,7 +669,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     func testWriteConflictsWithStorage_warnMode() throws {
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
-        let signingEntity = SigningEntity(
+        let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
             organizationalUnit: nil,
@@ -743,8 +742,7 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        let existing = SigningEntity(
-            type: nil,
+        let existing = SigningEntity.unrecognized(
             name: "xxx-\(signingEntity.name ?? "")",
             organizationalUnit: nil,
             organization: nil
@@ -755,5 +753,16 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
             given: signingEntity,
             existing: existing
         )))
+    }
+}
+
+extension SigningEntity {
+    var name: String? {
+        switch self {
+        case .recognized(_, let name, _, _):
+            return name
+        case .unrecognized(let name, _, _):
+            return name
+        }
     }
 }

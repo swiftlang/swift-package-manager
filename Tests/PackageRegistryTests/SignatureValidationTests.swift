@@ -17,13 +17,12 @@ import PackageModel
 import PackageSigning
 import SPMTestSupport
 import TSCBasic
+import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes
 import XCTest
 
 import struct TSCUtility.Version
 
 final class SignatureValidationTests: XCTestCase {
-    // TODO: add tests for signed package
-
     func testUnsignedPackage_shouldError() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -397,6 +396,648 @@ final class SignatureValidationTests: XCTestCase {
             }
         }
     }
+
+    #if swift(>=5.5.2)
+    func testSignedPackage_validSignature() async throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = try SwiftSigningIdentity(
+            derEncodedCertificate: keyAndCertChain.leafCertificate,
+            derEncodedPrivateKey: keyAndCertChain.privateKey,
+            privateKeyType: .p256
+        )
+        let signatureBytes = try self.sign(
+            content: emptyZipFile.contents,
+            signingIdentity: signingIdentity
+        )
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)",
+                            "signing": {
+                                "signatureBase64Encoded": "\(Data(signatureBytes).base64EncodedString())",
+                                "signatureFormat": "\(signatureFormat.rawValue)"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        try withTemporaryDirectory { temporaryDirectory in
+            // Write test root to trust roots directory
+            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+            try localFileSystem.createDirectory(trustRootsDirectoryPath)
+            try localFileSystem.writeFileContents(
+                trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                bytes: .init(keyAndCertChain.rootCertificate)
+            )
+
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
+
+            let signingEntityStorage = MockPackageSigningEntityStorage()
+            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
+            let signatureValidation = SignatureValidation(
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode,
+                versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                delegate: RejectingSignatureValidationDelegate()
+            )
+
+            // Package signature is valid
+            XCTAssertNoThrow(
+                try signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    content: Data(emptyZipFile.contents),
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
+            )
+        }
+    }
+
+    func testSignedPackage_badSignature() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let signatureBytes = Array("bad signature".utf8)
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)",
+                            "signing": {
+                                "signatureBase64Encoded": "\(Data(signatureBytes).base64EncodedString())",
+                                "signatureFormat": "\(signatureFormat.rawValue)"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        configuration.security = RegistryConfiguration.Security(
+            default: RegistryConfiguration.Security.Global(
+                signing: .init()
+            )
+        )
+
+        let signingEntityStorage = MockPackageSigningEntityStorage()
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata,
+            delegate: RejectingSignatureValidationDelegate()
+        )
+
+        // Package signature can't be parsed so it is invalid
+        XCTAssertThrowsError(
+            try signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry)
+            )
+        ) { error in
+            guard case RegistryError.invalidSignature = error else {
+                return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+            }
+        }
+    }
+
+    func testSignedPackage_invalidSignature() async throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = try SwiftSigningIdentity(
+            derEncodedCertificate: keyAndCertChain.leafCertificate,
+            derEncodedPrivateKey: keyAndCertChain.privateKey,
+            privateKeyType: .p256
+        )
+        let signatureBytes = try self.sign(
+            content: Array("other zip archive".utf8), // signature is not for emptyZipFile but for something else
+            signingIdentity: signingIdentity
+        )
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)",
+                            "signing": {
+                                "signatureBase64Encoded": "\(Data(signatureBytes).base64EncodedString())",
+                                "signatureFormat": "\(signatureFormat.rawValue)"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        try withTemporaryDirectory { temporaryDirectory in
+            // Write test root to trust roots directory
+            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+            try localFileSystem.createDirectory(trustRootsDirectoryPath)
+            try localFileSystem.writeFileContents(
+                trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                bytes: .init(keyAndCertChain.rootCertificate)
+            )
+
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
+
+            let signingEntityStorage = MockPackageSigningEntityStorage()
+            let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
+            let signatureValidation = SignatureValidation(
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode,
+                versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                delegate: RejectingSignatureValidationDelegate()
+            )
+
+            // Package signature doesn't match content so it's invalid
+            XCTAssertThrowsError(
+                try signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    content: Data(emptyZipFile.contents),
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
+            ) { error in
+                guard case RegistryError.invalidSignature = error else {
+                    return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+                }
+            }
+        }
+    }
+
+    func testSignedPackage_certificateNotTrusted_shouldError() async throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = try SwiftSigningIdentity(
+            derEncodedCertificate: keyAndCertChain.leafCertificate,
+            derEncodedPrivateKey: keyAndCertChain.privateKey,
+            privateKeyType: .p256
+        )
+        let signatureBytes = try self.sign(
+            content: emptyZipFile.contents,
+            signingIdentity: signingIdentity
+        )
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)",
+                            "signing": {
+                                "signatureBase64Encoded": "\(Data(signatureBytes).base64EncodedString())",
+                                "signatureFormat": "\(signatureFormat.rawValue)"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        var signingConfiguration = RegistryConfiguration.Security.Signing()
+        signingConfiguration.onUntrustedCertificate = .error // intended for this test; don't change
+        // Test root not written to trust roots directory
+        signingConfiguration.includeDefaultTrustedRootCertificates = false
+        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+        validationChecks.certificateExpiration = .disabled
+        validationChecks.certificateRevocation = .disabled
+        signingConfiguration.validationChecks = validationChecks
+
+        configuration.security = RegistryConfiguration.Security(
+            default: RegistryConfiguration.Security.Global(
+                signing: signingConfiguration
+            )
+        )
+
+        let signingEntityStorage = MockPackageSigningEntityStorage()
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata,
+            delegate: RejectingSignatureValidationDelegate()
+        )
+
+        // Test root not trusted; onUntrustedCertificate is set to .error
+        XCTAssertThrowsError(
+            try signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry)
+            )
+        ) { error in
+            guard case RegistryError.signerNotTrusted = error else {
+                return XCTFail("Expected RegistryError.signerNotTrusted, got '\(error)'")
+            }
+        }
+    }
+
+    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = try SwiftSigningIdentity(
+            derEncodedCertificate: keyAndCertChain.leafCertificate,
+            derEncodedPrivateKey: keyAndCertChain.privateKey,
+            privateKeyType: .p256
+        )
+        let signatureBytes = try self.sign(
+            content: emptyZipFile.contents,
+            signingIdentity: signingIdentity
+        )
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)",
+                            "signing": {
+                                "signatureBase64Encoded": "\(Data(signatureBytes).base64EncodedString())",
+                                "signatureFormat": "\(signatureFormat.rawValue)"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        var signingConfiguration = RegistryConfiguration.Security.Signing()
+        signingConfiguration.onUntrustedCertificate = .warn // intended for this test; don't change
+        // Test root not written to trust roots directory
+        signingConfiguration.includeDefaultTrustedRootCertificates = false
+        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+        validationChecks.certificateExpiration = .disabled
+        validationChecks.certificateRevocation = .disabled
+        signingConfiguration.validationChecks = validationChecks
+
+        configuration.security = RegistryConfiguration.Security(
+            default: RegistryConfiguration.Security.Global(
+                signing: signingConfiguration
+            )
+        )
+
+        let signingEntityStorage = MockPackageSigningEntityStorage()
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata,
+            delegate: RejectingSignatureValidationDelegate()
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        // Test root not trusted but onUntrustedCertificate is set to .warn
+        XCTAssertNoThrow(
+            try signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry),
+                observabilityScope: observability.topScope
+            )
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("not trusted"), severity: .warning)
+        }
+    }
+
+    private func sign(
+        content: [UInt8],
+        signingIdentity: SigningIdentity,
+        intermediateCertificates: [[UInt8]] = [],
+        format: SignatureFormat = .cms_1_0_0,
+        observabilityScope: ObservabilityScope? = nil
+    ) throws -> [UInt8] {
+        try SignatureProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: intermediateCertificates,
+            format: format,
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
+        )
+    }
+    #endif
+
+    private func ecSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let privateKey = try localFileSystem.readFileContents(
+                    fixturePath.appending(components: "Certificates", "Test_ec_self_signed_key.p8")
+                ).contents
+                let certificate = try localFileSystem.readFileContents(
+                    fixturePath.appending(components: "Certificates", "Test_ec_self_signed.cer")
+                ).contents
+
+                callback(.success(KeyAndCertChain(
+                    privateKey: privateKey,
+                    certificateChain: [certificate]
+                )))
+            }
+        } catch {
+            callback(.failure(error))
+        }
+    }
+
+    private struct KeyAndCertChain {
+        let privateKey: [UInt8]
+        let certificateChain: [[UInt8]]
+
+        var leafCertificate: [UInt8] {
+            self.certificateChain.first!
+        }
+
+        var intermediateCertificates: [[UInt8]] {
+            guard self.certificateChain.count > 1 else {
+                return []
+            }
+            return Array(self.certificateChain.dropLast(1)[1...])
+        }
+
+        var rootCertificate: [UInt8] {
+            self.certificateChain.last!
+        }
+    }
 }
 
 extension SignatureValidation {
@@ -416,6 +1057,7 @@ extension SignatureValidation {
                 content: content,
                 configuration: configuration,
                 timeout: nil,
+                fileSystem: localFileSystem,
                 observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
