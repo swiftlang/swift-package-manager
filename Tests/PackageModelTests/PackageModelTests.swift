@@ -57,8 +57,8 @@ class PackageModelTests: XCTestCase {
 
     func testAndroidCompilerFlags() throws {
         let triple = try Triple("x86_64-unknown-linux-android")
-        let sdkDir = AbsolutePath(path: "/some/path/to/an/SDK.sdk")
-        let toolchainPath = AbsolutePath(path: "/some/path/to/a/toolchain.xctoolchain")
+        let sdkDir = AbsolutePath("/some/path/to/an/SDK.sdk")
+        let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
 
         let destination = Destination(
             targetTriple: triple,
@@ -100,13 +100,13 @@ class PackageModelTests: XCTestCase {
 
         try withTemporaryFile { [contents] _ in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { [contents] tmp in
-                let bin = tmp.appending(component: "bin")
+                let bin = tmp.appending("bin")
                 try fs.createDirectory(bin)
 
-                let lld = bin.appending(component: "lld-link\(suffix)")
+                let lld = bin.appending("lld-link\(suffix)")
                 try fs.writeFileContents(lld, bytes: ByteString(contents))
 
-                let not = bin.appending(component: "not-link\(suffix)")
+                let not = bin.appending("not-link\(suffix)")
                 try fs.writeFileContents(not, bytes: ByteString(contents))
 
                 #if !os(Windows)

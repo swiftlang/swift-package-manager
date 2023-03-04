@@ -71,7 +71,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 path: ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
@@ -180,7 +180,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 path: ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
@@ -203,7 +203,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 path: ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
@@ -226,7 +226,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 path: ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
@@ -252,7 +252,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 path: ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
@@ -314,7 +314,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
         // git repo
         try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
             let initPackage = try InitPackage(
@@ -324,7 +324,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
 
             initGitRepo(packageDirectory)
 
@@ -345,7 +345,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
         // not a git repo
         try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
             let initPackage = try InitPackage(
@@ -355,7 +355,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
@@ -373,7 +373,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
         // canonical metadata location
         try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "MyPackage")
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
 
             let initPackage = try InitPackage(
@@ -383,7 +383,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending(component: "Package.swift"))
+            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
 
             // metadata file
             try localFileSystem.writeFileContents(
@@ -414,7 +414,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try localFileSystem.createDirectory(extractPath)
             try tsc_await { archiver.extract(from: archivePath, to: extractPath, completion: $0) }
             try localFileSystem.stripFirstLevel(of: extractPath)
-            XCTAssertFileExists(extractPath.appending(component: "Package.swift"))
+            XCTAssertFileExists(extractPath.appending("Package.swift"))
             return extractPath
         }
     }
@@ -430,15 +430,15 @@ final class PackageRegistryToolTests: CommandsTestCase {
         // certificate and private key
         /*
         try await withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "fake.zip")
+            let archivePath = temporaryDirectory.appending("fake.zip")
             try localFileSystem.writeFileContents(archivePath, string: "test")
 
-            let privateKeyPath = temporaryDirectory.appending(component: "private-key")
+            let privateKeyPath = temporaryDirectory.appending("private-key")
             // TODO: write the private key
-            let certificatePath = temporaryDirectory.appending(component: "certificate")
+            let certificatePath = temporaryDirectory.appending("certificate")
             // TODO: write the cert
 
-            let signaturePath = temporaryDirectory.appending(component: "signature")
+            let signaturePath = temporaryDirectory.appending("signature")
 
             let signature = try await PackageArchiveSigner.sign(
                 archivePath: archivePath,
@@ -456,10 +456,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
         // basic validation
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "fake.zip")
+            let archivePath = temporaryDirectory.appending("fake.zip")
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
-            let signaturePath = temporaryDirectory.appending(component: "signature")
+            let signaturePath = temporaryDirectory.appending("signature")
 
             let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
                 [

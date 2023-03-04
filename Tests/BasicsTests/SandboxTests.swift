@@ -143,13 +143,13 @@ final class SandboxTest: XCTestCase {
 
         try withTemporaryDirectory { tmpDir in
             // Check that we can write into the temporary directory, but not into a read-only directory underneath it.
-            let writableDir = tmpDir.appending(component: "ShouldBeWritable")
+            let writableDir = tmpDir.appending("ShouldBeWritable")
             try localFileSystem.createDirectory(writableDir)
             let allowedCommand = try Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories: [writableDir])
             XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: allowedCommand))
 
             // Check that we cannot write into a read-only directory inside a writable temporary directory.
-            let readOnlyDir = writableDir.appending(component: "ShouldBeReadOnly")
+            let readOnlyDir = writableDir.appending("ShouldBeReadOnly")
             try localFileSystem.createDirectory(readOnlyDir)
             let deniedCommand = try Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
             XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: deniedCommand)) { error in
@@ -168,7 +168,7 @@ final class SandboxTest: XCTestCase {
 
          try withTemporaryDirectory { tmpDir in
              // Check that we cannot write into a read-only directory, but into a writable directory underneath it.
-             let readOnlyDir = tmpDir.appending(component: "ShouldBeReadOnly")
+             let readOnlyDir = tmpDir.appending("ShouldBeReadOnly")
              try localFileSystem.createDirectory(readOnlyDir)
              let deniedCommand = try Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
              XCTAssertThrowsError(try TSCBasic.Process.checkNonZeroExit(arguments: deniedCommand)) { error in
@@ -179,7 +179,7 @@ final class SandboxTest: XCTestCase {
              }
 
              // Check that we can write into a writable directory underneath it.
-             let writableDir = readOnlyDir.appending(component: "ShouldBeWritable")
+             let writableDir = readOnlyDir.appending("ShouldBeWritable")
              try localFileSystem.createDirectory(writableDir)
              let allowedCommand = try Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories:[writableDir], readOnlyDirectories: [readOnlyDir])
              XCTAssertNoThrow(try TSCBasic.Process.checkNonZeroExit(arguments: allowedCommand))

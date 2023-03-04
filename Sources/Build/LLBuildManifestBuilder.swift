@@ -125,7 +125,7 @@ extension LLBuildManifestBuilder {
             inputs.append(file: package.manifest.path)
 
             // FIXME: This won't be the location of Package.resolved for multiroot packages.
-            inputs.append(file: package.path.appending(component: "Package.resolved"))
+            inputs.append(file: package.path.appending("Package.resolved"))
 
             // FIXME: Add config file as an input
 

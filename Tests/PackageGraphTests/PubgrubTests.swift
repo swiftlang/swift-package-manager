@@ -1614,10 +1614,10 @@ final class PubgrubTests: XCTestCase {
                 ]),
             pinsMap: PinsStore.PinsMap()
         )
-        let rootLocation = AbsolutePath(path: "/Root")
-        let otherLocation = AbsolutePath(path: "/Other")
-        let dependencyALocation = AbsolutePath(path: "/DependencyA")
-        let dependencyBLocation = AbsolutePath(path: "/DependencyB")
+        let rootLocation = AbsolutePath("/Root")
+        let otherLocation = AbsolutePath("/Other")
+        let dependencyALocation = AbsolutePath("/DependencyA")
+        let dependencyBLocation = AbsolutePath("/DependencyB")
         let root = PackageReference(identity: PackageIdentity(path: rootLocation), kind: .fileSystem(rootLocation))
         let other = PackageReference.localSourceControl(identity: .init(path: otherLocation), path: otherLocation)
         let dependencyA = PackageReference.localSourceControl(identity: .init(path: dependencyALocation), path: dependencyALocation)
@@ -3118,7 +3118,7 @@ class DependencyGraphBuilder {
     /// Creates a pins store with the given pins.
     func create(pinsStore pins: [String: (PinsStore.PinState, ProductFilter)]) throws -> PinsStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: AbsolutePath(path: "/tmp/Package.resolved"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let store = try! PinsStore(pinsFile: "/tmp/Package.resolved", workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
             store.pin(packageRef: try reference(for: package), state: pin.0)

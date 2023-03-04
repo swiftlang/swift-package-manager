@@ -22,7 +22,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
         try testWithTemporaryDirectory { tmpdir in
-            let manifestFile = tmpdir.appending(component: "Package.swift")
+            let manifestFile = tmpdir.appending("Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: bytes)
             body(tmpdir)
         }

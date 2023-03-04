@@ -444,11 +444,11 @@ public final class BuildExecutionContext {
                 // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
                 let indexStoreLib = buildParameters.toolchain.swiftCompilerPath
                     .parentDirectory
-                    .appending(component: "libIndexStore.dll")
+                    .appending("libIndexStore.dll")
                 #else
                 let ext = buildParameters.hostTriple.dynamicLibraryExtension
                 let indexStoreLib = try buildParameters.toolchain.toolchainLibDir
-                    .appending(component: "libIndexStore" + ext)
+                    .appending("libIndexStore" + ext)
                 #endif
                 return try .success(IndexStoreAPI(dylib: indexStoreLib))
             } catch {

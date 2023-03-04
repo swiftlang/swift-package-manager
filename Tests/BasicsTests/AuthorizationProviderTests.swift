@@ -28,7 +28,7 @@ final class AuthorizationProviderTests: XCTestCase {
 
     func testNetrc() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let netrcPath = tmpPath.appending(component: ".netrc")
+            let netrcPath = tmpPath.appending(".netrc")
 
             let provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
 

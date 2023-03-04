@@ -30,7 +30,7 @@ import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -159,16 +159,16 @@ final class WorkspaceTests: XCTestCase {
         let fs = localFileSystem
 
         try testWithTemporaryDirectory { path in
-            let foo = path.appending(component: "foo")
+            let foo = path.appending("foo")
 
             func createWorkspace(withManifest manifest: (OutputByteStream) -> Void) throws -> Workspace {
-                try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+                try fs.writeFileContents(foo.appending("Package.swift")) {
                     manifest($0)
                 }
 
                 let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
 
-                let sandbox = path.appending(component: "ws")
+                let sandbox = path.appending("ws")
                 return try Workspace(
                     fileSystem: fs,
                     forRootPackage: sandbox,
@@ -213,8 +213,8 @@ final class WorkspaceTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         try testWithTemporaryDirectory { path in
-            let pkgDir = path.appending(component: "MyPkg")
-            try localFileSystem.writeFileContents(pkgDir.appending(component: "Package.swift")) {
+            let pkgDir = path.appending("MyPkg")
+            try localFileSystem.writeFileContents(pkgDir.appending("Package.swift")) {
                 $0 <<<
                     """
                     // swift-tools-version:4.0
@@ -256,7 +256,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMultipleRootPackages() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -313,7 +313,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPackagesOverride() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -375,7 +375,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateRootPackages() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -412,7 +412,7 @@ final class WorkspaceTests: XCTestCase {
 
     /// Test that the explicit name given to a package is not used as its identity.
     func testExplicitPackageNameIsNotUsedAsPackageIdentity() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -485,7 +485,7 @@ final class WorkspaceTests: XCTestCase {
 
     /// Test that the remote repository is not resolved when a root package with same name is already present.
     func testRootAsDependency1() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -546,7 +546,7 @@ final class WorkspaceTests: XCTestCase {
 
     /// Test that a root package can be used as a dependency when the remote version was resolved previously.
     func testRootAsDependency2() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -633,7 +633,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testGraphRootDependencies() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -669,12 +669,12 @@ final class WorkspaceTests: XCTestCase {
 
         let dependencies: [PackageDependency] = [
             .localSourceControl(
-                path: workspace.packagesDir.appending(component: "Bar"),
+                path: workspace.packagesDir.appending("Bar"),
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Bar"])
             ),
             .localSourceControl(
-                path: workspace.packagesDir.appending(component: "Foo"),
+                path: workspace.packagesDir.appending("Foo"),
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Foo"])
             ),
@@ -695,7 +695,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanResolveWithIncompatiblePins() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -797,7 +797,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolverCanHaveError() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -858,7 +858,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_empty() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
@@ -904,7 +904,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_newPackages() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
@@ -966,7 +966,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToBranch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
@@ -1035,7 +1035,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToRevision() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
@@ -1087,7 +1087,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_localToBranch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
@@ -1155,7 +1155,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToLocal() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
@@ -1223,7 +1223,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_branchToLocal() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
@@ -1292,7 +1292,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_other() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
@@ -1364,7 +1364,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_notRequired() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
@@ -1430,7 +1430,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLoadingRootManifests() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1454,7 +1454,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUpdate() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1555,7 +1555,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUpdateDryRun() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1626,7 +1626,7 @@ final class WorkspaceTests: XCTestCase {
                 .updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
 
-            let path = AbsolutePath(path: "/tmp/ws/pkgs/Foo")
+            let path = AbsolutePath("/tmp/ws/pkgs/Foo")
             let expectedChange = (
                 PackageReference.localSourceControl(identity: PackageIdentity(path: path), path: path),
                 stateChange
@@ -1650,7 +1650,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPartialUpdate() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1754,7 +1754,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCleanAndReset() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1795,7 +1795,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Drop a build artifact in data directory.
         let ws = try workspace.getOrCreateWorkspace()
-        let buildArtifact = ws.location.scratchDirectory.appending(component: "test.o")
+        let buildArtifact = ws.location.scratchDirectory.appending("test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
         // Double checks.
@@ -1833,7 +1833,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyManifestLoading() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1912,7 +1912,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyManifestsOrder() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -1981,7 +1981,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBranchAndRevision() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2045,7 +2045,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolve() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2118,7 +2118,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDeletedCheckoutDirectory() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2164,7 +2164,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMinimumRequiredToolsVersionInDependencyResolution() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2205,7 +2205,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testToolsVersionRootPackages() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2238,7 +2238,7 @@ final class WorkspaceTests: XCTestCase {
             toolsVersion: .v4
         )
 
-        let roots = try workspace.rootPaths(for: ["Foo", "Bar", "Baz"]).map { $0.appending(component: "Package.swift") }
+        let roots = try workspace.rootPaths(for: ["Foo", "Bar", "Baz"]).map { $0.appending("Package.swift") }
 
         try fs.writeFileContents(roots[0], bytes: "// swift-tools-version:4.0")
         try fs.writeFileContents(roots[1], bytes: "// swift-tools-version:4.1.0")
@@ -2284,7 +2284,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testEditDependency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2337,7 +2337,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2370,7 +2370,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit bar at a custom path and branch (ToT).
-        let barPath = AbsolutePath(path: "/tmp/ws/custom/bar")
+        let barPath = AbsolutePath("/tmp/ws/custom/bar")
         workspace.checkEdit(packageName: "Bar", path: barPath, checkoutBranch: "dev") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2392,7 +2392,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMissingEditCanRestoreOriginalCheckout() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2428,7 +2428,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2455,7 +2455,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanUneditRemovedDependencies() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2529,7 +2529,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyResolutionWithEdit() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2650,7 +2650,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrefetchingWithOverridenPackage() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2735,7 +2735,7 @@ final class WorkspaceTests: XCTestCase {
 
     // Test that changing a particular dependency re-resolves the graph.
     func testChangeOneDependency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2820,7 +2820,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolutionFailureWithEditedDependency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2900,7 +2900,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testStateModified() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -2960,10 +2960,7 @@ final class WorkspaceTests: XCTestCase {
         // mimic external process putting a dependency into edit mode
         do {
             try fs.createDirectory(fooEditPath, recursive: true)
-            try fs.writeFileContents(
-                fooEditPath.appending(component: "Package.swift"),
-                bytes: "// swift-tools-version: 5.6"
-            )
+            try fs.writeFileContents(fooEditPath.appending("Package.swift"), bytes: "// swift-tools-version: 5.6")
 
             let fooState = underlying.state.dependencies[.plain("foo")]!
             let externalState = WorkspaceState(
@@ -2995,7 +2992,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSkipUpdate() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3044,7 +3041,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalDependencyBasics() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3122,7 +3119,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalDependencyTransitive() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3184,7 +3181,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalDependencyWithPackageUpdate() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3248,7 +3245,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMissingLocalDependencyDiagnostic() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3288,7 +3285,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRevisionVersionSwitch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3357,7 +3354,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalVersionSwitch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3426,7 +3423,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalLocalSwitch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3498,7 +3495,7 @@ final class WorkspaceTests: XCTestCase {
     // Test that switching between two same local packages placed at
     // different locations works correctly.
     func testDependencySwitchLocalWithSameIdentity() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3575,7 +3572,7 @@ final class WorkspaceTests: XCTestCase {
     // Test that switching between two remote packages at
     // different locations works correctly.
     func testDependencySwitchRemoteWithSameIdentity() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3651,7 +3648,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileUpdate() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3713,7 +3710,7 @@ final class WorkspaceTests: XCTestCase {
             (ToolsVersion.v5_6, ToolsVersion.v5_6),
             (ToolsVersion.v5_2, ToolsVersion.v5_6),
         ] {
-            let sandbox = AbsolutePath(path: "/tmp/ws/")
+            let sandbox = AbsolutePath("/tmp/ws/")
             let workspace = try MockWorkspace(
                 sandbox: sandbox,
                 fileSystem: fs,
@@ -3774,7 +3771,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileStableCanonicalLocation() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -3891,7 +3888,7 @@ final class WorkspaceTests: XCTestCase {
 
         // reset state, excluding the resolved file
         try workspace.closeWorkspace()
-        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3926,7 +3923,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         // reset state, excluding the resolved file
         try workspace.closeWorkspace()
-        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        XCTAssertTrue(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3964,8 +3961,8 @@ final class WorkspaceTests: XCTestCase {
         ]
         // reset state, including the resolved file
         workspace.checkReset { XCTAssertNoDiagnostics($0) }
-        try fs.removeFileTree(sandbox.appending(component: "Package.resolved"))
-        XCTAssertFalse(fs.exists(sandbox.appending(component: "Package.resolved")))
+        try fs.removeFileTree(sandbox.appending("Package.resolved"))
+        XCTAssertFalse(fs.exists(sandbox.appending("Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -4000,7 +3997,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageSimpleMirrorPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4092,7 +4089,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4195,7 +4192,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageSimpleMirrorURL() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4284,7 +4281,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorURL() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4389,7 +4386,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorURLToRegistry() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4459,7 +4456,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorRegistryToURL() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
@@ -4532,7 +4529,7 @@ final class WorkspaceTests: XCTestCase {
     // file for a transitive dependency whose URL is later changed to
     // something else, while keeping the same package identity.
     func testTransitiveDependencySwitchWithSameIdentity() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // Use the same revision (hash) for "foo" to indicate they are the same
@@ -4679,7 +4676,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersions() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -4802,7 +4799,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersionsDuplicateLocalDependency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -4853,7 +4850,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveWithNoResolvedFile() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -4910,7 +4907,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersionsLocalPackage() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -4956,7 +4953,7 @@ final class WorkspaceTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
-            let packagePath = path.appending(component: "MyPkg")
+            let packagePath = path.appending("MyPkg")
             let initPackage = try InitPackage(
                 name: packagePath.basename,
                 packageType: .executable,
@@ -5017,7 +5014,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRevisionDepOnLocal() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -5075,7 +5072,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPackagesOverrideBasenameMismatch() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -5125,7 +5122,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManagedDependenciesNotCaseSensitive() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -5219,7 +5216,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUnsafeFlags() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -5299,7 +5296,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testEditDependencyHadOverridableConstraints() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -5369,7 +5366,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -5400,7 +5397,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTargetBasedDependency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let barProducts: [MockProduct]
@@ -5507,7 +5504,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactExtractionHappyPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // create dummy xcframework and artifactbundle directories from the request archive
@@ -5593,35 +5590,35 @@ final class WorkspaceTests: XCTestCase {
         // Create dummy xcframework/artifactbundle zip files
         let aPath = workspace.packagesDir.appending(components: "A")
 
-        let aFrameworksPath = aPath.appending(component: "XCFrameworks")
-        let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
+        let aFrameworksPath = aPath.appending("XCFrameworks")
+        let a1FrameworkArchivePath = aFrameworksPath.appending("A1.zip")
         try fs.createDirectory(aFrameworksPath, recursive: true)
         try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
 
-        let aArtifactBundlesPath = aPath.appending(component: "ArtifactBundles")
-        let a2ArtifactBundleArchivePath = aArtifactBundlesPath.appending(component: "A2.zip")
+        let aArtifactBundlesPath = aPath.appending("ArtifactBundles")
+        let a2ArtifactBundleArchivePath = aArtifactBundlesPath.appending("A2.zip")
         try fs.createDirectory(aArtifactBundlesPath, recursive: true)
         try fs.writeFileContents(a2ArtifactBundleArchivePath, bytes: ByteString([0xA2]))
 
         let bPath = workspace.packagesDir.appending(components: "B")
 
-        let bFrameworksPath = bPath.appending(component: "XCFrameworks")
-        let bFrameworkArchivePath = bFrameworksPath.appending(component: "B.zip")
+        let bFrameworksPath = bPath.appending("XCFrameworks")
+        let bFrameworkArchivePath = bFrameworksPath.appending("B.zip")
         try fs.createDirectory(bFrameworksPath, recursive: true)
         try fs.writeFileContents(bFrameworkArchivePath, bytes: ByteString([0xB0]))
 
         // Ensure that the artifacts do not exist yet
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/A/A1.xcframework")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/B/B.xcframework")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
 
             // Ensure that the artifacts have been properly extracted
-            XCTAssertTrue(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A2/A2.artifactbundle")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/b/B/B.xcframework")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A2/A2.artifactbundle")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b/B/B.xcframework")))
 
             // Ensure that the original archives have been untouched
             XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
@@ -5630,24 +5627,15 @@ final class WorkspaceTests: XCTestCase {
 
             // Ensure that the temporary folders have been properly created
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/b/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
 
             // Ensure that the temporary directories have been removed
-            XCTAssertTrue(
-                try! fs.getDirectoryContents(AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A1"))
-                    .isEmpty
-            )
-            XCTAssertTrue(
-                try! fs.getDirectoryContents(AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A2"))
-                    .isEmpty
-            )
-            XCTAssertTrue(
-                try! fs.getDirectoryContents(AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/b/B"))
-                    .isEmpty
-            )
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")).isEmpty)
         }
 
         workspace.checkManagedArtifacts { result in
@@ -5686,7 +5674,7 @@ final class WorkspaceTests: XCTestCase {
     // It ensures that all the appropriate clean-up operations are executed, and the workspace
     // contains the correct set of managed artifacts after the transition.
     func testLocalArchivedArtifactSourceTransitionPermutations() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let a1FrameworkName = "A1.xcframework"
@@ -5821,19 +5809,19 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(aFrameworksPath, recursive: true)
 
         let a1FrameworkPath = aFrameworksPath.appending(component: a1FrameworkName)
-        let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
+        let a1FrameworkArchivePath = aFrameworksPath.appending("A1.zip")
         try fs.createDirectory(a1FrameworkPath, recursive: true)
         try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
 
         let a2FrameworkPath = aFrameworksPath.appending(component: a2FrameworkName)
-        let a2FrameworkArchivePath = aFrameworksPath.appending(component: "A2.zip")
+        let a2FrameworkArchivePath = aFrameworksPath.appending("A2.zip")
         try createDummyXCFramework(fileSystem: fs, path: a2FrameworkPath.parentDirectory, name: "A2")
         try fs.writeFileContents(a2FrameworkArchivePath, bytes: ByteString([0xA2]))
 
-        let a3FrameworkArchivePath = aFrameworksPath.appending(component: "A3.zip")
+        let a3FrameworkArchivePath = aFrameworksPath.appending("A3.zip")
         try fs.writeFileContents(a3FrameworkArchivePath, bytes: ByteString([0xA3]))
 
-        let a4FrameworkArchivePath = aFrameworksPath.appending(component: "A4.zip")
+        let a4FrameworkArchivePath = aFrameworksPath.appending("A4.zip")
         try fs.writeFileContents(a4FrameworkArchivePath, bytes: ByteString([0xA4]))
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
@@ -5961,7 +5949,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // create a dummy xcframework directory from the request archive
@@ -6007,10 +5995,10 @@ final class WorkspaceTests: XCTestCase {
 
         // Create dummy zip files
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let frameworksPath = rootPath.appending(component: "XCFrameworks")
+        let frameworksPath = rootPath.appending("XCFrameworks")
         try fs.createDirectory(frameworksPath, recursive: true)
         try fs.writeFileContents(
-            frameworksPath.appending(component: "archived-does-not-match-target-name.zip"),
+            frameworksPath.appending("archived-does-not-match-target-name.zip"),
             bytes: ByteString([0xA1])
         )
 
@@ -6020,7 +6008,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactExtractionError() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let archiver = MockArchiver(handler: { _, _, _, completion in
@@ -6071,7 +6059,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchiveDoesNotMatchTargetName() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // create dummy xcframework and artifactbundle directories from the request archive
@@ -6117,13 +6105,13 @@ final class WorkspaceTests: XCTestCase {
 
         // Create dummy zip files
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let frameworksPath = rootPath.appending(component: "XCFrameworks")
+        let frameworksPath = rootPath.appending("XCFrameworks")
         try fs.createDirectory(frameworksPath, recursive: true)
-        try fs.writeFileContents(frameworksPath.appending(component: "A1.zip"), bytes: ByteString([0xA1]))
+        try fs.writeFileContents(frameworksPath.appending("A1.zip"), bytes: ByteString([0xA1]))
 
-        let aArtifactBundlesPath = rootPath.appending(component: "ArtifactBundles")
+        let aArtifactBundlesPath = rootPath.appending("ArtifactBundles")
         try fs.createDirectory(aArtifactBundlesPath, recursive: true)
-        try fs.writeFileContents(aArtifactBundlesPath.appending(component: "A2.zip"), bytes: ByteString([0xA2]))
+        try fs.writeFileContents(aArtifactBundlesPath.appending("A2.zip"), bytes: ByteString([0xA2]))
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -6146,7 +6134,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactChecksumChange() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // create dummy xcframework directories from the request archive
@@ -6220,16 +6208,16 @@ final class WorkspaceTests: XCTestCase {
         let frameworksPath = rootPath.appending(components: "XCFrameworks")
         try fs.createDirectory(frameworksPath, recursive: true)
 
-        let a1FrameworkArchivePath = frameworksPath.appending(component: "A1.zip")
+        let a1FrameworkArchivePath = frameworksPath.appending("A1.zip")
         try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
 
-        let a2FrameworkArchivePath = frameworksPath.appending(component: "A2.zip")
+        let a2FrameworkArchivePath = frameworksPath.appending("A2.zip")
         try fs.writeFileContents(a2FrameworkArchivePath, bytes: ByteString([0xA2]))
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, _ in
             // Ensure that only the artifact archive with the changed checksum has been extracted
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
             ])
         }
 
@@ -6250,7 +6238,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactStripFirstComponent() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // create a dummy xcframework directory from the request archive
@@ -6260,16 +6248,16 @@ final class WorkspaceTests: XCTestCase {
                 case "flat.zip":
                     try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "flat")
                 case "nested.zip":
-                    let nestedPath = destinationPath.appending(component: "root")
+                    let nestedPath = destinationPath.appending("root")
                     try fs.createDirectory(nestedPath, recursive: true)
                     try createDummyXCFramework(fileSystem: fs, path: nestedPath, name: "nested")
                 case "nested2.zip":
-                    let nestedPath = destinationPath.appending(component: "root")
+                    let nestedPath = destinationPath.appending("root")
                     try fs.createDirectory(nestedPath, recursive: true)
                     try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "nested2")
                     try fs
                         .writeFileContents(
-                            nestedPath.appending(component: ".DS_Store"),
+                            nestedPath.appending(".DS_Store"),
                             bytes: []
                         ) // add a file next to the directory
                 default:
@@ -6318,22 +6306,22 @@ final class WorkspaceTests: XCTestCase {
         let rootPath = try workspace.pathToRoot(withName: "Root")
         let archivesPath = rootPath.appending(components: "frameworks")
         try fs.createDirectory(archivesPath, recursive: true)
-        try fs.writeFileContents(archivesPath.appending(component: "flat.zip"), bytes: ByteString([0x1]))
-        try fs.writeFileContents(archivesPath.appending(component: "nested.zip"), bytes: ByteString([0x2]))
-        try fs.writeFileContents(archivesPath.appending(component: "nested2.zip"), bytes: ByteString([0x3]))
+        try fs.writeFileContents(archivesPath.appending("flat.zip"), bytes: ByteString([0x1]))
+        try fs.writeFileContents(archivesPath.appending("nested.zip"), bytes: ByteString([0x2]))
+        try fs.writeFileContents(archivesPath.appending("nested2.zip"), bytes: ByteString([0x3]))
 
         // ensure that the artifacts do not exist yet
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root/flat/flat.xcframework")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root/nested/nested.artifactbundle")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root/nested2/nested2.xcframework")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/flat/flat.xcframework")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/nested/nested.artifactbundle")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/nested2/nested2.xcframework")))
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/flat"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/nested"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/nested2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
             ])
         }
 
@@ -6360,7 +6348,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArtifactHappyPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -6388,12 +6376,8 @@ final class WorkspaceTests: XCTestCase {
         let rootPath = try workspace.pathToRoot(withName: "Root")
 
         // make sure the directory exist in their destined location
-        try createDummyXCFramework(fileSystem: fs, path: rootPath.appending(component: "XCFrameworks"), name: "A1")
-        try createDummyArtifactBundle(
-            fileSystem: fs,
-            path: rootPath.appending(component: "ArtifactBundles"),
-            name: "A2"
-        )
+        try createDummyXCFramework(fileSystem: fs, path: rootPath.appending("XCFrameworks"), name: "A1")
+        try createDummyArtifactBundle(fileSystem: fs, path: rootPath.appending("ArtifactBundles"), name: "A2")
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -6416,7 +6400,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArtifactDoesNotExist() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -6445,13 +6429,13 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.checkUnordered(
                     diagnostic: .contains(
-                        "local binary target 'A1' at '\(AbsolutePath(path: "/tmp/ws/roots/Root/XCFrameworks/incorrect.xcframework"))' does not contain a binary artifact."
+                        "local binary target 'A1' at '\(AbsolutePath("/tmp/ws/roots/Root/XCFrameworks/incorrect.xcframework"))' does not contain a binary artifact."
                     ),
                     severity: .error
                 )
                 result.checkUnordered(
                     diagnostic: .contains(
-                        "local binary target 'A2' at '\(AbsolutePath(path: "/tmp/ws/roots/Root/ArtifactBundles/incorrect.artifactbundle"))' does not contain a binary artifact."
+                        "local binary target 'A2' at '\(AbsolutePath("/tmp/ws/roots/Root/ArtifactBundles/incorrect.artifactbundle"))' does not contain a binary artifact."
                     ),
                     severity: .error
                 )
@@ -6460,7 +6444,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadHappyPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
@@ -6584,8 +6568,8 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/a")))
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/b")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2.zip",
@@ -6597,9 +6581,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/b/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -6652,7 +6636,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadWithPreviousState() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
@@ -6882,14 +6866,14 @@ final class WorkspaceTests: XCTestCase {
                     severity: .error
                 )
             }
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/b")))
-            XCTAssert(fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
-            XCTAssert(fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A2/A2.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A3/A3.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A4/A4.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/a/A5/A5.xcframework")))
-            XCTAssert(fs.exists(AbsolutePath(path: "/tmp/ws/pkgs/a/XCFrameworks/A7.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/Foo")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
+            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
+            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A2/A2.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A3/A3.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A4/A4.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A5/A5.xcframework")))
+            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/pkgs/a/XCFrameworks/A7.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a2.zip",
                 "https://a.com/a3.zip",
@@ -6903,10 +6887,10 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A3"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A7"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/b/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A3"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A7"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -6963,7 +6947,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadTwice() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
 
@@ -7042,7 +7026,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation,
             ])
@@ -7052,7 +7036,7 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
         ])
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
@@ -7067,7 +7051,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
 
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
@@ -7078,8 +7062,8 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip", "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A1"),
-            AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
         ])
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
@@ -7089,7 +7073,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testArtifactDownloadServerError() throws {
         let fs = InMemoryFileSystem()
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
 
         let httpClient = LegacyHTTPClient(handler: { request, _, completion in
@@ -7144,12 +7128,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // make sure artifact downloaded is deleted
-        XCTAssertTrue(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root")))
-        XCTAssertFalse(fs.exists(AbsolutePath(path: "/tmp/ws/.build/artifacts/root/a.zip")))
+        XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
     }
 
     func testArtifactDownloaderOrArchiverError() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
@@ -7177,10 +7161,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
-            XCTAssertEqual(
-                destinationPath.parentDirectory,
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A2")
-            )
+            XCTAssertEqual(destinationPath.parentDirectory, AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A2"))
             completion(.failure(DummyError()))
         })
 
@@ -7243,7 +7224,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactNotAnArchiveError() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
@@ -7355,7 +7336,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactInvalid() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
@@ -7430,7 +7411,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactDoesNotMatchTargetName() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
@@ -7510,7 +7491,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testArtifactChecksum() throws {
         let fs = InMemoryFileSystem()
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
 
         let checksumAlgorithm = MockHashAlgorithm()
@@ -7526,7 +7507,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Checks the valid case.
         do {
-            let binaryPath = sandbox.appending(component: "binary.zip")
+            let binaryPath = sandbox.appending("binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
             let checksum = try binaryArtifactsManager.checksum(forBinaryArtifactAt: binaryPath)
@@ -7536,7 +7517,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Checks an unsupported extension.
         do {
-            let unknownPath = sandbox.appending(component: "unknown")
+            let unknownPath = sandbox.appending("unknown")
             XCTAssertThrowsError(
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
                 "error expected"
@@ -7550,21 +7531,21 @@ final class WorkspaceTests: XCTestCase {
 
         // Checks a supported extension that is not a file (does not exist).
         do {
-            let unknownPath = sandbox.appending(component: "missingFile.zip")
+            let unknownPath = sandbox.appending("missingFile.zip")
             XCTAssertThrowsError(
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
                 "error expected"
             ) { error in
                 XCTAssertEqual(
                     error as? StringError,
-                    StringError("file not found at path: \(sandbox.appending(component: "missingFile.zip"))")
+                    StringError("file not found at path: \(sandbox.appending("missingFile.zip"))")
                 )
             }
         }
 
         // Checks a supported extension that is a directory instead of a file.
         do {
-            let unknownPath = sandbox.appending(component: "aDirectory.zip")
+            let unknownPath = sandbox.appending("aDirectory.zip")
             try fs.createDirectory(unknownPath)
             XCTAssertThrowsError(
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
@@ -7572,14 +7553,14 @@ final class WorkspaceTests: XCTestCase {
             ) { error in
                 XCTAssertEqual(
                     error as? StringError,
-                    StringError("file not found at path: \(sandbox.appending(component: "aDirectory.zip"))")
+                    StringError("file not found at path: \(sandbox.appending("aDirectory.zip"))")
                 )
             }
         }
     }
 
     func testDownloadedArtifactChecksumChange() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let httpClient = LegacyHTTPClient(handler: { _, _, _ in
@@ -7631,7 +7612,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactChecksumChangeURLChange() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let httpClient = LegacyHTTPClient(handler: { request, _, completion in
@@ -7726,7 +7707,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadAddsAcceptHeader() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
         var acceptHeaders: [String] = []
@@ -7808,7 +7789,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactTransitive() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
@@ -7951,7 +7932,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a.zip",
             ])
@@ -7959,7 +7940,7 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -7981,7 +7962,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactArchiveExists() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         // this relies on internal knowledge of the destination path construction
         let expectedDownloadDestination = sandbox.appending(
@@ -8095,7 +8076,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactConcurrency() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let maxConcurrentRequests = 2
@@ -8216,7 +8197,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactStripFirstComponent() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
@@ -8261,18 +8242,18 @@ final class WorkspaceTests: XCTestCase {
                     archiver.extractions
                         .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
                 case "nested.zip":
-                    let nestedPath = destinationPath.appending(component: "root")
+                    let nestedPath = destinationPath.appending("root")
                     try fs.createDirectory(nestedPath)
                     try createDummyXCFramework(fileSystem: fs, path: nestedPath, name: "nested")
                     archiver.extractions
                         .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
                 case "nested2.zip":
-                    let nestedPath = destinationPath.appending(component: "root")
+                    let nestedPath = destinationPath.appending("root")
                     try fs.createDirectory(nestedPath)
                     try createDummyXCFramework(fileSystem: fs, path: nestedPath, name: "nested2")
                     try fs
                         .writeFileContents(
-                            nestedPath.appending(component: ".DS_Store"),
+                            nestedPath.appending(".DS_Store"),
                             bytes: []
                         ) // add a file next to the directory
 
@@ -8325,7 +8306,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/flat.zip",
                 "https://a.com/nested.zip",
@@ -8337,9 +8318,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0x03]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/flat"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/nested"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/nested2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -8379,7 +8360,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactMultipleExtensions() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
@@ -8474,8 +8455,8 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA2]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A1"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/root/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A2"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -8506,7 +8487,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLoadRootPackageWithBinaryDependencies() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -8544,7 +8525,7 @@ final class WorkspaceTests: XCTestCase {
         let wks = try workspace.getOrCreateWorkspace()
         XCTAssertNoThrow(try tsc_await {
             wks.loadRootPackage(
-                at: workspace.rootsDir.appending(component: "Root"),
+                at: workspace.rootsDir.appending("Root"),
                 observabilityScope: observability.topScope,
                 completion: $0
             )
@@ -8553,7 +8534,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFilesHappyPath() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
@@ -8725,8 +8706,8 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/a")))
-            XCTAssert(fs.isDirectory(AbsolutePath(path: "/tmp/ws/.build/artifacts/b")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2/a2.zip",
@@ -8745,9 +8726,9 @@ final class WorkspaceTests: XCTestCase {
                 ).map(\.hexadecimalRepresentation).sorted()
             )
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath(path: "/tmp/ws/.build/artifacts/extract/b/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -8800,7 +8781,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexServerError() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
@@ -8842,7 +8823,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileBadChecksum() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
 
@@ -8911,7 +8892,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileChecksumChanges() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -8961,7 +8942,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
 
@@ -9071,7 +9052,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileArchiveNotFound() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
 
@@ -9146,7 +9127,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexTripleNotFound() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let hostToolchain = try UserToolchain(destination: .hostDestination())
@@ -9218,7 +9199,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateDependencyIdentityWithNameAtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9287,7 +9268,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateDependencyIdentityWithoutNameAtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9348,7 +9329,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateExplicitDependencyName_AtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9417,7 +9398,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateManifestNameAtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9472,7 +9453,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateManifestName_ExplicitProductPackage_AtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9527,7 +9508,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Pre52() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9582,7 +9563,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Post52_Incorrect() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9646,7 +9627,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Post52_Correct() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9701,7 +9682,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_ExplicitDependencyNames_AtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9765,7 +9746,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_ExplicitDependencyNames_ExplicitProductPackage_AtRoot() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9829,7 +9810,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithNames() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -9918,7 +9899,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithoutNames() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10003,7 +9984,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentitySimilarURLs1() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10078,7 +10059,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentitySimilarURLs2() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10153,7 +10134,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityGitHubURLs1() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10228,7 +10209,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityGitHubURLs2() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10306,7 +10287,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityUnfamiliarURLs() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10391,7 +10372,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithSimilarURLs() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10513,7 +10494,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateNestedTransitiveIdentityWithNames() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10607,7 +10588,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateNestedTransitiveIdentityWithoutNames() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10691,7 +10672,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPathConflictsWithTransitiveIdentity() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10766,7 +10747,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolutionBranchAndVersion() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -10841,9 +10822,9 @@ final class WorkspaceTests: XCTestCase {
             let fs = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
 
-            let foo = path.appending(component: "foo")
+            let foo = path.appending("foo")
 
-            try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+            try fs.writeFileContents(foo.appending("Package.swift")) {
                 $0 <<<
                     """
                     // swift-tools-version:5.3
@@ -10858,7 +10839,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
-            let sandbox = path.appending(component: "ws")
+            let sandbox = path.appending("ws")
             let workspace = try Workspace(
                 fileSystem: fs,
                 forRootPackage: sandbox,
@@ -10971,7 +10952,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicResolutionFromSourceControl() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11077,7 +11058,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicTransitiveResolutionFromSourceControl() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11221,7 +11202,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicResolutionFromRegistry() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11327,7 +11308,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicTransitiveResolutionFromRegistry() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11472,7 +11453,7 @@ final class WorkspaceTests: XCTestCase {
 
     // no dups
     func testResolutionMixedRegistryAndSourceControl1() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11603,7 +11584,7 @@ final class WorkspaceTests: XCTestCase {
 
     // duplicate package at root level
     func testResolutionMixedRegistryAndSourceControl2() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11713,7 +11694,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl3() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -11897,7 +11878,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 registry --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl4() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12056,7 +12037,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry incompatible version
     func testResolutionMixedRegistryAndSourceControl5() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12202,7 +12183,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm
     func testResolutionMixedRegistryAndSourceControl6() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12369,7 +12350,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm incompatible version
     func testResolutionMixedRegistryAndSourceControl7() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12515,7 +12496,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry
     func testResolutionMixedRegistryAndSourceControl8() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12706,7 +12687,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry incompatible version
     func testResolutionMixedRegistryAndSourceControl9() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -12868,7 +12849,7 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm branch
     //                  --> dep2 registry --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl10() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -13036,7 +13017,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCustomPackageContainerProvider() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let customFS = InMemoryFileSystem()
@@ -13048,10 +13029,10 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: customFS
         )
         // write the sources
-        let sourcesDir = AbsolutePath(path: "/Sources")
-        let targetDir = sourcesDir.appending(component: "Baz")
+        let sourcesDir = AbsolutePath("/Sources")
+        let targetDir = sourcesDir.appending("Baz")
         try customFS.createDirectory(targetDir, recursive: true)
-        try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+        try customFS.writeFileContents(targetDir.appending("file.swift"), bytes: "")
 
         let bazURL = URL("https://example.com/baz")
         let bazPackageReference = PackageReference(
@@ -13065,7 +13046,7 @@ final class WorkspaceTests: XCTestCase {
             customRetrievalPath: .root
         )
 
-        let fooPath = AbsolutePath(path: "/tmp/ws/Foo")
+        let fooPath = AbsolutePath("/tmp/ws/Foo")
         let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
         let fooContainer = MockPackageContainer(package: fooPackageReference)
 
@@ -13125,7 +13106,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryMissingConfigurationErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let registryClient = try makeRegistryClient(
@@ -13178,7 +13159,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryReleasesServerErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -13263,7 +13244,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryReleaseChecksumServerErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -13350,7 +13331,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryManifestServerErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -13435,7 +13416,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryDownloadServerErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let workspace = try MockWorkspace(
@@ -13522,7 +13503,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryArchiveErrors() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let registryClient = try makeRegistryClient(
@@ -13779,7 +13760,7 @@ final class WorkspaceTests: XCTestCase {
 
         let archiver = archiver ?? MockArchiver(handler: { _, _, to, completion in
             do {
-                let packagePath = to.appending(component: "top")
+                let packagePath = to.appending("top")
                 try fileSystem.createDirectory(packagePath, recursive: true)
                 try fileSystem.writeFileContents(packagePath.appending(component: Manifest.filename), bytes: [])
                 try ToolsVersionSpecificationWriter.rewriteSpecification(
@@ -13836,10 +13817,10 @@ final class WorkspaceTests: XCTestCase {
 }
 
 func createDummyXCFramework(fileSystem: FileSystem, path: AbsolutePath, name: String) throws {
-    let path = path.appending(component: "\(name).xcframework")
+    let path = path.appending("\(name).xcframework")
     try fileSystem.createDirectory(path, recursive: true)
     try fileSystem.writeFileContents(
-        path.appending(component: "info.plist"),
+        path.appending("info.plist"),
         string: """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -13858,10 +13839,10 @@ func createDummyXCFramework(fileSystem: FileSystem, path: AbsolutePath, name: St
 }
 
 func createDummyArtifactBundle(fileSystem: FileSystem, path: AbsolutePath, name: String) throws {
-    let path = path.appending(component: "\(name).artifactbundle")
+    let path = path.appending("\(name).artifactbundle")
     try fileSystem.createDirectory(path, recursive: true)
     try fileSystem.writeFileContents(
-        path.appending(component: "info.json"),
+        path.appending("info.json"),
         string: """
         {
             "schemaVersion": "1.0",

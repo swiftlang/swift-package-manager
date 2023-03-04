@@ -249,7 +249,7 @@ public final class SwiftTargetBuildDescription {
         }
         self.fileSystem = fileSystem
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
-        self.derivedSources = Sources(paths: [], root: self.tempsPath.appending(component: "DerivedSources"))
+        self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))
         self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
@@ -295,7 +295,7 @@ public final class SwiftTargetBuildDescription {
         if self.bundlePath != nil {
             try self.generateResourceAccessor()
 
-            let infoPlistPath = self.tempsPath.appending(component: "Info.plist")
+            let infoPlistPath = self.tempsPath.appending("Info.plist")
             if try generateResourceInfoPlist(fileSystem: self.fileSystem, target: target, path: infoPlistPath) {
                 self.resourceBundleInfoPlistPath = infoPlistPath
             }
@@ -664,12 +664,12 @@ public final class SwiftTargetBuildDescription {
     }
 
     private func writeOutputFileMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending(component: "output-file-map.json")
+        let path = self.tempsPath.appending("output-file-map.json")
         let stream = BufferedOutputByteStream()
 
         stream <<< "{\n"
 
-        let masterDepsPath = self.tempsPath.appending(component: "master.swiftdeps")
+        let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
         stream <<< "  \"\": {\n"
         if self.buildParameters.useWholeModuleOptimization {
             let moduleName = self.target.c99name
@@ -739,7 +739,7 @@ public final class SwiftTargetBuildDescription {
 
     /// Returns the path to the ObjC compatibility header for this Swift target.
     var objCompatibilityHeaderPath: AbsolutePath {
-        self.tempsPath.appending(component: "\(self.target.name)-Swift.h")
+        self.tempsPath.appending("\(self.target.name)-Swift.h")
     }
 
     /// Returns the build flags from the declared build settings.

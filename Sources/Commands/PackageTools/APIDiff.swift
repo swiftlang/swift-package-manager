@@ -118,7 +118,7 @@ struct APIDiff: SwiftCommand {
         var skippedModules: Set<String> = []
 
         for module in modulesToDiff {
-            let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
+            let moduleBaselinePath = baselineDir.appending("\(module).json")
             guard swiftTool.fileSystem.exists(moduleBaselinePath) else {
                 print("\nSkipping \(module) because it does not exist in the baseline")
                 skippedModules.insert(module)

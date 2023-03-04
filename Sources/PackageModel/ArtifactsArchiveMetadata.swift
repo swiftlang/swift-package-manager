@@ -59,7 +59,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
 extension ArtifactsArchiveMetadata {
     public static func parse(fileSystem: FileSystem, rootPath: AbsolutePath) throws -> ArtifactsArchiveMetadata {
-        let path = rootPath.appending(component: "info.json")
+        let path = rootPath.appending("info.json")
         guard fileSystem.exists(path) else {
             throw StringError("ArtifactsArchive info.json not found at '\(rootPath)'")
         }

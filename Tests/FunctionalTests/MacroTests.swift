@@ -23,11 +23,11 @@ class MacroTests: XCTestCase {
         try XCTSkipIf(!DriverSupport.checkSupportedFrontendFlags(flags: ["load-plugin-library"], toolchain: UserToolchain.default, fileSystem: localFileSystem), "test needs `-load-plugin-library`")
 
         // Check for presence of `libSwiftSyntaxMacros`.
-        let libSwiftSyntaxMacrosPath = try UserToolchain.default.hostLibDir.appending(component: "libSwiftSyntaxMacros.dylib")
+        let libSwiftSyntaxMacrosPath = try UserToolchain.default.hostLibDir.appending("libSwiftSyntaxMacros.dylib")
         try XCTSkipIf(!localFileSystem.exists(libSwiftSyntaxMacrosPath), "test need `libSwiftSyntaxMacros` to exist in the host toolchain")
 
         try fixture(name: "Macros") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MacroPackage"), configuration: .Debug)
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("MacroPackage"), configuration: .Debug)
             XCTAssert(stdout.contains("@__swiftmacro_11MacroClient11fontLiteralfMf_.swift as Font"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }

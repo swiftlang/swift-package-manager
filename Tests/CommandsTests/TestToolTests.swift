@@ -105,7 +105,7 @@ final class TestToolTests: CommandsTestCase {
             }
 
             do {
-                let xUnitOutput = fixturePath.appending(component: "result.xml")
+                let xUnitOutput = fixturePath.appending("result.xml")
                 // Run tests in parallel with verbose output.
                 XCTAssertThrowsCommandExecutionError(
                     try SwiftPMProduct.SwiftTest.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)

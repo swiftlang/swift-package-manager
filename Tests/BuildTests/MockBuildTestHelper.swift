@@ -20,15 +20,15 @@ import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
 #if os(Windows)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/link.exe")
+    let librarianPath = AbsolutePath("/fake/path/to/link.exe")
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/libtool")
+    let librarianPath = AbsolutePath("/fake/path/to/libtool")
 #elseif os(Android)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/llvm-ar")
+    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #else
-    let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
+    let librarianPath = AbsolutePath("/fake/path/to/ar")
 #endif
-    let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     
     #if os(macOS)
     let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
@@ -57,12 +57,6 @@ extension TSCUtility.Triple {
     static let wasi = try! Triple("wasm32-unknown-wasi")
 }
 
-extension AbsolutePath {
-    func escapedPathString() -> String {
-        return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
-    }
-}
-
 let hostTriple = try! UserToolchain.default.triple
 #if os(macOS)
     let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
@@ -71,7 +65,7 @@ let hostTriple = try! UserToolchain.default.triple
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath(path: "/path/to/build"),
+    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),

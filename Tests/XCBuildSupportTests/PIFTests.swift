@@ -23,13 +23,13 @@ class PIFTests: XCTestCase {
         PIF.Workspace(
             guid: "workspace",
             name: "MyWorkspace",
-            path: AbsolutePath(path: "/path/to/workspace"),
+            path: "/path/to/workspace",
             projects: [
                 PIF.Project(
                     guid: "project",
                     name: "MyProject",
-                    path: AbsolutePath(path: "/path/to/workspace/project"),
-                    projectDirectory: AbsolutePath(path: "/path/to/workspace/project"),
+                    path: "/path/to/workspace/project",
+                    projectDirectory: "/path/to/workspace/project",
                     developmentRegion: "fr",
                     buildConfigurations: [
                         PIF.BuildConfiguration(
@@ -275,14 +275,14 @@ class PIFTests: XCTestCase {
 
         XCTAssertEqual(workspace["type"]?.string, "workspace")
         XCTAssertEqual(workspaceContents["guid"]?.string, "workspace@11")
-        XCTAssertEqual(workspaceContents["path"]?.string, AbsolutePath(path: "/path/to/workspace").pathString)
+        XCTAssertEqual(workspaceContents["path"]?.string, AbsolutePath("/path/to/workspace").pathString)
         XCTAssertEqual(workspaceContents["name"]?.string, "MyWorkspace")
         XCTAssertEqual(workspaceContents["projects"]?.array, [project["signature"]!])
 
         XCTAssertEqual(project["type"]?.string, "project")
         XCTAssertEqual(projectContents["guid"]?.string, "project@11")
-        XCTAssertEqual(projectContents["path"]?.string, AbsolutePath(path: "/path/to/workspace/project").pathString)
-        XCTAssertEqual(projectContents["projectDirectory"]?.string, AbsolutePath(path: "/path/to/workspace/project").pathString)
+        XCTAssertEqual(projectContents["path"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
+        XCTAssertEqual(projectContents["projectDirectory"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
         XCTAssertEqual(projectContents["projectName"]?.string, "MyProject")
         XCTAssertEqual(projectContents["projectIsPackage"]?.string, "true")
         XCTAssertEqual(projectContents["developmentRegion"]?.string, "fr")

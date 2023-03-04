@@ -1464,7 +1464,7 @@ extension Target.Dependency {
 
 extension PackageBuilder {
     fileprivate func createSnippetTargets(dependencies: [Target.Dependency]) throws -> [Target] {
-        let snippetsDirectory = packagePath.appending(component: "Snippets")
+        let snippetsDirectory = packagePath.appending("Snippets")
         guard fileSystem.isDirectory(snippetsDirectory) else {
             return []
         }

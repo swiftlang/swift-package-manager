@@ -78,7 +78,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     }
 
     func mockGraph(for name: String) throws -> MockDependencyGraph {
-        let input = AbsolutePath(path: #file).parentDirectory.appending(component: "Inputs").appending(component: name)
+        let input = AbsolutePath(path: #file).parentDirectory.appending("Inputs").appending(component: name)
         let jsonString: Data = try localFileSystem.readFileContents(input)
         let json = try JSON(data: jsonString)
         return MockDependencyGraph(json)

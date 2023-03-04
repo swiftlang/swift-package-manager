@@ -354,12 +354,12 @@ public struct BuildParameters: Encodable {
 
     /// The path to the code coverage directory.
     public var codeCovPath: AbsolutePath {
-        return buildPath.appending(component: "codecov")
+        return buildPath.appending("codecov")
     }
 
     /// The path to the code coverage profdata file.
     public var codeCovDataFile: AbsolutePath {
-        return codeCovPath.appending(component: "default.profdata")
+        return codeCovPath.appending("default.profdata")
     }
 
     public var llbuildManifest: AbsolutePath {

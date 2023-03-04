@@ -39,7 +39,7 @@ public final class UserToolchain: Toolchain {
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
-        self.swiftCompilerPath.parentDirectory.appending(component: "swift" + hostExecutableSuffix)
+        self.swiftCompilerPath.parentDirectory.appending("swift" + hostExecutableSuffix)
     }
 
     /// The compilation destination object.
@@ -326,7 +326,7 @@ public final class UserToolchain: Toolchain {
                     var extraSwiftCFlags: [String] = []
 
                     if let settings = WindowsSDKSettings(
-                        reading: sdkroot.appending(component: "SDKSettings.plist"),
+                        reading: sdkroot.appending("SDKSettings.plist"),
                         diagnostics: nil,
                         filesystem: localFileSystem
                     ) {
@@ -351,14 +351,14 @@ public final class UserToolchain: Toolchain {
                     let platform = sdkroot.parentDirectory.parentDirectory.parentDirectory
 
                     if let info = WindowsPlatformInfo(
-                        reading: platform.appending(component: "Info.plist"),
+                        reading: platform.appending("Info.plist"),
                         diagnostics: nil,
                         filesystem: localFileSystem
                     ) {
                         let installation: AbsolutePath =
-                            platform.appending(component: "Developer")
-                                .appending(component: "Library")
-                                .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                            platform.appending("Developer")
+                                .appending("Library")
+                                .appending("XCTest-\(info.defaults.xctestVersion)")
 
                         xctest = try [
                             "-I",
@@ -495,7 +495,7 @@ public final class UserToolchain: Toolchain {
         if triple.isWindows() {
             if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(
-                    reading: root.appending(component: "SDKSettings.plist"),
+                    reading: root.appending("SDKSettings.plist"),
                     diagnostics: nil,
                     filesystem: localFileSystem
                 ) {
@@ -614,7 +614,7 @@ public final class UserToolchain: Toolchain {
             }
 
             // this tests if we are debugging / testing SwiftPM with SwiftPM
-            if localFileSystem.exists(applicationPath.appending(component: "swift-package")) {
+            if localFileSystem.exists(applicationPath.appending("swift-package")) {
                 return .init(
                     manifestLibraryPath: applicationPath,
                     pluginLibraryPath: applicationPath
@@ -660,14 +660,14 @@ public final class UserToolchain: Toolchain {
             let platform = sdkRoot.parentDirectory.parentDirectory.parentDirectory
 
             if let info = WindowsPlatformInfo(
-                reading: platform.appending(component: "Info.plist"),
+                reading: platform.appending("Info.plist"),
                 diagnostics: nil,
                 filesystem: localFileSystem
             ) {
                 let xctest: AbsolutePath =
-                    platform.appending(component: "Developer")
-                        .appending(component: "Library")
-                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                    platform.appending("Developer")
+                        .appending("Library")
+                        .appending("XCTest-\(info.defaults.xctestVersion)")
 
                 // Migration Path
                 //
@@ -680,32 +680,32 @@ public final class UserToolchain: Toolchain {
                 switch triple.arch {
                 case .x86_64, .x86_64h:
                     let path: AbsolutePath =
-                        xctest.appending(component: "usr")
-                            .appending(component: "bin64")
+                        xctest.appending("usr")
+                            .appending("bin64")
                     if localFileSystem.exists(path) {
                         return path
                     }
 
                 case .i686:
                     let path: AbsolutePath =
-                        xctest.appending(component: "usr")
-                            .appending(component: "bin32")
+                        xctest.appending("usr")
+                            .appending("bin32")
                     if localFileSystem.exists(path) {
                         return path
                     }
 
                 case .armv7:
                     let path: AbsolutePath =
-                        xctest.appending(component: "usr")
-                            .appending(component: "bin32a")
+                        xctest.appending("usr")
+                            .appending("bin32a")
                     if localFileSystem.exists(path) {
                         return path
                     }
 
                 case .arm64:
                     let path: AbsolutePath =
-                        xctest.appending(component: "usr")
-                            .appending(component: "bin64a")
+                        xctest.appending("usr")
+                            .appending("bin64a")
                     if localFileSystem.exists(path) {
                         return path
                     }
@@ -718,8 +718,8 @@ public final class UserToolchain: Toolchain {
                 }
 
                 // Assume that we are in the old-style layout.
-                return xctest.appending(component: "usr")
-                    .appending(component: "bin")
+                return xctest.appending("usr")
+                    .appending("bin")
             }
         }
         return .none

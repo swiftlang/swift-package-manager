@@ -356,11 +356,11 @@ public struct InMemoryRegistryPackageSource {
 
     public func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .current) throws {
         try self.fileSystem.createDirectory(self.path, recursive: true)
-        let sourcesDir = self.path.appending(component: "Sources")
+        let sourcesDir = self.path.appending("Sources")
         for target in targets {
             let targetDir = sourcesDir.appending(component: target)
             try self.fileSystem.createDirectory(targetDir, recursive: true)
-            try self.fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+            try self.fileSystem.writeFileContents(targetDir.appending("file.swift"), bytes: "")
         }
         let manifestPath = self.path.appending(component: Manifest.filename)
         try self.fileSystem.writeFileContents(manifestPath, string: "// swift-tools-version:\(toolsVersion)")
@@ -407,7 +407,7 @@ private struct MockRegistryArchiver: Archiver {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
                 let targetPath = try AbsolutePath(
                     validating: relativePath,
-                    relativeTo: destinationPath.appending(component: "package")
+                    relativeTo: destinationPath.appending("package")
                 )
                 if !self.fileSystem.exists(targetPath.parentDirectory) {
                     try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)

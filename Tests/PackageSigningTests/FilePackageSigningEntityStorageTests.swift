@@ -22,7 +22,7 @@ import struct TSCUtility.Version
 final class FilePackageSigningEntityStorageTests: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/signing")
+        let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         // Record signing entities for mona.LinkedList
@@ -60,7 +60,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
 
     func testSingleFingerprintPerKind() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/signing")
+        let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")

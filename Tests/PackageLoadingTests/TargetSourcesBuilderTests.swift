@@ -591,15 +591,15 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _,  _, _, _, _, diagnostics in
             XCTAssertEqual(resources.sorted(by: { $0.path < $1.path }), [
-                Resource(rule: .process(localization: .none), path: AbsolutePath(path: "/Processed/foo.txt")),
-                Resource(rule: .process(localization: "en-us"), path: AbsolutePath(path: "/Processed/En-uS.lproj/Localizable.stringsdict")),
-                Resource(rule: .process(localization: "en-us"), path: AbsolutePath(path: "/Processed/en-US.lproj/Localizable.strings")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Processed/fr.lproj/Localizable.strings")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Processed/fr.lproj/Localizable.stringsdict")),
-                Resource(rule: .process(localization: "Base"), path: AbsolutePath(path: "/Processed/Base.lproj/Storyboard.storyboard")),
-                Resource(rule: .copy, path: AbsolutePath(path: "/Copied")),
-                Resource(rule: .process(localization: "Base"), path: AbsolutePath(path: "/Other/Launch.storyboard")),
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Other/Image.png")),
+                Resource(rule: .process(localization: .none), path: "/Processed/foo.txt"),
+                Resource(rule: .process(localization: "en-us"), path: "/Processed/En-uS.lproj/Localizable.stringsdict"),
+                Resource(rule: .process(localization: "en-us"), path: "/Processed/en-US.lproj/Localizable.strings"),
+                Resource(rule: .process(localization: "fr"), path: "/Processed/fr.lproj/Localizable.strings"),
+                Resource(rule: .process(localization: "fr"), path: "/Processed/fr.lproj/Localizable.stringsdict"),
+                Resource(rule: .process(localization: "Base"), path: "/Processed/Base.lproj/Storyboard.storyboard"),
+                Resource(rule: .copy, path: "/Copied"),
+                Resource(rule: .process(localization: "Base"), path: "/Other/Launch.storyboard"),
+                Resource(rule: .process(localization: "fr"), path: "/Other/Image.png"),
             ].sorted(by: { $0.path < $1.path }))
         }
     }
@@ -612,8 +612,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: try TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, _, _, _, _, diagnostics in
             XCTAssertEqual(resources.sorted(by: { $0.path < $1.path }), [
-                Resource(rule: .process(localization: "fr"), path: AbsolutePath(path: "/Foo/fr.lproj/Image.png")),
-                Resource(rule: .process(localization: "es"), path: AbsolutePath(path: "/Foo/es.lproj/Image.png")),
+                Resource(rule: .process(localization: "fr"), path: "/Foo/fr.lproj/Image.png"),
+                Resource(rule: .process(localization: "es"), path: "/Foo/es.lproj/Image.png"),
             ].sorted(by: { $0.path < $1.path }))
         }
     }

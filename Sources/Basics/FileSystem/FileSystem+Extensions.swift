@@ -22,13 +22,13 @@ extension FileSystem {
     /// SwiftPM directory under user's home directory (~/.swiftpm)
     public var dotSwiftPM: AbsolutePath {
         get throws {
-            return try self.homeDirectory.appending(component: ".swiftpm")
+            return try self.homeDirectory.appending(".swiftpm")
         }
     }
 
     fileprivate var idiomaticSwiftPMDirectory: AbsolutePath? {
         get throws {
-            return try FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { try AbsolutePath(validating: $0.path) }?.appending(component: "org.swift.swiftpm")
+            return try FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { try AbsolutePath(validating: $0.path) }?.appending("org.swift.swiftpm")
         }
     }
 }
@@ -45,7 +45,7 @@ extension FileSystem {
     public var swiftPMCacheDirectory: AbsolutePath {
         get throws {
             if let path = self.idiomaticUserCacheDirectory {
-                return path.appending(component: "org.swift.swiftpm")
+                return path.appending("org.swift.swiftpm")
             } else {
                 return try self.dotSwiftPMCachesDirectory
             }
@@ -54,7 +54,7 @@ extension FileSystem {
 
     fileprivate var dotSwiftPMCachesDirectory: AbsolutePath {
         get throws {
-            return try self.dotSwiftPM.appending(component: "cache")
+            return try self.dotSwiftPM.appending("cache")
         }
     }
 }
@@ -88,7 +88,7 @@ extension FileSystem {
     public var swiftPMConfigurationDirectory: AbsolutePath {
         get throws {
             if let path = try self.idiomaticSwiftPMDirectory {
-                return path.appending(component: "configuration")
+                return path.appending("configuration")
             } else {
                 return try self.dotSwiftPMConfigurationDirectory
             }
@@ -97,7 +97,7 @@ extension FileSystem {
 
     fileprivate var dotSwiftPMConfigurationDirectory: AbsolutePath {
         get throws {
-            return try self.dotSwiftPM.appending(component: "configuration")
+            return try self.dotSwiftPM.appending("configuration")
         }
     }
 }
@@ -142,7 +142,7 @@ extension FileSystem {
         } else {
             // copy the configuration files from old location (~/.swiftpm/config) to new one (~/.swiftpm/configuration)
             // but leave them there for backwards compatibility (eg older toolchain)
-            let oldConfigDirectory = try self.dotSwiftPM.appending(component: "config")
+            let oldConfigDirectory = try self.dotSwiftPM.appending("config")
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map{ oldConfigDirectory.appending(component: $0) }
@@ -179,7 +179,7 @@ extension FileSystem {
     public var swiftPMSecurityDirectory: AbsolutePath {
         get throws {
             if let path = try self.idiomaticSwiftPMDirectory {
-                return path.appending(component: "security")
+                return path.appending("security")
             } else {
                 return try self.dotSwiftPMSecurityDirectory
             }
@@ -188,7 +188,7 @@ extension FileSystem {
 
     fileprivate var dotSwiftPMSecurityDirectory: AbsolutePath {
         get throws {
-            return try self.dotSwiftPM.appending(component: "security")
+            return try self.dotSwiftPM.appending("security")
         }
     }
 }

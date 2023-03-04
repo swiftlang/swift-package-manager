@@ -87,7 +87,7 @@ struct APIDigesterBaselineDumper {
         }
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
-        let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineRevision.identifier)-checkout")
+        let baselinePackageRoot = apiDiffDir.appending("\(baselineRevision.identifier)-checkout")
         if swiftTool.fileSystem.exists(baselinePackageRoot) {
             try swiftTool.fileSystem.removeFileTree(baselinePackageRoot)
         }
@@ -297,7 +297,7 @@ extension SwiftAPIDigester {
 extension BuildParameters {
     /// The directory containing artifacts for API diffing operations.
     var apiDiff: AbsolutePath {
-        dataPath.appending(component: "apidiff")
+        dataPath.appending("apidiff")
     }
 }
 

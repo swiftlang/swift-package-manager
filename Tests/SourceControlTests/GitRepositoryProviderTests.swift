@@ -21,22 +21,22 @@ class GitRepositoryProviderTests: XCTestCase {
             let provider = GitRepositoryProvider()
 
             // standard repository
-            let repositoryPath = sandbox.appending(component: "test")
+            let repositoryPath = sandbox.appending("test")
             try localFileSystem.createDirectory(repositoryPath)
             initGitRepo(repositoryPath)
             XCTAssertTrue(provider.repositoryExists(at: repositoryPath))
 
             // no-checkout bare repository
-            let noCheckoutRepositoryPath = sandbox.appending(component: "test-no-checkout")
-            try localFileSystem.copy(from: repositoryPath.appending(component: ".git"), to: noCheckoutRepositoryPath)
+            let noCheckoutRepositoryPath = sandbox.appending("test-no-checkout")
+            try localFileSystem.copy(from: repositoryPath.appending(".git"), to: noCheckoutRepositoryPath)
             XCTAssertTrue(provider.repositoryExists(at: noCheckoutRepositoryPath))
 
             // non-git directory
-            let notGitPath = sandbox.appending(component: "test-not-git")
+            let notGitPath = sandbox.appending("test-not-git")
             XCTAssertFalse(provider.repositoryExists(at: notGitPath))
 
             // non-git child directory of a git directory
-            let notGitChildPath = repositoryPath.appending(component: "test-not-git")
+            let notGitChildPath = repositoryPath.appending("test-not-git")
             XCTAssertFalse(provider.repositoryExists(at: notGitChildPath))
         }
     }

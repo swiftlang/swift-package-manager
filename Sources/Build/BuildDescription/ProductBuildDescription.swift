@@ -64,7 +64,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Path to the link filelist file.
     var linkFileListPath: AbsolutePath {
-        self.tempsPath.appending(component: "Objects.LinkFileList")
+        self.tempsPath.appending("Objects.LinkFileList")
     }
 
     /// File system reference.
@@ -276,8 +276,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                     .parentDirectory
                     .parentDirectory
-                    .appending(component: "swift-5.5")
-                    .appending(component: "macosx")
+                    .appending("swift-5.5")
+                    .appending("macosx")
                 args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
             }
         }

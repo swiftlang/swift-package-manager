@@ -717,7 +717,7 @@ public final class RegistryClient: Cancellable {
                 }
 
                 // prepare target download locations
-                let downloadPath = destinationPath.withExtension("zip")
+                let downloadPath = destinationPath.appending(extension: "zip")
                 do {
                     // prepare directories
                     if !fileSystem.exists(downloadPath.parentDirectory) {
@@ -1942,13 +1942,6 @@ extension RegistryReleaseMetadata {
 
 // MARK: - Utilities
 
-extension AbsolutePath {
-    fileprivate func withExtension(_ extension: String) -> AbsolutePath {
-        guard !self.isRoot else { return self }
-        let `extension` = `extension`.spm_dropPrefix(".")
-        return self.parentDirectory.appending(component: "\(basename).\(`extension`)")
-    }
-}
 
 extension URLComponents {
     fileprivate mutating func appendPathComponents(_ components: String...) {

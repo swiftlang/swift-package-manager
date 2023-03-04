@@ -20,7 +20,7 @@ import XCTest
 class ManifestLoaderSQLiteCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let storage = SQLiteBackedCache<ManifestLoader.EvaluationResult>(tableName: "manifests", path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 

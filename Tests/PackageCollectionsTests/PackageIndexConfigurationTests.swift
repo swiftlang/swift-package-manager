@@ -20,7 +20,7 @@ class PackageIndexConfigurationTests: XCTestCase {
         let configuration = PackageIndexConfiguration(url: url)
         
         let fileSystem = InMemoryFileSystem()
-        let storage = PackageIndexConfigurationStorage(path: try fileSystem.swiftPMConfigurationDirectory.appending(component: "index.json"), fileSystem: fileSystem)
+        let storage = PackageIndexConfigurationStorage(path: try fileSystem.swiftPMConfigurationDirectory.appending("index.json"), fileSystem: fileSystem)
         try storage.save(configuration)
         
         let loadedConfiguration = try storage.load()
@@ -29,7 +29,7 @@ class PackageIndexConfigurationTests: XCTestCase {
     
     func testLoad_fileDoesNotExist() throws {
         let fileSystem = InMemoryFileSystem()
-        let storage = PackageIndexConfigurationStorage(path: try fileSystem.swiftPMConfigurationDirectory.appending(component: "index.json"), fileSystem: fileSystem)
+        let storage = PackageIndexConfigurationStorage(path: try fileSystem.swiftPMConfigurationDirectory.appending("index.json"), fileSystem: fileSystem)
         let configuration = try storage.load()
         XCTAssertNil(configuration.url)
     }
@@ -45,7 +45,7 @@ class PackageIndexConfigurationTests: XCTestCase {
         """
         
         let fileSystem = InMemoryFileSystem()
-        let configPath = try fileSystem.swiftPMConfigurationDirectory.appending(component: "index.json")
+        let configPath = try fileSystem.swiftPMConfigurationDirectory.appending("index.json")
         if !fileSystem.exists(configPath.parentDirectory, followSymlink: false) {
             try fileSystem.createDirectory(configPath.parentDirectory, recursive: true)
         }

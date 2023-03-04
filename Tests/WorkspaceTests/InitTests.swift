@@ -23,7 +23,7 @@ class InitTests: XCTestCase {
     func testInitPackageEmpty() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
             
@@ -44,7 +44,7 @@ class InitTests: XCTestCase {
             XCTAssertGreaterThan(progressMessages.count, 0)
 
             // Verify basic file system content that we expect in the package
-            let manifest = path.appending(component: "Package.swift")
+            let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
@@ -57,7 +57,7 @@ class InitTests: XCTestCase {
     func testInitPackageExecutable() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
 
@@ -78,21 +78,21 @@ class InitTests: XCTestCase {
             XCTAssertGreaterThan(progressMessages.count, 0)
             
             // Verify basic file system content that we expect in the package
-            let manifest = path.appending(component: "Package.swift")
+            let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
             XCTAssertBuilds(path)
             let triple = try UserToolchain.default.triple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent(), "debug")
 #if os(Windows)
-            XCTAssertFileExists(binPath.appending(component: "Foo.exe"))
+            XCTAssertFileExists(binPath.appending("Foo.exe"))
 #else
-            XCTAssertFileExists(binPath.appending(component: "Foo"))
+            XCTAssertFileExists(binPath.appending("Foo"))
 #endif
             XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
         }
@@ -101,7 +101,7 @@ class InitTests: XCTestCase {
     func testInitPackageLibrary() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
 
@@ -122,19 +122,19 @@ class InitTests: XCTestCase {
             XCTAssertGreaterThan(progressMessages.count, 0)
 
             // Verify basic file system content that we expect in the package
-            let manifest = path.appending(component: "Package.swift")
+            let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
 
-            let tests = path.appending(component: "Tests")
+            let tests = path.appending("Tests")
             XCTAssertEqual(try fs.getDirectoryContents(tests).sorted(), ["FooTests"])
 
-            let testFile = tests.appending(component: "FooTests").appending(component: "FooTests.swift")
+            let testFile = tests.appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
             XCTAssertTrue(testFileContents.hasPrefix("import XCTest"), """
                           Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
@@ -156,7 +156,7 @@ class InitTests: XCTestCase {
             XCTAssertDirectoryExists(tempDirPath)
             
             // Create a directory with non c99name.
-            let packageRoot = tempDirPath.appending(component: "some-package")
+            let packageRoot = tempDirPath.appending("some-package")
             let packageName = packageRoot.basename
             try localFileSystem.createDirectory(packageRoot)
             XCTAssertDirectoryExists(packageRoot)
@@ -184,7 +184,7 @@ class InitTests: XCTestCase {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
             
-            let packageRoot = tempDirPath.appending(component: "Foo")
+            let packageRoot = tempDirPath.appending("Foo")
             try localFileSystem.createDirectory(packageRoot)
             XCTAssertDirectoryExists(packageRoot)
             
@@ -215,7 +215,7 @@ class InitTests: XCTestCase {
                 .init(platform: .tvOS, version: PlatformVersion("999")),
             ]
 
-            let packageRoot = tempDirPath.appending(component: "Foo")
+            let packageRoot = tempDirPath.appending("Foo")
             try localFileSystem.removeFileTree(packageRoot)
             try localFileSystem.createDirectory(packageRoot)
 
@@ -227,7 +227,7 @@ class InitTests: XCTestCase {
             )
             try initPackage.writePackageStructure()
 
-            let contents: String = try localFileSystem.readFileContents(packageRoot.appending(component: "Package.swift"))
+            let contents: String = try localFileSystem.readFileContents(packageRoot.appending("Package.swift"))
             XCTAssertMatch(contents, .contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
         }
     }

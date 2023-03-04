@@ -21,7 +21,7 @@ extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
             name: "Foo",
-            path: AbsolutePath(path: "/fake"),
+            path: "/fake",
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
             providers: providers.isEmpty ? nil : providers)
     }

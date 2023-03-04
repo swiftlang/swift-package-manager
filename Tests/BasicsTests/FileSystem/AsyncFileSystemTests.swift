@@ -22,18 +22,18 @@ final class AsyncFileSystemTests: XCTestCase {
     func testStripFirstLevelComponent() async throws {
         let fileSystem = AsyncFileSystem { InMemoryFileSystem() }
 
-        let rootPath = AbsolutePath(path: "/root")
+        let rootPath = AbsolutePath("/root")
         try await fileSystem.createDirectory(rootPath)
 
         let totalDirectories = Int.random(in: 0 ..< 100)
         for index in 0 ..< totalDirectories {
-            let path = rootPath.appending(component: "dir\(index)")
+            let path = rootPath.appending("dir\(index)")
             try await fileSystem.createDirectory(path, recursive: false)
         }
 
         let totalFiles = Int.random(in: 0 ..< 100)
         for index in 0 ..< totalFiles {
-            let path = rootPath.appending(component: "file\(index)")
+            let path = rootPath.appending("file\(index)")
             try await fileSystem.writeFileContents(path, string: "\(index)")
         }
 
@@ -71,7 +71,7 @@ final class AsyncFileSystemTests: XCTestCase {
         do {
             let fileSystem = AsyncFileSystem { InMemoryFileSystem() }
             for index in 0 ..< 3 {
-                let path = AbsolutePath.root.appending(component: "dir\(index)")
+                let path = AbsolutePath.root.appending("dir\(index)")
                 try await fileSystem.createDirectory(path, recursive: false)
             }
             do {
@@ -85,7 +85,7 @@ final class AsyncFileSystemTests: XCTestCase {
         do {
             let fileSystem = AsyncFileSystem { InMemoryFileSystem() }
             for index in 0 ..< 3 {
-                let path = AbsolutePath.root.appending(component: "file\(index)")
+                let path = AbsolutePath.root.appending("file\(index)")
                 try await fileSystem.writeFileContents(path, string: "\(index)")
             }
             do {
@@ -98,7 +98,7 @@ final class AsyncFileSystemTests: XCTestCase {
 
         do {
             let fileSystem = AsyncFileSystem { InMemoryFileSystem() }
-            let path = AbsolutePath.root.appending(component: "file")
+            let path = AbsolutePath.root.appending("file")
             try await fileSystem.writeFileContents(path, string: "")
             try await fileSystem.stripFirstLevel(of: .root)
             XCTFail("expected error")

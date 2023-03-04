@@ -406,7 +406,7 @@ class RegistryPackageContainerTests: XCTestCase {
             // meh
             let path = packagePath
                 .appending(components: ".build", "registry", "downloads", registryIdentity.scope.description, registryIdentity.name.description)
-                .appending(component: "\(packageVersion).zip")
+                .appending("\(packageVersion).zip")
             try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
             try! fileSystem.writeFileContents(path, string: "")
 
@@ -424,7 +424,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
         let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
             do {
-                try fileSystem.createDirectory(to.appending(component: "top"), recursive: true)
+                try fileSystem.createDirectory(to.appending("top"), recursive: true)
                 completion(.success(()))
             } catch {
                 completion(.failure(error))

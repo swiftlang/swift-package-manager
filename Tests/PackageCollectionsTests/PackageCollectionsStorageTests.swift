@@ -20,7 +20,7 @@ import XCTest
 class PackageCollectionsStorageTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -77,7 +77,7 @@ class PackageCollectionsStorageTests: XCTestCase {
         try XCTSkipIf(is_tsan_enabled())
 
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -119,7 +119,7 @@ class PackageCollectionsStorageTests: XCTestCase {
         try XCTSkipIf(is_tsan_enabled())
 
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -220,7 +220,7 @@ class PackageCollectionsStorageTests: XCTestCase {
 
     func testPopulateTargetTrie() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 

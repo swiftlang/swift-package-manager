@@ -253,7 +253,7 @@ public final class InitPackage {
         guard packageType != .empty else {
             return
         }
-        let gitignore = destinationPath.appending(component: ".gitignore")
+        let gitignore = destinationPath.appending(".gitignore")
         guard self.fileSystem.exists(gitignore) == false else {
             return
         }
@@ -278,7 +278,7 @@ public final class InitPackage {
             return
         }
 
-        let sources = destinationPath.appending(component: "Sources")
+        let sources = destinationPath.appending("Sources")
         guard self.fileSystem.exists(sources) == false else {
             return
         }
@@ -287,7 +287,7 @@ public final class InitPackage {
 
         let moduleDir = packageType == .executable || packageType == .tool
           ? sources
-          : sources.appending(component: "\(pkgname)")
+          : sources.appending("\(pkgname)")
         try makeDirectories(moduleDir)
 
         let sourceFileName: String
@@ -345,7 +345,7 @@ public final class InitPackage {
         case .empty, .executable, .tool, .`extension`: return
             default: break
         }
-        let tests = destinationPath.appending(component: "Tests")
+        let tests = destinationPath.appending("Tests")
         guard self.fileSystem.exists(tests) == false else {
             return
         }

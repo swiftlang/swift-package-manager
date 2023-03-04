@@ -164,7 +164,7 @@ struct PluginCommand: SwiftCommand {
         )
 
         // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
-        let outputDir = pluginsDir.appending(component: "outputs")
+        let outputDir = pluginsDir.appending("outputs")
 
         var allowNetworkConnections = [SandboxNetworkPermission(options.allowNetworkConnections)]
         // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
