@@ -1446,9 +1446,6 @@ extension RegistryClient {
         public let author: Author?
         public let description: String?
 
-        // let id: String
-        // let version: String
-
         public var sourceArchive: Resource? {
             self.resources.first(where: { $0.name == "source-archive" })
         }
