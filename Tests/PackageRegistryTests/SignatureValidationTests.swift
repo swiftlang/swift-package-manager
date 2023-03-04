@@ -96,7 +96,11 @@ final class SignatureValidationTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode
         )
 
-        let signatureValidation = registryClient.signatureValidation!
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata
+        )
 
         // Package is not signed. With onUnsigned = .error,
         // an error gets thrown.
@@ -186,7 +190,12 @@ final class SignatureValidationTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode
         )
 
-        let signatureValidation = registryClient.signatureValidation!
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata
+        )
+
         let observability = ObservabilitySystem.makeForTesting()
 
         // Package is not signed. With onUnsigned = .warn,
@@ -247,7 +256,11 @@ final class SignatureValidationTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode
         )
 
-        let signatureValidation = registryClient.signatureValidation!
+        let signatureValidation = SignatureValidation(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata
+        )
 
         // Failed to fetch package metadata / signature
         XCTAssertThrowsError(

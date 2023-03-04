@@ -12519,7 +12519,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': boom"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release information from 'http://localhost': boom"), severity: .error)
                 }
             }
         }
@@ -12538,7 +12538,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release checksum from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
+                    result.check(diagnostic: .equal("failed fetching 'org.foo@1.0.0' release information from 'http://localhost': server error 500: Internal Server Error"), severity: .error)
                 }
             }
         }

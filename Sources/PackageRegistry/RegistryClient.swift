@@ -32,14 +32,11 @@ public final class RegistryClient: Cancellable {
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    private let fingerprintStorage: PackageFingerprintStorage?
+    private let fingerprintCheckingMode: FingerprintCheckingMode
+    private let signingEntityStorage: PackageSigningEntityStorage?
+    private let signingEntityCheckingMode: SigningEntityCheckingMode
     private let jsonDecoder: JSONDecoder
-
-    // TODO: Both of these make HTTP call to fetch package version metadata.
-    // Perhaps one way to optimize is introduce `PackageValidation` that
-    // wraps around these, and have it fetch the metadata then feed it to each.
-    // This way we would only fetch metadata once per download archive transaction.
-    private(set) var checksumTOFU: PackageVersionChecksumTOFU!
-    private(set) var signatureValidation: SignatureValidation!
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
@@ -89,18 +86,11 @@ public final class RegistryClient: Cancellable {
 
         self.httpClient = customHTTPClient ?? LegacyHTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
+        self.fingerprintStorage = fingerprintStorage
+        self.fingerprintCheckingMode = fingerprintCheckingMode
+        self.signingEntityStorage = signingEntityStorage
+        self.signingEntityCheckingMode = signingEntityCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
-
-        self.checksumTOFU = PackageVersionChecksumTOFU(
-            fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: fingerprintCheckingMode,
-            registryClient: self
-        )
-        self.signatureValidation = SignatureValidation(
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            registryClient: self
-        )
     }
 
     public var explicitlyConfigured: Bool {
@@ -130,7 +120,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.getPackageMetadata(
+            self._getPackageMetadata(
                 registry: registry,
                 package: registryIdentity,
                 timeout: timeout,
@@ -157,7 +147,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func getPackageMetadata(
+    func _getPackageMetadata(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         timeout: DispatchTimeInterval?,
@@ -236,7 +226,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.getPackageVersionMetadata(
+            self._getPackageVersionMetadata(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
@@ -264,7 +254,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func getPackageVersionMetadata(
+    func _getPackageVersionMetadata(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -287,54 +277,44 @@ public final class RegistryClient: Cancellable {
                         registry: registry,
                         licenseURL: versionMetadata.metadata?.licenseURL.flatMap { URL(string: $0) },
                         readmeURL: versionMetadata.metadata?.readmeURL.flatMap { URL(string: $0) },
-                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) }
+                        repositoryURLs: versionMetadata.metadata?.repositoryURLs?.compactMap { URL(string: $0) },
+                        resources: versionMetadata.resources.map {
+                            .init(
+                                name: $0.name,
+                                type: $0.type,
+                                checksum: $0.checksum,
+                                signing: $0.signing.flatMap {
+                                    PackageVersionMetadata.Signing(
+                                        signatureBase64Encoded: $0.signatureBase64Encoded,
+                                        signatureFormat: $0.signatureFormat
+                                    )
+                                }
+                            )
+                        },
+                        author: versionMetadata.metadata?.author.map {
+                            .init(
+                                name: $0.name,
+                                email: $0.email,
+                                description: $0.description,
+                                organization: $0.organization.map {
+                                    .init(
+                                        name: $0.name,
+                                        email: $0.email,
+                                        description: $0.description,
+                                        url: $0.url.flatMap { URL(string: $0) }
+                                    )
+                                },
+                                url: $0.url.flatMap { URL(string: $0) }
+                            )
+                        },
+                        description: versionMetadata.metadata?.description
                     )
                 }
             )
         }
     }
 
-    func getRawPackageVersionMetadata(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Serialization.VersionMetadata, Error>) -> Void
-    ) {
-        let completion = self.makeAsync(completion, on: callbackQueue)
-
-        let underlying = {
-            self._getRawPackageVersionMetadata(
-                registry: registry,
-                package: package,
-                version: version,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: completion
-            )
-        }
-
-        if registry.supportsAvailability {
-            self.withAvailabilityCheck(
-                registry: registry,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { error in
-                if let error = error {
-                    return completion(.failure(error))
-                }
-                underlying()
-            }
-        } else {
-            underlying()
-        }
-    }
-
-    // marked internal for testing
-    func _getRawPackageVersionMetadata(
+    private func _getRawPackageVersionMetadata(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -415,7 +395,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.getAvailableManifests(
+            self._getAvailableManifests(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
@@ -443,7 +423,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func getAvailableManifests(
+    func _getAvailableManifests(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -541,7 +521,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.getManifestContent(
+            self._getManifestContent(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
@@ -570,7 +550,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func getManifestContent(
+    func _getManifestContent(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -667,7 +647,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.downloadSourceArchive(
+            self._downloadSourceArchive(
                 registry: registry,
                 package: registryIdentity,
                 version: version,
@@ -699,7 +679,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func downloadSourceArchive(
+    func _downloadSourceArchive(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -714,139 +694,186 @@ public final class RegistryClient: Cancellable {
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
-        }
-        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version).zip")
-
-        guard let url = components.url else {
-            return completion(.failure(RegistryError.invalidURL(registry.url)))
-        }
-
-        // prepare target download locations
-        let downloadPath = destinationPath.withExtension("zip")
-        do {
-            // prepare directories
-            if !fileSystem.exists(downloadPath.parentDirectory) {
-                try fileSystem.createDirectory(downloadPath.parentDirectory, recursive: true)
-            }
-            // clear out download path if exists
-            try fileSystem.removeFileTree(downloadPath)
-            // validate that the destination does not already exist
-            guard !fileSystem.exists(destinationPath) else {
-                throw RegistryError.pathAlreadyExists(destinationPath)
-            }
-        } catch {
-            return completion(.failure(error))
-        }
-
-        let request = LegacyHTTPClient.Request.download(
-            url: url,
-            headers: [
-                "Accept": self.acceptHeader(mediaType: .zip),
-            ],
-            options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
-            fileSystem: fileSystem,
-            destination: downloadPath
-        )
-
-        self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
+        // first get the release metadata
+        // TODO: this should be included in the archive to save the extra HTTP call
+        self._getPackageVersionMetadata(
+            registry: registry,
+            package: package,
+            version: version,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue
+        ) { result in
             switch result {
-            case .success(let response):
+            case .success(let versionMetadata):
+                // download archive
+                guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+                    return completion(.failure(RegistryError.invalidURL(registry.url)))
+                }
+                components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version).zip")
+
+                guard let url = components.url else {
+                    return completion(.failure(RegistryError.invalidURL(registry.url)))
+                }
+
+                // prepare target download locations
+                let downloadPath = destinationPath.withExtension("zip")
                 do {
-                    switch response.statusCode {
-                    case 200:
-                        try response.validateAPIVersion(isOptional: true)
-                        try response.validateContentType(.zip)
-
-                        do {
-                            let contents = try fileSystem.readFileContents(downloadPath)
-                            let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
-
-                            self.signatureValidation.validate(
-                                registry: registry,
-                                package: package,
-                                version: version,
-                                content: Data(contents.contents),
-                                configuration: self.configuration.signing(for: package, registry: registry),
-                                timeout: timeout,
-                                observabilityScope: observabilityScope,
-                                callbackQueue: callbackQueue
-                            ) { signatureResult in
-                                switch signatureResult {
-                                case .success:
-                                    self.checksumTOFU.validate(
-                                        registry: registry,
-                                        package: package,
-                                        version: version,
-                                        checksum: actualChecksum,
-                                        timeout: timeout,
-                                        observabilityScope: observabilityScope,
-                                        callbackQueue: callbackQueue
-                                    ) { checksumResult in
-                                        switch checksumResult {
-                                        case .success:
-                                            do {
-                                                // validate that the destination does not already exist (again, as this
-                                                // is
-                                                // async)
-                                                guard !fileSystem.exists(destinationPath) else {
-                                                    throw RegistryError.pathAlreadyExists(destinationPath)
-                                                }
-                                                try fileSystem.createDirectory(destinationPath, recursive: true)
-                                                // extract the content
-                                                let archiver = self.archiverProvider(fileSystem)
-                                                // TODO: Bail if archive contains relative paths or overlapping files
-                                                archiver.extract(from: downloadPath, to: destinationPath) { result in
-                                                    defer { try? fileSystem.removeFileTree(downloadPath) }
-                                                    completion(result.tryMap {
-                                                        // strip first level component
-                                                        try fileSystem.stripFirstLevel(of: destinationPath)
-                                                    }.mapError { error in
-                                                        StringError(
-                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
-                                                        )
-                                                    })
-                                                }
-                                            } catch {
-                                                completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                                                    registry: registry,
-                                                    package: package.underlying,
-                                                    version: version,
-                                                    error: error
-                                                )))
-                                            }
-                                        case .failure(let error):
-                                            completion(.failure(error))
-                                        }
-                                    }
-                                case .failure(let error):
-                                    completion(.failure(error))
-                                }
-                            }
-                        } catch {
-                            throw RegistryError.failedToComputeChecksum(error)
-                        }
-                    case 404:
-                        throw RegistryError.packageVersionNotFound
-                    default:
-                        throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                    // prepare directories
+                    if !fileSystem.exists(downloadPath.parentDirectory) {
+                        try fileSystem.createDirectory(downloadPath.parentDirectory, recursive: true)
+                    }
+                    // clear out download path if exists
+                    try fileSystem.removeFileTree(downloadPath)
+                    // validate that the destination does not already exist
+                    guard !fileSystem.exists(destinationPath) else {
+                        throw RegistryError.pathAlreadyExists(destinationPath)
                     }
                 } catch {
-                    completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version,
-                        error: error
-                    )))
+                    return completion(.failure(error))
                 }
+
+                // signature validation helper
+                let signatureValidation = SignatureValidation(
+                    signingEntityStorage: self.signingEntityStorage,
+                    signingEntityCheckingMode: self.signingEntityCheckingMode,
+                    versionMetadataProvider: { _, _ in versionMetadata }
+                )
+
+                // checksum TOFU validation helper
+                let checksumTOFU = PackageVersionChecksumTOFU(
+                    fingerprintStorage: self.fingerprintStorage,
+                    fingerprintCheckingMode: self.fingerprintCheckingMode,
+                    versionMetadataProvider: { _, _ in versionMetadata }
+                )
+
+                let request = LegacyHTTPClient.Request.download(
+                    url: url,
+                    headers: [
+                        "Accept": self.acceptHeader(mediaType: .zip),
+                    ],
+                    options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue),
+                    fileSystem: fileSystem,
+                    destination: downloadPath
+                )
+
+                self.httpClient
+                    .execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
+                        switch result {
+                        case .success(let response):
+                            do {
+                                switch response.statusCode {
+                                case 200:
+                                    try response.validateAPIVersion(isOptional: true)
+                                    try response.validateContentType(.zip)
+
+                                    do {
+                                        let archiveContent: Data = try fileSystem.readFileContents(downloadPath)
+                                        // TODO: expose Data based API on checksumAlgorithm
+                                        let actualChecksum = checksumAlgorithm.hash(.init(archiveContent))
+                                            .hexadecimalRepresentation
+
+                                        signatureValidation.validate(
+                                            registry: registry,
+                                            package: package,
+                                            version: version,
+                                            content: archiveContent,
+                                            configuration: self.configuration.signing(for: package, registry: registry),
+                                            timeout: timeout,
+                                            observabilityScope: observabilityScope,
+                                            callbackQueue: callbackQueue
+                                        ) { signatureResult in
+                                            switch signatureResult {
+                                            case .success:
+                                                checksumTOFU.validate(
+                                                    registry: registry,
+                                                    package: package,
+                                                    version: version,
+                                                    checksum: actualChecksum,
+                                                    timeout: timeout,
+                                                    observabilityScope: observabilityScope,
+                                                    callbackQueue: callbackQueue
+                                                ) { checksumResult in
+                                                    switch checksumResult {
+                                                    case .success:
+                                                        do {
+                                                            // validate that the destination does not already exist (again, as this
+                                                            // is
+                                                            // async)
+                                                            guard !fileSystem.exists(destinationPath) else {
+                                                                throw RegistryError.pathAlreadyExists(destinationPath)
+                                                            }
+                                                            try fileSystem.createDirectory(
+                                                                destinationPath,
+                                                                recursive: true
+                                                            )
+                                                            // extract the content
+                                                            let archiver = self.archiverProvider(fileSystem)
+                                                            // TODO: Bail if archive contains relative paths or overlapping files
+                                                            archiver
+                                                                .extract(
+                                                                    from: downloadPath,
+                                                                    to: destinationPath
+                                                                ) { result in
+                                                                    defer {
+                                                                        try? fileSystem.removeFileTree(downloadPath)
+                                                                    }
+                                                                    completion(result.tryMap {
+                                                                        // strip first level component
+                                                                        try fileSystem
+                                                                            .stripFirstLevel(of: destinationPath)
+                                                                    }.mapError { error in
+                                                                        StringError(
+                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
+                                                                        )
+                                                                    })
+                                                                }
+                                                        } catch {
+                                                            completion(.failure(
+                                                                RegistryError
+                                                                    .failedDownloadingSourceArchive(
+                                                                        registry: registry,
+                                                                        package: package.underlying,
+                                                                        version: version,
+                                                                        error: error
+                                                                    )
+                                                            ))
+                                                        }
+                                                    case .failure(let error):
+                                                        completion(.failure(error))
+                                                    }
+                                                }
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            }
+                                        }
+                                    } catch {
+                                        throw RegistryError.failedToComputeChecksum(error)
+                                    }
+                                case 404:
+                                    throw RegistryError.packageVersionNotFound
+                                default:
+                                    throw self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                                }
+                            } catch {
+                                completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                                    registry: registry,
+                                    package: package.underlying,
+                                    version: version,
+                                    error: error
+                                )))
+                            }
+                        case .failure(let error):
+                            completion(.failure(RegistryError.failedDownloadingSourceArchive(
+                                registry: registry,
+                                package: package.underlying,
+                                version: version,
+                                error: error
+                            )))
+                        }
+                    }
             case .failure(let error):
-                completion(.failure(RegistryError.failedDownloadingSourceArchive(
-                    registry: registry,
-                    package: package.underlying,
-                    version: version,
-                    error: error
-                )))
+                completion(.failure(error))
             }
         }
     }
@@ -865,7 +892,7 @@ public final class RegistryClient: Cancellable {
         }
 
         let underlying = {
-            self.lookupIdentities(
+            self._lookupIdentities(
                 registry: registry,
                 scmURL: scmURL,
                 timeout: timeout,
@@ -892,7 +919,7 @@ public final class RegistryClient: Cancellable {
     }
 
     // marked internal for testing
-    func lookupIdentities(
+    func _lookupIdentities(
         registry: Registry,
         scmURL: URL,
         timeout: DispatchTimeInterval?,
@@ -1256,6 +1283,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case registryNotAvailable(Registry)
     case packageNotFound
     case packageVersionNotFound
+    case sourceArchiveMissingChecksum(registry: Registry, package: PackageIdentity, version: Version)
     case sourceArchiveNotSigned(registry: Registry, package: PackageIdentity, version: Version)
     case failedLoadingSignature
     case failedRetrievingSourceArchiveSignature(
@@ -1347,6 +1375,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "package not found on registry"
         case .packageVersionNotFound:
             return "package version not found on registry"
+        case .sourceArchiveMissingChecksum(let registry, let packageIdentity, let version):
+            return "'\(packageIdentity)@\(version)' source archive from '\(registry)' has no checksum"
         case .sourceArchiveNotSigned(let registry, let packageIdentity, let version):
             return "'\(packageIdentity)@\(version)' source archive from '\(registry)' is not signed"
         case .failedLoadingSignature:
@@ -1412,6 +1442,50 @@ extension RegistryClient {
         public let licenseURL: URL?
         public let readmeURL: URL?
         public let repositoryURLs: [URL]?
+        public let resources: [Resource]
+        public let author: Author?
+        public let description: String?
+
+        // let id: String
+        // let version: String
+
+        public var sourceArchive: Resource? {
+            self.resources.first(where: { $0.name == "source-archive" })
+        }
+
+        public struct Resource {
+            public let name: String
+            public let type: String
+            public let checksum: String?
+            public let signing: Signing?
+
+            public init(name: String, type: String, checksum: String?, signing: Signing?) {
+                self.name = name
+                self.type = type
+                self.checksum = checksum
+                self.signing = signing
+            }
+        }
+
+        public struct Signing {
+            public let signatureBase64Encoded: String
+            public let signatureFormat: String
+        }
+
+        public struct Author {
+            public let name: String
+            public let email: String?
+            public let description: String?
+            public let organization: Organization?
+            public let url: URL?
+        }
+
+        public struct Organization {
+            public let name: String
+            public let email: String?
+            public let description: String?
+            public let url: URL?
+        }
     }
 }
 
@@ -1660,9 +1734,10 @@ extension HTTPClientHeaders {
 
 // MARK: - Serialization
 
-// marked public for cross module visibility
 extension RegistryClient {
+    // marked public for testing (cross module visibility)
     public enum Serialization {
+        // marked public for testing (cross module visibility)
         public struct PackageMetadata: Codable {
             public let releases: [String: Release]
 
@@ -1693,7 +1768,7 @@ extension RegistryClient {
             }
         }
 
-        // marked public for cross module visibility
+        // marked public for testing (cross module visibility)
         public struct VersionMetadata: Codable {
             public let id: String
             public let version: String
@@ -1773,7 +1848,7 @@ extension RegistryClient {
             }
         }
 
-        // marked public for cross module visibility
+        // marked public for testing (cross module visibility)
         public struct PackageIdentifiers: Codable {
             public let identifiers: [String]
 
