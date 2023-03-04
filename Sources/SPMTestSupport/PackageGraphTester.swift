@@ -124,6 +124,10 @@ public final class PackageGraphResult {
         return graph.allProducts.first(where: { $0.name == product })
     }
 
+    public func find(package: PackageIdentity) -> ResolvedPackage? {
+        return graph.packages.first(where: { $0.identity == package })
+    }
+
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
         let recursiveBuildTargetDependencies = try inputTargets

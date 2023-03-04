@@ -233,7 +233,8 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
+                "PackageSigning"
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),

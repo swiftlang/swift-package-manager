@@ -797,6 +797,140 @@ final class RegistryClientTests: XCTestCase {
         }
     }
 
+    func testDownloadSourceArchive() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.registry("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.scope)/\(identity.name)/\(version)")
+        let downloadURL = URL("\(registryURL)/\(identity.scope)/\(identity.name)/\(version).zip")
+
+        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let author = UUID().uuidString
+        let licenseURL = URL("https://github.com/\(identity.scope)/\(identity.name)/license")
+        let readmeURL = URL("https://github.com/\(identity.scope)/\(identity.name)/readme")
+        let repositoryURLs = [
+            URL("https://github.com/\(identity.scope)/\(identity.name)"),
+            URL("ssh://git@github.com:\(identity.scope)/\(identity.name).git"),
+            URL("git@github.com:\(identity.scope)/\(identity.name).git"),
+        ]
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "\(author)"
+                        },
+                        "licenseURL": "\(licenseURL)",
+                        "readmeURL": "\(readmeURL)",
+                        "repositoryURLs": [\"\(repositoryURLs.map(\.absoluteString).joined(separator: "\", \""))\"]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.download(let fileSystem, let path), .get, downloadURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
+
+                let data = Data(emptyZipFile.contents)
+                try! fileSystem.writeFileContents(path, data: data)
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/zip"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(
+                            name: "Content-Disposition",
+                            value: "attachment; filename=\"\(identity)-\(version).zip\""
+                        ),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
+                    ]),
+                    body: nil
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let registryClient = RegistryClient(
+            configuration: configuration,
+            fingerprintStorage: .none,
+            fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
+            customHTTPClient: httpClient,
+            customArchiverProvider: { fileSystem in
+                MockArchiver(handler: { _, from, to, callback in
+                    let data = try fileSystem.readFileContents(from)
+                    XCTAssertEqual(data, emptyZipFile)
+
+                    let packagePath = to.appending(component: "package")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    callback(.success(()))
+                })
+            }
+        )
+
+        let fileSystem = InMemoryFileSystem()
+        let path = try! AbsolutePath(validating: "/\(identity)-\(version)")
+
+        try registryClient.downloadSourceArchive(
+            package: identity.underlying,
+            version: version,
+            fileSystem: fileSystem,
+            destinationPath: path,
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let contents = try fileSystem.getDirectoryContents(path)
+        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
+
+        let storedMetadata = try RegistryReleaseMetadataStorage.load(
+            from: path.appending(component: RegistryReleaseMetadataStorage.fileName),
+            fileSystem: fileSystem
+        )
+        XCTAssertEqual(storedMetadata.source, .registry(registryURL))
+        XCTAssertEqual(storedMetadata.metadata.author?.name, author)
+        XCTAssertEqual(storedMetadata.metadata.licenseURL, licenseURL)
+        XCTAssertEqual(storedMetadata.metadata.readmeURL, readmeURL)
+        XCTAssertEqual(storedMetadata.metadata.scmRepositoryURLs, repositoryURLs)
+    }
+
     func testDownloadSourceArchive_matchingChecksumInStorage() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -915,7 +1049,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, ["Package.swift"])
+        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
     func testDownloadSourceArchive_nonMatchingChecksumInStorage() throws {
@@ -1178,7 +1312,7 @@ final class RegistryClientTests: XCTestCase {
         }
 
         let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, ["Package.swift"])
+        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
     func testDownloadSourceArchive_checksumNotInStorage() throws {
@@ -1289,7 +1423,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, ["Package.swift"])
+        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
 
         // Expected checksum is not found in storage so the metadata API will be called
         let fingerprint = try tsc_await { callback in
@@ -1415,7 +1549,8 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, ["Package.swift"])
+        // TODO: check metadata
+        XCTAssertEqual(contents.sorted(), [RegistryReleaseMetadataStorage.fileName, "Package.swift"].sorted())
     }
 
     func testDownloadSourceArchive_404() throws {

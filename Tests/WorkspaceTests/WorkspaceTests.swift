@@ -12347,8 +12347,8 @@ final class WorkspaceTests: XCTestCase {
         let registryClient = try makeRegistryClient(
             packageIdentity: .plain("org.foo"),
             packageVersion: "1.0.0",
-            fileSystem: fs,
-            configuration: .init()
+            configuration: .init(),
+            fileSystem: fs
         )
 
         let workspace = try MockWorkspace(
@@ -12433,10 +12433,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 releasesRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12452,10 +12452,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 releasesRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12509,10 +12509,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 versionMetadataRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12528,10 +12528,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 versionMetadataRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12585,10 +12585,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 manifestRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12604,10 +12604,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 manifestRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12661,10 +12661,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 downloadArchiveRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12680,10 +12680,10 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                fileSystem: fs,
                 downloadArchiveRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
-                }
+                },
+                fileSystem: fs
             )
 
             try workspace.closeWorkspace()
@@ -12699,6 +12699,15 @@ final class WorkspaceTests: XCTestCase {
     func testRegistryArchiveErrors() throws {
         let sandbox = AbsolutePath(path: "/tmp/ws/")
         let fs = InMemoryFileSystem()
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: .plain("org.foo"),
+            packageVersion: "1.0.0",
+            archiver: MockArchiver(handler: { archiver, from, to, completion in
+                completion(.failure(StringError("boom")))
+            }),
+            fileSystem: fs
+        )
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -12730,33 +12739,105 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            registryClient: registryClient
         )
 
-        do {
-            let registryClient = try makeRegistryClient(
-                packageIdentity: .plain("org.foo"),
-                packageVersion: "1.0.0",
-                fileSystem: fs,
-                archiver: MockArchiver(handler: { archiver, from, to, completion in
-                    completion(.failure(StringError("boom")))
-                })
+        try workspace.closeWorkspace()
+        workspace.registryClient = registryClient
+        workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .regex("failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"), severity: .error)
+            }
+        }
+    }
+
+    func testRegistryMetadata() throws {
+        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let registryURL = URL("https://packages.example.com")
+        var registryConfiguration = RegistryConfiguration()
+        registryConfiguration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        registryConfiguration.security = RegistryConfiguration.Security()
+        registryConfiguration.security!.default.signing = RegistryConfiguration.Security.Signing()
+        registryConfiguration.security!.default.signing!.onUnsigned = .silentAllow
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: .plain("org.foo"),
+            packageVersion: "1.5.1",
+            targets: ["Foo"],
+            configuration: registryConfiguration,
+            fileSystem: fs
+        )
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ])
+                    ],
+                    products: [
+                        MockProduct(name: "MyProduct", targets: ["MyTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                ),
+            ],
+            registryClient: registryClient
+        )
+
+        // for mock manifest loader to work with an actual registry download
+        // we populate the mock manifest with a pointer to the correct download location
+        let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
+        let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
+        workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
+            Manifest(
+                displayName: "Foo",
+                path: packagePath.appending(component: Manifest.filename),
+                packageKind: .registry("org.foo"),
+                packageLocation: "org.foo",
+                platforms: [],
+                toolsVersion: .current,
+                products: [
+                    try .init(name: "Foo", type: .library(.automatic), targets: ["Foo"])
+                ],
+                targets: [
+                    try .init(name: "Foo")
+                ]
             )
 
-            try workspace.closeWorkspace()
-            workspace.registryClient = registryClient
-            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .regex("failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"), severity: .error)
+        try workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                guard let foo = result.find(package: "org.foo") else {
+                    return XCTFail("missing pacakge")
                 }
+                XCTAssertNotNil(foo.registryMetadata, "expecting registry metadata")
+                XCTAssertEqual(foo.registryMetadata?.source, .registry(registryURL))
+                XCTAssertMatch(foo.registryMetadata?.metadata.description, .contains("org.foo"))
+                XCTAssertMatch(foo.registryMetadata?.metadata.readmeURL?.absoluteString, .contains("org.foo"))
+                XCTAssertMatch(foo.registryMetadata?.metadata.licenseURL?.absoluteString, .contains("org.foo"))
             }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.5.1"))
         }
     }
 
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
-        fileSystem: FileSystem,
+        targets: [String] = [],
         configuration: PackageRegistry.RegistryConfiguration? = .none,
         identityResolver: IdentityResolver? = .none,
         fingerprintStorage: PackageFingerprintStorage? = .none,
@@ -12768,7 +12849,8 @@ final class WorkspaceTests: XCTestCase {
         versionMetadataRequestHandler: LegacyHTTPClient.Handler? = .none,
         manifestRequestHandler: LegacyHTTPClient.Handler? = .none,
         downloadArchiveRequestHandler: LegacyHTTPClient.Handler? = .none,
-        archiver: Archiver? = .none
+        archiver: Archiver? = .none,
+        fileSystem: FileSystem
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
 
@@ -12776,12 +12858,12 @@ final class WorkspaceTests: XCTestCase {
             throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
-        var configuration = configuration
-        if configuration == nil {
-            configuration = PackageRegistry.RegistryConfiguration()
-            configuration!.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
-            configuration!.security = .testDefault
-        }
+        let configuration = configuration ?? {
+            var configuration = PackageRegistry.RegistryConfiguration()
+            configuration.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
+            configuration.security = .testDefault
+            return configuration
+        }()
 
         let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in
             let metadata = RegistryClient.Serialization.PackageMetadata(
@@ -12811,7 +12893,11 @@ final class WorkspaceTests: XCTestCase {
                         signing: nil
                     )
                 ],
-                metadata: .init(description: "")
+                metadata: .init(
+                    description: "package \(identity) description",
+                    licenseURL: "\(configuration.defaultRegistry!.url)/\(identity)/license",
+                    readmeURL: "\(configuration.defaultRegistry!.url)/\(identity)/readme"
+                )
             )
             completion(.success(
                 HTTPClientResponse(
@@ -12862,7 +12948,18 @@ final class WorkspaceTests: XCTestCase {
 
         let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
             do {
-                try fileSystem.createDirectory(to.appending(component: "top"), recursive: true)
+                let packagePath = to.appending(component: "top")
+                try fileSystem.createDirectory(packagePath, recursive: true)
+                try fileSystem.writeFileContents(packagePath.appending(component: Manifest.filename), bytes: [])
+                try ToolsVersionSpecificationWriter.rewriteSpecification(
+                    manifestDirectory: packagePath,
+                    toolsVersion: .current,
+                    fileSystem: fileSystem
+                )
+                for target in targets {
+                    try fileSystem.createDirectory(packagePath.appending(components: "Sources", target), recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(components: ["Sources", target, "file.swift"]), bytes: [])
+                }
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
@@ -12872,7 +12969,7 @@ final class WorkspaceTests: XCTestCase {
         let signingEntityStorage = signingEntityStorage ?? MockPackageSigningEntityStorage()
 
         return RegistryClient(
-            configuration: configuration!,
+            configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
             signingEntityStorage: signingEntityStorage,
@@ -12881,16 +12978,16 @@ final class WorkspaceTests: XCTestCase {
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
                 // request to get package releases
-                case "http://localhost/\(identity.scope)/\(identity.name)":
+                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)":
                     releasesRequestHandler(request, progress, completion)
                 // request to get package version metadata
-                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion)":
+                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion)":
                     versionMetadataRequestHandler(request, progress, completion)
                 // request to get package manifest
-                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
+                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
                     manifestRequestHandler(request, progress, completion)
                 // request to get download the version source archive
-                case "http://localhost/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
+                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
                     downloadArchiveRequestHandler(request, progress, completion)
                 default:
                     completion(.failure(StringError("unexpected url \(request.url)")))
