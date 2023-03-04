@@ -48,7 +48,15 @@ public struct SwiftSigningIdentity: SigningIdentity {
         self.certificate = try Certificate(derEncoded: Array(certificateData))
         switch privateKeyType {
         case .p256:
+            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+                self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
+            } else {
+                throw StringError("Unsupported platform")
+            }
+            #else
             self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
+            #endif
         }
     }
 }
