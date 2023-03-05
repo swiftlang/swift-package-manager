@@ -10,14 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
 
 func readFileContents(
     in basePath: AbsolutePath,
     pathComponents: String...,
     fileSystem: FileSystem = localFileSystem
-) throws -> Data {
+) throws -> [UInt8] {
     let path = basePath.appending(components: pathComponents)
-    return try fileSystem.readFileContents(path)
+    return try fileSystem.readFileContents(path).contents
 }

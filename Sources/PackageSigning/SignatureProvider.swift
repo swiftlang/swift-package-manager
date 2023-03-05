@@ -22,26 +22,30 @@ import Basics
 
 public enum SignatureProvider {
     public static func sign(
-        _ content: Data,
-        with identity: SigningIdentity,
-        in format: SignatureFormat,
+        content: [UInt8],
+        identity: SigningIdentity,
+        format: SignatureFormat,
         observabilityScope: ObservabilityScope
-    ) async throws -> Data {
+    ) async throws -> [UInt8] {
         let provider = format.provider
-        return try await provider.sign(content, with: identity, observabilityScope: observabilityScope)
+        return try await provider.sign(
+            content: content,
+            identity: identity,
+            observabilityScope: observabilityScope
+        )
     }
 
     public static func status(
-        of signature: Data,
-        for content: Data,
-        in format: SignatureFormat,
+        signature: [UInt8],
+        content: [UInt8],
+        format: SignatureFormat,
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
         let provider = format.provider
         return try await provider.status(
-            of: signature,
-            for: content,
+            signature: signature,
+            content: content,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: observabilityScope
         )
@@ -49,7 +53,7 @@ public enum SignatureProvider {
 }
 
 public struct VerifierConfiguration {
-    public var trustedRoots: [Data]
+    public var trustedRoots: [[UInt8]]
     public var certificateExpiration: CertificateExpiration
     public var certificateRevocation: CertificateRevocation
 
@@ -131,14 +135,14 @@ enum SignatureAlgorithm {
 
 protocol SignatureProviderProtocol {
     func sign(
-        _ content: Data,
-        with identity: SigningIdentity,
+        content: [UInt8],
+        identity: SigningIdentity,
         observabilityScope: ObservabilityScope
-    ) async throws -> Data
+    ) async throws -> [UInt8]
 
     func status(
-        of signature: Data,
-        for content: Data,
+        signature: [UInt8],
+        content: [UInt8],
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus
@@ -154,10 +158,10 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
     }
 
     func sign(
-        _ content: Data,
-        with identity: SigningIdentity,
+        content: [UInt8],
+        identity: SigningIdentity,
         observabilityScope: ObservabilityScope
-    ) async throws -> Data {
+    ) async throws -> [UInt8] {
         #if canImport(Darwin)
         if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
             let secIdentity = identity as! SecIdentity // !-safe because we ensure type above
@@ -168,15 +172,14 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                 throw SigningError.signingFailed("unable to get private key from SecIdentity: status \(keyStatus)")
             }
 
-            let signatureData = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
+            let signature = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
 
             do {
-                let signature = try CMS.sign(
-                    signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signatureData)),
+                return try CMS.sign(
+                    signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signature)),
                     signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
                     certificate: try Certificate(secIdentity: secIdentity)
                 )
-                return Data(signature)
             } catch {
                 throw SigningError.signingFailed("\(error)")
             }
@@ -188,13 +191,12 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         }
 
         do {
-            let signature = try CMS.sign(
+            return try CMS.sign(
                 content,
                 signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
                 certificate: swiftSigningIdentity.certificate,
                 privateKey: swiftSigningIdentity.privateKey
             )
-            return Data(signature)
         } catch let error as CertificateError where error.code == .unsupportedSignatureAlgorithm {
             throw SigningError.keyDoesNotSupportSignatureAlgorithm
         } catch {
@@ -203,8 +205,8 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
     }
 
     func status(
-        of signature: Data,
-        for content: Data,
+        signature: [UInt8],
+        content: [UInt8],
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus {
@@ -213,7 +215,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             signatureBytes: signature,
             trustRoots: CertificateStore(
                 try verifierConfiguration.trustedRoots
-                    .map { try Certificate(derEncoded: Array($0)) }
+                    .map { try Certificate(derEncoded: $0) }
             ),
             // TODO: build policies based on config
             policy: PolicySet(policies: [])
@@ -237,7 +239,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
 
 #if canImport(Darwin)
 extension SecKey {
-    func sign(content: Data, algorithm: SignatureAlgorithm) throws -> Data {
+    func sign(content: [UInt8], algorithm: SignatureAlgorithm) throws -> [UInt8] {
         let secKeyAlgorithm: SecKeyAlgorithm
         switch algorithm {
         case .ecdsaP256:
@@ -254,7 +256,7 @@ extension SecKey {
         guard let signatureData = SecKeyCreateSignature(
             self,
             secKeyAlgorithm,
-            content as CFData,
+            Data(content) as CFData,
             &error
         ) as Data? else {
             if let error = error?.takeRetainedValue() as Error? {
@@ -262,7 +264,7 @@ extension SecKey {
             }
             throw SigningError.signingFailed("Failed to sign with SecKey")
         }
-        return signatureData
+        return Array(signatureData)
     }
 }
 #endif

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import XCTest
 
 import _CryptoExtras // for RSA
@@ -25,13 +24,13 @@ import X509
 final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
         let signingIdentity = try tsc_await { self.ecTestSigningIdentity(callback: $0) }
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
 
         let signatureFormat = SignatureFormat.cms_1_0_0
         let signature = try await SignatureProvider.sign(
-            content,
-            with: signingIdentity,
-            in: signatureFormat,
+            content: content,
+            identity: signingIdentity,
+            format: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -39,9 +38,9 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
 
         let status = try await SignatureProvider.status(
-            of: signature,
-            for: content,
-            in: signatureFormat,
+            signature: signature,
+            content: content,
+            format: signatureFormat,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -56,13 +55,13 @@ final class SigningTests: XCTestCase {
 
     func testCMSEndToEndWithECSigningIdentity() async throws {
         let signingIdentity = try tsc_await { self.ecTestSigningIdentity(callback: $0) }
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
 
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
 
         let signature = try await cmsProvider.sign(
-            content,
-            with: signingIdentity,
+            content: content,
+            identity: signingIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -70,8 +69,8 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
 
         let status = try await cmsProvider.status(
-            of: signature,
-            for: content,
+            signature: signature,
+            content: content,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -86,13 +85,13 @@ final class SigningTests: XCTestCase {
 
     func testCMSEndToEndWithRSASigningIdentity() async throws {
         let signingIdentity = try tsc_await { self.rsaTestSigningIdentity(callback: $0) }
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
 
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
 
         let signature = try await cmsProvider.sign(
-            content,
-            with: signingIdentity,
+            content: content,
+            identity: signingIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -100,8 +99,8 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
 
         let status = try await cmsProvider.status(
-            of: signature,
-            for: content,
+            signature: signature,
+            content: content,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -116,15 +115,15 @@ final class SigningTests: XCTestCase {
 
     func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
         let signingIdentity = try tsc_await { self.ecTestSigningIdentity(callback: $0) }
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
 
         // Key is EC but signature algorithm is RSA
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
 
         do {
             _ = try await cmsProvider.sign(
-                content,
-                with: signingIdentity,
+                content: content,
+                identity: signingIdentity,
                 observabilityScope: ObservabilitySystem.NOOP
             )
             XCTFail("Expected error")
@@ -153,14 +152,14 @@ final class SigningTests: XCTestCase {
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
 
         let signatureFormat = SignatureFormat.cms_1_0_0
         // This call will trigger OS prompt(s) for key access
         let signature = try await SignatureProvider.sign(
-            content,
-            with: signingIdentity,
-            in: signatureFormat,
+            content: content,
+            identity: signingIdentity,
+            format: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -168,9 +167,9 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
 
         let status = try await SignatureProvider.status(
-            of: signature,
-            for: content,
-            in: signatureFormat,
+            signature: signature,
+            content: content,
+            format: signatureFormat,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -201,13 +200,13 @@ final class SigningTests: XCTestCase {
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
 
         // This call will trigger OS prompt(s) for key access
         let signature = try await cmsProvider.sign(
-            content,
-            with: signingIdentity,
+            content: content,
+            identity: signingIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -215,8 +214,8 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
 
         let status = try await cmsProvider.status(
-            of: signature,
-            for: content,
+            signature: signature,
+            content: content,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -247,13 +246,13 @@ final class SigningTests: XCTestCase {
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
-        let content = "per aspera ad astra".data(using: .utf8)!
+        let content = Array("per aspera ad astra".utf8)
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
 
         // This call will trigger OS prompt(s) for key access
         let signature = try await cmsProvider.sign(
-            content,
-            with: signingIdentity,
+            content: content,
+            identity: signingIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
@@ -261,8 +260,8 @@ final class SigningTests: XCTestCase {
         verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
 
         let status = try await cmsProvider.status(
-            of: signature,
-            for: content,
+            signature: signature,
+            content: content,
             verifierConfiguration: verifierConfiguration,
             observabilityScope: ObservabilitySystem.NOOP
         )
@@ -278,19 +277,19 @@ final class SigningTests: XCTestCase {
     private func ecTestSigningIdentity(callback: (Result<SigningIdentity, Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let certificateData: Data = try readFileContents(
+                let certificateBytes = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates",
                     "Test_ec.cer"
                 )
-                let certificate = try Certificate(derEncoded: Array(certificateData))
+                let certificate = try Certificate(derEncoded: certificateBytes)
 
-                let privateKeyData: Data = try readFileContents(
+                let privateKeyBytes = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates",
                     "Test_ec_key.p8"
                 )
-                let privateKey = try P256.Signing.PrivateKey(derRepresentation: privateKeyData)
+                let privateKey = try P256.Signing.PrivateKey(derRepresentation: privateKeyBytes)
 
                 callback(.success(SwiftSigningIdentity(
                     certificate: certificate,
@@ -305,19 +304,19 @@ final class SigningTests: XCTestCase {
     private func rsaTestSigningIdentity(callback: (Result<SigningIdentity, Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let certificateData: Data = try readFileContents(
+                let certificateBytes = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates",
                     "Test_rsa.cer"
                 )
-                let certificate = try Certificate(derEncoded: Array(certificateData))
+                let certificate = try Certificate(derEncoded: certificateBytes)
 
-                let privateKeyData: Data = try readFileContents(
+                let privateKeyBytes = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates",
                     "Test_rsa_key.p8"
                 )
-                let privateKey = try _RSA.Signing.PrivateKey(derRepresentation: privateKeyData)
+                let privateKey = try _RSA.Signing.PrivateKey(derRepresentation: privateKeyBytes)
 
                 callback(.success(SwiftSigningIdentity(
                     certificate: certificate,
@@ -329,7 +328,7 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    private func testRoots(callback: (Result<[Data], Error>) -> Void) {
+    private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
                 let intermediateCA = try readFileContents(
@@ -345,7 +344,7 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    private func wwdrRoots(callback: (Result<[Data], Error>) -> Void) {
+    private func wwdrRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
                 let intermediateCA = try readFileContents(

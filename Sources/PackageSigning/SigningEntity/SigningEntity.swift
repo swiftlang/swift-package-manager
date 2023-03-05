@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-
 @_implementationOnly import SwiftASN1
 @_implementationOnly import X509
 

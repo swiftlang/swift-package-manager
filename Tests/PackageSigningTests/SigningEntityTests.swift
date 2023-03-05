@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import XCTest
 
 import Basics
@@ -21,12 +20,12 @@ import X509
 final class SigningEntityTests: XCTestCase {
     func testFromECKeyCertificate() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let certificateData: Data = try readFileContents(
+            let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_ec.cer"
             )
-            let certificate = try Certificate(derEncoded: Array(certificateData))
+            let certificate = try Certificate(derEncoded: certificateBytes)
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)
@@ -38,12 +37,12 @@ final class SigningEntityTests: XCTestCase {
 
     func testFromRSAKeyCertificate() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let certificateData: Data = try readFileContents(
+            let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_rsa.cer"
             )
-            let certificate = try Certificate(derEncoded: Array(certificateData))
+            let certificate = try Certificate(derEncoded: certificateBytes)
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)

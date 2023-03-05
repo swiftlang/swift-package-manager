@@ -154,7 +154,7 @@ extension SwiftPackageRegistryTool {
             )
 
             // step 3: sign the source archive if needed
-            var signature: Data? = .none
+            var signature: [UInt8]? = .none
             if signingRequired {
                 // compute signing mode
                 let signingMode: PackageArchiveSigner.SigningMode
@@ -211,6 +211,7 @@ extension SwiftPackageRegistryTool {
                 packageArchive: archivePath,
                 packageMetadata: self.customMetadataPath,
                 signature: signature,
+                signatureFormat: self.signatureFormat,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope
             )
@@ -288,7 +289,8 @@ extension RegistryClient {
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
-        signature: Data?,
+        signature: [UInt8]?,
+        signatureFormat: SignatureFormat?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -301,6 +303,7 @@ extension RegistryClient {
                 packageArchive: packageArchive,
                 packageMetadata: packageMetadata,
                 signature: signature,
+                signatureFormat: signatureFormat,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: .sharedConcurrent,

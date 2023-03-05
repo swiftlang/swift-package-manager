@@ -2110,6 +2110,7 @@ final class RegistryClientTests: XCTestCase {
             switch (request.method, request.url) {
             case (.put, publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+                XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
                 let body = String(data: request.body!, encoding: .utf8)
@@ -2151,6 +2152,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                signatureFormat: .none,
                 fileSystem: localFileSystem
             )
 
@@ -2174,6 +2176,7 @@ final class RegistryClientTests: XCTestCase {
             switch (request.method, request.url) {
             case (.put, publishURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+                XCTAssertNil(request.headers.get("X-Swift-Package-Signature-Format").first)
 
                 // TODO: implement multipart form parsing
                 let body = String(data: request.body!, encoding: .utf8)
@@ -2216,10 +2219,124 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                signatureFormat: .none,
                 fileSystem: localFileSystem
             )
 
             XCTAssertEqual(result, .processing(statusURL: expectedLocation, retryAfter: expectedRetry))
+        }
+    }
+    
+    func testRegistryPublishWithSignature() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let expectedLocation =
+            URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+
+        let archiveContent = UUID().uuidString
+        let metadataContent = UUID().uuidString
+        let signature = UUID().uuidString
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.put, publishURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+                XCTAssertEqual(request.headers.get("X-Swift-Package-Signature-Format").first, signatureFormat.rawValue)
+
+                // TODO: implement multipart form parsing
+                let body = String(data: request.body!, encoding: .utf8)
+                XCTAssertMatch(body, .contains(archiveContent))
+                XCTAssertMatch(body, .contains(metadataContent))
+                XCTAssertMatch(body, .contains(signature))
+
+                completion(.success(.init(
+                    statusCode: 201,
+                    headers: .init([
+                        .init(name: "Location", value: expectedLocation.absoluteString),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: .none
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        try withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = LegacyHTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            let result = try registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: Array(signature.utf8),
+                signatureFormat: signatureFormat,
+                fileSystem: localFileSystem
+            )
+
+            XCTAssertEqual(result, .published(expectedLocation))
+        }
+    }
+    
+    func testRegistryPublishSignatureFormatIsRequiredIfSigned() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+
+        let archiveContent = UUID().uuidString
+        let metadataContent = UUID().uuidString
+        let signature = UUID().uuidString
+
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
+            completion(.failure(StringError("should not be called")))
+        }
+
+        try withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = LegacyHTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            XCTAssertThrowsError(try registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: Array(signature.utf8),
+                signatureFormat: .none,
+                fileSystem: localFileSystem
+            )) { error in
+                guard case RegistryError.missingSignatureFormat = error else {
+                    return XCTFail("unexpected error \(error)")
+                }
+            }
         }
     }
 
@@ -2258,6 +2375,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError
@@ -2305,6 +2423,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError.failedLoadingPackageArchive(archivePath) = error else {
@@ -2344,6 +2463,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError.failedLoadingPackageMetadata(metadataPath) = error else {
@@ -2594,7 +2714,8 @@ extension RegistryClient {
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
-        signature: Data?,
+        signature: [UInt8]?,
+        signatureFormat: SignatureFormat?,
         fileSystem: FileSystem
     ) throws -> RegistryClient.PublishResult {
         try tsc_await {
@@ -2605,6 +2726,7 @@ extension RegistryClient {
                 packageArchive: packageArchive,
                 packageMetadata: packageMetadata,
                 signature: signature,
+                signatureFormat: signatureFormat,
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import struct Foundation.Data
 
 import ArgumentParser
 import Basics
@@ -109,8 +108,8 @@ public enum PackageArchiveSigner {
         signatureFormat: SignatureFormat,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> Data {
-        let archiveData: Data = try fileSystem.readFileContents(archivePath)
+    ) async throws -> [UInt8] {
+        let archiveData = try fileSystem.readFileContents(archivePath)
 
         let signingIdentity: SigningIdentity
         switch mode {
@@ -123,19 +122,19 @@ public enum PackageArchiveSigner {
             // TODO: let user choose if there is more than one match?
             signingIdentity = identity
         case .certificate(let certificatePath, let privateKeyPath):
-            let certificateData: Data = try fileSystem.readFileContents(certificatePath)
-            let privateKeyData: Data = try fileSystem.readFileContents(privateKeyPath)
+            let certificate = try fileSystem.readFileContents(certificatePath)
+            let privateKey = try fileSystem.readFileContents(privateKeyPath)
             signingIdentity = try SwiftSigningIdentity(
-                derEncodedCertificate: certificateData,
-                derEncodedPrivateKey: privateKeyData,
+                derEncodedCertificate: certificate.contents,
+                derEncodedPrivateKey: privateKey.contents,
                 privateKeyType: signatureFormat.signingKeyType
             )
         }
 
         let signature = try await SignatureProvider.sign(
-            archiveData,
-            with: signingIdentity,
-            in: signatureFormat,
+            content: archiveData.contents,
+            identity: signingIdentity,
+            format: signatureFormat,
             observabilityScope: observabilityScope
         )
 

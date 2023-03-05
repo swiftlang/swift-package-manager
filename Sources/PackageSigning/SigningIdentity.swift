@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-
 #if canImport(Darwin)
 import Security
 #endif
@@ -41,12 +39,12 @@ public struct SwiftSigningIdentity: SigningIdentity {
     }
 
     public init(
-        derEncodedCertificate certificateData: Data,
-        derEncodedPrivateKey privateKeyData: Data,
+        derEncodedCertificate certificate: [UInt8],
+        derEncodedPrivateKey privateKey: [UInt8],
         privateKeyType: SigningKeyType
     ) throws {
         do {
-            self.certificate = try Certificate(derEncoded: Array(certificateData))
+            self.certificate = try Certificate(derEncoded: certificate)
         } catch {
             throw StringError("Invalid certificate: \(error)")
         }
@@ -56,13 +54,12 @@ public struct SwiftSigningIdentity: SigningIdentity {
             case .p256:
                 #if canImport(Darwin)
                 if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
-                    self.privateKey = try Certificate
-                        .PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
+                    self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
                 } else {
                     throw StringError("Unsupported platform")
                 }
                 #else
-                self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
+                self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
                 #endif
             }
         } catch let error as StringError {

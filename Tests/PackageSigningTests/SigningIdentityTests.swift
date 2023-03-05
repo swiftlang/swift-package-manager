@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import XCTest
 
 import _CryptoExtras // For RSA
@@ -23,31 +22,31 @@ import X509
 final class SigningIdentityTests: XCTestCase {
     func testSwiftSigningIdentityWithECKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let certificateData: Data = try readFileContents(
+            let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_ec.cer"
             )
-            let certificate = try Certificate(derEncoded: Array(certificateData))
+            let certificate = try Certificate(derEncoded: certificateBytes)
 
             let subject = certificate.subject
             XCTAssertEqual("Test (EC)", subject.commonName)
             XCTAssertEqual("Test (EC)", subject.organizationalUnitName)
             XCTAssertEqual("Test (EC)", subject.organizationName)
 
-            let privateKeyData: Data = try readFileContents(
+            let privateKeyBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_ec_key.p8"
             )
-            let privateKey = try P256.Signing.PrivateKey(derRepresentation: privateKeyData)
+            let privateKey = try P256.Signing.PrivateKey(derRepresentation: privateKeyBytes)
             _ = SwiftSigningIdentity(certificate: certificate, privateKey: Certificate.PrivateKey(privateKey))
 
             // Test public API
             XCTAssertNoThrow(
                 try SwiftSigningIdentity(
-                    derEncodedCertificate: certificateData,
-                    derEncodedPrivateKey: privateKeyData,
+                    derEncodedCertificate: certificateBytes,
+                    derEncodedPrivateKey: privateKeyBytes,
                     privateKeyType: .p256
                 )
             )
@@ -56,24 +55,24 @@ final class SigningIdentityTests: XCTestCase {
 
     func testSwiftSigningIdentityWithRSAKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let certificateData: Data = try readFileContents(
+            let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_rsa.cer"
             )
-            let certificate = try Certificate(derEncoded: Array(certificateData))
+            let certificate = try Certificate(derEncoded: certificateBytes)
 
             let subject = certificate.subject
             XCTAssertEqual("Test (RSA)", subject.commonName)
             XCTAssertEqual("Test (RSA)", subject.organizationalUnitName)
             XCTAssertEqual("Test (RSA)", subject.organizationName)
 
-            let privateKeyData: Data = try readFileContents(
+            let privateKeyBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
                 "Test_rsa_key.p8"
             )
-            let privateKey = try _RSA.Signing.PrivateKey(derRepresentation: privateKeyData)
+            let privateKey = try _RSA.Signing.PrivateKey(derRepresentation: privateKeyBytes)
             _ = SwiftSigningIdentity(certificate: certificate, privateKey: Certificate.PrivateKey(privateKey))
         }
     }

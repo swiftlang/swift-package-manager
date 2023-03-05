@@ -497,16 +497,16 @@ final class PackageRegistryToolTests: CommandsTestCase {
             )
 
             // Read and validate signature
-            let signature: Data = try localFileSystem.readFileContents(signaturePath)
-            let archive: Data = try localFileSystem.readFileContents(archivePath)
+            let signature = try localFileSystem.readFileContents(signaturePath).contents
+            let archive = try localFileSystem.readFileContents(archivePath).contents
 
             var verifierConfiguration = VerifierConfiguration()
             verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
 
             let signatureStatus = try await SignatureProvider.status(
-                of: signature,
-                for: archive,
-                in: .cms_1_0_0,
+                signature: signature,
+                content: archive,
+                format: .cms_1_0_0,
                 verifierConfiguration: verifierConfiguration,
                 observabilityScope: observabilityScope
             )
@@ -544,13 +544,13 @@ final class PackageRegistryToolTests: CommandsTestCase {
         }
     }
 
-    private func testRoots(callback: (Result<[Data], Error>) -> Void) {
+    private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let intermediateCA: Data = try localFileSystem
-                    .readFileContents(fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"))
-                let rootCA: Data = try localFileSystem
-                    .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer"))
+                let intermediateCA = try localFileSystem
+                    .readFileContents(fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")).contents
+                let rootCA = try localFileSystem
+                    .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
                 callback(.success([intermediateCA, rootCA]))
             }
         } catch {

@@ -190,9 +190,9 @@ struct SignatureValidation {
         Task {
             do {
                 let signatureStatus = try await SignatureProvider.status(
-                    of: signature,
-                    for: content,
-                    in: signatureFormat,
+                    signature: Array(signature),
+                    content: Array(content),
+                    format: signatureFormat,
                     // TODO: load trusted roots (trustedRootCertificatesPath, includeDefaultTrustedRootCertificates)
                     // TODO: build policy set (validationChecks)
                     verifierConfiguration: .init(),
