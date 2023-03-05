@@ -114,6 +114,27 @@ final class SigningTests: XCTestCase {
         XCTAssertEqual("Test (RSA)", signingEntity.organization)
     }
 
+    func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
+        let signingIdentity = try tsc_await { self.ecTestSigningIdentity(callback: $0) }
+        let content = "per aspera ad astra".data(using: .utf8)!
+
+        // Key is EC but signature algorithm is RSA
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
+
+        do {
+            _ = try await cmsProvider.sign(
+                content,
+                with: signingIdentity,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+            XCTFail("Expected error")
+        } catch {
+            guard case SigningError.keyDoesNotSupportSignatureAlgorithm = error else {
+                return XCTFail("Expected SigningError.keyDoesNotSupportSignatureAlgorithm but got \(error)")
+            }
+        }
+    }
+
     func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
         #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
@@ -128,7 +149,7 @@ final class SigningTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = try await identityStore.find(by: label)
+        let matches = await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
@@ -176,7 +197,7 @@ final class SigningTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = try await identityStore.find(by: label)
+        let matches = await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
@@ -222,7 +243,7 @@ final class SigningTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = try await identityStore.find(by: label)
+        let matches = await identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]

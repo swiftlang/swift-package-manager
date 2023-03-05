@@ -116,7 +116,7 @@ public enum PackageArchiveSigner {
         switch mode {
         case .identityStore(let label):
             let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-            let matches = try await signingIdentityStore.find(by: label)
+            let matches = await signingIdentityStore.find(by: label)
             guard let identity = matches.first else {
                 throw StringError("'\(label)' not found in the system identity store.")
             }

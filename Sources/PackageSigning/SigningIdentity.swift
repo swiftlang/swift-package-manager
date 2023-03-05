@@ -45,18 +45,30 @@ public struct SwiftSigningIdentity: SigningIdentity {
         derEncodedPrivateKey privateKeyData: Data,
         privateKeyType: SigningKeyType
     ) throws {
-        self.certificate = try Certificate(derEncoded: Array(certificateData))
-        switch privateKeyType {
-        case .p256:
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-            if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+        do {
+            self.certificate = try Certificate(derEncoded: Array(certificateData))
+        } catch {
+            throw StringError("Invalid certificate: \(error)")
+        }
+
+        do {
+            switch privateKeyType {
+            case .p256:
+                #if canImport(Darwin)
+                if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+                    self.privateKey = try Certificate
+                        .PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
+                } else {
+                    throw StringError("Unsupported platform")
+                }
+                #else
                 self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
-            } else {
-                throw StringError("Unsupported platform")
+                #endif
             }
-            #else
-            self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKeyData))
-            #endif
+        } catch let error as StringError {
+            throw error
+        } catch {
+            throw StringError("Invalid key: \(error)")
         }
     }
 }
@@ -70,7 +82,7 @@ public struct SigningIdentityStore {
         self.observabilityScope = observabilityScope
     }
 
-    public func find(by label: String) async throws -> [SigningIdentity] {
+    public func find(by label: String) async -> [SigningIdentity] {
         #if canImport(Darwin)
         // Find in Keychain
         let query: [String: Any] = [

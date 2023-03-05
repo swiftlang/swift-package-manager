@@ -85,12 +85,9 @@ public enum CertificateRevocationStatus {
 }
 
 public enum SigningError: Error {
-    case encodeInitializationFailed(String)
-    case decodeInitializationFailed(String)
     case signingFailed(String)
-    case signatureInvalid(String)
     case keyDoesNotSupportSignatureAlgorithm
-    case unsupportedSigningIdentity
+    case signingIdentityNotSupported
 }
 
 // MARK: - Signature formats and their provider
@@ -173,26 +170,36 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
 
             let signatureData = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
 
-            let signature = try CMS.sign(
-                signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signatureData)),
-                signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
-                certificate: try Certificate(secIdentity: secIdentity)
-            )
-            return Data(signature)
+            do {
+                let signature = try CMS.sign(
+                    signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signatureData)),
+                    signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                    certificate: try Certificate(secIdentity: secIdentity)
+                )
+                return Data(signature)
+            } catch {
+                throw SigningError.signingFailed("\(error)")
+            }
         }
         #endif
 
         guard let swiftSigningIdentity = identity as? SwiftSigningIdentity else {
-            throw SigningError.unsupportedSigningIdentity
+            throw SigningError.signingIdentityNotSupported
         }
 
-        let signature = try CMS.sign(
-            content,
-            signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
-            certificate: swiftSigningIdentity.certificate,
-            privateKey: swiftSigningIdentity.privateKey
-        )
-        return Data(signature)
+        do {
+            let signature = try CMS.sign(
+                content,
+                signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                certificate: swiftSigningIdentity.certificate,
+                privateKey: swiftSigningIdentity.privateKey
+            )
+            return Data(signature)
+        } catch let error as CertificateError where error.code == .unsupportedSignatureAlgorithm {
+            throw SigningError.keyDoesNotSupportSignatureAlgorithm
+        } catch {
+            throw SigningError.signingFailed("\(error)")
+        }
     }
 
     func status(
