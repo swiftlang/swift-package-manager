@@ -29,7 +29,6 @@
 # Wrap `@attributes` onto a separate line.
 --funcattributes prev-line
 --typeattributes prev-line
---varattributes prev-line
 
 # Use `Void` for type declarations and `()` for values.
 --voidtype void
