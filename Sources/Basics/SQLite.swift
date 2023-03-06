@@ -35,22 +35,27 @@ public final class SQLite {
         self.configuration = configuration
 
         var handle: OpaquePointer?
-        try Self.checkError ({
-            sqlite3_open_v2(
-                location.pathString,
-                &handle,
-                SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
-                nil
-            )
-        },
-        description: "Unable to open database at \(self.location)")
+        try Self.checkError(
+            {
+                sqlite3_open_v2(
+                    location.pathString,
+                    &handle,
+                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+                    nil
+                )
+            },
+            description: "Unable to open database at \(self.location)"
+        )
 
         guard let db = handle else {
             throw StringError("Unable to open database at \(self.location)")
         }
         self.db = db
         try Self.checkError({ sqlite3_extended_result_codes(db, 1) }, description: "Unable to configure database")
-        try Self.checkError({ sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) }, description: "Unable to configure database busy timeout")
+        try Self.checkError(
+            { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) },
+            description: "Unable to configure database busy timeout"
+        )
         if let maxPageCount = self.configuration.maxPageCount {
             try self.exec(query: "PRAGMA max_page_count=\(maxPageCount);")
         }
@@ -120,7 +125,7 @@ public final class SQLite {
         // so tests dont warn
         internal var _busyTimeoutSeconds: Int32 {
             get {
-                return Int32(truncatingIfNeeded: Int(Double(self.busyTimeoutMilliseconds) / 1000))
+                Int32(truncatingIfNeeded: Int(Double(self.busyTimeoutMilliseconds) / 1000))
             } set {
                 self.busyTimeoutMilliseconds = newValue * 1000
             }
@@ -184,7 +189,7 @@ public final class SQLite {
 
         /// Get string at the given column index.
         public func string(at index: Int32) -> String {
-            return String(cString: sqlite3_column_text(self.stmt, index))
+            String(cString: sqlite3_column_text(self.stmt, index))
         }
     }
 
@@ -195,7 +200,7 @@ public final class SQLite {
 
     /// Represents a prepared statement.
     public struct PreparedStatement {
-        typealias sqlite3_destructor_type = (@convention(c) (UnsafeMutableRawPointer?) -> Void)
+        typealias sqlite3_destructor_type = @convention(c) (UnsafeMutableRawPointer?) -> Void
         static let SQLITE_STATIC = unsafeBitCast(0, to: sqlite3_destructor_type.self)
         static let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
