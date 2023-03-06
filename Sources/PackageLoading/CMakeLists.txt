@@ -25,7 +25,6 @@ target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
-  PackageSigning
   TSCUtility)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)

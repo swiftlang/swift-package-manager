@@ -1920,14 +1920,15 @@ extension RegistryReleaseMetadata {
                 }
                 return RegistrySignature(
                     signedBy: signingEntity.flatMap {
-                        if $0.isRecognized {
+                        switch $0.type {
+                        case .adp:
                             return .recognized(
-                                type: $0.type?.rawValue,
+                                type: "adp",
                                 commonName: $0.name,
                                 organization: $0.organization,
                                 identity: $0.organizationalUnit
                             )
-                        } else {
+                        case .none:
                             return .unrecognized(commonName: $0.name, organization: $0.organization)
                         }
                     },

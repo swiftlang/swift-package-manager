@@ -13,7 +13,6 @@
 import Basics
 @_implementationOnly import Foundation
 import PackageModel
-import PackageSigning
 import TSCBasic
 
 public enum RegistryReleaseMetadataStorage {
@@ -100,7 +99,7 @@ private struct CodableRegistryReleaseMetadata: Codable {
     }
 
     public enum SigningEntity: Codable {
-        case recognized(type: String?, commonName: String?, organization: String?, identity: String?)
+        case recognized(type: String, commonName: String?, organization: String?, identity: String?)
         case unrecognized(commonName: String?, organization: String?)
     }
 
