@@ -1568,6 +1568,12 @@ extension Array where Element == PackageConditionProtocol {
             case .driverKit:
                 result += PIF.PlatformFilter.driverKitFilters
 
+            case .wasi:
+                result += PIF.PlatformFilter.webAsssemblyFilters
+
+            case .openbsd:
+                result += PIF.PlatformFilter.openBSDFilters
+
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
                 break
@@ -1628,6 +1634,16 @@ extension PIF.PlatformFilter {
             .init(platform: "linux", environment: $0)
         }
     }()
+
+    /// OpenBSD filters.
+    public static let openBSDFilters: [PIF.PlatformFilter] = [
+        .init(platform: "openbsd"),
+    ]
+
+    /// Web Assembly platform filters.
+    public static let webAsssemblyFilters: [PIF.PlatformFilter] = [
+        .init(platform: "wasi"),
+    ]
 }
 
 private extension PIF.BuildSettings.Platform {
