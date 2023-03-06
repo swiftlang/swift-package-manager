@@ -211,12 +211,11 @@ public final class MockWorkspace {
                 throw InternalError("unknown package type")
             }
 
-            let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: packageLocation, version: v)] = try Manifest(
+                manifests[.init(url: packageLocation, version: v)] = try Manifest.createManifest(
                     displayName: package.name,
-                    path: manifestPath,
+                    path: packagePath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,
                     platforms: package.platforms,

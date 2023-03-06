@@ -457,7 +457,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
@@ -479,7 +479,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createFileSystemManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
@@ -501,7 +501,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
@@ -523,7 +523,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createFileSystemManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
@@ -574,7 +574,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createRootManifest(
-                name: packageDir.basename,
+                displayName: packageDir.basename,
                 path: packageDir,
                 targets: [
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
@@ -639,7 +639,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             let version = Version(1, 0, 0)
             let manifest = Manifest.createRootManifest(
-                name: packageDirectory.basename,
+                displayName: packageDirectory.basename,
                 path: packageDirectory,
                 toolsVersion: .v5_2,
                 dependencies: [

@@ -34,7 +34,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
@@ -44,7 +44,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "FooDep", dependencies: []),
                     ]),
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -56,7 +56,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./")
                     ]),
                 Manifest.createRootManifest(
-                    name: "Baz",
+                    displayName: "Baz",
                     path: .init(path: "/Baz"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -101,7 +101,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -110,7 +110,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
@@ -145,7 +145,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -154,7 +154,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Baz"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -166,7 +166,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar", dependencies: ["Baz"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Baz",
+                    displayName: "Baz",
                     path: .init(path: "/Baz"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -198,7 +198,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -230,7 +230,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -240,7 +240,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "BarTests", dependencies: ["Bar"], type: .test),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
@@ -272,7 +272,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
@@ -281,7 +281,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -308,7 +308,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Fourth",
+                    displayName: "Fourth",
                     path: .init(path: "/Fourth"),
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
@@ -317,7 +317,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "First"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Third",
+                    displayName: "Third",
                     path: .init(path: "/Third"),
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
@@ -326,7 +326,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "First"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Second",
+                    displayName: "Second",
                     path: .init(path: "/Second"),
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
@@ -335,7 +335,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "First"),
                     ]),
                 Manifest.createRootManifest(
-                    name: "First",
+                    displayName: "First",
                     path: .init(path: "/First"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Second"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -367,7 +367,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Fourth",
+                    displayName: "Fourth",
                     path: .init(path: "/Fourth"),
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Bar"])
@@ -376,7 +376,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Third",
+                    displayName: "Third",
                     path: .init(path: "/Third"),
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Bar"])
@@ -385,7 +385,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Second",
+                    displayName: "Second",
                     path: .init(path: "/Second"),
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo"])
@@ -394,7 +394,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo"),
                     ]),
                 Manifest.createRootManifest(
-                    name: "First",
+                    displayName: "First",
                     path: .init(path: "/First"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Second"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -427,7 +427,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createFileSystemManifest(
-                    name: "Fourth",
+                    displayName: "Fourth",
                     path: .init(path: "/Fourth"),
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
@@ -436,7 +436,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "First"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Third",
+                    displayName: "Third",
                     path: .init(path: "/Third"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Fourth"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -448,7 +448,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Third", dependencies: ["Fourth"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Second",
+                    displayName: "Second",
                     path: .init(path: "/Second"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Third"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -460,7 +460,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Second", dependencies: ["Third"]),
                     ]),
                 Manifest.createRootManifest(
-                    name: "First",
+                    displayName: "First",
                     path: .init(path: "/First"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Second"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -493,7 +493,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -502,7 +502,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: try .init(validating: Bar.pathString),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -536,7 +536,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -565,7 +565,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
@@ -593,7 +593,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTarget"]),
@@ -624,7 +624,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "XYZ",
+                    displayName: "XYZ",
                     path: .init(path: "/XYZ"),
                     targets: [
                         TargetDescription(name: "XYZ", dependencies: [], type: .executable),
@@ -648,7 +648,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
@@ -673,7 +673,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     targets: [
@@ -702,7 +702,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     targets: [
@@ -734,7 +734,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -746,7 +746,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
@@ -755,7 +755,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "BarLib"),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Biz",
+                    displayName: "Biz",
                     path: .init(path: "/BizPath"),
                     version: "1.2.3",
                     products: [
@@ -765,7 +765,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Biz"),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Fiz",
+                    displayName: "Fiz",
                     path: .init(path: "/FizPath"),
                     version: "1.2.3",
                     products: [
@@ -811,7 +811,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -821,7 +821,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
                     ]),
                 Manifest.createLocalSourceControlManifest(
-                    name: "UnBar",
+                    displayName: "UnBar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
@@ -850,7 +850,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -861,7 +861,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["BarLibrary"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Biz",
+                    displayName: "Biz",
                     path: .init(path: "/Biz"),
                     products: [
                         ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
@@ -870,7 +870,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Biz"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
@@ -879,7 +879,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Baz",
+                    displayName: "Baz",
                     path: .init(path: "/Baz"),
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
@@ -910,7 +910,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Foo"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -919,7 +919,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo")
                 ),
             ],
@@ -944,7 +944,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Start",
+                    displayName: "Start",
                     path: .init(path: "/Start"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Dep1"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -954,7 +954,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Dep1",
+                    displayName: "Dep1",
                     path: .init(path: "/Dep1"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Dep2"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -966,7 +966,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Baz", dependencies: ["FooLibrary"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Dep2",
+                    displayName: "Dep2",
                     path: .init(path: "/Dep2"),
                     products: [
                         ProductDescription(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
@@ -997,7 +997,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -1007,7 +1007,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -1016,7 +1016,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Bar"),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Baz",
+                    displayName: "Baz",
                     path: .init(path: "/Baz"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
@@ -1052,7 +1052,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -1062,7 +1062,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo2", dependencies: ["TransitiveBar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
@@ -1124,7 +1124,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .fileSystem(path: .init(path: "/Biz")),
@@ -1149,7 +1149,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createLocalSourceControlManifest(
-                    name: "Biz",
+                    displayName: "Biz",
                     path: .init(path: "/Biz"),
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
@@ -1206,7 +1206,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Root",
+                    displayName: "Root",
                     path: .init(path: "/Root"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1219,7 +1219,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "Immediate",
+                    displayName: "Immediate",
                     path: .init(path: "/Immediate"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1247,7 +1247,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "Transitive",
+                    displayName: "Transitive",
                     path: .init(path: "/Transitive"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1325,7 +1325,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "A",
+                    displayName: "A",
                     path: .init(path: "/A"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -1338,7 +1338,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "A", dependencies: []),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "B",
+                    displayName: "B",
                     path: .init(path: "/B"),
                     products: [
                         ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
@@ -1348,7 +1348,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "C",
+                    displayName: "C",
                     path: .init(path: "/C"),
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
@@ -1358,7 +1358,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "D",
+                    displayName: "D",
                     path: .init(path: "/D"),
                     products: [
                         ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
@@ -1368,7 +1368,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "E",
+                    displayName: "E",
                     path: .init(path: "/E"),
                     products: [
                         ProductDescription(name: "E", type: .library(.automatic), targets: ["E"])
@@ -1378,7 +1378,7 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
                 Manifest.createFileSystemManifest(
-                    name: "F",
+                    displayName: "F",
                     path: .init(path: "/F"),
                     products: [
                         ProductDescription(name: "F", type: .library(.automatic), targets: ["F"])
@@ -1411,7 +1411,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5,
                     dependencies: [
@@ -1421,7 +1421,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v5,
                     products: [
@@ -1448,7 +1448,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5,
                     dependencies: [
@@ -1458,7 +1458,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Unknown"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v5,
                     products: [
@@ -1492,7 +1492,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1502,7 +1502,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v5_2,
                     products: [
@@ -1529,7 +1529,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -1539,7 +1539,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["Unknown"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     toolsVersion: .v5_2,
                     products: [
@@ -1570,7 +1570,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1580,7 +1580,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1630,7 +1630,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1640,7 +1640,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1689,7 +1689,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1699,7 +1699,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Some-Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1747,7 +1747,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1757,7 +1757,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Some-Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1808,7 +1808,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1818,7 +1818,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Some-Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1844,7 +1844,7 @@ class PackageGraphTests: XCTestCase {
 
         let manifests = try [
             Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: [
@@ -1854,7 +1854,7 @@ class PackageGraphTests: XCTestCase {
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
             Manifest.createFileSystemManifest(
-                name: "Bar",
+                displayName: "Bar",
                 path: .init(path: "/Some-Bar"),
                 toolsVersion: .v5_2,
                 products: [
@@ -1899,7 +1899,7 @@ class PackageGraphTests: XCTestCase {
     // TODO: remove this when we remove explicit dependency name
     func testTargetDependencies_Post52_AliasFindsIdentity() throws {
         let manifest = Manifest.createRootManifest(
-            name: "Package",
+            displayName: "Package",
             path: .init(path: "/Package"),
             toolsVersion: .v5_2,
             dependencies: [
@@ -1965,7 +1965,7 @@ class PackageGraphTests: XCTestCase {
         do {
             // One platform with an override.
             let manifest = Manifest.createRootManifest(
-                name: "pkg",
+                displayName: "pkg",
                 platforms: [
                     PlatformDescription(name: "macos", version: "10.14", options: ["option1"]),
                 ],
@@ -2062,7 +2062,7 @@ class PackageGraphTests: XCTestCase {
         do {
             // Two platforms with overrides.
             let manifest = Manifest.createRootManifest(
-                name: "pkg",
+                displayName: "pkg",
                 platforms: [
                     PlatformDescription(name: "macos", version: "10.14"),
                     PlatformDescription(name: "tvos", version: "12.0"),
@@ -2126,7 +2126,7 @@ class PackageGraphTests: XCTestCase {
         do {
             // Test MacCatalyst overriding behavior.
             let manifest = Manifest.createRootManifest(
-                name: "pkg",
+                displayName: "pkg",
                 platforms: [
                     PlatformDescription(name: "ios", version: "15.0"),
                 ],
@@ -2199,7 +2199,7 @@ class PackageGraphTests: XCTestCase {
         do {
             // One custom platform.
             let manifest = Manifest.createRootManifest(
-                name: "pkg",
+                displayName: "pkg",
                 platforms: [
                     PlatformDescription(name: "customos", version: "1.0"),
                 ],
@@ -2241,7 +2241,7 @@ class PackageGraphTests: XCTestCase {
         do {
             // Two platforms with overrides.
             let manifest = Manifest.createRootManifest(
-                name: "pkg",
+                displayName: "pkg",
                 platforms: [
                     PlatformDescription(name: "customos", version: "1.0"),
                     PlatformDescription(name: "anothercustomos", version: "2.3"),
@@ -2299,7 +2299,7 @@ class PackageGraphTests: XCTestCase {
             fileSystem: fs,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     dependencies: [
                         .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
@@ -2309,7 +2309,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo2", dependencies: ["TransitiveBar"]),
                     ]),
                 Manifest.createFileSystemManifest(
-                    name: "Bar",
+                    displayName: "Bar",
                     path: .init(path: "/Bar"),
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
@@ -2352,7 +2352,7 @@ class PackageGraphTests: XCTestCase {
 extension Manifest {
     func withTargets(_ targets: [TargetDescription]) -> Manifest {
         Manifest.createManifest(
-            name: self.displayName,
+            displayName: self.displayName,
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,
@@ -2364,7 +2364,7 @@ extension Manifest {
 
     func withDependencies(_ dependencies: [PackageDependency]) -> Manifest {
         Manifest.createManifest(
-            name: self.displayName,
+            displayName: self.displayName,
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,

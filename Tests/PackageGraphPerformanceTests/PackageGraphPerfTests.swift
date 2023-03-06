@@ -51,7 +51,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             }
             // Create manifest.
             let isRoot = pkg == 1
-            let manifest = Manifest(
+            let manifest = Manifest.createManifest(
                 displayName: name,
                 path: try AbsolutePath(validating: location).appending(component: Manifest.filename),
                 packageKind: isRoot ? .root(try .init(validating: location)) : .localSourceControl(try .init(validating: location)),
@@ -97,7 +97,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let packageSequence: [Manifest] = try packageNumberSequence.map { (sequenceNumber: Int) -> Manifest in
             let dependencySequence = sequenceNumber < lastPackageNumber ? Array((sequenceNumber + 1)...lastPackageNumber) : []
             return Manifest.createFileSystemManifest(
-                name: "Package\(sequenceNumber)",
+                displayName: "Package\(sequenceNumber)",
                 path: try .init(validating: "/Package\(sequenceNumber)"),
                 toolsVersion: .v5_7,
                 dependencies: try dependencySequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),
@@ -111,7 +111,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         }
 
         let root = Manifest.createRootManifest(
-            name: "PackageA",
+            displayName: "PackageA",
             path: .init(path: "/PackageA"),
             toolsVersion: .v5_7,
             dependencies: try packageNumberSequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),

@@ -38,7 +38,7 @@ class PluginInvocationTests: XCTestCase {
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(

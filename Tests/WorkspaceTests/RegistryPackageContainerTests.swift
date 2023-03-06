@@ -265,7 +265,7 @@ class RegistryPackageContainerTests: XCTestCase {
                           callbackQueue: DispatchQueue,
                           completion: @escaping (Result<Manifest, Error>) -> Void) {
                     completion(.success(
-                        Manifest(
+                        Manifest.createManifest(
                             displayName: packageIdentity.description,
                             path: manifestPath,
                             packageKind: packageKind,
