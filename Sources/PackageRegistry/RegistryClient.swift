@@ -784,7 +784,7 @@ public final class RegistryClient: Cancellable {
                                             callbackQueue: callbackQueue
                                         ) { signatureResult in
                                             switch signatureResult {
-                                            case .success:
+                                            case .success(let signingEntity):
                                                 checksumTOFU.validate(
                                                     registry: registry,
                                                     package: package,
@@ -822,6 +822,18 @@ public final class RegistryClient: Cancellable {
                                                                         // strip first level component
                                                                         try fileSystem
                                                                             .stripFirstLevel(of: destinationPath)
+                                                                        // write down copy of version metadata
+                                                                        let registryMetadataPath = destinationPath
+                                                                            .appending(
+                                                                                component: RegistryReleaseMetadataStorage
+                                                                                    .fileName
+                                                                            )
+                                                                        try RegistryReleaseMetadataStorage.save(
+                                                                            metadata: versionMetadata,
+                                                                            signingEntity: signingEntity,
+                                                                            to: registryMetadataPath,
+                                                                            fileSystem: fileSystem
+                                                                        )
                                                                     }.mapError { error in
                                                                         StringError(
                                                                             "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
@@ -1853,6 +1865,78 @@ extension RegistryClient {
                 self.identifiers = identifiers
             }
         }
+    }
+}
+
+// MARK: - RegistryReleaseMetadata serialization helpers
+
+extension RegistryReleaseMetadataStorage {
+    fileprivate static func save(
+        metadata: RegistryClient.PackageVersionMetadata,
+        signingEntity: SigningEntity?,
+        to path: AbsolutePath,
+        fileSystem: FileSystem
+    ) throws {
+        let registryMetadata = try RegistryReleaseMetadata(
+            metadata: metadata,
+            signingEntity: signingEntity
+        )
+        try self.save(registryMetadata, to: path, fileSystem: fileSystem)
+    }
+}
+
+extension RegistryReleaseMetadata {
+    fileprivate init(
+        metadata: RegistryClient.PackageVersionMetadata,
+        signingEntity: PackageSigning.SigningEntity?
+    ) throws {
+        self.init(
+            source: .registry(metadata.registry.url),
+            metadata: .init(
+                author: metadata.author.flatMap {
+                    .init(
+                        name: $0.name,
+                        emailAddress: $0.email,
+                        description: $0.description,
+                        url: $0.url,
+                        organization: $0.organization.flatMap {
+                            .init(
+                                name: $0.name,
+                                emailAddress: $0.email,
+                                description: $0.description,
+                                url: $0.url
+                            )
+                        }
+                    )
+                },
+                description: metadata.description,
+                licenseURL: metadata.licenseURL,
+                readmeURL: metadata.readmeURL,
+                scmRepositoryURLs: metadata.repositoryURLs
+            ),
+            signature: try metadata.sourceArchive?.signing.flatMap {
+                guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
+                    throw StringError("invalid based64 encoded signature")
+                }
+                return RegistrySignature(
+                    signedBy: signingEntity.flatMap {
+                        switch $0.type {
+                        case .adp:
+                            return .recognized(
+                                type: "adp",
+                                commonName: $0.name,
+                                organization: $0.organization,
+                                identity: $0.organizationalUnit
+                            )
+                        case .none:
+                            return .unrecognized(commonName: $0.name, organization: $0.organization)
+                        }
+                    },
+                    format: $0.signatureFormat,
+                    value: Array(signatureData)
+                )
+            }
+        )
     }
 }
 

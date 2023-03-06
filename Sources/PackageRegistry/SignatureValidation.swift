@@ -50,7 +50,7 @@ struct SignatureValidation {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         self.getAndValidateSignature(
             registry: registry,
@@ -71,9 +71,10 @@ struct SignatureValidation {
                     version: version,
                     signingEntity: signingEntity,
                     observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue,
-                    completion: completion
-                )
+                    callbackQueue: callbackQueue
+                ) { _ in
+                    completion(.success(signingEntity))
+                }
             case .failure(let error):
                 completion(.failure(error))
             }

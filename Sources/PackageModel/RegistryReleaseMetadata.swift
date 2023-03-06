@@ -13,22 +13,64 @@
 import struct Foundation.URL
 import struct TSCUtility.Version
 
+
 public struct RegistryReleaseMetadata {
-    /// Information from the signing certificate.
-    public enum Certificate {
-        case trusted(commonName: String, organization: String, identity: String?)
-        case untrusted(commonName: String, organization: String)
-        case none
+    public let source: Source
+    public let metadata: Metadata
+    public let signature: RegistrySignature?
+
+    public init(
+        source: RegistryReleaseMetadata.Source,
+        metadata: RegistryReleaseMetadata.Metadata,
+        signature: RegistrySignature?
+    ) {
+        self.source = source
+        self.metadata = metadata
+        self.signature = signature
     }
 
     /// Metadata of the given release, provided by the registry.
     public struct Metadata {
+        public let author: Author?
+        public let description: String?
+        public let licenseURL: URL?
+        public let readmeURL: URL?
+        public let scmRepositoryURLs: [URL]?
+
+        public init(
+            author: RegistryReleaseMetadata.Metadata.Author? = nil,
+            description: String? = nil,
+            licenseURL: URL? = nil,
+            readmeURL: URL? = nil,
+            scmRepositoryURLs: [URL]?
+        ) {
+            self.author = author
+            self.description = description
+            self.licenseURL = licenseURL
+            self.readmeURL = readmeURL
+            self.scmRepositoryURLs = scmRepositoryURLs
+        }
+
         public struct Author {
             public let name: String
             public let emailAddress: String?
             public let description: String?
             public let url: URL?
-            public let organization: Organization
+            public let organization: Organization?
+
+            public init(
+                name: String,
+                emailAddress: String? = nil,
+                description: String? = nil,
+                url: URL? = nil,
+                organization: RegistryReleaseMetadata.Metadata.Organization?
+            ) {
+                self.name = name
+                self.emailAddress = emailAddress
+                self.description = description
+                self.url = url
+                self.organization = organization
+            }
         }
 
         public struct Organization {
@@ -36,22 +78,40 @@ public struct RegistryReleaseMetadata {
             public let emailAddress: String?
             public let description: String?
             public let url: URL?
-        }
 
-        public let author: Author?
-        public let description: String?
-        public let licenseURL: URL?
-        public let readmeURL: URL?
-        public let scmRepositoryURLs: [URL]
-        public let version: Version
+            public init(name: String, emailAddress: String? = nil, description: String? = nil, url: URL? = nil) {
+                self.name = name
+                self.emailAddress = emailAddress
+                self.description = description
+                self.url = url
+            }
+        }
     }
 
+    /// Information from the signing certificate.
+    public struct RegistrySignature: Codable {
+        public let signedBy: SigningEntity?
+        public let format: String
+        public let value: [UInt8]
+
+        public init(
+            signedBy: SigningEntity?,
+            format: String,
+            value: [UInt8]
+        ) {
+            self.signedBy = signedBy
+            self.format = format
+            self.value = value
+        }
+    }
+
+    public enum SigningEntity: Codable {
+        case recognized(type: String, commonName: String?, organization: String?, identity: String?)
+        case unrecognized(commonName: String?, organization: String?)
+    }
+    
     /// Information about the source of the release.
-    public enum Source {
+    public enum Source: Equatable {
         case registry(URL)
     }
-
-    public let certificate: Certificate
-    public let metadata: Metadata
-    public let source: Source
 }

@@ -287,7 +287,7 @@ extension SignatureValidation {
         content: Data,
         configuration: RegistryConfiguration.Security.Signing,
         observabilityScope: ObservabilityScope? = nil
-    ) throws {
+    ) throws -> SigningEntity? {
         try tsc_await {
             self.validate(
                 registry: registry,

@@ -145,6 +145,7 @@ extension PackageGraph {
             unsafeAllowedPackages: unsafeAllowedPackages,
             platformRegistry: customPlatformsRegistry ?? .default,
             xcTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
 
@@ -222,6 +223,7 @@ private func createResolvedPackages(
     unsafeAllowedPackages: Set<PackageReference>,
     platformRegistry: PlatformRegistry,
     xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion],
+    fileSystem: FileSystem,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
 
@@ -382,6 +384,14 @@ private func createResolvedPackages(
                 }
                 return target
             })
+        }
+
+        // add registry metadata if available
+        if fileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
+            packageBuilder.registryMetadata = try RegistryReleaseMetadataStorage.load(
+                from: package.path.appending(component: RegistryReleaseMetadataStorage.fileName),
+                fileSystem: fileSystem
+            )
         }
     }
 
@@ -872,6 +882,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The platforms supported by this package.
     var platforms: SupportedPlatforms = .init(declared: [], derived: [])
 
+    /// If the given package's source is a registry release, this provides additional metadata and signature information.
+    var registryMetadata: RegistryReleaseMetadata?
+
     init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
         self.productFilter = productFilter
@@ -886,7 +899,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             platforms: self.platforms,
             dependencies: try self.dependencies.map{ try $0.construct() },
             targets: try self.targets.map{ try $0.construct() },
-            products: try self.products.map{ try $0.construct() }
+            products: try self.products.map{ try $0.construct() },
+            registryMetadata: self.registryMetadata
         )
     }
 }

@@ -285,3 +285,17 @@ extension URL: ExpressibleByStringInterpolation {
         self.init(string: value)!
     }
 }
+
+extension PackageIdentity: ExpressibleByStringLiteral {}
+
+extension PackageIdentity: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        self = Self.plain(value)
+    }
+}
+
+extension PackageIdentity {
+    public static func registry(_ value: String) -> RegistryIdentity {
+        Self.plain(value).registry!
+    }
+}

@@ -58,7 +58,7 @@ public final class ResolvedPackage {
         dependencies: [ResolvedPackage],
         targets: [ResolvedTarget],
         products: [ResolvedProduct],
-        registryMetadata: RegistryReleaseMetadata? = nil
+        registryMetadata: RegistryReleaseMetadata?
     ) {
         self.underlyingPackage = package
         self.defaultLocalization = defaultLocalization

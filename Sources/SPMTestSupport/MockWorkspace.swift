@@ -134,7 +134,14 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try temp_await { containerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observability.topScope, on: .sharedConcurrent, completion: $0) }
+                    let container = try temp_await {
+                        containerProvider.getContainer(
+                            for: packageRef,
+                            skipUpdate: true,
+                            observabilityScope: observability.topScope,
+                            on: .sharedConcurrent, completion: $0
+                        )
+                    }
                     guard let customContainer = container as? CustomPackageContainer else {
                         throw StringError("invalid custom container: \(container)")
                     }
