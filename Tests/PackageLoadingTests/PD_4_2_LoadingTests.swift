@@ -18,12 +18,6 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
-extension AbsolutePath {
-    fileprivate func escapedPathString() -> String {
-        return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
-    }
-}
-
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2

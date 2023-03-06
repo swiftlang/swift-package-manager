@@ -1029,16 +1029,16 @@ final class RegistryClientTests: XCTestCase {
                     let data = try fileSystem.readFileContents(from)
                     XCTAssertEqual(data, emptyZipFile)
 
-                    let packagePath = to.appending(component: "package")
+                    let packagePath = to.appending("package")
                     try fileSystem.createDirectory(packagePath, recursive: true)
-                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
             }
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
             package: identity,
@@ -1153,16 +1153,16 @@ final class RegistryClientTests: XCTestCase {
                     let data = try fileSystem.readFileContents(from)
                     XCTAssertEqual(data, emptyZipFile)
 
-                    let packagePath = to.appending(component: "package")
+                    let packagePath = to.appending("package")
                     try fileSystem.createDirectory(packagePath, recursive: true)
-                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
             }
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         XCTAssertThrowsError(
             try registryClient.downloadSourceArchive(
@@ -1283,16 +1283,16 @@ final class RegistryClientTests: XCTestCase {
                     let data = try fileSystem.readFileContents(from)
                     XCTAssertEqual(data, emptyZipFile)
 
-                    let packagePath = to.appending(component: "package")
+                    let packagePath = to.appending("package")
                     try fileSystem.createDirectory(packagePath, recursive: true)
-                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
             }
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
         let observability = ObservabilitySystem.makeForTesting()
 
         // The checksum differs from that in storage, but error is not thrown
@@ -1403,16 +1403,16 @@ final class RegistryClientTests: XCTestCase {
                     let data = try fileSystem.readFileContents(from)
                     XCTAssertEqual(data, emptyZipFile)
 
-                    let packagePath = to.appending(component: "package")
+                    let packagePath = to.appending("package")
                     try fileSystem.createDirectory(packagePath, recursive: true)
-                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
             }
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
             package: identity,
@@ -1529,16 +1529,16 @@ final class RegistryClientTests: XCTestCase {
                     let data = try fileSystem.readFileContents(from)
                     XCTAssertEqual(data, emptyZipFile)
 
-                    let packagePath = to.appending(component: "package")
+                    let packagePath = to.appending("package")
                     try fileSystem.createDirectory(packagePath, recursive: true)
-                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
             }
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         try registryClient.downloadSourceArchive(
             package: identity,
@@ -1610,7 +1610,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         XCTAssertThrowsError(try registryClient.downloadSourceArchive(
             package: identity,
@@ -1689,7 +1689,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         XCTAssertThrowsError(try registryClient.downloadSourceArchive(
             package: identity,
@@ -1737,7 +1737,7 @@ final class RegistryClientTests: XCTestCase {
         )
 
         let fileSystem = InMemoryFileSystem()
-        let path = AbsolutePath(path: "/LinkedList-1.1.1")
+        let path = AbsolutePath("/LinkedList-1.1.1")
 
         XCTAssertThrowsError(try registryClient.downloadSourceArchive(
             package: identity,
@@ -2130,10 +2130,10 @@ final class RegistryClientTests: XCTestCase {
         }
 
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
-            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
 
             let httpClient = LegacyHTTPClient(handler: handler)
@@ -2195,10 +2195,10 @@ final class RegistryClientTests: XCTestCase {
         }
 
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, string: archiveContent)
 
-            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
 
             let httpClient = LegacyHTTPClient(handler: handler)
@@ -2237,10 +2237,10 @@ final class RegistryClientTests: XCTestCase {
         )
 
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
-            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
             try localFileSystem.writeFileContents(metadataPath, bytes: [])
 
             let httpClient = LegacyHTTPClient(handler: serverErrorHandler.handle)
@@ -2285,10 +2285,10 @@ final class RegistryClientTests: XCTestCase {
         }
 
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             // try localFileSystem.writeFileContents(archivePath, bytes: [])
 
-            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
 
             let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
@@ -2324,10 +2324,10 @@ final class RegistryClientTests: XCTestCase {
         }
 
         try withTemporaryDirectory { temporaryDirectory in
-            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
             try localFileSystem.writeFileContents(archivePath, bytes: [])
 
-            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            let metadataPath = temporaryDirectory.appending("\(identity)-\(version)-metadata.json")
 
             let httpClient = LegacyHTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none

@@ -246,19 +246,19 @@ extension AsyncFileSystem {
 extension AsyncFileSystem {
     public func stripFirstLevel(of path: AbsolutePath) throws {
         let topLevelDirectories = try self.getDirectoryContents(path)
-            .map{ path.appending(component: $0) }
+            .map{ path.appending($0) }
             .filter{ self.isDirectory($0) }
 
         guard topLevelDirectories.count == 1, let rootDirectory = topLevelDirectories.first else {
             throw StringError("stripFirstLevel requires single top level directory")
         }
 
-        let tempDirectory = path.parentDirectory.appending(component: UUID().uuidString)
+        let tempDirectory = path.parentDirectory.appending(UUID().uuidString)
         try self.move(from: rootDirectory, to: tempDirectory)
 
         let rootContents = try self.getDirectoryContents(tempDirectory)
         for entry in rootContents {
-            try self.move(from: tempDirectory.appending(component: entry), to: path.appending(component: entry))
+            try self.move(from: tempDirectory.appending(entry), to: path.appending(entry))
         }
 
         try self.removeFileTree(tempDirectory)

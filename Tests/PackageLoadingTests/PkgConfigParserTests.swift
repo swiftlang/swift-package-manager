@@ -225,7 +225,7 @@ final class PkgConfigParserTests: XCTestCase {
             try PkgConfig(
                 name: "gobject-2.0",
                 additionalSearchPaths: [AbsolutePath(path: "/usr/local/opt/glib/lib/pkgconfig")],
-                brewPrefix: AbsolutePath(path: "/usr/local"),
+                brewPrefix: "/usr/local",
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
             )

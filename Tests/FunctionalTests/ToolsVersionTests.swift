@@ -26,12 +26,12 @@ class ToolsVersionTests: XCTestCase {
             let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
-            let depPath = path.appending(component: "Dep")
+            let depPath = path.appending("Dep")
             try fs.createDirectory(depPath)
             initGitRepo(depPath)
             let repo = GitRepository(path: depPath)
 
-            try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
+            try fs.writeFileContents(depPath.appending("Package.swift")) {
                 $0 <<< """
                     // swift-tools-version:5.0
                     import PackageDescription
@@ -46,7 +46,7 @@ class ToolsVersionTests: XCTestCase {
                     )
                     """
             }
-            try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
+            try fs.writeFileContents(depPath.appending("foo.swift")) {
                 $0 <<< """
                     public func foo() { print("foo@1.0") }
                     """
@@ -59,7 +59,7 @@ class ToolsVersionTests: XCTestCase {
             // v1.0.1
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "10000.1"], packagePath: depPath)
-            try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
+            try fs.writeFileContents(depPath.appending("foo.swift")) {
                 $0 <<< """
                     public func foo() { print("foo@1.0.1") }
                     """
@@ -69,8 +69,8 @@ class ToolsVersionTests: XCTestCase {
             try repo.tag(name: "1.0.1")
 
             // Create the primary repository.
-            let primaryPath = path.appending(component: "Primary")
-            try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
+            let primaryPath = path.appending("Primary")
+            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
                 $0 <<< """
                     import PackageDescription
                     let package = Package(
@@ -81,7 +81,7 @@ class ToolsVersionTests: XCTestCase {
                     """
             }
             // Create a file.
-            try fs.writeFileContents(primaryPath.appending(component: "main.swift")) {
+            try fs.writeFileContents(primaryPath.appending("main.swift")) {
                 $0 <<< """
                     import Dep
                     Dep.foo()
@@ -105,7 +105,7 @@ class ToolsVersionTests: XCTestCase {
             }
 
             // Write the manifest with incompatible sources.
-            try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
+            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
                 $0 <<< """
                     import PackageDescription
                     let package = Package(
@@ -122,7 +122,7 @@ class ToolsVersionTests: XCTestCase {
                 XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
             }
 
-             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
+             try fs.writeFileContents(primaryPath.appending("Package.swift")) {
                 $0 <<< """
                     import PackageDescription
                     let package = Package(

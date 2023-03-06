@@ -183,7 +183,7 @@ extension SwiftPackageRegistryTool {
 
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 let signaturePath = workingDirectory
-                    .appending(component: "\(self.packageIdentity)-\(self.packageVersion).sig")
+                    .appending("\(self.packageIdentity)-\(self.packageVersion).sig")
                 signature = try await PackageArchiveSigner.sign(
                     archivePath: archivePath,
                     signaturePath: signaturePath,
@@ -237,7 +237,7 @@ extension SwiftPackageRegistryTool {
             cancellator: Cancellator?,
             observabilityScope: ObservabilityScope
         ) throws -> AbsolutePath {
-            let archivePath = workingDirectory.appending(component: "\(packageIdentity)-\(packageVersion).zip")
+            let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
 
             // create temp location for sources
             let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")

@@ -37,7 +37,7 @@ class ResourcesTests: XCTestCase {
         try fixture(name: "Resources/Localized") { fixturePath in
             try executeSwiftBuild(fixturePath)
 
-            let exec = AbsolutePath(path: ".build/debug/exe", relativeTo: fixturePath)
+            let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try Process.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
             XCTAssertEqual(output, """

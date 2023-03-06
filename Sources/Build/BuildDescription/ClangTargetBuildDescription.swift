@@ -100,7 +100,7 @@ public final class ClangTargetBuildDescription {
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
-        self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+        self.derivedSources = Sources(paths: [], root: tempsPath.appending("DerivedSources"))
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         if target.type == .library {
@@ -127,7 +127,7 @@ public final class ClangTargetBuildDescription {
         if bundlePath != nil {
             try self.generateResourceAccessor()
 
-            let infoPlistPath = tempsPath.appending(component: "Info.plist")
+            let infoPlistPath = tempsPath.appending("Info.plist")
             if try generateResourceInfoPlist(fileSystem: fileSystem, target: target, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
@@ -353,7 +353,7 @@ public final class ClangTargetBuildDescription {
         }
         #endif
         """
-        let headerFile = derivedSources.root.appending(component: "resource_bundle_accessor.h")
+        let headerFile = derivedSources.root.appending("resource_bundle_accessor.h")
         self.resourceAccessorHeaderFile = headerFile
 
         try fileSystem.writeIfChanged(

@@ -30,7 +30,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
     func testRealFile() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fileSystem = localFileSystem
-            let path = tmpPath.appending(component: "test.json")
+            let path = tmpPath.appending("test.json")
             let storage = FilePackageCollectionsSourcesStorage(fileSystem: fileSystem, path: path)
 
             try assertHappyCase(storage: storage)

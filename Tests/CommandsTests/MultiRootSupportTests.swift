@@ -24,8 +24,8 @@ final class MultiRootSupportTests: CommandsTestCase {
             "/tmp/test/dep/Package.swift",
             "/tmp/test/local/Package.swift",
         ])
-        let path = AbsolutePath(path: "/tmp/test/Workspace.xcworkspace")
-        try fs.writeFileContents(path.appending(component: "contents.xcworkspacedata")) {
+        let path = AbsolutePath("/tmp/test/Workspace.xcworkspace")
+        try fs.writeFileContents(path.appending("contents.xcworkspacedata")) {
             $0 <<< """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <Workspace

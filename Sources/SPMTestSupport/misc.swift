@@ -59,7 +59,7 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath(path: "../../../Fixtures", relativeTo: AbsolutePath(path: #file)).appending(fixtureSubpath)
+            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(path: #file)).appending(fixtureSubpath)
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
@@ -68,7 +68,7 @@ public func fixture(
             }
 
             // The fixture contains either a checkout or just a Git directory.
-            if localFileSystem.isFile(fixtureDir.appending(component: "Package.swift")) {
+            if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
                 // It's a single package, so copy the whole directory as-is.
                 let dstDir = tmpDirPath.appending(component: copyName)
                 try systemQuietly("cp", "-R", "-H", fixtureDir.pathString, dstDir.pathString)
@@ -121,7 +121,7 @@ public func initGitRepo(
 ) {
     do {
         if addFile {
-            let file = dir.appending(component: "file.swift")
+            let file = dir.appending("file.swift")
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
@@ -258,20 +258,22 @@ public func loadPackageGraph(
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
- extension AbsolutePath {
-     public init(path: StaticString) {
-        let pathString = path.withUTF8Buffer {
-            String(decoding: $0, as: UTF8.self)
-        }
-        try! self.init(validating: pathString)
+extension AbsolutePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
     }
+}
 
-     public init(path: StaticString, relativeTo basePath: AbsolutePath) {
-        let pathString = path.withUTF8Buffer {
-            String(decoding: $0, as: UTF8.self)
-        }
-        try! self.init(validating: pathString, relativeTo: basePath)
+extension AbsolutePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
     }
+}
+
+extension AbsolutePath {
+    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
+       try! self.init(validating: path, relativeTo: basePath)
+   }
 }
 
 extension URL: ExpressibleByStringLiteral {

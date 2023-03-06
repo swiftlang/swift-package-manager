@@ -53,7 +53,7 @@ final class AuthorizationProviderTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
 
-            let userPath = try fileSystem.homeDirectory.appending(component: ".netrc")
+            let userPath = try fileSystem.homeDirectory.appending(".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
             try fileSystem.writeFileContents(userPath) {
                 "machine mymachine.labkey.org login user@labkey.org password user"
@@ -115,7 +115,7 @@ final class AuthorizationProviderTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
 
-            let userPath = try fileSystem.homeDirectory.appending(component: ".netrc")
+            let userPath = try fileSystem.homeDirectory.appending(".netrc")
             try fileSystem.createDirectory(userPath.parentDirectory, recursive: true)
             try fileSystem.writeFileContents(userPath) {
                 "machine mymachine.labkey.org login user@labkey.org password user"

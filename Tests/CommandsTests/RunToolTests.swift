@@ -77,7 +77,7 @@ final class RunToolTests: CommandsTestCase {
 
     func testUnreachableExecutable() throws {
         try fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
-            let (output, _) = try execute(["bexec"], packagePath: fixturePath.appending(component: "A"))
+            let (output, _) = try execute(["bexec"], packagePath: fixturePath.appending("A"))
             let outputLines = output.split(separator: "\n")
             XCTAssertMatch(String(outputLines[0]), .contains("BTarget2"))
         }
@@ -104,7 +104,7 @@ final class RunToolTests: CommandsTestCase {
     func testSwiftRunSIGINT() throws {
         try XCTSkipIfCI()
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
-            let mainFilePath = fixturePath.appending(component: "main.swift")
+            let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
             try localFileSystem.writeFileContents(mainFilePath) {
                 """

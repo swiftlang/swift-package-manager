@@ -52,7 +52,7 @@ extension BuildParameters {
             if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
-            return buildPath.appending(component: "ModuleCache")
+            return buildPath.appending("ModuleCache")
         }
     }
 

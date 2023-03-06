@@ -61,7 +61,7 @@ final class LinuxMainGenerator {
             assert(target.type == .test, "Unexpected target type \(target.type) for \(target)")
 
             // Write the manifest file for this module.
-            let testManifest = target.sources.root.appending(component: "XCTestManifests.swift")
+            let testManifest = target.sources.root.appending("XCTestManifests.swift")
             let stream = try LocalFileOutputByteStream(testManifest)
 
             stream <<< "#if !canImport(ObjectiveC)" <<< "\n"

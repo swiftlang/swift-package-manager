@@ -159,7 +159,7 @@ extension ArtifactsArchiveMetadata {
             for variantMetadata in artifactMetadata.variants {
                 let destinationJSONPath = try bundlePath
                     .appending(RelativePath(validating: variantMetadata.path))
-                    .appending(component: "destination.json")
+                    .appending("destination.json")
 
                 guard fileSystem.exists(destinationJSONPath) else {
                     observabilityScope.emit(

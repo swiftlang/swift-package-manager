@@ -20,18 +20,18 @@ final class FileSystemTests: XCTestCase {
     func testStripFirstLevelComponent() throws {
         let fileSystem = InMemoryFileSystem()
 
-        let rootPath = AbsolutePath(path: "/root")
+        let rootPath = AbsolutePath("/root")
         try fileSystem.createDirectory(rootPath)
 
         let totalDirectories = Int.random(in: 0 ..< 100)
         for index in 0 ..< totalDirectories {
-            let path = rootPath.appending(component: "dir\(index)")
+            let path = rootPath.appending("dir\(index)")
             try fileSystem.createDirectory(path, recursive: false)
         }
 
         let totalFiles = Int.random(in: 0 ..< 100)
         for index in 0 ..< totalFiles {
-            let path = rootPath.appending(component: "file\(index)")
+            let path = rootPath.appending("file\(index)")
             try fileSystem.writeFileContents(path, string: "\(index)")
         }
 
@@ -66,7 +66,7 @@ final class FileSystemTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
             for index in 0 ..< 3 {
-                let path = AbsolutePath.root.appending(component: "dir\(index)")
+                let path = AbsolutePath.root.appending("dir\(index)")
                 try fileSystem.createDirectory(path, recursive: false)
             }
             XCTAssertThrowsError(try fileSystem.stripFirstLevel(of: .root), "expected error") { error in
@@ -77,7 +77,7 @@ final class FileSystemTests: XCTestCase {
         do {
             let fileSystem = InMemoryFileSystem()
             for index in 0 ..< 3 {
-                let path = AbsolutePath.root.appending(component: "file\(index)")
+                let path = AbsolutePath.root.appending("file\(index)")
                 try fileSystem.writeFileContents(path, string: "\(index)")
             }
             XCTAssertThrowsError(try fileSystem.stripFirstLevel(of: .root), "expected error") { error in
@@ -87,7 +87,7 @@ final class FileSystemTests: XCTestCase {
 
         do {
             let fileSystem = InMemoryFileSystem()
-            let path = AbsolutePath.root.appending(component: "file")
+            let path = AbsolutePath.root.appending("file")
             try fileSystem.writeFileContents(path, string: "")
             XCTAssertThrowsError(try fileSystem.stripFirstLevel(of: .root), "expected error") { error in
                 XCTAssertMatch((error as? StringError)?.description, .contains("requires single top level directory"))

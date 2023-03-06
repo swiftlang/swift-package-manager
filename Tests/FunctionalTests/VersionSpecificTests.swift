@@ -23,13 +23,13 @@ class VersionSpecificTests: XCTestCase {
             let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
-            let depPath = path.appending(component: "Dep")
+            let depPath = path.appending("Dep")
             try fs.createDirectory(depPath)
             initGitRepo(depPath)
             let repo = GitRepository(path: depPath)
 
             // Create the initial commit.
-            try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
+            try fs.writeFileContents(depPath.appending("Package.swift")) {
                 $0 <<< """
                     // swift-tools-version:4.2
                     import PackageDescription
@@ -49,14 +49,14 @@ class VersionSpecificTests: XCTestCase {
             try repo.tag(name: "1.0.0")
 
             // Create the version to test against.
-            try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
+            try fs.writeFileContents(depPath.appending("Package.swift")) {
                 // FIXME: We end up filtering this manifest if it has an invalid
                 // tools version as they're assumed to be v3 manifests. Should we
                 // do something better?
                 $0 <<< "// swift-tools-version:4.2\n"
                 $0 <<< "NOT_A_VALID_PACKAGE"
             }
-            try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
+            try fs.writeFileContents(depPath.appending("foo.swift")) {
                 $0 <<< """
                     public func foo() { print("foo\\n") }
                     """
@@ -67,8 +67,8 @@ class VersionSpecificTests: XCTestCase {
             try repo.tag(name: "1.1.0")
 
             // Create the primary repository.
-            let primaryPath = path.appending(component: "Primary")
-            try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
+            let primaryPath = path.appending("Primary")
+            try fs.writeFileContents(primaryPath.appending("Package.swift")) {
                 $0 <<< """
                     // swift-tools-version:4.2
                     import PackageDescription
@@ -87,7 +87,7 @@ class VersionSpecificTests: XCTestCase {
             XCTAssertBuildFails(primaryPath)
 
             // Create a file which requires a version 1.1.0 resolution.
-            try fs.writeFileContents(primaryPath.appending(component: "main.swift")) {
+            try fs.writeFileContents(primaryPath.appending("main.swift")) {
                 $0 <<< """
                     import Dep
                     Dep.foo()
@@ -95,7 +95,7 @@ class VersionSpecificTests: XCTestCase {
             }
 
             // Create a version-specific tag, which should work.
-            try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
+            try fs.writeFileContents(depPath.appending("Package.swift")) {
                 $0 <<< """
                     // swift-tools-version:4.2
                     import PackageDescription

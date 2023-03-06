@@ -586,8 +586,8 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
-            let packagePath = path.appending(component: "pkg")
-            let manifestPath = packagePath.appending(component: "Package.swift")
+            let packagePath = path.appending("pkg")
+            let manifestPath = packagePath.appending("Package.swift")
             try fs.writeFileContents(manifestPath) { stream in
                 stream <<< """
                 // swift-tools-version:5
@@ -604,7 +604,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 """
             }
 
-            let moduleTraceFilePath = path.appending(component: "swift-module-trace")
+            let moduleTraceFilePath = path.appending("swift-module-trace")
             var env = EnvironmentVariables.process()
             env["SWIFT_LOADED_MODULE_TRACE_FILE"] = moduleTraceFilePath.pathString
             let toolchain = try UserToolchain(destination: Destination.default, environment: env)

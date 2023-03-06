@@ -25,7 +25,7 @@ class ModuleMapsTestCase: XCTestCase {
             let triple = try UserToolchain.default.triple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent(), "debug")
             try makeDirectories(outdir)
-            let output = outdir.appending(component: "libfoo\(triple.dynamicLibraryExtension)")
+            let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             var Xld = ["-L", outdir.pathString]
@@ -40,7 +40,7 @@ class ModuleMapsTestCase: XCTestCase {
     func testDirectDependency() throws {
         try fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
 
-            XCTAssertBuilds(fixturePath.appending(component: "App"), Xld: Xld)
+            XCTAssertBuilds(fixturePath.appending("App"), Xld: Xld)
 
             let triple = try UserToolchain.default.triple
             let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent())
@@ -54,7 +54,7 @@ class ModuleMapsTestCase: XCTestCase {
     func testTransitiveDependency() throws {
         try fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
 
-            XCTAssertBuilds(fixturePath.appending(component: "packageA"), Xld: Xld)
+            XCTAssertBuilds(fixturePath.appending("packageA"), Xld: Xld)
 
             func verify(_ conf: String) throws {
                 let triple = try UserToolchain.default.triple

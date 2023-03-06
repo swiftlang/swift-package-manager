@@ -481,7 +481,7 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testEmptyDependency() throws {
-        let Bar: AbsolutePath = AbsolutePath(path: "/Bar")
+        let Bar: AbsolutePath = AbsolutePath("/Bar")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
@@ -1304,7 +1304,7 @@ class PackageGraphTests: XCTestCase {
         let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
 
         XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
-            _ = try PinsStore(pinsFile: AbsolutePath(path: "/pins"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
+            _ = try PinsStore(pinsFile: "/pins", workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

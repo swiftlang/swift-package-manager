@@ -571,13 +571,3 @@ extension FileSystem {
             .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
     }
 }
-
-extension AbsolutePath {
-    fileprivate func basenameWithoutAnyExtension() -> String {
-        var basename = self.basename
-        if let index = basename.firstIndex(of: ".") {
-            basename.removeSubrange(index ..< basename.endIndex)
-        }
-        return String(basename)
-    }
-}

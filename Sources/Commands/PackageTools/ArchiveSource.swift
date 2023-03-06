@@ -41,7 +41,7 @@ extension SwiftPackageTool {
             } else {
                 let graph = try swiftTool.loadPackageGraph()
                 let packageName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
-                archivePath = packageDirectory.appending(component: "\(packageName).zip")
+                archivePath = packageDirectory.appending("\(packageName).zip")
             }
 
             try SwiftPackageTool.archiveSource(

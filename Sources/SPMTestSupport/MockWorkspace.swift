@@ -95,11 +95,11 @@ public final class MockWorkspace {
     }
 
     public var rootsDir: AbsolutePath {
-        return self.sandbox.appending(component: "roots")
+        return self.sandbox.appending("roots")
     }
 
     public var packagesDir: AbsolutePath {
-        return self.sandbox.appending(component: "pkgs")
+        return self.sandbox.appending("pkgs")
     }
 
     public var artifactsDir: AbsolutePath {
@@ -228,11 +228,11 @@ public final class MockWorkspace {
             }
 
             func writePackageContent(fileSystem: FileSystem, root: AbsolutePath, toolsVersion: ToolsVersion) throws {
-                let sourcesDir = root.appending(component: "Sources")
+                let sourcesDir = root.appending("Sources")
                 for target in package.targets {
                     let targetDir = sourcesDir.appending(component: target.name)
                     try fileSystem.createDirectory(targetDir, recursive: true)
-                    try fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+                    try fileSystem.writeFileContents(targetDir.appending("file.swift"), bytes: "")
                 }
                 let manifestPath = root.appending(component: Manifest.filename)
                 try fileSystem.writeFileContents(manifestPath, bytes: "")
@@ -265,9 +265,9 @@ public final class MockWorkspace {
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             location: .init(
-                scratchDirectory: self.sandbox.appending(component: ".build"),
-                editsDirectory: self.sandbox.appending(component: "edits"),
-                resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
+                scratchDirectory: self.sandbox.appending(".build"),
+                editsDirectory: self.sandbox.appending("edits"),
+                resolvedVersionsFile: self.sandbox.appending("Package.resolved"),
                 localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,

@@ -372,7 +372,7 @@ public final class SwiftTool {
         self.scratchDirectory =
             try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
-            (packageRoot ?? cwd).appending(component: ".build")
+            (packageRoot ?? cwd).appending(".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
@@ -481,7 +481,7 @@ public final class SwiftTool {
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(component: "Packages")
+            return multiRootPackageDataFile.appending("Packages")
         }
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
@@ -614,7 +614,7 @@ public final class SwiftTool {
 
     public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
-        let cacheDir = pluginsDir.appending(component: "cache")
+        let cacheDir = pluginsDir.appending("cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,

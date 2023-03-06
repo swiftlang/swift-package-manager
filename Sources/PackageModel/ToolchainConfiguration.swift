@@ -108,9 +108,9 @@ extension ToolchainConfiguration {
 
         public init(root: AbsolutePath, manifestLibraryMinimumDeploymentTarget: PlatformVersion? = nil, pluginLibraryMinimumDeploymentTarget: PlatformVersion? = nil) {
             self.init(
-                manifestLibraryPath: root.appending(component: "ManifestAPI"),
+                manifestLibraryPath: root.appending("ManifestAPI"),
                 manifestLibraryMinimumDeploymentTarget: manifestLibraryMinimumDeploymentTarget,
-                pluginLibraryPath: root.appending(component: "PluginAPI"),
+                pluginLibraryPath: root.appending("PluginAPI"),
                 pluginLibraryMinimumDeploymentTarget: pluginLibraryMinimumDeploymentTarget
             )
         }
@@ -130,10 +130,10 @@ extension ToolchainConfiguration {
 
         private static func macOSManifestLibraryPath(for manifestAPI: AbsolutePath) -> AbsolutePath {
             if manifestAPI.extension == "framework" {
-                return manifestAPI.appending(component: "PackageDescription")
+                return manifestAPI.appending("PackageDescription")
             } else {
                 // note: this is not correct for all platforms, but we only actually use it on macOS.
-                return manifestAPI.appending(component: "libPackageDescription.dylib")
+                return manifestAPI.appending("libPackageDescription.dylib")
             }
         }
 
@@ -145,10 +145,10 @@ extension ToolchainConfiguration {
             // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             if pluginAPI.extension == "framework" {
-                return pluginAPI.appending(component: "PackagePlugin")
+                return pluginAPI.appending("PackagePlugin")
             } else {
                 // note: this is not correct for all platforms, but we only actually use it on macOS.
-                return pluginAPI.appending(component: "libPackagePlugin.dylib")
+                return pluginAPI.appending("libPackagePlugin.dylib")
             }
         }
 

@@ -723,7 +723,7 @@ class PIFBuilderTests: XCTestCase {
                                     "/Bar/Sources/BarTests/BarTests.swift",
                                     "/Bar/Sources/CBarTests/CBarTests.m",
                                     "/Bar/Sources/BarLib/lib.swift",
-                                    inputsDir.appending(component: "Foo.pc").pathString
+                                    inputsDir.appending("Foo.pc").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1947,7 +1947,7 @@ class PIFBuilderTests: XCTestCase {
             ],
             binaryArtifacts: [
                 .plain("foo"): [
-                    "BinaryLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath(path: "/Foo/BinaryLibrary.xcframework"))
+                    "BinaryLibrary": .init(kind: .xcframework, originURL: nil, path: "/Foo/BinaryLibrary.xcframework")
                 ]
             ],
             shouldCreateMultipleTestProducts: true,
@@ -2614,8 +2614,8 @@ extension PIFBuilderParameters {
         PIFBuilderParameters(
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: AbsolutePath(path: "/toolchain/lib"),
-            pkgConfigDirectories: [AbsolutePath(path: "/pkg-config")]
+            toolchainLibDir: "/toolchain/lib",
+            pkgConfigDirectories: ["/pkg-config"]
         )
     }
 }

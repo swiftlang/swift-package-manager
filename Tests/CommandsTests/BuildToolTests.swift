@@ -116,9 +116,9 @@ final class BuildToolTests: CommandsTestCase {
             let targetPath = fullPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent())
             let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
-                           "\(targetPath.appending(component: "debug").pathString)\n")
+                           "\(targetPath.appending("debug").pathString)\n")
             XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout,
-                           "\(targetPath.appending(component: "release").pathString)\n")
+                           "\(targetPath.appending("release").pathString)\n")
 
             // Print correct path when building with XCBuild.
             let xcodeDebugOutput = try execute(["--build-system", "xcode", "--show-bin-path"], packagePath: fullPath).stdout
@@ -127,17 +127,17 @@ final class BuildToolTests: CommandsTestCase {
             XCTAssertEqual(xcodeDebugOutput, "\(xcbuildTargetPath.appending(components: "Products", "Debug").pathString)\n")
             XCTAssertEqual(xcodeReleaseOutput, "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n")
           #else
-            XCTAssertEqual(xcodeDebugOutput, "\(targetPath.appending(component: "debug").pathString)\n")
-            XCTAssertEqual(xcodeReleaseOutput, "\(targetPath.appending(component: "release").pathString)\n")
+            XCTAssertEqual(xcodeDebugOutput, "\(targetPath.appending("debug").pathString)\n")
+            XCTAssertEqual(xcodeReleaseOutput, "\(targetPath.appending("release").pathString)\n")
           #endif
 
             // Test symlink.
             _ = try execute([], packagePath: fullPath)
             XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "debug")),
-                           targetPath.appending(component: "debug"))
+                           targetPath.appending("debug"))
             _ = try execute(["-c", "release"], packagePath: fullPath)
             XCTAssertEqual(try resolveSymlinks(fullPath.appending(components: ".build", "release")),
-                           targetPath.appending(component: "release"))
+                           targetPath.appending("release"))
         }
     }
 
@@ -212,7 +212,7 @@ final class BuildToolTests: CommandsTestCase {
 
     func testNonReachableProductsAndTargetsFunctional() throws {
         try fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
-            let aPath = fixturePath.appending(component: "A")
+            let aPath = fixturePath.appending("A")
 
             do {
                 let result = try build([], packagePath: aPath)
@@ -233,7 +233,7 @@ final class BuildToolTests: CommandsTestCase {
                 XCTAssertNoMatch(result.binContents, ["BLibrary.a"])
 
                 // FIXME: We create the modulemap during build planning, hence this uglyness.
-                let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending(component: "BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
+                let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
                 XCTAssertTrue(bTargetBuildDir.isEmpty, "bTargetBuildDir should be empty")
 
                 XCTAssertNoMatch(result.binContents, ["cexec"])

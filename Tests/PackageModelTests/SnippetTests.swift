@@ -15,7 +15,7 @@ import TSCBasic
 import XCTest
 
 class SnippetTests: XCTestCase {
-    let fakeSourceFilePath = AbsolutePath(path: "/fake/path/to/test.swift")
+    let fakeSourceFilePath = AbsolutePath("/fake/path/to/test.swift")
 
     /// Test the contents of the ``Snippet`` model when parsing an empty file.
     /// Currently, no errors are emitted and most things are either nil or empty.

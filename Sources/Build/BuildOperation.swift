@@ -398,7 +398,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         if let pluginConfiguration = self.pluginConfiguration  {
             let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
-                outputDir: pluginConfiguration.workDirectory.appending(component: "outputs"),
+                outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 builtToolsDir: self.buildParameters.buildPath,
                 buildEnvironment: self.buildParameters.buildEnvironment,
                 toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
@@ -543,7 +543,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
+        let databasePath = buildParameters.dataPath.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,

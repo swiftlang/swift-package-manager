@@ -20,7 +20,7 @@ final class LLBuildManifestTests: XCTestCase {
     func testBasics() throws {
         var manifest = BuildManifest()
 
-        let root: AbsolutePath = AbsolutePath(path: "/some")
+        let root: AbsolutePath = AbsolutePath("/some")
 
         manifest.defaultTarget = "main"
         manifest.addPhonyCmd(
@@ -36,7 +36,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.virtual("Foo"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath(path: "/manifest.yaml"))
+        try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
 
         let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
 
@@ -92,7 +92,7 @@ final class LLBuildManifestTests: XCTestCase {
         manifest.addNode(.file(AbsolutePath(path: "/file.out")), toTarget: "main")
 
         let fs = InMemoryFileSystem()
-        try ManifestWriter(fileSystem: fs).write(manifest, at: AbsolutePath(path: "/manifest.yaml"))
+        try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
 
         let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
 

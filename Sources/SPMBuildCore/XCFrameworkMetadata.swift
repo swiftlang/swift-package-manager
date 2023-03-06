@@ -48,7 +48,7 @@ public struct XCFrameworkMetadata: Equatable {
 
 extension XCFrameworkMetadata {
     public static func parse(fileSystem: FileSystem, rootPath: AbsolutePath) throws -> XCFrameworkMetadata {
-        let path = rootPath.appending(component: "Info.plist")
+        let path = rootPath.appending("Info.plist")
         guard fileSystem.exists(path) else {
             throw StringError("XCFramework Info.plist not found at '\(rootPath)'")
         }

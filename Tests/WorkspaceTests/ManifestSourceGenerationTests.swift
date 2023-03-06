@@ -425,10 +425,10 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
-        let packageDir = AbsolutePath(path: "/tmp/MyLibrary")
+        let packageDir = AbsolutePath("/tmp/MyLibrary")
         let manifest = Manifest.createManifest(
             displayName: "MyLibrary",
-            path: packageDir.appending(component: "Package.swift"),
+            path: packageDir.appending("Package.swift"),
             packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
             packageLocation: packageDir.pathString,
             platforms: [],

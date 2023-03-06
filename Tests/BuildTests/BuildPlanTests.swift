@@ -540,7 +540,7 @@ final class BuildPlanTests: XCTestCase {
     func testPackageNameFlag() throws {
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "appPkg"), extraArgs: ["-v"])
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-v"])
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))
             XCTAssertMatch(stdout, .contains("-module-name Bar"))
@@ -657,22 +657,22 @@ final class BuildPlanTests: XCTestCase {
             // A -> B -> C
             let fs = localFileSystem
             try fs.changeCurrentWorkingDirectory(to: path)
-            let testDirPath = path.appending(component: "ExplicitTest")
-            let buildDirPath = path.appending(component: ".build")
-            let sourcesPath = testDirPath.appending(component: "Sources")
-            let aPath = sourcesPath.appending(component: "A")
-            let bPath = sourcesPath.appending(component: "B")
-            let cPath = sourcesPath.appending(component: "C")
+            let testDirPath = path.appending("ExplicitTest")
+            let buildDirPath = path.appending(".build")
+            let sourcesPath = testDirPath.appending("Sources")
+            let aPath = sourcesPath.appending("A")
+            let bPath = sourcesPath.appending("B")
+            let cPath = sourcesPath.appending("C")
             try fs.createDirectory(testDirPath)
             try fs.createDirectory(buildDirPath)
             try fs.createDirectory(sourcesPath)
             try fs.createDirectory(aPath)
             try fs.createDirectory(bPath)
             try fs.createDirectory(cPath)
-            let main = aPath.appending(component: "main.swift")
-            let aSwift = aPath.appending(component: "A.swift")
-            let bSwift = bPath.appending(component: "B.swift")
-            let cSwift = cPath.appending(component: "C.swift")
+            let main = aPath.appending("main.swift")
+            let aSwift = aPath.appending("A.swift")
+            let bSwift = bPath.appending("B.swift")
+            let cSwift = cPath.appending("C.swift")
             try localFileSystem.writeFileContents(main) {
               $0 <<< "baz();"
             }
@@ -721,7 +721,7 @@ final class BuildPlanTests: XCTestCase {
                 )
 
 
-                let yaml = buildDirPath.appending(component: "release.yaml")
+                let yaml = buildDirPath.appending("release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents: String = try localFileSystem.readFileContents(yaml)
@@ -744,7 +744,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testSwiftConditionalDependency() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -822,7 +822,7 @@ final class BuildPlanTests: XCTestCase {
 
             let buildPath: AbsolutePath = plan.buildParameters.dataPath.appending(components: "release")
 
-            let linkedFileList: String = try fs.readFileContents(AbsolutePath(path: "/path/to/build/release/exe.product/Objects.LinkFileList"))
+            let linkedFileList: String = try fs.readFileContents("/path/to/build/release/exe.product/Objects.LinkFileList")
             XCTAssertMatch(linkedFileList, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
@@ -848,7 +848,7 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList: String = try fs.readFileContents(AbsolutePath(path: "/path/to/build/debug/exe.product/Objects.LinkFileList"))
+            let linkedFileList: String = try fs.readFileContents("/path/to/build/debug/exe.product/Objects.LinkFileList")
             XCTAssertNoMatch(linkedFileList, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
@@ -1072,8 +1072,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testBasicClangPackage() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
-        let ExtPkg: AbsolutePath = AbsolutePath(path: "/ExtPkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
+        let ExtPkg: AbsolutePath = AbsolutePath("/ExtPkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.c").pathString,
@@ -1314,7 +1314,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testCLanguageStandard() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.cpp").pathString,
@@ -1403,7 +1403,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testSwiftCMixed() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -1540,13 +1540,13 @@ final class BuildPlanTests: XCTestCase {
 
         let lib = try result.target(for: "lib").clangTarget()
         XCTAssertEqual(try lib.objects, [
-            AbsolutePath(path: "/path/to/build/debug/lib.build/lib.S.o"),
-            AbsolutePath(path: "/path/to/build/debug/lib.build/lib.c.o")
+            AbsolutePath("/path/to/build/debug/lib.build/lib.S.o"),
+            AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")
         ])
     }
 
     func testREPLArguments() throws {
-        let Dep: AbsolutePath = AbsolutePath(path: "/Dep")
+        let Dep = AbsolutePath("/Dep")
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/swiftlib/lib.swift",
@@ -1781,7 +1781,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Snippets/AtMainSnippet.swift"
         )
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe3/foo.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe3/foo.swift")) {
             """
             @main
             struct Runner {
@@ -1792,7 +1792,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe4/main.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe4/main.swift")) {
             """
             @main
             struct Runner {
@@ -1803,21 +1803,21 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe5/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe5/comments.swift")) {
             """
             // @main in comment
             print("hello world")
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe6/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe6/comments.swift")) {
             """
             /* @main in comment */
             print("hello world")
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe7/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe7/comments.swift")) {
             """
             /*
             @main in comment
@@ -1826,7 +1826,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe8/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe8/comments.swift")) {
             """
             /*
             @main
@@ -1840,7 +1840,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe9/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe9/comments.swift")) {
             """
             /*@main
             struct Runner {
@@ -1851,7 +1851,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe10/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe10/comments.swift")) {
             """
             // @main in comment
             @main
@@ -1863,7 +1863,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe11/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe11/comments.swift")) {
             """
             /* @main in comment */
             @main
@@ -1875,7 +1875,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Sources/exe12/comments.swift")) {
+        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe12/comments.swift")) {
             """
             /*
             @main
@@ -1893,7 +1893,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Snippets/TopLevelCodeSnippet.swift")) {
+        try fs.writeFileContents("/Pkg/Snippets/TopLevelCodeSnippet.swift") {
             """
             struct Foo {
               init() {}
@@ -1904,7 +1904,7 @@ final class BuildPlanTests: XCTestCase {
             """
         }
 
-        try fs.writeFileContents(AbsolutePath(path: "/Pkg/Snippets/AtMainSnippet.swift")) {
+        try fs.writeFileContents("/Pkg/Snippets/AtMainSnippet.swift") {
             """
             @main
             struct Runner {
@@ -2017,7 +2017,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testCModule() throws {
-        let Clibgit: AbsolutePath = AbsolutePath(path: "/Clibgit")
+        let Clibgit = AbsolutePath("/Clibgit")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -2352,7 +2352,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testClangTargets() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.c").pathString,
@@ -2824,7 +2824,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testWindowsTarget() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
             Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
@@ -2884,7 +2884,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testWASITarget() throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "app", "main.swift").pathString,
@@ -3202,7 +3202,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testBuildSettings() throws {
-        let A: AbsolutePath = AbsolutePath(path: "/A")
+        let A = AbsolutePath("/A")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/A/Sources/exe/main.swift",
@@ -3336,7 +3336,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExtraBuildFlags() throws {
-        let libpath: AbsolutePath = AbsolutePath(path: "/fake/path/lib")
+        let libpath = AbsolutePath("/fake/path/lib")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/A/Sources/exe/main.swift",
@@ -3405,7 +3405,7 @@ final class BuildPlanTests: XCTestCase {
                 ],
                 rootPaths: try UserToolchain.default.destination.toolset.rootPaths
             ),
-            pathsConfiguration: .init(sdkRootPath: AbsolutePath(path: "/fake/sdk"))
+            pathsConfiguration: .init(sdkRootPath: "/fake/sdk")
         )
         let mockToolchain = try UserToolchain(destination: userDestination)
         let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
@@ -3436,7 +3436,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExecBuildTimeDependency() throws {
-        let PkgA: AbsolutePath = AbsolutePath(path: "/PkgA")
+        let PkgA = AbsolutePath("/PkgA")
 
         let fs = InMemoryFileSystem(emptyFiles:
             PkgA.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -3502,7 +3502,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testObjCHeader1() throws {
-        let PkgA: AbsolutePath = AbsolutePath(path: "/PkgA")
+        let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in the same package.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -3565,7 +3565,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testObjCHeader2() throws {
-        let PkgA: AbsolutePath = AbsolutePath(path: "/PkgA")
+        let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with automatic product type.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -3639,7 +3639,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testObjCHeader3() throws {
-        let PkgA: AbsolutePath = AbsolutePath(path: "/PkgA")
+        let PkgA = AbsolutePath("/PkgA")
 
         // This has a Swift and ObjC target in different packages with dynamic product type.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -4024,7 +4024,7 @@ final class BuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
 
-        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending(component: "debug")
+        let buildPath: AbsolutePath = result.plan.buildParameters.dataPath.appending("debug")
 
         let fooTarget = try result.target(for: "Foo").clangTarget()
         XCTAssertEqual(try fooTarget.objects.map(\.pathString).sorted(), [
@@ -4039,7 +4039,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let resourceAccessorHeader = resourceAccessorDirectory
-            .appending(component: "resource_bundle_accessor.h")
+            .appending("resource_bundle_accessor.h")
         let headerContents: String = try fs.readFileContents(resourceAccessorHeader)
         XCTAssertMatch(
             headerContents,
@@ -4047,7 +4047,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let resourceAccessorImpl = resourceAccessorDirectory
-            .appending(component: "resource_bundle_accessor.m")
+            .appending("resource_bundle_accessor.m")
         let implContents: String = try fs.readFileContents(resourceAccessorImpl)
         XCTAssertMatch(
             implContents,
@@ -4096,7 +4096,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple) throws {
-        let Pkg: AbsolutePath = AbsolutePath(path: "/Pkg")
+        let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
             Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
@@ -4105,9 +4105,9 @@ final class BuildPlanTests: XCTestCase {
             Pkg.appending(components: "Sources", "CLibrary", "include", "library.h").pathString
         )
 
-        try! fs.createDirectory(AbsolutePath(path: "/Pkg/Framework.xcframework"), recursive: true)
+        try! fs.createDirectory("/Pkg/Framework.xcframework", recursive: true)
         try! fs.writeFileContents(
-            AbsolutePath(path: "/Pkg/Framework.xcframework/Info.plist"),
+            "/Pkg/Framework.xcframework/Info.plist",
             bytes: ByteString(encodingAsUTF8: """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -4136,9 +4136,9 @@ final class BuildPlanTests: XCTestCase {
                 </plist>
                 """))
 
-        try! fs.createDirectory(AbsolutePath(path: "/Pkg/StaticLibrary.xcframework"), recursive: true)
+        try! fs.createDirectory("/Pkg/StaticLibrary.xcframework", recursive: true)
         try! fs.writeFileContents(
-            AbsolutePath(path: "/Pkg/StaticLibrary.xcframework/Info.plist"),
+            "/Pkg/StaticLibrary.xcframework/Info.plist",
             bytes: ByteString(encodingAsUTF8: """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -4193,8 +4193,8 @@ final class BuildPlanTests: XCTestCase {
             ],
             binaryArtifacts: [
                 .plain("pkg"): [
-                    "Framework": .init(kind: .xcframework, originURL: nil, path: AbsolutePath(path: "/Pkg/Framework.xcframework")),
-                    "StaticLibrary": .init(kind: .xcframework, originURL: nil, path: AbsolutePath(path: "/Pkg/StaticLibrary.xcframework"))
+                    "Framework": .init(kind: .xcframework, originURL: nil, path: "/Pkg/Framework.xcframework"),
+                    "StaticLibrary": .init(kind: .xcframework, originURL: nil, path: "/Pkg/StaticLibrary.xcframework")
                 ]
             ],
             observabilityScope: observability.topScope
@@ -4261,11 +4261,11 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
-        let toolPath = AbsolutePath(path: "/Pkg/MyTool.artifactbundle")
+        let toolPath = AbsolutePath("/Pkg/MyTool.artifactbundle")
         try fs.createDirectory(toolPath, recursive: true)
 
         try fs.writeFileContents(
-            toolPath.appending(component: "info.json"),
+            toolPath.appending("info.json"),
             bytes: ByteString(encodingAsUTF8: """
                 {
                     "schemaVersion": "1.0",
@@ -4360,7 +4360,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Snippets/ASnippet.swift",
             "/Pkg/.build/release.yaml"
         )
-        let buildPath = AbsolutePath(path: "/Pkg/.build")
+        let buildPath = AbsolutePath("/Pkg/.build")
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fileSystem: fs,
@@ -4393,7 +4393,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "ASnippet" && $0.target.type == .snippet })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Lib" })
 
-        let yaml = buildPath.appending(component: "release.yaml")
+        let yaml = buildPath.appending("release.yaml")
         let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
         try llbuild.generateManifest(at: yaml)
 

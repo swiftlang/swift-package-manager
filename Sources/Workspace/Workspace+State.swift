@@ -38,7 +38,7 @@ public final class WorkspaceState {
         storageDirectory: AbsolutePath,
         initializationWarningHandler: (String) -> Void
     ) {
-        self.storagePath = storageDirectory.appending(component: "workspace-state.json")
+        self.storagePath = storageDirectory.appending("workspace-state.json")
         self.storage = WorkspaceStateStorage(path: self.storagePath, fileSystem: fileSystem)
 
         // Load the state from disk, if possible.

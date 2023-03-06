@@ -52,11 +52,11 @@ class RepositoryManagerTests: XCTestCase {
                 XCTAssertEqual(try! repository.getTags(), ["1.0.0"])
 
                 // Create a checkout of the repository.
-                let checkoutPath = path.appending(component: "checkout")
+                let checkoutPath = path.appending("checkout")
                 _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
 
                 XCTAssertDirectoryExists(checkoutPath)
-                XCTAssertFileExists(checkoutPath.appending(component: "README.txt"))
+                XCTAssertFileExists(checkoutPath.appending("README.txt"))
 
                 try delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
@@ -102,7 +102,7 @@ class RepositoryManagerTests: XCTestCase {
 
                 // Check removing the repo updates the persistent file.
                 /*do {
-                    let checkoutsStateFile = path.appending(component: "checkouts-state.json")
+                    let checkoutsStateFile = path.appending("checkouts-state.json")
                     let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
                     XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
                 }*/
@@ -136,9 +136,9 @@ class RepositoryManagerTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let cachePath = fixturePath.appending(component: "cache")
-            let repositoriesPath = fixturePath.appending(component: "repositories")
-            let repo = RepositorySpecifier(path: fixturePath.appending(component: "Foo"))
+            let cachePath = fixturePath.appending("cache")
+            let repositoriesPath = fixturePath.appending("repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
 
             let provider = GitRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
@@ -209,7 +209,7 @@ class RepositoryManagerTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         try testWithTemporaryDirectory { path in
-            let repos = path.appending(component: "repo")
+            let repos = path.appending("repo")
             let provider = DummyRepositoryProvider(fileSystem: fs)
             let delegate = DummyRepositoryManagerDelegate()
 
@@ -387,7 +387,7 @@ class RepositoryManagerTests: XCTestCase {
         let observability = ObservabilitySystem.makeForTesting()
 
         try testWithTemporaryDirectory { path in
-            let repos = path.appending(component: "repo")
+            let repos = path.appending("repo")
             let provider = DummyRepositoryProvider(fileSystem: fs)
             let delegate = DummyRepositoryManagerDelegate()
 
@@ -665,7 +665,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!self.fileSystem.exists(path))
         try self.fileSystem.createDirectory(path, recursive: true)
-        try self.fileSystem.writeFileContents(path.appending(component: "readme.md"), bytes: ByteString(encodingAsUTF8: repository.location.description))
+        try self.fileSystem.writeFileContents(path.appending("readme.md"), bytes: ByteString(encodingAsUTF8: repository.location.description))
 
         self.lock.withLock {
             self._numClones += 1
@@ -702,7 +702,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout  {
         try self.fileSystem.createDirectory(destinationPath)
-        try self.fileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
+        try self.fileSystem.writeFileContents(destinationPath.appending("README.txt"), bytes: "Hi")
         return try self.openWorkingCopy(at: destinationPath)
     }
 
