@@ -68,8 +68,12 @@ extension SwiftPackageRegistryTool {
         @Option(help: "The path to the certificate's PKCS#8 private key (DER-encoded).")
         var privateKeyPath: AbsolutePath?
 
-        @Option(help: "The path to the signing certificate (DER-encoded).")
-        var certificatePath: AbsolutePath?
+        @Option(
+            name: .customLong("cert-chain-paths"),
+            parsing: .upToNextOption,
+            help: "Path(s) to the signing certificate (DER-encoded) and optionally the rest of the certificate chain. Certificates should be ordered with the leaf first and the root last."
+        )
+        var certificateChainPaths: [AbsolutePath] = []
 
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
@@ -133,8 +137,8 @@ extension SwiftPackageRegistryTool {
             let metadataLocation: MetadataLocation = self.customMetadataPath
                 .flatMap { .external($0) } ??
                 .sourceTree(packageDirectory.appending(component: Self.metadataFilename))
-            let signingRequired = self.signingIdentity != nil || self.privateKeyPath != nil || self
-                .certificatePath != nil
+            let signingRequired = self.signingIdentity != nil || self.privateKeyPath != nil || !self
+                .certificateChainPaths.isEmpty
 
             guard localFileSystem.exists(metadataLocation.path) else {
                 throw StringError(
@@ -160,24 +164,24 @@ extension SwiftPackageRegistryTool {
                 let signingMode: PackageArchiveSigner.SigningMode
                 switch (
                     self.signingIdentity,
-                    self.certificatePath,
+                    self.certificateChainPaths,
                     self.privateKeyPath
                 ) {
-                case (.none, .some, .none):
+                case (.none, let certChainPaths, .none) where !certChainPaths.isEmpty:
                     throw StringError(
-                        "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                        "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                     )
-                case (.none, .none, .some):
+                case (.none, let certChainPaths, .some) where certChainPaths.isEmpty:
                     throw StringError(
-                        "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                        "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                     )
-                case (.none, .some(let certificatePath), .some(let privateKeyPath)):
-                    signingMode = .certificate(certificate: certificatePath, privateKey: privateKeyPath)
-                case (.some(let signingStoreLabel), .none, .none):
+                case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
+                    signingMode = .certificate(certChain: certChainPaths, privateKey: privateKeyPath)
+                case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
                     signingMode = .identityStore(signingStoreLabel)
                 default:
                     throw StringError(
-                        "Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided."
+                        "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."
                     )
                 }
 

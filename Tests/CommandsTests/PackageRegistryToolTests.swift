@@ -490,7 +490,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try await PackageArchiveSigner.sign(
                 archivePath: archivePath,
                 signaturePath: signaturePath,
-                mode: .certificate(certificate: certificatePath, privateKey: privateKeyPath),
+                mode: .certificate(certChain: [certificatePath], privateKey: privateKeyPath),
                 signatureFormat: .cms_1_0_0,
                 fileSystem: localFileSystem,
                 observabilityScope: observabilityScope
@@ -538,7 +538,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             XCTAssertMatch(
                 error,
                 .contains(
-                    "Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided"
+                    "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided"
                 )
             )
         }
