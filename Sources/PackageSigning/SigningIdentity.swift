@@ -10,101 +10,63 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Security
-import CryptoKit // TODO: remove when we can import Crypto
 #endif
 
 import Basics
-//import Crypto
+@_implementationOnly import Crypto
+@_implementationOnly import X509
 
-public protocol SigningIdentity {
-    // TODO: change type to Certificate
-    var info: SigningIdentityInfo { get }
-}
-
-public struct SigningIdentityInfo {
-    public let commonName: String?
-    public let organizationalUnit: String?
-    public let organization: String?
-
-    init(commonName: String? = nil, organizationalUnit: String? = nil, organization: String? = nil) {
-        self.commonName = commonName
-        self.organizationalUnit = organizationalUnit
-        self.organization = organization
-    }
-}
+public protocol SigningIdentity {}
 
 // MARK: - SecIdentity conformance to SigningIdentity
 
-#if os(macOS)
-extension SecIdentity: SigningIdentity {
-    public var info: SigningIdentityInfo {
-        var certificate: SecCertificate?
-
-        let status = SecIdentityCopyCertificate(self, &certificate)
-        guard status == errSecSuccess, let certificate = certificate else {
-            return SigningIdentityInfo()
-        }
-
-        guard let dict = SecCertificateCopyValues(certificate, nil, nil) as? [CFString: Any],
-              let subjectDict = dict[kSecOIDX509V1SubjectName] as? [CFString: Any],
-              let propValueList = subjectDict[kSecPropertyKeyValue] as? [[String: Any]]
-        else {
-            return SigningIdentityInfo()
-        }
-
-        let props = propValueList.reduce(into: [String: String]()) { result, item in
-            if let label = item["label"] as? String, let value = item["value"] as? String {
-                result[label] = value
-            }
-        }
-
-        return SigningIdentityInfo(
-            commonName: certificate.commonName,
-            organizationalUnit: props[kSecOIDOrganizationalUnitName as String],
-            organization: props[kSecOIDOrganizationName as String]
-        )
-    }
-}
-
-extension SecCertificate {
-    var commonName: String? {
-        var commonName: CFString?
-        let status = SecCertificateCopyCommonName(self, &commonName)
-        guard status == errSecSuccess else { return nil }
-        return commonName as String?
-    }
-}
+#if canImport(Darwin)
+extension SecIdentity: SigningIdentity {}
 #endif
 
-// MARK: - SigningIdentity created using raw private key and certificate bytes
-
-// TODO: remove this
-public struct Certificate {
-    public init(derEncoded: Data) {}
-
-    public struct PrivateKey {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-        init(_: P256.Signing.PrivateKey) {}
-        #endif
-    }
-}
+// MARK: - SwiftSigningIdentity is created using raw private key and certificate bytes
 
 public struct SwiftSigningIdentity: SigningIdentity {
-    public let certificate: Certificate
-    public let privateKey: Certificate.PrivateKey
+    let certificate: Certificate
+    let privateKey: Certificate.PrivateKey
 
-    public var info: SigningIdentityInfo {
-        // TODO: read from cert
-        fatalError("TO BE IMPLEMENTED")
-    }
-
-    public init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
+    // for testing
+    init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
         self.certificate = certificate
         self.privateKey = privateKey
+    }
+
+    public init(
+        derEncodedCertificate certificate: [UInt8],
+        derEncodedPrivateKey privateKey: [UInt8],
+        privateKeyType: SigningKeyType
+    ) throws {
+        do {
+            self.certificate = try Certificate(certificate)
+        } catch {
+            throw StringError("Invalid certificate: \(error)")
+        }
+
+        do {
+            switch privateKeyType {
+            case .p256:
+                #if canImport(Darwin)
+                if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+                    self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
+                } else {
+                    throw StringError("Unsupported platform")
+                }
+                #else
+                self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
+                #endif
+            }
+        } catch let error as StringError {
+            throw error
+        } catch {
+            throw StringError("Invalid key: \(error)")
+        }
     }
 }
 
@@ -117,8 +79,8 @@ public struct SigningIdentityStore {
         self.observabilityScope = observabilityScope
     }
 
-    public func find(by label: String) async throws -> [SigningIdentity] {
-        #if os(macOS)
+    public func find(by label: String) async -> [SigningIdentity] {
+        #if canImport(Darwin)
         // Find in Keychain
         let query: [String: Any] = [
             // Use kSecClassCertificate instead of kSecClassIdentity because the latter
@@ -134,7 +96,7 @@ public struct SigningIdentityStore {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess else {
-            self.observabilityScope.emit(warning: "Error while searching for '\(label)' in Keychain: \(status)")
+            self.observabilityScope.emit(warning: "Failed to search for '\(label)' in Keychain: status \(status)")
             return []
         }
 
@@ -145,7 +107,7 @@ public struct SigningIdentityStore {
             guard status == errSecSuccess, let identity = identity else {
                 self.observabilityScope
                     .emit(
-                        warning: "Error while trying to create SecIdentity from SecCertificate[\(secCertificate)]: \(status)"
+                        warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]: status \(status)"
                     )
                 return nil
             }

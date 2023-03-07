@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import struct Foundation.Data
 
 import ArgumentParser
 import Basics
 import CoreCommands
 import PackageSigning
 import TSCBasic
+@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity init at L139 fails
 
 extension SwiftPackageRegistryTool {
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
@@ -49,8 +49,12 @@ extension SwiftPackageRegistryTool {
         @Option(help: "The path to the certificate's PKCS#8 private key (DER-encoded).")
         var privateKeyPath: AbsolutePath?
 
-        @Option(help: "The path to the signing certificate (DER-encoded).")
-        var certificatePath: AbsolutePath?
+        @Option(
+            name: .customLong("cert-chain-paths"),
+            parsing: .upToNextOption,
+            help: "Path(s) to the signing certificate (DER-encoded) and optionally the rest of the certificate chain. Certificates should be ordered with the leaf first and the root last."
+        )
+        var certificateChainPaths: [AbsolutePath] = []
 
         func run(_ swiftTool: SwiftTool) async throws {
             // Validate source archive path
@@ -60,22 +64,28 @@ extension SwiftPackageRegistryTool {
 
             // compute signing mode
             let signingMode: PackageArchiveSigner.SigningMode
-            switch (self.signingIdentity, self.certificatePath, self.privateKeyPath) {
-            case (.none, .some, .none):
+            switch (self.signingIdentity, self.certificateChainPaths, self.privateKeyPath) {
+            case (.none, let certChainPaths, .none) where !certChainPaths.isEmpty:
                 throw StringError(
-                    "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                    "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                 )
-            case (.none, .none, .some):
+            case (.none, let certChainPaths, .some) where certChainPaths.isEmpty:
                 throw StringError(
-                    "Both 'private-key-path' and 'certificate-path' are required when one of them is set."
+                    "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                 )
-            case (.none, .some(let certificatePath), .some(let privateKeyPath)):
-                signingMode = .certificate(certificate: certificatePath, privateKey: privateKeyPath)
-            case (.some(let signingStoreLabel), .none, .none):
-                signingMode = .identityStore(signingStoreLabel)
+            case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
+                let certificate = certChainPaths[0]
+                let intermediateCertificates = certChainPaths.count > 1 ? Array(certChainPaths[1...]) : []
+                signingMode = .certificate(
+                    certificate: certificate,
+                    intermediateCertificates: intermediateCertificates,
+                    privateKey: privateKeyPath
+                )
+            case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
+                signingMode = .identityStore(label: signingStoreLabel, intermediateCertificates: certChainPaths)
             default:
                 throw StringError(
-                    "Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided."
+                    "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."
                 )
             }
 
@@ -108,32 +118,37 @@ public enum PackageArchiveSigner {
         signatureFormat: SignatureFormat,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> Data {
-        let archiveData: Data = try fileSystem.readFileContents(archivePath)
+    ) async throws -> [UInt8] {
+        let archiveData = try fileSystem.readFileContents(archivePath)
 
         let signingIdentity: SigningIdentity
+        let intermediateCertificates: [[UInt8]]
         switch mode {
-        case .identityStore(let label):
+        case .identityStore(let label, let intermediateCertPaths):
             let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-            let matches = try await signingIdentityStore.find(by: label)
+            let matches = await signingIdentityStore.find(by: label)
             guard let identity = matches.first else {
                 throw StringError("'\(label)' not found in the system identity store.")
             }
             // TODO: let user choose if there is more than one match?
             signingIdentity = identity
-        case .certificate(let certificatePath, let privateKeyPath):
-            let certificateData: Data = try fileSystem.readFileContents(certificatePath)
-            let privateKeyData: Data = try fileSystem.readFileContents(privateKeyPath)
-            signingIdentity = SwiftSigningIdentity(
-                certificate: Certificate(derEncoded: certificateData),
-                privateKey: try signatureFormat.privateKey(derRepresentation: privateKeyData)
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
+        case .certificate(let certPath, let intermediateCertPaths, let privateKeyPath):
+            let certificate = try fileSystem.readFileContents(certPath).contents
+            let privateKey = try fileSystem.readFileContents(privateKeyPath).contents
+            signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: certificate,
+                derEncodedPrivateKey: privateKey,
+                privateKeyType: signatureFormat.signingKeyType
             )
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
         }
 
         let signature = try await SignatureProvider.sign(
-            archiveData,
-            with: signingIdentity,
-            in: signatureFormat,
+            content: archiveData.contents,
+            identity: signingIdentity,
+            intermediateCertificates: intermediateCertificates,
+            format: signatureFormat,
             observabilityScope: observabilityScope
         )
 
@@ -145,7 +160,7 @@ public enum PackageArchiveSigner {
     }
 
     public enum SigningMode {
-        case identityStore(String)
-        case certificate(certificate: AbsolutePath, privateKey: AbsolutePath)
+        case identityStore(label: String, intermediateCertificates: [AbsolutePath])
+        case certificate(certificate: AbsolutePath, intermediateCertificates: [AbsolutePath], privateKey: AbsolutePath)
     }
 }

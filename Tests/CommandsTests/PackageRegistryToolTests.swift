@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,6 +15,7 @@ import Commands
 import Foundation
 import PackageModel
 @testable import PackageRegistryTool
+import PackageSigning
 import SPMTestSupport
 import TSCBasic
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
@@ -43,32 +44,48 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testUsage() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         let stdout = try execute(["-help"]).stdout
         XCTAssert(stdout.contains("USAGE: swift package-registry"), "got stdout:\n" + stdout)
     }
 
     func testSeeAlso() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         let stdout = try execute(["--help"]).stdout
         XCTAssert(stdout.contains("SEE ALSO: swift package"), "got stdout:\n" + stdout)
     }
 
     func testVersion() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         let stdout = try execute(["--version"]).stdout
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
     func testLocalConfiguration() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -176,8 +193,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     // TODO: Test global configuration
 
     func testSetMissingURL() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -199,8 +220,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidURL() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -222,8 +247,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidScope() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -248,8 +277,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testUnsetMissingEntry() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -296,8 +329,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func testArchiving() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         #if os(Linux)
         // needed for archiving
@@ -421,38 +458,74 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func testArchiveSigning() async throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
+        // plugin APIs require).
+        try XCTSkipIf(
+            !UserToolchain.default.supportsSwiftConcurrency(),
+            "skipping because test environment doesn't support concurrency"
+        )
 
         let observabilityScope = ObservabilitySystem.makeForTesting().topScope
 
-        // TODO: complete this test
-        // certificate and private key
-        /*
         try await withTemporaryDirectory { temporaryDirectory in
             let archivePath = temporaryDirectory.appending("fake.zip")
             try localFileSystem.writeFileContents(archivePath, string: "test")
 
-            let privateKeyPath = temporaryDirectory.appending("private-key")
-            // TODO: write the private key
-            let certificatePath = temporaryDirectory.appending("certificate")
-            // TODO: write the cert
+            let certificatePath = temporaryDirectory.appending(component: "certificate.cer")
+            let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
+            let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            let signaturePath = temporaryDirectory.appending("signature")
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                try localFileSystem.copy(
+                    from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
+                    to: certificatePath
+                )
+                try localFileSystem.copy(
+                    from: fixturePath.appending(components: "Certificates", "Test_ec_key.p8"),
+                    to: privateKeyPath
+                )
+                try localFileSystem.copy(
+                    from: fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                    to: intermediateCertificatePath
+                )
+            }
 
-            let signature = try await PackageArchiveSigner.sign(
+            // Generate signature
+            let signaturePath = temporaryDirectory.appending(component: "signature")
+            try await PackageArchiveSigner.sign(
                 archivePath: archivePath,
                 signaturePath: signaturePath,
-                mode: .certificate(certificate: certificatePath, privateKey: privateKeyPath),
+                mode: .certificate(
+                    certificate: certificatePath,
+                    intermediateCertificates: [intermediateCertificatePath],
+                    privateKey: privateKeyPath
+                ),
                 signatureFormat: .cms_1_0_0,
                 fileSystem: localFileSystem,
                 observabilityScope: observabilityScope
             )
 
-            let content: Data = try localFileSystem.readFileContents(signaturePath)
-            XCTAssertEqual(signature, content)
-            // TODO: test that the signature is correct
-        }*/
+            // FIXME: test cert chain is not considered valid on non-Darwin platforms
+            #if canImport(Darwin)
+            // Read and validate signature
+            let signature = try localFileSystem.readFileContents(signaturePath).contents
+            let archive = try localFileSystem.readFileContents(archivePath).contents
+
+            var verifierConfiguration = VerifierConfiguration()
+            verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
+
+            let signatureStatus = try await SignatureProvider.status(
+                signature: signature,
+                content: archive,
+                format: .cms_1_0_0,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: observabilityScope
+            )
+            guard case .valid = signatureStatus else {
+                return XCTFail("Expected signature status to be .valid but got \(signatureStatus)")
+            }
+            #endif
+        }
 
         // basic validation
         try withTemporaryDirectory { temporaryDirectory in
@@ -465,12 +538,33 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 [
                     "sign",
                     archivePath.pathString,
-                    signaturePath.pathString
+                    signaturePath.pathString,
                 ]
             )
             let error = try result.utf8stderrOutput()
-            XCTAssertEqual(result.exitStatus, .terminated(code: 1), try! result.utf8Output() + result.utf8stderrOutput())
-            XCTAssertMatch(error, .contains("Either 'signing-identity' or 'private-key-path' (together with 'certificate-path') must be provided"))
+            XCTAssertEqual(
+                result.exitStatus,
+                .terminated(code: 1),
+                try! result.utf8Output() + result.utf8stderrOutput()
+            )
+            XCTAssertMatch(
+                error,
+                .contains(
+                    "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided"
+                )
+            )
+        }
+    }
+
+    private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let rootCA = try localFileSystem
+                    .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
+                callback(.success([rootCA]))
+            }
+        } catch {
+            callback(.failure(error))
         }
     }
 }

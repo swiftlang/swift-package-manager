@@ -1023,7 +1023,8 @@ public final class RegistryClient: Cancellable {
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
-        signature: Data?,
+        signature: [UInt8]?,
+        signatureFormat: SignatureFormat?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -1073,6 +1074,20 @@ public final class RegistryClient: Cancellable {
         """.utf8)
         body.append(packageArchiveContent)
 
+        if let signature = signature {
+            guard signatureFormat != nil else {
+                return completion(.failure(RegistryError.missingSignatureFormat))
+            }
+            
+            body.append(contentsOf: """
+            Content-Disposition: form-data; name=\"source-archive-signature\"\r
+            Content-Type: application/octet-stream\r
+            Content-Transfer-Encoding: binary\r
+            \r\n
+            """.utf8)
+            body.append(contentsOf: signature)
+        }
+
         // metadata field
         if let metadataContent = metadataContent {
             body.append(contentsOf: """
@@ -1089,7 +1104,7 @@ public final class RegistryClient: Cancellable {
         // footer
         body.append(contentsOf: "\r\n--\(boundary)--\r\n".utf8)
 
-        let request = LegacyHTTPClient.Request(
+        var request = LegacyHTTPClient.Request(
             method: .put,
             url: url,
             headers: [
@@ -1101,6 +1116,10 @@ public final class RegistryClient: Cancellable {
             body: body,
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
+        
+        if signature != nil, let signatureFormat = signatureFormat {
+            request.headers.add(name: "X-Swift-Package-Signature-Format", value: signatureFormat.rawValue)
+        }
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(

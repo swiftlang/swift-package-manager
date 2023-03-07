@@ -12,15 +12,16 @@ add_library(PackageSigning STATIC
   SigningEntity/PackageSigningEntityStorage.swift
   SigningEntity/SigningEntity.swift
   SignatureProvider.swift
-  SigningIdentity.swift)
+  SigningIdentity.swift
+  X509Extensions.swift)
 target_link_libraries(PackageSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>
   Basics
   Crypto
-  X509
   PackageModel
   TSCBasic
-  TSCUtility)
+  TSCUtility
+  X509)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageSigning PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
