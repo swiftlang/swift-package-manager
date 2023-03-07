@@ -52,13 +52,12 @@ final class SigningEntityTests: XCTestCase {
         }
     }
 
+    #if canImport(Darwin)
     func testFromKeychainCertificate() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-
-        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
@@ -73,4 +72,5 @@ final class SigningEntityTests: XCTestCase {
         XCTAssertEqual(signingEntity.organizationalUnit, certificate.subject.organizationalUnitName)
         XCTAssertEqual(signingEntity.organization, certificate.subject.organizationName)
     }
+    #endif
 }

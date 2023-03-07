@@ -22,12 +22,3 @@ func readFileContents(
     let path = basePath.appending(components: pathComponents)
     return try fileSystem.readFileContents(path).contents
 }
-
-extension XCTestCase {
-    func PackageSigningTests_skipIfUnsupportedPlatform() throws {
-        #if canImport(Darwin)
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
-    }
-}

@@ -158,13 +158,12 @@ final class SigningTests: XCTestCase {
         }
     }
 
+    #if canImport(Darwin)
     func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-
-        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
@@ -205,14 +204,14 @@ final class SigningTests: XCTestCase {
         XCTAssertNotNil(signingEntity.organizationalUnit)
         XCTAssertNotNil(signingEntity.organization)
     }
+    #endif
 
+    #if canImport(Darwin)
     func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-
-        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
@@ -251,14 +250,14 @@ final class SigningTests: XCTestCase {
         XCTAssertNotNil(signingEntity.organizationalUnit)
         XCTAssertNotNil(signingEntity.organization)
     }
+    #endif
 
+    #if canImport(Darwin)
     func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-
-        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_RSA_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")
@@ -297,6 +296,7 @@ final class SigningTests: XCTestCase {
         XCTAssertNotNil(signingEntity.organizationalUnit)
         XCTAssertNotNil(signingEntity.organization)
     }
+    #endif
 
     private func ecTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
         do {
