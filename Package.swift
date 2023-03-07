@@ -724,7 +724,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.3.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
-        .package(url: "https://github.com/apple/swift-certificates.git", .branch("main")),
+        .package(url: "https://github.com/apple/swift-certificates.git", branch: "main"),
     ]
 } else {
     package.dependencies += [
