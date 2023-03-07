@@ -24,6 +24,7 @@ public enum SignatureProvider {
     public static func sign(
         content: [UInt8],
         identity: SigningIdentity,
+        intermediateCertificates: [[UInt8]],
         format: SignatureFormat,
         observabilityScope: ObservabilityScope
     ) async throws -> [UInt8] {
@@ -31,6 +32,7 @@ public enum SignatureProvider {
         return try await provider.sign(
             content: content,
             identity: identity,
+            intermediateCertificates: intermediateCertificates,
             observabilityScope: observabilityScope
         )
     }
@@ -79,7 +81,7 @@ public enum SignatureStatus: Equatable {
     case valid(SigningEntity)
     case invalid(String)
     case certificateInvalid(String)
-    case certificateNotTrusted // TODO: include signer details
+    case certificateNotTrusted(SigningEntity)
 }
 
 public enum CertificateRevocationStatus {
@@ -137,6 +139,7 @@ protocol SignatureProviderProtocol {
     func sign(
         content: [UInt8],
         identity: SigningIdentity,
+        intermediateCertificates: [[UInt8]],
         observabilityScope: ObservabilityScope
     ) async throws -> [UInt8]
 
@@ -160,6 +163,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
     func sign(
         content: [UInt8],
         identity: SigningIdentity,
+        intermediateCertificates: [[UInt8]],
         observabilityScope: ObservabilityScope
     ) async throws -> [UInt8] {
         #if canImport(Darwin)
@@ -175,9 +179,12 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             let signature = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
 
             do {
+                let intermediateCertificates = try intermediateCertificates.map { try Certificate($0) }
+
                 return try CMS.sign(
                     signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signature)),
                     signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                    additionalIntermediateCertificates: intermediateCertificates,
                     certificate: try Certificate(secIdentity: secIdentity)
                 )
             } catch {
@@ -191,9 +198,12 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         }
 
         do {
+            let intermediateCertificates = try intermediateCertificates.map { try Certificate($0) }
+
             return try CMS.sign(
                 content,
                 signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                additionalIntermediateCertificates: intermediateCertificates,
                 certificate: swiftSigningIdentity.certificate,
                 privateKey: swiftSigningIdentity.privateKey
             )
@@ -213,26 +223,30 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         let result = await CMS.isValidSignature(
             dataBytes: content,
             signatureBytes: signature,
+            // TODO: pass default intermediates
+            additionalIntermediateCertificates: [],
             trustRoots: CertificateStore(
-                try verifierConfiguration.trustedRoots
-                    .map { try Certificate(derEncoded: $0) }
+                try verifierConfiguration.trustedRoots.map { try Certificate($0) }
             ),
             // TODO: build policies based on config
             policy: PolicySet(policies: [])
         )
 
         switch result {
-        case .validSignature(let valid):
+        case .success(let valid):
             let signingEntity = SigningEntity(certificate: valid.signer)
             return .valid(signingEntity)
-        case .unableToValidateSigner(let failure):
+        case .failure(CMS.VerificationError.unableToValidateSigner(let failure)):
             if failure.validationFailures.isEmpty {
-                return .certificateNotTrusted
+                let signingEntity = SigningEntity(certificate: failure.signer)
+                return .certificateNotTrusted(signingEntity)
             } else {
                 return .certificateInvalid("\(failure.validationFailures)") // TODO: format error message
             }
-        case .invalidCMSBlock(let error):
+        case .failure(CMS.VerificationError.invalidCMSBlock(let error)):
             return .invalid(error.reason)
+        case .failure(let error):
+            return .invalid("\(error)")
         }
     }
 }

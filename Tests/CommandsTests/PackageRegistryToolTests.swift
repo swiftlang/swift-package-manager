@@ -472,6 +472,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try localFileSystem.writeFileContents(archivePath, string: "test")
 
             let certificatePath = temporaryDirectory.appending(component: "certificate.cer")
+            let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
@@ -483,6 +484,10 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     from: fixturePath.appending(components: "Certificates", "Test_ec_key.p8"),
                     to: privateKeyPath
                 )
+                try localFileSystem.copy(
+                    from: fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
+                    to: intermediateCertificatePath
+                )
             }
 
             // Generate signature
@@ -490,7 +495,11 @@ final class PackageRegistryToolTests: CommandsTestCase {
             try await PackageArchiveSigner.sign(
                 archivePath: archivePath,
                 signaturePath: signaturePath,
-                mode: .certificate(certChain: [certificatePath], privateKey: privateKeyPath),
+                mode: .certificate(
+                    certificate: certificatePath,
+                    intermediateCertificates: [intermediateCertificatePath],
+                    privateKey: privateKeyPath
+                ),
                 signatureFormat: .cms_1_0_0,
                 fileSystem: localFileSystem,
                 observabilityScope: observabilityScope
@@ -547,11 +556,9 @@ final class PackageRegistryToolTests: CommandsTestCase {
     private func testRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let intermediateCA = try localFileSystem
-                    .readFileContents(fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")).contents
                 let rootCA = try localFileSystem
                     .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
-                callback(.success([intermediateCA, rootCA]))
+                callback(.success([rootCA]))
             }
         } catch {
             callback(.failure(error))

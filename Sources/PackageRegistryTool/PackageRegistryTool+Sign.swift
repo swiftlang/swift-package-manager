@@ -74,9 +74,15 @@ extension SwiftPackageRegistryTool {
                     "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                 )
             case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
-                signingMode = .certificate(certChain: certChainPaths, privateKey: privateKeyPath)
+                let certificate = certChainPaths[0]
+                let intermediateCertificates = certChainPaths.count > 1 ? Array(certChainPaths[1...]) : []
+                signingMode = .certificate(
+                    certificate: certificate,
+                    intermediateCertificates: intermediateCertificates,
+                    privateKey: privateKeyPath
+                )
             case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
-                signingMode = .identityStore(signingStoreLabel)
+                signingMode = .identityStore(label: signingStoreLabel, intermediateCertificates: certChainPaths)
             default:
                 throw StringError(
                     "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."
@@ -116,8 +122,9 @@ public enum PackageArchiveSigner {
         let archiveData = try fileSystem.readFileContents(archivePath)
 
         let signingIdentity: SigningIdentity
+        let intermediateCertificates: [[UInt8]]
         switch mode {
-        case .identityStore(let label):
+        case .identityStore(let label, let intermediateCertPaths):
             let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
             let matches = await signingIdentityStore.find(by: label)
             guard let identity = matches.first else {
@@ -125,23 +132,23 @@ public enum PackageArchiveSigner {
             }
             // TODO: let user choose if there is more than one match?
             signingIdentity = identity
-        case .certificate(let certChain, let privateKeyPath):
-            guard let certificatePath = certChain.first else {
-                throw StringError("No certificate path specified")
-            }
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
+        case .certificate(let certPath, let intermediateCertPaths, let privateKeyPath):
             // TODO: pass the rest of cert chain to `sign`
-            let certificate = try fileSystem.readFileContents(certificatePath)
-            let privateKey = try fileSystem.readFileContents(privateKeyPath)
+            let certificate = try fileSystem.readFileContents(certPath).contents
+            let privateKey = try fileSystem.readFileContents(privateKeyPath).contents
             signingIdentity = try SwiftSigningIdentity(
-                derEncodedCertificate: certificate.contents,
-                derEncodedPrivateKey: privateKey.contents,
+                derEncodedCertificate: certificate,
+                derEncodedPrivateKey: privateKey,
                 privateKeyType: signatureFormat.signingKeyType
             )
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
         }
 
         let signature = try await SignatureProvider.sign(
             content: archiveData.contents,
             identity: signingIdentity,
+            intermediateCertificates: intermediateCertificates,
             format: signatureFormat,
             observabilityScope: observabilityScope
         )
@@ -154,7 +161,7 @@ public enum PackageArchiveSigner {
     }
 
     public enum SigningMode {
-        case identityStore(String)
-        case certificate(certChain: [AbsolutePath], privateKey: AbsolutePath)
+        case identityStore(label: String, intermediateCertificates: [AbsolutePath])
+        case certificate(certificate: AbsolutePath, intermediateCertificates: [AbsolutePath], privateKey: AbsolutePath)
     }
 }

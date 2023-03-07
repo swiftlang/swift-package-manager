@@ -25,7 +25,7 @@ final class SigningEntityTests: XCTestCase {
                 pathComponents: "Certificates",
                 "Test_ec.cer"
             )
-            let certificate = try Certificate(derEncoded: certificateBytes)
+            let certificate = try Certificate(certificateBytes)
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)
@@ -42,7 +42,7 @@ final class SigningEntityTests: XCTestCase {
                 pathComponents: "Certificates",
                 "Test_rsa.cer"
             )
-            let certificate = try Certificate(derEncoded: certificateBytes)
+            let certificate = try Certificate(certificateBytes)
 
             let signingEntity = SigningEntity(certificate: certificate)
             XCTAssertNil(signingEntity.type)

@@ -176,9 +176,15 @@ extension SwiftPackageRegistryTool {
                         "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
                     )
                 case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
-                    signingMode = .certificate(certChain: certChainPaths, privateKey: privateKeyPath)
+                    let certificate = certChainPaths[0]
+                    let intermediateCertificates = certChainPaths.count > 1 ? Array(certChainPaths[1...]) : []
+                    signingMode = .certificate(
+                        certificate: certificate,
+                        intermediateCertificates: intermediateCertificates,
+                        privateKey: privateKeyPath
+                    )
                 case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
-                    signingMode = .identityStore(signingStoreLabel)
+                    signingMode = .identityStore(label: signingStoreLabel, intermediateCertificates: certChainPaths)
                 default:
                     throw StringError(
                         "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."

@@ -27,7 +27,7 @@ final class SigningIdentityTests: XCTestCase {
                 pathComponents: "Certificates",
                 "Test_ec.cer"
             )
-            let certificate = try Certificate(derEncoded: certificateBytes)
+            let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
             XCTAssertEqual("Test (EC)", subject.commonName)
@@ -60,7 +60,7 @@ final class SigningIdentityTests: XCTestCase {
                 pathComponents: "Certificates",
                 "Test_rsa.cer"
             )
-            let certificate = try Certificate(derEncoded: certificateBytes)
+            let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
             XCTAssertEqual("Test (RSA)", subject.commonName)

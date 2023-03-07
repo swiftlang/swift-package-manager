@@ -24,7 +24,7 @@ import Basics
 extension Certificate {
     init(secCertificate: SecCertificate) throws {
         let data = SecCertificateCopyData(secCertificate) as Data
-        self = try Certificate(derEncoded: Array(data))
+        self = try Certificate(Array(data))
     }
 
     init(secIdentity: SecIdentity) throws {
@@ -84,5 +84,21 @@ extension RelativeDistinguishedName.Attribute {
             return nil
         }
         return stringValue
+    }
+}
+
+// MARK: - Certificate cache
+
+extension Certificate {
+    private static let cache = ThreadSafeKeyValueStore<[UInt8], Certificate>()
+
+    init(_ bytes: [UInt8]) throws {
+        if let cached = Self.cache[bytes] {
+            self = cached
+        } else {
+            let certificate = try Certificate(derEncoded: bytes)
+            Self.cache[bytes] = certificate
+            self = certificate
+        }
     }
 }

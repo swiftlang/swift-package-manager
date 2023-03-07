@@ -44,7 +44,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         privateKeyType: SigningKeyType
     ) throws {
         do {
-            self.certificate = try Certificate(derEncoded: certificate)
+            self.certificate = try Certificate(certificate)
         } catch {
             throw StringError("Invalid certificate: \(error)")
         }
