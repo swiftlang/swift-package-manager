@@ -132,6 +132,7 @@ public struct CSetting {
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
@@ -147,6 +148,7 @@ public struct CSetting {
     ///   - value: The value of the macro.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
         var settingValue = name
         if let value = value {
@@ -172,6 +174,7 @@ public struct CSetting {
     ///   - flags: The unsafe flags to set.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -198,6 +201,7 @@ public struct CXXSetting {
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is
     ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
@@ -213,6 +217,7 @@ public struct CXXSetting {
     ///   - value: The value of the macro.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         var settingValue = name
         if let value = value {
@@ -237,6 +242,7 @@ public struct CXXSetting {
     ///   - flags: The unsafe flags to set.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -271,6 +277,7 @@ public struct SwiftSetting {
     ///   - name: The name of the macro.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
@@ -292,6 +299,7 @@ public struct SwiftSetting {
     ///   - flags: The unsafe flags to set.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -365,6 +373,7 @@ public struct LinkerSetting {
     ///   - library: The library name.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
@@ -380,6 +389,7 @@ public struct LinkerSetting {
     ///   - framework: The framework name.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
@@ -401,6 +411,7 @@ public struct LinkerSetting {
     ///   - flags: The unsafe flags to set.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
+    @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "unsafeFlags", value: flags, condition: condition)
     }

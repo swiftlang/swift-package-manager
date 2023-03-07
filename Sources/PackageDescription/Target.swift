@@ -95,11 +95,7 @@ public final class Target {
     ///
     /// Binary targets are only available on Apple platforms.
     @available(_PackageDescription, introduced: 5.3)
-    public var url: String? {
-        get { _url }
-        set { _url = newValue }
-    }
-    private var _url: String?
+    public var url: String?
 
     /// The source files in this target.
     ///
@@ -114,11 +110,7 @@ public final class Target {
 
     /// The explicit list of resource files in the target.
     @available(_PackageDescription, introduced: 5.3)
-    public var resources: [Resource]? {
-        get { _resources }
-        set { _resources = newValue }
-    }
-    private var _resources: [Resource]?
+    public var resources: [Resource]?
 
     /// The paths to source and resource files that you don't want to include in the target.
     ///
@@ -154,53 +146,57 @@ public final class Target {
 
     /// The capability provided by a package plugin target.
     @available(_PackageDescription, introduced: 5.5)
-    public var pluginCapability: PluginCapability? {
-        get { return _pluginCapability }
-        set { _pluginCapability = newValue }
-    }
-    private var _pluginCapability: PluginCapability?
+    public var pluginCapability: PluginCapability?
 
     /// The different types of capability that a plugin can provide.
     ///
     /// In this version of SwiftPM, only build tool and command plugins are supported;
     /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
-        case _buildTool
+        /// Specifies that the plugin provides a build tool capability.
+        ///
+        /// The plugin will be applied to each target that uses it and should create commands
+        /// that will run before or during the build of the target.
+        @available(_PackageDescription, introduced: 5.5)
+        case buildTool
+
+        /// Specifies that the plugin provides a user command capability.
+        ///
+        ///- Parameters:
+        ///   - intent: The semantic intent of the plugin (either one of the predefined intents,
+        ///     or a custom intent).
+        ///   - permissions: Any permissions needed by the command plugin. This affects what the
+        ///     sandbox in which the plugin is run allows. Some permissions may require
+        ///     approval by the user.
+        ///
+        /// Plugins that specify a `command` capability define commands that can be run
+        /// using the SwiftPM command line interface, or in an IDE that supports
+        /// Swift Packages. The command will be available to invoke manually on one or more targets in a package.
+        ///
+        ///```swift
+        ///swift package <verb>
+        ///```
+        ///
+        /// The package can specify the verb that is used to invoke the command.
         @available(_PackageDescription, introduced: 5.6)
-        case _command(intent: PluginCommandIntent, permissions: [PluginPermission])
+        case command(intent: PluginCommandIntent, permissions: [PluginPermission] = [])
     }
 
     /// The target's C build settings.
     @available(_PackageDescription, introduced: 5)
-    public var cSettings: [CSetting]? {
-        get { return _cSettings }
-        set { _cSettings = newValue }
-    }
-    private var _cSettings: [CSetting]?
+    public var cSettings: [CSetting]?
 
     /// The target's C++ build settings.
     @available(_PackageDescription, introduced: 5)
-    public var cxxSettings: [CXXSetting]? {
-        get { return _cxxSettings }
-        set { _cxxSettings = newValue }
-    }
-    private var _cxxSettings: [CXXSetting]?
+    public var cxxSettings: [CXXSetting]?
 
     /// The target's Swift build settings.
     @available(_PackageDescription, introduced: 5)
-    public var swiftSettings: [SwiftSetting]? {
-        get { return _swiftSettings }
-        set { _swiftSettings = newValue }
-    }
-    private var _swiftSettings: [SwiftSetting]?
+    public var swiftSettings: [SwiftSetting]?
 
     /// The target's linker settings.
     @available(_PackageDescription, introduced: 5)
-    public var linkerSettings: [LinkerSetting]? {
-        get { return _linkerSettings }
-        set { _linkerSettings = newValue }
-    }
-    private var _linkerSettings: [LinkerSetting]?
+    public var linkerSettings: [LinkerSetting]?
  
     /// The checksum for the archive file that contains the referenced binary
     /// artifact.
@@ -214,23 +210,21 @@ public final class Target {
     /// For more information, see
     /// <doc:distributing-binary-frameworks-as-swift-packages>.
     @available(_PackageDescription, introduced: 5.3)
-    public var checksum: String? {
-        get { _checksum }
-        set { _checksum = newValue }
-    }
-    private var _checksum: String?
+    public var checksum: String?
 
     /// The uses of package plugins by the target.
     @available(_PackageDescription, introduced: 5.5)
-    public var plugins: [PluginUsage]? {
-        get { return _pluginUsages }
-        set { _pluginUsages = newValue }
-    }
-    private var _pluginUsages: [PluginUsage]?
+    public var plugins: [PluginUsage]?
     
     /// A plugin used in a target.
+    @available(_PackageDescription, introduced: 5.5)
     public enum PluginUsage {
-        case _pluginItem(name: String, package: String?)
+        /// Specifies use of a plugin product in a package dependency.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the plugin target.
+        ///   - package: The name of the package in which the plugin target is defined.
+        case plugin(name: String, package: String?)
     }
 
     /// Construct a target.
@@ -253,26 +247,26 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        pluginUsages: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
         self.path = path
-        self._url = url
+        self.url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
-        self._resources = resources
+        self.resources = resources
         self.exclude = exclude
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self._pluginCapability = pluginCapability
-        self._cSettings = cSettings
-        self._cxxSettings = cxxSettings
-        self._swiftSettings = swiftSettings
-        self._linkerSettings = linkerSettings
-        self._checksum = checksum
-        self._pluginUsages = pluginUsages
+        self.pluginCapability = pluginCapability
+        self.cSettings = cSettings
+        self.cxxSettings = cxxSettings
+        self.swiftSettings = swiftSettings
+        self.linkerSettings = linkerSettings
+        self.checksum = checksum
+        self.plugins = plugins
 
         switch type {
         case .regular, .executable, .test:
@@ -297,7 +291,7 @@ public final class Target {
                 swiftSettings == nil &&
                 linkerSettings == nil &&
                 checksum == nil &&
-                pluginUsages == nil
+                plugins == nil
             )
         case .binary:
             precondition(
@@ -313,7 +307,7 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                pluginUsages == nil
+                plugins == nil
             )
         case .plugin:
             precondition(
@@ -327,7 +321,7 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                pluginUsages == nil
+                plugins == nil
             )
         case .macro:
             precondition(
@@ -341,7 +335,7 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                pluginUsages == nil
+                plugins == nil
             )
         }
     }
@@ -539,7 +533,7 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
-            pluginUsages: plugins
+            plugins: plugins
         )
     }
 
@@ -650,7 +644,7 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
-            pluginUsages: plugins
+            plugins: plugins
         )
     }
 
@@ -835,7 +829,7 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
-            pluginUsages: plugins
+            plugins: plugins
         )
     }
 
@@ -1161,44 +1155,33 @@ extension Target.PluginCapability {
     ///  - Returns: A plugin capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
     public static func buildTool() -> Target.PluginCapability {
-        return ._buildTool
-    }
-
-    /// Specifies that the plugin provides a user command capability.
-    ///
-    ///- Parameters:
-    ///   - intent: The semantic intent of the plugin (either one of the predefined intents,
-    ///     or a custom intent).
-    ///   - permissions: Any permissions needed by the command plugin. This affects what the
-    ///     sandbox in which the plugin is run allows. Some permissions may require
-    ///     approval by the user.
-    ///
-    /// - Returns: A plugin capability that defines a user command.
-    ///
-    /// Plugins that specify a `command` capability define commands that can be run
-    /// using the SwiftPM command line interface, or in an IDE that supports
-    /// Swift Packages. The command will be available to invoke manually on one or more targets in a package.
-    ///
-    ///```swift
-    ///swift package <verb>
-    ///```
-    ///
-    /// The package can specify the verb that is used to invoke the command.
-    @available(_PackageDescription, introduced: 5.6)
-    public static func command(
-        intent: PluginCommandIntent,
-        permissions: [PluginPermission] = []
-    ) -> Target.PluginCapability {
-        return ._command(intent: intent, permissions: permissions)
+        return .buildTool
     }
 }
 
 /// The intended use case of the command plugin.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginCommandIntent {
-    case _documentationGeneration
-    case _sourceCodeFormatting
-    case _custom(verb: String, description: String)
+    /// The plugin generates documentation.
+    ///
+    /// The intent of the command is to generate documentation, either by parsing the
+    /// package contents directly or by using the build system support for generating
+    /// symbol graphs. Invoked by a `generate-documentation` verb to `swift package`.
+    case documentationGeneration
+
+    /// The plugin formats source code.
+    ///
+    /// The intent of the command is to modify the source code in the package based
+    /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
+    case sourceCodeFormatting
+
+    /// A custom command plugin intent.
+    ///
+    ///  Use this case when none of the predefined cases fit the role of the plugin.
+    ///  - Parameters:
+    ///    - verb: The invocation verb of the plugin.
+    ///    - description: A human readable description of the plugin's role.
+    case custom(verb: String, description: String)
 }
 
 @available(_PackageDescription, introduced: 5.6)
@@ -1211,7 +1194,7 @@ public extension PluginCommandIntent {
     ///
     ///  - Returns: A `PluginCommandIntent` instance.
     static func documentationGeneration() -> PluginCommandIntent {
-        return _documentationGeneration
+        return documentationGeneration
     }
 
     /// The plugin formats source code.
@@ -1221,18 +1204,7 @@ public extension PluginCommandIntent {
     ///
     /// - Returns: A `PluginCommandIntent` instance.
     static func sourceCodeFormatting() -> PluginCommandIntent {
-        return _sourceCodeFormatting
-    }
-
-    /// A custom command plugin intent.
-    ///
-    ///  Use this case when none of the predefined cases fit the role of the plugin.
-    ///  - Parameters:
-    ///    - verb: The invocation verb of the plugin.
-    ///    - description: A human readable description of the plugin's role.
-    /// - Returns: A `PluginCommandIntent` instance.
-    static func custom(verb: String, description: String) -> PluginCommandIntent {
-        return _custom(verb: verb, description: description)
+        return sourceCodeFormatting
     }
 }
 
@@ -1241,9 +1213,22 @@ public extension PluginCommandIntent {
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
 public enum PluginPermission {
+    /// Create a permission to make network connections.
+    ///
+    /// The command plugin wants permission to make network connections. The `reason` string is shown
+    /// to the user at the time of request for approval, explaining why the plugin is requesting this access.
+    ///   - Parameter scope: The scope of the permission.
+    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
     @available(_PackageDescription, introduced: 5.9)
-    case _allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
-    case _writeToPackageDirectory(reason: String)
+    case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
+
+    /// Create a permission to modify files in the package's directory.
+    ///
+    /// The command plugin wants permission to modify the files under the package
+    /// directory. The `reason` string is shown to the user at the time of request
+    /// for approval, explaining why the plugin is requesting this access.
+    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
+    case writeToPackageDirectory(reason: String)
 }
 
 /// The scope of a network permission. This can be none, local connections only or all connections.
@@ -1271,32 +1256,6 @@ public enum PluginNetworkPermissionScope {
     }
 }
 
-@available(_PackageDescription, introduced: 5.6)
-public extension PluginPermission {
-    /// Create a permission to modify files in the package's directory.
-    ///
-    /// The command plugin wants permission to modify the files under the package
-    /// directory. The `reason` string is shown to the user at the time of request
-    /// for approval, explaining why the plugin is requesting this access.
-    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
-    ///   - Returns: A `PluginPermission` instance.
-    static func writeToPackageDirectory(reason: String) -> PluginPermission {
-        return _writeToPackageDirectory(reason: reason)
-    }
-
-    /// Create a permission to make network connections.
-    ///
-    /// The command plugin wants permission to make network connections. The `reason` string is shown
-    /// to the user at the time of request for approval, explaining why the plugin is requesting this access.
-    ///   - Parameter scope: The scope of the permission.
-    ///   - Parameter reason: A reason why the permission is needed. This will be shown to the user.
-    ///   - Returns: A `PluginPermission` instance.
-    @available(_PackageDescription, introduced: 5.9)
-    static func allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String) -> PluginPermission {
-        return _allowNetworkConnections(scope: scope, reason: reason)
-    }
-}
-
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
@@ -1304,18 +1263,7 @@ extension Target.PluginUsage {
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
     public static func plugin(name: String) -> Target.PluginUsage {
-        return ._pluginItem(name: name, package: nil)
-    }
-
-    /// Specifies use of a plugin product in a package dependency.
-    ///
-    /// - Parameters:
-    ///   - name: The name of the plugin target.
-    ///   - package: The name of the package in which the plugin target is defined.
-    /// - Returns: A `PluginUsage` instance.
-    @available(_PackageDescription, introduced: 5.5)
-    public static func plugin(name: String, package: String) -> Target.PluginUsage {
-        return ._pluginItem(name: name, package: package)
+        return .plugin(name: name, package: nil)
     }
 }
 
@@ -1342,6 +1290,6 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
     ///
     /// - Parameter value: A string literal.
     public init(stringLiteral value: String) {
-        self = ._pluginItem(name: value, package: nil)
+        self = .plugin(name: value, package: nil)
     }
 }
