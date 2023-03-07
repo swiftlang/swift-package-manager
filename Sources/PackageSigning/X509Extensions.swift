@@ -12,7 +12,7 @@
 
 import struct Foundation.Data
 
-#if canImport(Darwin)
+#if canImport(Security)
 import Security
 #endif
 
@@ -20,7 +20,7 @@ import Basics
 @_implementationOnly import SwiftASN1
 @_implementationOnly import X509
 
-#if canImport(Darwin)
+#if canImport(Security)
 extension Certificate {
     init(secCertificate: SecCertificate) throws {
         let data = SecCertificateCopyData(secCertificate) as Data

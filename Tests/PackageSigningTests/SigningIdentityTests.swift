@@ -77,7 +77,7 @@ final class SigningIdentityTests: XCTestCase {
         }
     }
 
-    #if canImport(Darwin)
+    #if canImport(Security)
     func testSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else

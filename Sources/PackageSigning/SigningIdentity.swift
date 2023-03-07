@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Darwin)
+#if canImport(Security)
 import Security
 #endif
 
@@ -22,7 +22,7 @@ public protocol SigningIdentity {}
 
 // MARK: - SecIdentity conformance to SigningIdentity
 
-#if canImport(Darwin)
+#if canImport(Security)
 extension SecIdentity: SigningIdentity {}
 #endif
 
@@ -52,7 +52,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         do {
             switch privateKeyType {
             case .p256:
-                #if canImport(Darwin)
+                #if canImport(Security)
                 if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
                     self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
                 } else {
@@ -80,7 +80,7 @@ public struct SigningIdentityStore {
     }
 
     public func find(by label: String) async -> [SigningIdentity] {
-        #if canImport(Darwin)
+        #if canImport(Security)
         // Find in Keychain
         let query: [String: Any] = [
             // Use kSecClassCertificate instead of kSecClassIdentity because the latter
