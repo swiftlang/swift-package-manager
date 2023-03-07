@@ -167,7 +167,7 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    #if canImport(Security)
+    #if canImport(macOS)
     func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -215,7 +215,7 @@ final class SigningTests: XCTestCase {
     }
     #endif
 
-    #if canImport(Security)
+    #if canImport(macOS)
     func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -261,7 +261,7 @@ final class SigningTests: XCTestCase {
     }
     #endif
 
-    #if canImport(Security)
+    #if canImport(macOS)
     func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
