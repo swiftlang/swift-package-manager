@@ -12,7 +12,7 @@
 
 import struct Foundation.Data
 
-#if canImport(Darwin)
+#if canImport(Security)
 import Security
 #endif
 
@@ -166,7 +166,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         intermediateCertificates: [[UInt8]],
         observabilityScope: ObservabilityScope
     ) async throws -> [UInt8] {
-        #if canImport(Darwin)
+        #if canImport(Security)
         if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
             let secIdentity = identity as! SecIdentity // !-safe because we ensure type above
 
@@ -251,7 +251,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
     }
 }
 
-#if canImport(Darwin)
+#if canImport(Security)
 extension SecKey {
     func sign(content: [UInt8], algorithm: SignatureAlgorithm) throws -> [UInt8] {
         let secKeyAlgorithm: SecKeyAlgorithm

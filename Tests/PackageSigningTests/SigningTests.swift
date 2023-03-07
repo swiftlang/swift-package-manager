@@ -41,7 +41,7 @@ final class SigningTests: XCTestCase {
         )
 
         // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Darwin)
+        #if canImport(Security)
         var verifierConfiguration = VerifierConfiguration()
         verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
 
@@ -81,7 +81,7 @@ final class SigningTests: XCTestCase {
         )
 
         // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Darwin)
+        #if canImport(Security)
         var verifierConfiguration = VerifierConfiguration()
         verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
 
@@ -120,7 +120,7 @@ final class SigningTests: XCTestCase {
         )
 
         // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Darwin)
+        #if canImport(Security)
         var verifierConfiguration = VerifierConfiguration()
         verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
 
@@ -167,7 +167,7 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    #if canImport(Darwin)
+    #if canImport(Security)
     func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -215,7 +215,7 @@ final class SigningTests: XCTestCase {
     }
     #endif
 
-    #if canImport(Darwin)
+    #if canImport(Security)
     func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
@@ -261,7 +261,7 @@ final class SigningTests: XCTestCase {
     }
     #endif
 
-    #if canImport(Darwin)
+    #if canImport(Security)
     func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else

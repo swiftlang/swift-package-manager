@@ -506,7 +506,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             )
 
             // FIXME: test cert chain is not considered valid on non-Darwin platforms
-            #if canImport(Darwin)
+            #if canImport(Security)
             // Read and validate signature
             let signature = try localFileSystem.readFileContents(signaturePath).contents
             let archive = try localFileSystem.readFileContents(archivePath).contents
