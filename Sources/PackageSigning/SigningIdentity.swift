@@ -80,7 +80,7 @@ public struct SigningIdentityStore {
     }
 
     public func find(by label: String) async -> [SigningIdentity] {
-        #if canImport(Security)
+        #if canImport(macOS)
         // Find in Keychain
         let query: [String: Any] = [
             // Use kSecClassCertificate instead of kSecClassIdentity because the latter
