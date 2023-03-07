@@ -326,7 +326,7 @@ struct MyCommandPlugin: CommandPlugin {
 }
 ```
 
-Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessaily operate on just a single target.  The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
+Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessarily operate on just a single target.  The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
 
 Command plugins can also accept arguments, which can control options for the plugin's actions or can further narrow down what the plugin operates on.  This example supports the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
 
