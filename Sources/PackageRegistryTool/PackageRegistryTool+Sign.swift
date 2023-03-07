@@ -17,7 +17,7 @@ import Basics
 import CoreCommands
 import PackageSigning
 import TSCBasic
-@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity init at L128 fails
+@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity init at L139 fails
 
 extension SwiftPackageRegistryTool {
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
@@ -134,7 +134,6 @@ public enum PackageArchiveSigner {
             signingIdentity = identity
             intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
         case .certificate(let certPath, let intermediateCertPaths, let privateKeyPath):
-            // TODO: pass the rest of cert chain to `sign`
             let certificate = try fileSystem.readFileContents(certPath).contents
             let privateKey = try fileSystem.readFileContents(privateKeyPath).contents
             signingIdentity = try SwiftSigningIdentity(

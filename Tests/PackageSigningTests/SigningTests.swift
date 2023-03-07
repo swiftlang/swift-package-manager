@@ -159,14 +159,12 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
-        #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
+
+        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
@@ -209,14 +207,12 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
-        #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
+
+        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
@@ -257,14 +253,12 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
-        #if os(macOS)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
+
+        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_RSA_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")

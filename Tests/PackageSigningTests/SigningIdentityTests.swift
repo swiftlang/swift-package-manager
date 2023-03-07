@@ -78,14 +78,12 @@ final class SigningIdentityTests: XCTestCase {
     }
 
     func testSigningIdentityFromKeychain() async throws {
-        #if canImport(Darwin)
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
         #endif
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
+
+        try PackageSigningTests_skipIfUnsupportedPlatform()
 
         guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
