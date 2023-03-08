@@ -197,9 +197,35 @@ extension ArtifactsArchiveMetadata {
 }
 
 extension Array where Element == DestinationBundle {
-    /// Select destinations matching a given query and host triple from a `self` array of available destinations.
+    /// Select a destination with a given artifact ID from a `self` array of available destinations.
     /// - Parameters:
-    ///   - query: either an artifact ID or target triple to filter with.
+    ///   - id: artifact ID of the destination to look up.
+    ///   - hostTriple: triple of the machine on which the destination is building.
+    ///   - targetTriple: triple of the machine for which the destination is building.
+    /// - Returns: `Destination` value with a given artifact ID, `nil` if none found.
+    public func selectDestination(id: String, hostTriple: Triple, targetTriple: Triple) -> Destination? {
+        for bundle in self {
+            for (artifactID, variants) in bundle.artifacts {
+                guard artifactID == id else {
+                    continue
+                }
+
+                for variant in variants {
+                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
+                        continue
+                    }
+
+                    return variant.destinations.first { $0.targetTriple == targetTriple }
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Select destinations matching a given selector and host triple from a `self` array of available destinations.
+    /// - Parameters:
+    ///   - selector: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these destinations.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
