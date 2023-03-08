@@ -56,6 +56,11 @@ extension DestinationError: CustomStringConvertible {
             was deserialized from an earlier incompatible schema version or initialized manually with missing \
             properties required for initialization
             """
+        case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
+            return """
+            destination with ID \(artifactID), build-time triple \(buildTimeTriple), and run-time triple \
+            \(runTimeTriple) is not currently installed.SB
+            """
         }
     }
 }
