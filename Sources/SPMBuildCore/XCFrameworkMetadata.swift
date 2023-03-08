@@ -14,7 +14,7 @@ import Foundation
 import PackageModel
 import TSCBasic
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 public struct XCFrameworkMetadata: Equatable {
     public struct Library: Equatable {

@@ -12,7 +12,6 @@
 
 import Basics
 import TSCBasic
-import TSCUtility
 
 /// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
 public struct DestinationBundle {

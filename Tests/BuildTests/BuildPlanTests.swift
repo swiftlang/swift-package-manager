@@ -22,7 +22,6 @@ import TSCBasic
 import Workspace
 import XCTest
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 @_implementationOnly import DriverSupport
 
 final class BuildPlanTests: XCTestCase {
@@ -3002,7 +3001,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        func createResult(for triple: TSCUtility.Triple) throws -> BuildPlanResult {
+        func createResult(for triple: Basics.Triple) throws -> BuildPlanResult {
             try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true, destinationTriple: triple),
                 graph: graph,
@@ -3010,7 +3009,7 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             ))
         }
-        let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .macOS]
+        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .macOS]
         for triple in supportingTriples {
             let result = try createResult(for: triple)
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -3019,7 +3018,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(linkExe, [.contains("exe_main")])
         }
 
-        let unsupportingTriples: [TSCUtility.Triple] = [.wasi, .windows]
+        let unsupportingTriples: [Basics.Triple] = [.wasi, .windows]
         for triple in unsupportingTriples {
             let result = try createResult(for: triple)
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -3290,7 +3289,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        func createResult(for dest: TSCUtility.Triple) throws -> BuildPlanResult {
+        func createResult(for dest: Basics.Triple) throws -> BuildPlanResult {
             return try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph,
@@ -4077,7 +4076,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
+        let supportingTriples: [Basics.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
             let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
@@ -4095,7 +4094,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple) throws {
+    func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: Basics.Triple) throws {
         let Pkg: AbsolutePath = AbsolutePath("/Pkg")
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -4250,14 +4249,14 @@ final class BuildPlanTests: XCTestCase {
     func testXCFrameworkBinaryTargets() throws {
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
 
-        let arm64Triple = try TSCUtility.Triple("arm64-apple-macosx")
+        let arm64Triple = try Basics.Triple("arm64-apple-macosx")
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
 
-        let arm64eTriple = try TSCUtility.Triple("arm64e-apple-macosx")
+        let arm64eTriple = try Basics.Triple("arm64e-apple-macosx")
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
-    func testArtifactsArchiveBinaryTargets(artifactTriples:[TSCUtility.Triple], destinationTriple: TSCUtility.Triple) throws -> Bool {
+    func testArtifactsArchiveBinaryTargets(artifactTriples:[Basics.Triple], destinationTriple: Basics.Triple) throws -> Bool {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
@@ -4328,12 +4327,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.macOS], destinationTriple: .macOS))
 
         do {
-            let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
+            let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
             XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: triples.first!))
         }
 
         do {
-            let triples = try ["x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
+            let triples = try ["x86_64-unknown-linux-gnu"].map(Basics.Triple.init)
             XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .macOS))
         }
     }

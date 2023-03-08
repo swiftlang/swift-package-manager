@@ -18,7 +18,6 @@ import SPMBuildCore
 import TSCBasic
 
 import struct TSCUtility.SerializedDiagnostics
-import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {

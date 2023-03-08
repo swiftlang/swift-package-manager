@@ -14,7 +14,6 @@ import Basics
 @testable import PackageModel
 @testable import SPMBuildCore
 import TSCBasic
-import TSCUtility
 import XCTest
 
 private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")

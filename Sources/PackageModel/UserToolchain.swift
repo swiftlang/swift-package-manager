@@ -14,7 +14,6 @@ import Basics
 import Foundation
 import TSCBasic
 
-import struct TSCUtility.Triple
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else

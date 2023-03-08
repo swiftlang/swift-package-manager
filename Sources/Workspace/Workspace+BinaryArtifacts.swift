@@ -17,7 +17,6 @@ import SPMBuildCore
 import TSCBasic
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 import PackageLoading
 
 extension Workspace {

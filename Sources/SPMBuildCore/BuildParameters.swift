@@ -16,7 +16,7 @@ import TSCBasic
 import PackageModel
 import PackageGraph
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.

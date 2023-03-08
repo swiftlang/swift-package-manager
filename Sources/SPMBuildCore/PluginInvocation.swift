@@ -17,8 +17,6 @@ import PackageLoading
 import PackageGraph
 import TSCBasic
 
-import struct TSCUtility.Triple
-
 public enum PluginAction {
     case createBuildToolCommands(package: ResolvedPackage, target: ResolvedTarget)
     case performCommand(package: ResolvedPackage, arguments: [String])

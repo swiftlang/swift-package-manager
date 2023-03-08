@@ -21,7 +21,6 @@ import Workspace
 import XCTest
 
 import struct TSCUtility.SerializedDiagnostics
-import struct TSCUtility.Triple
 
 class PluginInvocationTests: XCTestCase {
 

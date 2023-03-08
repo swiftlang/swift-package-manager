@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import TSCBasic
 
-import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
 public struct ArtifactsArchiveMetadata: Equatable {

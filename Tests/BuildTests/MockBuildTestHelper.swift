@@ -49,12 +49,12 @@ struct MockToolchain: PackageModel.Toolchain {
 }
 
 
-extension TSCUtility.Triple {
-    static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
-    static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
-    static let arm64Android = try! Triple("aarch64-unknown-linux-android")
-    static let windows = try! Triple("x86_64-unknown-windows-msvc")
-    static let wasi = try! Triple("wasm32-unknown-wasi")
+extension Basics.Triple {
+    static let x86_64Linux = try! Self("x86_64-unknown-linux-gnu")
+    static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
+    static let arm64Android = try! Self("aarch64-unknown-linux-android")
+    static let windows = try! Self("x86_64-unknown-windows-msvc")
+    static let wasi = try! Self("wasm32-unknown-wasi")
 }
 
 let hostTriple = try! UserToolchain.default.triple
@@ -71,7 +71,7 @@ func mockBuildParameters(
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    destinationTriple: TSCUtility.Triple = hostTriple,
+    destinationTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true
@@ -94,7 +94,7 @@ func mockBuildParameters(
 }
 
 func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
-    let triple: TSCUtility.Triple
+    let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
         triple = Triple.macOS

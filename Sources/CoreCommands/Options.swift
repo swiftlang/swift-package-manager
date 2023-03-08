@@ -12,6 +12,8 @@
 
 import ArgumentParser
 
+import struct Basics.Triple
+
 import struct Foundation.URL
 
 import enum PackageModel.BuildConfiguration
@@ -26,7 +28,6 @@ import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 import struct TSCBasic.StringError
 
-import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
 import struct Workspace.WorkspaceConfiguration
@@ -188,9 +189,11 @@ public struct SecurityOptions: ParsableArguments {
     /// Whether to load netrc files for authenticating with remote servers
     /// when downloading binary artifacts. This has no effects on registry
     /// communications.
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Load credentials from a netrc file")
+    @Flag(
+        inversion: .prefixedEnableDisable,
+        exclusivity: .exclusive,
+        help: "Load credentials from a netrc file"
+    )
     public var netrc: Bool = true
 
     /// The path to the netrc file used when `netrc` is `true`.
@@ -205,14 +208,18 @@ public struct SecurityOptions: ParsableArguments {
     /// when downloading binary artifacts. This has no effects on registry
     /// communications.
     #if canImport(Security)
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Search credentials in macOS keychain")
+    @Flag(
+        inversion: .prefixedEnableDisable,
+        exclusivity: .exclusive,
+        help: "Search credentials in macOS keychain"
+    )
     public var keychain: Bool = true
     #else
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: .hidden)
+    @Flag(
+        inversion: .prefixedEnableDisable,
+        exclusivity: .exclusive,
+        help: .hidden
+    )
     public var keychain: Bool = false
     #endif
 
@@ -281,38 +288,52 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .shortAndLong, help: "Build with configuration")
     public var configuration: BuildConfiguration = .debug
 
-    @Option(name: .customLong("Xcc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C compiler invocations")
+    @Option(
+        name: .customLong("Xcc", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all C compiler invocations"
+    )
     var cCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xswiftc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all Swift compiler invocations")
+    @Option(
+        name: .customLong("Xswiftc", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all Swift compiler invocations"
+    )
     var swiftCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xlinker", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all linker invocations")
+    @Option(
+        name: .customLong("Xlinker", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all linker invocations"
+    )
     var linkerFlags: [String] = []
 
-    @Option(name: .customLong("Xcxx", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C++ compiler invocations")
+    @Option(
+        name: .customLong("Xcxx", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all C++ compiler invocations"
+    )
     var cxxCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xxcbuild", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp(
-                "Pass flag through to the Xcode build system invocations",
-                visibility: .hidden
-            ))
+    @Option(
+        name: .customLong("Xxcbuild", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: ArgumentHelp(
+            "Pass flag through to the Xcode build system invocations",
+            visibility: .hidden
+        )
+    )
     public var xcbuildFlags: [String] = []
 
-    @Option(name: .customLong("Xmanifest", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp("Pass flag to the manifest build invocation",
-                               visibility: .hidden))
+    @Option(
+        name: .customLong("Xmanifest", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: ArgumentHelp(
+            "Pass flag to the manifest build invocation",
+            visibility: .hidden
+        )
+    )
     var manifestFlags: [String] = []
 
     public var buildFlags: BuildFlags {
@@ -409,10 +430,13 @@ public struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     public var enableTestDiscovery: Bool = false
 
-    /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if present).
+    /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
+    /// present).
     /// This implies `--enable-test-discovery`
-    @Option(name: .customLong("experimental-test-entry-point-path"),
-            help: .hidden)
+    @Option(
+        name: .customLong("experimental-test-entry-point-path"),
+        help: .hidden
+    )
     public var testEntryPointPath: AbsolutePath?
 
     // @Flag works best when there is a default value present

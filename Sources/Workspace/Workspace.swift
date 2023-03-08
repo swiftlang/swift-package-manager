@@ -25,7 +25,6 @@ import TSCBasic
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
-import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
 public typealias Diagnostic = TSCBasic.Diagnostic
