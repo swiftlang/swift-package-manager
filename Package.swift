@@ -737,8 +737,3 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
     ]
 }
-
-// Enable building macros as dynamic libraries by default for bring-up.
-for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
-    target.swiftSettings = (target.swiftSettings ?? []) + [ .define("BUILD_MACROS_AS_DYLIBS") ]
-}
