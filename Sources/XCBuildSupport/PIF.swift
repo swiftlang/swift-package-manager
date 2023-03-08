@@ -775,44 +775,50 @@ public enum PIF {
         public var headerVisibility: HeaderVisibility? = nil
         public var platformFilters: [PlatformFilter]
 
-        public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .file(guid: file.guid)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, fileGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, fileGUID: PIF.GUID, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .file(guid: fileGUID)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, target: PIF.BaseTarget, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, target: PIF.BaseTarget, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .target(guid: target.guid)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, targetGUID: PIF.GUID, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, targetGUID: PIF.GUID, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = .target(guid: targetGUID)
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
-        public init(guid: GUID, reference: Reference, platformFilters: [PlatformFilter]) {
+        public init(guid: GUID, reference: Reference, platformFilters: [PlatformFilter], headerVisibility: HeaderVisibility? = nil) {
             self.guid = guid
             self.reference = reference
             self.platformFilters = platformFilters
+            self.headerVisibility = headerVisibility
         }
 
         private enum CodingKeys: CodingKey {
-            case guid, platformFilters, fileReference, targetReference
+            case guid, platformFilters, fileReference, targetReference, headerVisibility
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(guid, forKey: .guid)
             try container.encode(platformFilters, forKey: .platformFilters)
+            try container.encodeIfPresent(headerVisibility, forKey: .headerVisibility)
 
             switch self.reference {
             case .file(let fileGUID):
@@ -826,6 +832,7 @@ public enum PIF {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             guid = try container.decode(GUID.self, forKey: .guid)
             platformFilters = try container.decode([PlatformFilter].self, forKey: .platformFilters)
+            headerVisibility = try container.decodeIfPresent(HeaderVisibility.self, forKey: .headerVisibility)
 
             if container.allKeys.contains(.fileReference) {
                 reference = try .file(guid: container.decode(GUID.self, forKey: .fileReference))
