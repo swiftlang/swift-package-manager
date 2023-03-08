@@ -13,7 +13,7 @@
 import struct Foundation.Data
 
 #if canImport(Security)
-import Security
+@_implementationOnly import Security
 #endif
 
 import Basics

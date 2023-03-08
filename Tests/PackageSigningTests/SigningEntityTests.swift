@@ -52,7 +52,7 @@ final class SigningEntityTests: XCTestCase {
         }
     }
 
-    #if canImport(macOS)
+    #if os(macOS)
     func testFromKeychainCertificate() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
