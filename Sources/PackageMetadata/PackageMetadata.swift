@@ -201,4 +201,42 @@ public struct PackageSearchClient {
             return fetchStandalonePackageByURL(nil)
         }
     }
+
+    public func lookupIdentities(
+        scmURL: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
+    ) {
+        return registryClient.lookupIdentities(
+            scmURL: scmURL,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            completion: completion
+        )
+    }
+
+    public func lookupSCMURLs(
+        package: PackageIdentity,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Set<URL>, Error>) -> Void
+    ) {
+        return registryClient.getPackageMetadata(
+            package: package,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue) { result in
+                do {
+                    let metadata = try result.get()
+                    let alternateLocations = metadata.alternateLocations ?? []
+                    return completion(.success(Set(alternateLocations)))
+                } catch {
+                    return completion(.failure(error))
+                }
+            }
+    }
 }
