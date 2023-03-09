@@ -47,7 +47,8 @@ struct ResetConfiguration: DestinationCommand {
     @Flag(help: "Reset custom configuration for a path to a toolset file.")
     var toolsetPath = false
 
-    @Argument(help: """
+    @Argument(
+        help: """
         An identifier of an already installed destination. Use the `list` subcommand to see all available \
         identifiers.
         """
@@ -118,7 +119,8 @@ struct ResetConfiguration: DestinationCommand {
         if shouldResetAll {
             if try !configurationStore.resetConfiguration(destinationID: destinationID, runTimeTriple: triple) {
                 observabilityScope.emit(
-                    warning: "No configuration for destination \(destinationID)")
+                    warning: "No configuration for destination \(destinationID)"
+                )
             }
         } else {
             try configurationStore.updateConfiguration(destinationID: destinationID, destination: destination)

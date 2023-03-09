@@ -16,15 +16,15 @@ import CoreCommands
 import Dispatch
 import PackageModel
 
-import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
 
 /// A protocol for functions and properties common to all destination subcommands.
 protocol DestinationCommand: ParsableCommand {
     /// Common locations options provided by ArgumentParser.
     var locations: LocationOptions { get }
-    
+
     /// Run a command operating on cross-compilation destinations, passing it required configuration values.
     /// - Parameters:
     ///   - buildTimeTriple: triple of the machine this command is running on.

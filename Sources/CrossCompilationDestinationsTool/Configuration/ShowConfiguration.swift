@@ -28,7 +28,8 @@ struct ShowConfiguration: DestinationCommand {
     @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
 
-    @Argument(help: """
+    @Argument(
+        help: """
         An identifier of an already installed destination. Use the `list` subcommand to see all available \
         identifiers.
         """
