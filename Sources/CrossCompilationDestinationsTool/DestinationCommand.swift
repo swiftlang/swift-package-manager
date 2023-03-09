@@ -19,6 +19,7 @@ import PackageModel
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
+import var TSCBasic.stdoutStream
 
 /// A protocol for functions and properties common to all destination subcommands.
 protocol DestinationCommand: ParsableCommand {
@@ -62,7 +63,8 @@ extension DestinationCommand {
     }
 
     public func run() throws {
-        let (observabilitySystem, observabilityHandler) = ObservabilitySystem.swiftTool(logLevel: .info)
+        let observabilityHandler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
+        let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
