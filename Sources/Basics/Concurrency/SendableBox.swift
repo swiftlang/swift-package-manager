@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import struct Foundation.Date
 
 /// A `Sendable` storage that allows access from concurrently running tasks in 
@@ -44,5 +42,3 @@ extension SendableBox where Value == Date {
         value = Date()
     }
 }
-
-#endif

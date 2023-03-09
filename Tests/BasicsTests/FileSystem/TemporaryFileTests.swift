@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import XCTest
 import TSCBasic
 
@@ -92,5 +90,3 @@ class TemporaryAsyncFileTests: XCTestCase {
         } catch {}
     }
 }
-
-#endif

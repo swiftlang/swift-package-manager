@@ -29,8 +29,6 @@ final class URLSessionHTTPClient {
         self.downloadTaskManager = DownloadTaskManager(configuration: configuration)
     }
 
-#if swift(>=5.5.2)
-
     @Sendable
     func execute(
         _ request: HTTPClient.Request,
@@ -61,8 +59,6 @@ final class URLSessionHTTPClient {
             task.resume()
         }
     }
-
-#endif
 
     public func execute(
         _ request: LegacyHTTPClient.Request,
@@ -350,8 +346,6 @@ extension URLRequest {
         }
     }
 
-// For `HTTPClient` to be available we need Swift Concurrency back-deployment.
-#if swift(>=5.5.2)
     init(_ request: HTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string
@@ -363,7 +357,6 @@ extension URLRequest {
             self.timeoutInterval = interval
         }
     }
-#endif
 }
 
 private extension HTTPURLResponse {

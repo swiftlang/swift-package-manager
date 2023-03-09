@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 @testable import Basics
 import SPMTestSupport
 import XCTest
@@ -428,5 +426,3 @@ private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPCl
 private func assertResponseHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
     XCTAssertEqual(headers, expected, "expected headers to match")
 }
-
-#endif

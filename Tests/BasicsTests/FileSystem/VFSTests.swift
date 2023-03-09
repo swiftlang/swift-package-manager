@@ -14,8 +14,6 @@ import Basics
 import TSCBasic
 import XCTest
 
-#if swift(>=5.5.2)
-
 func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: @escaping (AbsolutePath) async throws -> Void
@@ -33,8 +31,6 @@ func testWithTemporaryDirectory(
         try await  body(tmpDirPath)
     }.value
 }
-
-#endif
 
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
