@@ -79,7 +79,7 @@ public struct SigningIdentityStore {
         self.observabilityScope = observabilityScope
     }
 
-    public func find(by label: String) async -> [SigningIdentity] {
+    public func find(by label: String) -> [SigningIdentity] {
         #if os(macOS)
         // Find in Keychain
         let query: [String: Any] = [
