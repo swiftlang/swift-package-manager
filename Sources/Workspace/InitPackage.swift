@@ -171,6 +171,9 @@ public final class InitPackage {
 
               addIfMissing(.init(platform: .macOS, version: .init("10.15")))
               addIfMissing(.init(platform: .iOS, version: .init("13")))
+              addIfMissing(.init(platform: .tvOS, version: .init("13")))
+              addIfMissing(.init(platform: .watchOS, version: .init("6")))
+              addIfMissing(.init(platform: .macCatalyst, version: .init("13")))
             }
 
             var platformsParams = [String]()
@@ -273,11 +276,7 @@ public final class InitPackage {
                             // Macro implementation, only built for the host and never part of a client program.
                             .macro(name: "\(pkgname)Macros",
                                    dependencies: [
-                                     .product(name: "SwiftSyntax", package: "swift-syntax"),
                                      .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                     .product(name: "SwiftOperators", package: "swift-syntax"),
-                                     .product(name: "SwiftParser", package: "swift-syntax"),
-                                     .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
                                      .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                                    ]
                             ),
