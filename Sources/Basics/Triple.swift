@@ -297,3 +297,16 @@ extension Triple.Error: CustomNSError {
         [NSLocalizedDescriptionKey: "\(self)"]
     }
 }
+
+extension Triple.Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .badFormat(let triple):
+            return "couldn't parse triple string \(triple)"
+        case .unknownArch(let arch):
+            return "unknown architecture \(arch)"
+        case .unknownOS(let os):
+            return "unknown OS \(os)"
+        }
+    }
+}
