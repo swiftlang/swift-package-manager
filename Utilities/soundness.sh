@@ -66,7 +66,7 @@ for language in swift-or-c bash python; do
       swift-or-c)
         exceptions=( 
           -name "Package.swift" 
-          -name "Sources/PackageSigning/embedded_resources.swift"
+          -o -path "./Sources/PackageSigning/embedded_resources.swift"
           -o -path "./Examples/*" 
           -o -path "./Fixtures/*" 
           -o -path "./IntegrationTests/*" 
