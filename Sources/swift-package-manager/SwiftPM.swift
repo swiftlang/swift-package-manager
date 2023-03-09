@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Commands
 import CrossCompilationDestinationsTool
 import PackageCollectionsTool
@@ -21,8 +22,9 @@ let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
     (try? RelativePath(validating: firstArg).basenameWithoutExt)
 
 @main
+@available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
 struct SwiftPM {
-    static func main() {
+    static func main() async {
         switch execName {
         case "swift-package":
             SwiftPackageTool.main()
@@ -37,7 +39,7 @@ struct SwiftPM {
         case "swift-package-collection":
             SwiftPackageCollectionsTool.main()
         case "swift-package-registry":
-            SwiftPackageRegistryTool.main()
+            await SwiftPackageRegistryTool.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }
