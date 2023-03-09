@@ -44,11 +44,11 @@ public struct Toolset: Equatable {
     }
 
     /// A dictionary of known tools in this toolset.
-    public internal(set) var knownTools: [KnownTool: ToolProperties]
+    public internal(set) var knownTools: [KnownTool: ToolProperties] = [:]
 
     /// An array of paths specified as `rootPath` in toolset files from which this toolset was formed. May be used
     /// for locating tools that aren't currently listed in ``Toolset/KnownTool``.
-    public internal(set) var rootPaths: [AbsolutePath]
+    public internal(set) var rootPaths: [AbsolutePath] = []
 }
 
 extension Toolset.ToolProperties {

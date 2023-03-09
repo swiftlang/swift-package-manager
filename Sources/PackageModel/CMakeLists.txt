@@ -13,6 +13,7 @@ add_library(PackageModel
   BuildFlags.swift
   BuildSettings.swift
   Destination.swift
+  DestinationConfigurationStore.swift
   DestinationBundle.swift
   Diagnostics.swift
   IdentityResolver.swift

@@ -16,6 +16,7 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
+/// Errors related to cross-compilation destinations.
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
     case invalidInstallation(String)
@@ -28,6 +29,14 @@ public enum DestinationError: Swift.Error {
 
     /// Path used for storing destination configuration data is not a directory.
     case configurationPathIsNotDirectory(AbsolutePath)
+
+    /// A destination couldn't be serialized with the latest serialization schema, potentially because it
+    /// was deserialized from an earlier incompatible schema version or initialized manually with properties
+    /// required for initialization missing.
+    case unserializableDestination
+
+    /// No configuration values are available for this destination and run-time triple.
+    case destinationNotFound(artifactID: String, builtTimeTriple: Triple, runTimeTriple: Triple)
 }
 
 extension DestinationError: CustomStringConvertible {
@@ -41,6 +50,17 @@ extension DestinationError: CustomStringConvertible {
             return "no valid destinations were decoded from a destination file at path `\(path)`"
         case .configurationPathIsNotDirectory(let path):
             return "path used for storing configuration files is not a directory: `\(path)`"
+        case .unserializableDestination:
+            return """
+            destination couldn't be serialized with the latest serialization schema, potentially because it \
+            was deserialized from an earlier incompatible schema version or initialized manually with missing \
+            properties required for initialization
+            """
+        case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
+            return """
+            destination with ID \(artifactID), build-time triple \(buildTimeTriple), and run-time triple \
+            \(runTimeTriple) is not currently installed.SB
+            """
         }
     }
 }
@@ -62,6 +82,7 @@ public struct Destination: Equatable {
     /// The clang/LLVM triple describing the host platform that supports this destination.
     public let hostTriple: Triple?
 
+    // FIXME: this needs to be implemented with either multiple destinations or making ``targetTriple`` an array.
     /// The architectures to build for. We build for host architecture if this is empty.
     public var architectures: [String]? = nil
 
@@ -335,6 +356,7 @@ public struct Destination: Equatable {
         return sdkPlatformFrameworkPath
     }
 
+    // FIXME: convert this from a tuple to a proper struct with documented properties
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
 
@@ -423,30 +445,76 @@ extension Destination {
                 }
 
                 return try Destination(
-                    targetTriple: triple,
+                    runTimeTriple: triple,
+                    properties: properties,
                     toolset: toolset,
-                    pathsConfiguration: .init(
-                        sdkRootPath: AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
-                        swiftResourcesPath: properties.swiftResourcesPath.map {
-                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                        },
-                        swiftStaticResourcesPath: properties.swiftStaticResourcesPath.map {
-                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                        },
-                        includeSearchPaths: properties.includeSearchPaths?.map {
-                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                        },
-                        librarySearchPaths: properties.librarySearchPaths?.map {
-                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                        },
-                        toolsetPaths: properties.toolsetPaths?.map {
-                            try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                        }
-                    )
+                    destinationDirectory: destinationDirectory
                 )
             }
         default:
             throw DestinationError.invalidSchemaVersion
+        }
+    }
+
+    
+    /// Initialize new destination from values deserialized using v3 schema.
+    /// - Parameters:
+    ///   - runTimeTriple: triple of the machine running code built with this destination.
+    ///   - properties: properties of the destination for the given triple.
+    ///   - toolset: combined toolset used by this destination.
+    ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
+    init(
+        runTimeTriple: Triple,
+        properties: SerializedDestinationV3.TripleProperties,
+        toolset: Toolset = .init(),
+        destinationDirectory: AbsolutePath? = nil
+    ) throws {
+        if let destinationDirectory = destinationDirectory {
+            self.init(
+                targetTriple: runTimeTriple,
+                toolset: toolset,
+                pathsConfiguration: .init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    }
+                )
+            )
+        } else {
+            self.init(
+                targetTriple: runTimeTriple,
+                toolset: toolset,
+                pathsConfiguration: .init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    }
+                )
+            )
         }
     }
 
@@ -505,21 +573,24 @@ extension Destination {
     /// Returns a pair that can be used to reconstruct a `SerializedDestinationV3` value for storage. `nil` if
     /// required configuration properties aren't available on `self`, which can happen if `Destination` was decoded
     /// from different schema versions or constructed manually without providing valid values for such properties.
-    var serialized: (Triple, SerializedDestinationV3.TripleProperties)? {
-        guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
-            return nil
+    var serialized: (Triple, SerializedDestinationV3.TripleProperties) {
+        get throws {
+            guard let runTimeTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
+                throw DestinationError.unserializableDestination
+            }
+            
+            return (
+                runTimeTriple,
+                .init(
+                    sdkRootPath: sdkRootDir.pathString,
+                    swiftResourcesPath: self.pathsConfiguration.swiftResourcesPath?.pathString,
+                    swiftStaticResourcesPath: self.pathsConfiguration.swiftStaticResourcesPath?.pathString,
+                    includeSearchPaths: self.pathsConfiguration.includeSearchPaths?.map(\.pathString),
+                    librarySearchPaths: self.pathsConfiguration.librarySearchPaths?.map(\.pathString),
+                    toolsetPaths: self.pathsConfiguration.toolsetPaths?.map(\.pathString)
+                )
+            )
         }
-
-        return (
-            runTimeTriple,
-            .init(
-                sdkRootPath: sdkRootDir.pathString,
-                swiftResourcesPath: self.pathsConfiguration.swiftResourcesPath?.pathString,
-                swiftStaticResourcesPath: self.pathsConfiguration.swiftStaticResourcesPath?.pathString,
-                includeSearchPaths: self.pathsConfiguration.includeSearchPaths?.map(\.pathString),
-                librarySearchPaths: self.pathsConfiguration.librarySearchPaths?.map(\.pathString),
-                toolsetPaths: self.pathsConfiguration.toolsetPaths?.map(\.pathString)
-            ))
     }
 }
 
