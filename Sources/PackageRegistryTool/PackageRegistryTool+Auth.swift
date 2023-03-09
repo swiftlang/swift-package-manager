@@ -58,7 +58,7 @@ private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
 #endif
 
 extension SwiftPackageRegistryTool {
-    struct Login: AsyncSwiftCommand {
+    struct Login: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry"
         )
@@ -87,7 +87,7 @@ extension SwiftPackageRegistryTool {
 
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             let configuration = try getRegistriesConfig(swiftTool)
 
             // compute and validate registry URL
@@ -257,7 +257,7 @@ extension SwiftPackageRegistryTool {
         }
     }
 
-    struct Logout: AsyncSwiftCommand {
+    struct Logout: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Log out from a registry"
         )
@@ -272,7 +272,7 @@ extension SwiftPackageRegistryTool {
             self.url
         }
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             let configuration = try getRegistriesConfig(swiftTool)
 
             // compute and validate registry URL

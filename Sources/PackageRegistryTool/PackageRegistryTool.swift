@@ -20,43 +20,30 @@ import TSCBasic
 import Workspace
 
 @available(macOS 10.15, macCatalyst 13, iOS 13, tvOS 13, watchOS 6, *)
-public struct SwiftPackageRegistryTool: AsyncParsableCommand {
+public struct SwiftPackageRegistryTool: ParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
         abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: Self.subcommands,
+        subcommands:[
+            Set.self,
+            Unset.self,
+            Login.self,
+            Logout.self,
+            Publish.self,
+            Sign.self,
+        ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
-
-    private static var subcommands: [ParsableCommand.Type] {
-        if #available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) {
-            return [
-                Set.self,
-                Unset.self,
-                Login.self,
-                Logout.self,
-                Publish.self,
-                Sign.self,
-            ] as [ParsableCommand.Type]
-        } else {
-            return [
-                Set.self,
-                Unset.self,
-                Login.self,
-                Logout.self,
-            ] as [ParsableCommand.Type]
-        }
-    }
 
     @OptionGroup()
     var globalOptions: GlobalOptions
 
     public init() {}
 
-    struct Set: AsyncSwiftCommand {
+    struct Set: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Set a custom registry"
         )
@@ -77,7 +64,7 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
             self.url
         }
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             try self.registryURL.validateRegistryURL()
 
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
@@ -99,7 +86,7 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         }
     }
 
-    struct Unset: AsyncSwiftCommand {
+    struct Unset: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove a configured registry"
         )
@@ -113,7 +100,7 @@ public struct SwiftPackageRegistryTool: AsyncParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
