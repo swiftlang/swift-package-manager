@@ -20,7 +20,6 @@ import SPMTestSupport
 import func TSCBasic.tsc_await
 import X509
 
-#if swift(>=5.5.2)
 final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
         let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
@@ -413,4 +412,3 @@ final class SigningTests: XCTestCase {
         }
     }
 }
-#endif

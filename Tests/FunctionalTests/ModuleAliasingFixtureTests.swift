@@ -21,10 +21,6 @@ import XCTest
 class ModuleAliasingFixtureTests: XCTestCase {
 
     func testModuleDirectDeps1() throws {
-        #if swift(<5.7)
-        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
-        #endif
-
         try fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
@@ -39,10 +35,6 @@ class ModuleAliasingFixtureTests: XCTestCase {
     }
 
     func testModuleDirectDeps2() throws {
-        #if swift(<5.7)
-        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.7+")
-        #endif
-
         try fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")

@@ -10,9 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// `Sendable` conformance on contained types requires Swift Concurrency back-deployment.
-#if swift(>=5.5.2)
-
 import Foundation
 
 public struct HTTPClientConfiguration: Sendable {
@@ -43,8 +40,6 @@ public struct HTTPClientConfiguration: Sendable {
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
     public var maxConcurrentRequests: Int?
 }
-
-#endif
 
 public enum HTTPClientRetryStrategy: Sendable {
     case exponentialBackoff(maxAttempts: Int, baseDelay: SendableTimeInterval)

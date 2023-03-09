@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
 import _Concurrency
-#endif
-
 import Dispatch
 import struct Foundation.Data
 
@@ -186,7 +183,6 @@ struct SignatureValidation {
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
-        #if swift(>=5.5.2)
         Task {
             do {
                 let signatureStatus = try await SignatureProvider.status(
@@ -234,8 +230,5 @@ struct SignatureValidation {
                 completion(.failure(RegistryError.failedToValidateSignature(error)))
             }
         }
-        #else
-        completion(.failure(InternalError("package signature validation not supported")))
-        #endif
     }
 }
