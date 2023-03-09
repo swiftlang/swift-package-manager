@@ -64,7 +64,15 @@ for language in swift-or-c bash python; do
   matching_files=( -name '*' )
   case "$language" in
       swift-or-c)
-        exceptions=( -name "Package.swift" -o -path "./Examples/*" -o -path "./Fixtures/*" -o -path "./IntegrationTests/*" -o -path "./Tests/ExtraTests/*" -o -path "./Tests/PackageLoadingTests/Inputs/*"  )
+        exceptions=( 
+          -name "Package.swift" 
+          -name "Sources/PackageSigning/embedded_resources.swift"
+          -o -path "./Examples/*" 
+          -o -path "./Fixtures/*" 
+          -o -path "./IntegrationTests/*" 
+          -o -path "./Tests/ExtraTests/*" 
+          -o -path "./Tests/PackageLoadingTests/Inputs/*"  
+        )
         matching_files=( -name '*.swift' -o -name '*.c' -o -name '*.h' )
         cat > "$tmp" <<"EOF"
 //===----------------------------------------------------------------------===//
