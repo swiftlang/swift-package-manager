@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 extension Triple {
     public func platformBuildPathComponent() -> String {

@@ -13,7 +13,6 @@
 import Basics
 @testable import PackageModel
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class PackageModelTests: XCTestCase {

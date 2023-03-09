@@ -45,7 +45,6 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
-import struct TSCUtility.Triple
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic

@@ -25,7 +25,6 @@ import TSCBasic
 import XCTest
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {

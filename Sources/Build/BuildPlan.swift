@@ -22,7 +22,6 @@ import SPMBuildCore
 import TSCBasic
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 import var TSCUtility.verbosity
 
 extension String {
@@ -1092,7 +1091,7 @@ func generateResourceInfoPlist(
     return true
 }
 
-extension TSCUtility.Triple {
+extension Basics.Triple {
     var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
     }

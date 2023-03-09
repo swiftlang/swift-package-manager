@@ -48,6 +48,7 @@ add_library(Basics
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
+  Triple.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC

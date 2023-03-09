@@ -25,7 +25,6 @@ import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
-import struct TSCUtility.Triple
 
 SwiftBootstrapBuildTool.main()
 

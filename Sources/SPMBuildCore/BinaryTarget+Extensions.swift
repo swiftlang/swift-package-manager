@@ -16,8 +16,6 @@ import PackageModel
 import PackageGraph
 import TSCBasic
 
-import struct TSCUtility.Triple
-
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {
     /// The path to the binary.

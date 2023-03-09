@@ -14,7 +14,6 @@ import Basics
 import Foundation
 import TSCBasic
 
-import struct TSCUtility.Triple
 import struct TSCUtility.Version
 
 public enum DestinationError: Swift.Error {
