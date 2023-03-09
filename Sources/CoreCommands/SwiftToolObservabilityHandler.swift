@@ -48,7 +48,7 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.outputStream
     }
 
-    func wait(timeout: DispatchTime) {
+    public func wait(timeout: DispatchTime) {
         self.outputHandler.wait(timeout: timeout)
     }
 
@@ -198,7 +198,8 @@ extension ObservabilitySystem {
     public static func swiftTool(
         outputStream: OutputByteStream = stdoutStream,
         logLevel: Basics.Diagnostic.Severity = .warning
-    ) -> ObservabilitySystem {
-        .init(SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: logLevel))
+    ) -> (ObservabilitySystem, SwiftToolObservabilityHandler) {
+        let handler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: logLevel)
+        return (ObservabilitySystem(handler), handler)
     }
 }

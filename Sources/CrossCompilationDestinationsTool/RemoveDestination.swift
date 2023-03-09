@@ -14,6 +14,8 @@ import ArgumentParser
 import Basics
 import CoreCommands
 
+import struct TSCBasic.AbsolutePath
+
 struct RemoveDestination: DestinationCommand {
     static let configuration = CommandConfiguration(
         commandName: "remove",
@@ -28,7 +30,11 @@ struct RemoveDestination: DestinationCommand {
     @Argument(help: "Name of the destination artifact bundle to remove from the filesystem.")
     var bundleName: String
 
-    func run() throws {
+    func run(
+        buildTimeTriple: Triple,
+        _ destinationsDirectory: AbsolutePath,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
         let artifactBundleDirectory = destinationsDirectory.appending(component: self.bundleName)
 

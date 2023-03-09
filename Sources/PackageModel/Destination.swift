@@ -176,19 +176,91 @@ public struct Destination: Equatable {
         public var sdkRootPath: AbsolutePath?
 
         /// Path containing Swift resources for dynamic linking.
-        private(set) var swiftResourcesPath: AbsolutePath?
+        public var swiftResourcesPath: AbsolutePath?
 
         /// Path containing Swift resources for static linking.
-        private(set) var swiftStaticResourcesPath: AbsolutePath?
+        public var swiftStaticResourcesPath: AbsolutePath?
 
         /// Array of paths containing headers.
-        private(set) var includeSearchPaths: [AbsolutePath]?
+        public var includeSearchPaths: [AbsolutePath]?
 
         /// Array of paths containing libraries.
-        private(set) var librarySearchPaths: [AbsolutePath]?
+        public var librarySearchPaths: [AbsolutePath]?
 
         /// Array of paths containing toolset files.
-        private(set) var toolsetPaths: [AbsolutePath]?
+        public var toolsetPaths: [AbsolutePath]?
+
+        /// Initialize paths configuration from values deserialized using v3 schema.
+        /// - Parameters:
+        ///   - properties: properties of the destination for the given triple.
+        ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
+        init(_ properties: SerializedDestinationV3.TripleProperties, destinationDirectory: AbsolutePath? = nil) throws {
+            if let destinationDirectory = destinationDirectory {
+                self.init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
+                    }
+                )
+            } else {
+                self.init(
+                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
+                    swiftResourcesPath: try properties.swiftResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    includeSearchPaths: try properties.includeSearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    librarySearchPaths: try properties.librarySearchPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    },
+                    toolsetPaths: try properties.toolsetPaths?.map {
+                        try AbsolutePath(validating: $0)
+                    }
+                )
+            }
+        }
+
+        public mutating func merge(with newConfiguration: Self) {
+            if let sdkRootPath = newConfiguration.sdkRootPath {
+                self.sdkRootPath = sdkRootPath
+            }
+
+            if let swiftResourcesPath = newConfiguration.swiftResourcesPath {
+                self.swiftResourcesPath = swiftResourcesPath
+            }
+
+            if let swiftStaticResourcesPath = newConfiguration.swiftStaticResourcesPath {
+                self.swiftStaticResourcesPath = swiftStaticResourcesPath
+            }
+
+            if let includeSearchPaths = newConfiguration.includeSearchPaths {
+                self.includeSearchPaths = includeSearchPaths
+            }
+
+            if let librarySearchPaths = newConfiguration.librarySearchPaths {
+                self.librarySearchPaths = librarySearchPaths
+            }
+
+            if let toolsetPaths = newConfiguration.toolsetPaths {
+                self.toolsetPaths = toolsetPaths
+            }
+        }
     }
 
     /// Configuration of file system paths used by this destination when building.
@@ -469,53 +541,11 @@ extension Destination {
         toolset: Toolset = .init(),
         destinationDirectory: AbsolutePath? = nil
     ) throws {
-        if let destinationDirectory = destinationDirectory {
-            self.init(
-                targetTriple: runTimeTriple,
-                toolset: toolset,
-                pathsConfiguration: .init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: destinationDirectory)
-                    }
-                )
-            )
-        } else {
-            self.init(
-                targetTriple: runTimeTriple,
-                toolset: toolset,
-                pathsConfiguration: .init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    }
-                )
-            )
-        }
+        self.init(
+            targetTriple: runTimeTriple,
+            toolset: toolset,
+            pathsConfiguration: try .init(properties, destinationDirectory: destinationDirectory)
+        )
     }
 
     /// Load a ``Destination`` description from a legacy JSON representation from disk.

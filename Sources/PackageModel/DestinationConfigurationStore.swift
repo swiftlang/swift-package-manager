@@ -94,6 +94,20 @@ public final class DestinationConfigurationStore {
             component: "\(destinationID)_\(triple.tripleString).json"
         )
 
+        let destinationBundles = try DestinationBundle.getAllValidBundles(
+            destinationsDirectory: destinationsDirectoryPath,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        guard var destination = destinationBundles.selectDestination(
+            id: destinationID,
+            hostTriple: buildTimeTriple,
+            targetTriple: triple
+        ) else {
+            return nil
+        }
+
         if fileSystem.isFile(configurationPath) {
             let properties = try decoder.decode(
                 path: configurationPath,
@@ -101,23 +115,15 @@ public final class DestinationConfigurationStore {
                 as: SerializedDestinationV3.TripleProperties.self
             )
 
-            return try Destination(
-                runTimeTriple: triple,
-                properties: properties
-            )
-        } else {
-            let destinationBundles = try DestinationBundle.getAllValidBundles(
-                destinationsDirectory: destinationsDirectoryPath,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            )
-
-            return destinationBundles.selectDestination(
-                id: destinationID,
-                hostTriple: buildTimeTriple,
-                targetTriple: triple
+            destination.pathsConfiguration.merge(
+                with: try Destination(
+                    runTimeTriple: triple,
+                    properties: properties
+                ).pathsConfiguration
             )
         }
+
+        return destination
     }
 
     /// Resets configuration for identified destination triple.
