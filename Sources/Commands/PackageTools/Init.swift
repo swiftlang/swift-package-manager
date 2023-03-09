@@ -31,6 +31,7 @@ extension SwiftPackageTool {
                 tool              - A package with an executable that uses
                                     Swift Argument Parser. Use this template if you
                                     plan to have a rich set of command-line arguments.
+                macro             - A package that vends a macro.
                 empty             - An empty package with a Package.swift manifest.
                 """))
         var initMode: InitPackage.PackageType = .library
