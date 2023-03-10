@@ -80,13 +80,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testLocalConfiguration() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -193,13 +186,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
     // TODO: Test global configuration
 
     func testSetMissingURL() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -220,13 +206,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidURL() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -247,13 +226,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidScope() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -277,13 +249,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testUnsetMissingEntry() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -327,15 +292,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
     // TODO: Test example with login and password
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func testArchiving() throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
         #if os(Linux)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
