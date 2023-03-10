@@ -20,6 +20,7 @@ public struct SwiftDestinationTool: ParsableCommand {
         abstract: "Perform operations on Swift cross-compilation destinations.",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
+            ConfigureDestination.self,
             InstallDestination.self,
             ListDestinations.self,
             RemoveDestination.self,

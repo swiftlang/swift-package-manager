@@ -35,11 +35,11 @@ struct InstallDestination: DestinationCommand {
     @Argument(help: "A local filesystem path or a URL of an artifact bundle to install.")
     var bundlePathOrURL: String
 
-    func run() throws {
-        let observabilitySystem = ObservabilitySystem.swiftTool()
-        let observabilityScope = observabilitySystem.topScope
-        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
-
+    func run(
+        buildTimeTriple: Triple,
+        _ destinationsDirectory: AbsolutePath,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
         if
             let bundleURL = URL(string: bundlePathOrURL),
             let scheme = bundleURL.scheme,
@@ -78,6 +78,6 @@ struct InstallDestination: DestinationCommand {
             throw StringError("Argument `\(bundlePathOrURL)` is neither a valid filesystem path nor a URL.")
         }
 
-        print("Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
     }
 }

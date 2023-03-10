@@ -11,13 +11,31 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
-import TSCBasic
+import Dispatch
+import PackageModel
+
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
+import var TSCBasic.localFileSystem
+import var TSCBasic.stdoutStream
 
 /// A protocol for functions and properties common to all destination subcommands.
 protocol DestinationCommand: ParsableCommand {
     /// Common locations options provided by ArgumentParser.
     var locations: LocationOptions { get }
+
+    /// Run a command operating on cross-compilation destinations, passing it required configuration values.
+    /// - Parameters:
+    ///   - buildTimeTriple: triple of the machine this command is running on.
+    ///   - destinationsDirectory: directory containing destination artifact bundles and their configuration.
+    ///   - observabilityScope: observability scope used for logging.
+    func run(
+        buildTimeTriple: Triple,
+        _ destinationsDirectory: AbsolutePath,
+        _ observabilityScope: ObservabilityScope
+    ) throws
 }
 
 extension DestinationCommand {
@@ -42,5 +60,32 @@ extension DestinationCommand {
         }
 
         return destinationsDirectory
+    }
+
+    public func run() throws {
+        let observabilityHandler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
+        let observabilitySystem = ObservabilitySystem(observabilityHandler)
+        let observabilityScope = observabilitySystem.topScope
+        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
+
+        let hostToolchain = try UserToolchain(destination: Destination.hostDestination())
+        let triple = Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+
+        var commandError: Error? = nil
+        do {
+            try self.run(buildTimeTriple: triple, destinationsDirectory, observabilityScope)
+            if observabilityScope.errorsReported {
+                throw ExitCode.failure
+            }
+        } catch {
+            commandError = error
+        }
+
+        // wait for all observability items to process
+        observabilityHandler.wait(timeout: .now() + 5)
+
+        if let error = commandError {
+            throw error
+        }
     }
 }

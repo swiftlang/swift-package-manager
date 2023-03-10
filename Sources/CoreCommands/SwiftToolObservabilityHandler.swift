@@ -53,7 +53,7 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.prompt(message: message, completion: completion)
     }
 
-    func wait(timeout: DispatchTime) {
+    public func wait(timeout: DispatchTime) {
         self.outputHandler.wait(timeout: timeout)
     }
 
@@ -210,14 +210,5 @@ extension ObservabilityMetadata {
 extension Basics.Diagnostic.Severity {
     fileprivate var isVerbose: Bool {
         return self <= .info
-    }
-}
-
-extension ObservabilitySystem {
-    public static func swiftTool(
-        outputStream: OutputByteStream = stdoutStream,
-        logLevel: Basics.Diagnostic.Severity = .warning
-    ) -> ObservabilitySystem {
-        .init(SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: logLevel))
     }
 }

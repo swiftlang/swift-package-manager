@@ -15,9 +15,10 @@ import Basics
 import CoreCommands
 import PackageModel
 import SPMBuildCore
-import TSCBasic
 
-public struct ListDestinations: DestinationCommand {
+import struct TSCBasic.AbsolutePath
+
+struct ListDestinations: DestinationCommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
@@ -29,13 +30,11 @@ public struct ListDestinations: DestinationCommand {
     @OptionGroup()
     var locations: LocationOptions
 
-    public init() {}
-
-    public func run() throws {
-        let observabilitySystem = ObservabilitySystem.swiftTool()
-        let observabilityScope = observabilitySystem.topScope
-        let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
-
+    func run(
+        buildTimeTriple: Triple,
+        _ destinationsDirectory: AbsolutePath,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
         let validBundles = try DestinationBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
@@ -43,7 +42,7 @@ public struct ListDestinations: DestinationCommand {
         )
 
         guard !validBundles.isEmpty else {
-            print("No cross-compilation destinations are currently installed.")
+            observabilityScope.emit(info: "No cross-compilation destinations are currently installed.")
             return
         }
 
