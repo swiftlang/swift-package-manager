@@ -16,6 +16,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 extension Workspace {
     /// An individual managed dependency.
     ///

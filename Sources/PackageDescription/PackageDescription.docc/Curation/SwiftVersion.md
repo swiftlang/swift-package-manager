@@ -9,7 +9,3 @@
 - ``v4_2``
 - ``v5``
 - ``version(_:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

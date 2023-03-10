@@ -17,6 +17,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
 enum ResolverPrecomputationError: Error {
     /// Represents the error when a package was requested but couldn't be found.

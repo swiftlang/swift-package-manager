@@ -159,7 +159,7 @@ public struct SwiftBuildTool: SwiftCommand {
     public init() {}
 }
 
-public extension SwiftCommand {
+public extension _SwiftCommand {
     func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider {
         return try swiftTool.defaultBuildSystemProvider
     }

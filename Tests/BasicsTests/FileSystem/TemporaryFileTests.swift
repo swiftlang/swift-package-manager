@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import XCTest
 import TSCBasic
 
@@ -33,7 +31,7 @@ class TemporaryAsyncFileTests: XCTestCase {
         let path2: AbsolutePath = try await withTemporaryDirectory { tempDirPath in
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             // Create a file inside the temp directory.
-            let filePath = tempDirPath.appending(component: "somefile")
+            let filePath = tempDirPath.appending("somefile")
             // Do some async task
             try await Task.sleep(nanoseconds: 1_000)
             
@@ -48,7 +46,7 @@ class TemporaryAsyncFileTests: XCTestCase {
         // Test temp directory is removed when its not empty and removeTreeOnDeinit is enabled.
         let path3: AbsolutePath = try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
-            let filePath = tempDirPath.appending(component: "somefile")
+            let filePath = tempDirPath.appending("somefile")
             // Do some async task
             try await Task.sleep(nanoseconds: 1_000)
             
@@ -92,5 +90,3 @@ class TemporaryAsyncFileTests: XCTestCase {
         } catch {}
     }
 }
-
-#endif

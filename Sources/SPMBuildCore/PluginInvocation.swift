@@ -17,8 +17,6 @@ import PackageLoading
 import PackageGraph
 import TSCBasic
 
-import struct TSCUtility.Triple
-
 public enum PluginAction {
     case createBuildToolCommands(package: ResolvedPackage, target: ResolvedTarget)
     case performCommand(package: ResolvedPackage, arguments: [String])
@@ -58,6 +56,7 @@ extension PluginTarget {
         accessibleTools: [String: (path: AbsolutePath, triples: [String]?)],
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -271,6 +270,7 @@ extension PluginTarget {
             workingDirectory: workingDirectory,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
@@ -333,7 +333,8 @@ extension PackageGraph {
         pkgConfigDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        builtToolHandler: (_ name: String, _ path: RelativePath) throws -> AbsolutePath? = { _, _ in return nil }
     ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
         for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
@@ -373,7 +374,11 @@ extension PackageGraph {
                 var builtToolNames: [String] = []
                 let accessibleTools = try pluginTarget.processAccessibleTools(packageGraph: self, fileSystem: fileSystem, environment: buildEnvironment, for: try pluginScriptRunner.hostTriple) { name, path in
                     builtToolNames.append(name)
-                    return builtToolsDir.appending(path)
+                    if let result = try builtToolHandler(name, path) {
+                        return result
+                    } else {
+                        return builtToolsDir.appending(path)
+                    }
                 }
                 
                 // Determine additional input dependencies for any plugin commands, based on any executables the plugin target depends on.
@@ -471,6 +476,7 @@ extension PackageGraph {
                     accessibleTools: accessibleTools,
                     writableDirectories: writableDirectories,
                     readOnlyDirectories: readOnlyDirectories,
+                    allowNetworkConnections: [],
                     pkgConfigDirectories: pkgConfigDirectories,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,

@@ -19,7 +19,7 @@ import XCTest
 final class SQLiteBackedCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
@@ -59,7 +59,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
         try XCTSkipIf(is_tsan_enabled())
 
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
@@ -101,7 +101,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
         try XCTSkipIf(is_tsan_enabled())
 
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
@@ -136,7 +136,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
     func testMaxSizeNotHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = false
@@ -158,7 +158,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
     func testMaxSizeHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let path = tmpPath.appending(component: "test.db")
+            let path = tmpPath.appending("test.db")
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = true

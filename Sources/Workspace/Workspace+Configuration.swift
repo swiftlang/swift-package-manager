@@ -58,12 +58,12 @@ extension Workspace {
 
         /// Path to the repositories clones.
         public var repositoriesDirectory: AbsolutePath {
-            self.scratchDirectory.appending(component: "repositories")
+            self.scratchDirectory.appending("repositories")
         }
 
         /// Path to the repository checkouts.
         public var repositoriesCheckoutsDirectory: AbsolutePath {
-            self.scratchDirectory.appending(component: "checkouts")
+            self.scratchDirectory.appending("checkouts")
         }
 
         /// Path to the registry downloads.
@@ -73,12 +73,12 @@ extension Workspace {
 
         /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
-            self.scratchDirectory.appending(component: "artifacts")
+            self.scratchDirectory.appending("artifacts")
         }
 
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
-            self.scratchDirectory.appending(component: "plugins")
+            self.scratchDirectory.appending("plugins")
         }
 
         // config locations
@@ -113,9 +113,19 @@ extension Workspace {
 
         /// Path to the shared fingerprints directory.
         public var sharedFingerprintsDirectory: AbsolutePath? {
-            self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
+            self.sharedSecurityDirectory.map { $0.appending("fingerprints") }
+        }
+        
+        /// Path to the shared directory where package signing records are kept.
+        public var sharedSigningEntitiesDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending("signing-entities") }
         }
 
+        /// Path to the shared trusted root certificates directory.
+        public var sharedTrustedRootCertificatesDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending("trusted-root-certs") }
+        }
+        
         // cache locations
 
         /// Path to the shared manifests cache.
@@ -125,7 +135,7 @@ extension Workspace {
 
         /// Path to the shared repositories cache.
         public var sharedRepositoriesCacheDirectory: AbsolutePath? {
-            self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
+            self.sharedCacheDirectory.map { $0.appending("repositories") }
         }
 
         /// Path to the shared registry download cache.
@@ -186,15 +196,15 @@ extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
         public static func scratchDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(component: ".build")
+            rootPath.appending(".build")
         }
 
         public static func editsDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(component: "Packages")
+            rootPath.appending("Packages")
         }
 
         public static func resolvedVersionsFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            rootPath.appending(component: "Package.resolved")
+            rootPath.appending("Package.resolved")
         }
 
         public static func configurationDirectory(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -206,7 +216,7 @@ extension Workspace {
         }
 
         public static func mirrorsConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
-            path.appending(component: "mirrors.json")
+            path.appending("mirrors.json")
         }
 
         public static func registriesConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
@@ -214,11 +224,11 @@ extension Workspace {
         }
 
         public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
-            path.appending(component: "registries.json")
+            path.appending("registries.json")
         }
 
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
-            path.appending(component: "manifests")
+            path.appending("manifests")
         }
     }
 
@@ -272,7 +282,7 @@ extension Workspace.Configuration {
                 providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
                 // user .netrc file (most typical)
-                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
 
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
                 if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
@@ -321,7 +331,7 @@ extension Workspace.Configuration {
                 }
                 providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
-                let userHomePath = try fileSystem.homeDirectory.appending(component: ".netrc")
+                let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
                 // Add user .netrc file unless we don't have access
                 if let userHomeProvider = try? NetrcAuthorizationProvider(path: userHomePath, fileSystem: fileSystem) {
                     providers.append(userHomeProvider)
@@ -674,8 +684,11 @@ public struct WorkspaceConfiguration {
     /// Enables the shared dependencies cache. Enabled by default.
     public var sharedDependenciesCacheEnabled: Bool
 
-    ///  Fingerprint checking mode. Defaults to warn.
-    public var fingerprintCheckingMode: FingerprintCheckingMode
+    ///  Fingerprint checking mode. Defaults to strict.
+    public var fingerprintCheckingMode: CheckingMode
+    
+    ///  Signing entity checking mode. Defaults to warn.
+    public var signingEntityCheckingMode: CheckingMode
 
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
@@ -696,7 +709,8 @@ public struct WorkspaceConfiguration {
         createREPLProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
-        fingerprintCheckingMode: FingerprintCheckingMode,
+        fingerprintCheckingMode: CheckingMode,
+        signingEntityCheckingMode: CheckingMode,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
@@ -707,6 +721,7 @@ public struct WorkspaceConfiguration {
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
+        self.signingEntityCheckingMode = signingEntityCheckingMode
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.restrictImports = restrictImports
     }
@@ -721,6 +736,7 @@ public struct WorkspaceConfiguration {
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
+            signingEntityCheckingMode: .warn,
             sourceControlToRegistryDependencyTransformation: .disabled,
             restrictImports: .none
         )
@@ -730,6 +746,11 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+    }
+
+    public enum CheckingMode: String {
+        case strict
+        case warn
     }
 }
 

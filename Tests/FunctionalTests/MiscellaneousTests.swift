@@ -28,7 +28,7 @@ class MiscellaneousTestCase: XCTestCase {
         // the selected version of the package
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let (stdout, stderr) = try executeSwiftBuild(fixturePath.appending(component: "Bar"))
+            let (stdout, stderr) = try executeSwiftBuild(fixturePath.appending("Bar"))
             // package resolution output goes to stderr
             XCTAssertMatch(stderr, .regex("Computed .* at 1\\.2\\.3"))
             // in "swift build" build output goes to stdout
@@ -49,11 +49,11 @@ class MiscellaneousTestCase: XCTestCase {
         // are not passed into the build-command.
 
         try fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
             let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
-            XCTAssertFileExists(buildDir.appending(component: "FooExec"))
-            XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
-            XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending("FooExec"))
+            XCTAssertFileExists(buildDir.appending("FooLib1.swiftmodule"))
+            XCTAssertFileExists(buildDir.appending("FooLib2.swiftmodule"))
         }
     }
 
@@ -64,9 +64,9 @@ class MiscellaneousTestCase: XCTestCase {
         // should immediately exit with exit-status: `0`
 
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
         }
     }
 
@@ -131,7 +131,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
             let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString
 
-            let packageRoot = fixturePath.appending(component: "app")
+            let packageRoot = fixturePath.appending("app")
             XCTAssertBuilds(packageRoot)
             var output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
@@ -144,7 +144,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
             output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
@@ -158,8 +158,8 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
             let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "dep2").pathString]
 
-            let packageRoot = fixturePath.appending(component: "root")
-            XCTAssertBuilds(fixturePath.appending(component: "root"))
+            let packageRoot = fixturePath.appending("root")
+            XCTAssertBuilds(fixturePath.appending("root"))
             var output = try Process.checkNonZeroExit(arguments: execpath)
             XCTAssertEqual(output, "Hello\n")
 
@@ -171,7 +171,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
-            XCTAssertBuilds(fixturePath.appending(component: "root"))
+            XCTAssertBuilds(fixturePath.appending("root"))
             output = try Process.checkNonZeroExit(arguments: execpath)
             XCTAssertEqual(output, "Goodbye\n")
         }
@@ -209,14 +209,14 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testPkgConfigCFamilyTargets() throws {
         try fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
-            let systemModule = fixturePath.appending(component: "SystemModule")
+            let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let triple = try UserToolchain.default.triple
-            let output =  systemModule.appending(component: "libSystemModule\(triple.dynamicLibraryExtension)")
+            let output =  systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
-            let pcFile = fixturePath.appending(component: "libSystemModule.pc")
+            let pcFile = fixturePath.appending("libSystemModule.pc")
 
             let stream = BufferedOutputByteStream()
             stream <<< """
@@ -234,7 +234,7 @@ class MiscellaneousTestCase: XCTestCase {
                 """
             try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
 
-            let moduleUser = fixturePath.appending(component: "SystemModuleUserClang")
+            let moduleUser = fixturePath.appending("SystemModuleUserClang")
             let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
@@ -283,7 +283,7 @@ class MiscellaneousTestCase: XCTestCase {
             }
 
             // Launch swift-build.
-            let app = fixturePath.appending(component: "Bar")
+            let app = fixturePath.appending("Bar")
             let process = Process(args: SwiftPMProduct.SwiftBuild.path.pathString, "--package-path", app.pathString, environment: env)
             try process.launch()
 
@@ -311,7 +311,7 @@ class MiscellaneousTestCase: XCTestCase {
             // dependency to induce a failure.
 
             // Launch swift-build.
-            let app = fixturePath.appending(component: "Bar")
+            let app = fixturePath.appending("Bar")
 
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
 
@@ -327,7 +327,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { fixturePath in
             // This fixture has a setup that is trying to use a local package
             // as a url that hasn't been initialized as a repo
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "Bar"))
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("Bar"))
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
             XCTAssert(output.contains("cannot clone from local directory"), "Didn't find expected output: \(output)")
@@ -337,13 +337,13 @@ class MiscellaneousTestCase: XCTestCase {
     func testInvalidRefsValidation() throws {
         try fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { fixturePath in
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "InvalidBranch"))
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("InvalidBranch"))
                 XCTAssert(result.exitStatus != .terminated(code: 0))
                 let output = try result.utf8stderrOutput()
                 XCTAssert(output.contains("invalid branch name: "), "Didn't find expected output: \(output)")
             }
             do {
-                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending(component: "InvalidRevision"))
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: fixturePath.appending("InvalidRevision"))
                 XCTAssert(result.exitStatus != .terminated(code: 0))
                 let output = try result.utf8stderrOutput()
                 XCTAssert(output.contains("invalid revision: "), "Didn't find expected output: \(output)")
@@ -364,8 +364,8 @@ class MiscellaneousTestCase: XCTestCase {
             // ••••• Set up dependency.
             let dependencyName = "UnicodeDependency‐\(complicatedString)"
             let dependencyOrigin = AbsolutePath(path: #file).parentDirectory.parentDirectory.parentDirectory
-                .appending(component: "Fixtures")
-                .appending(component: "Miscellaneous")
+                .appending("Fixtures")
+                .appending("Miscellaneous")
                 .appending(component: dependencyName)
             let dependencyDestination = fixturePath.parentDirectory.appending(component: dependencyName)
             try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
@@ -446,7 +446,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testEditModeEndToEnd() throws {
         try fixture(name: "Miscellaneous/Edit") { fixturePath in
             let prefix = try resolveSymlinks(fixturePath)
-            let appPath = fixturePath.appending(component: "App")
+            let appPath = fixturePath.appending("App")
 
             // prepare the dependencies as git repos
             try ["Foo", "Bar"].forEach { directory in
@@ -581,13 +581,13 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/FlatPackage") { package in
             // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
             let (stdout1, stderr1) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: package)
-            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertDirectoryExists(package.appending(".build"))
             XCTAssertNoMatch(stdout1, .contains("command_arguments"))
             XCTAssertNoMatch(stderr1, .contains("command_arguments"))
             
             // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
             let (stdout2, stderr2) = try SwiftPMProduct.SwiftTest.execute([], packagePath: package)
-            XCTAssertDirectoryExists(package.appending(component: ".build"))
+            XCTAssertDirectoryExists(package.appending(".build"))
             XCTAssertNoMatch(stdout2, .contains("command_arguments"))
             XCTAssertNoMatch(stderr2, .contains("command_arguments"))
         }
@@ -596,14 +596,14 @@ class MiscellaneousTestCase: XCTestCase {
     func testNoWarningFromRemoteDependencies() throws {
         try fixture(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
-            let dependency1Path = path.appending(component: "dep1")
+            let dependency1Path = path.appending("dep1")
             initGitRepo(dependency1Path, tag: "1.0.0")
-            let dependency2Path = path.appending(component: "dep2")
+            let dependency2Path = path.appending("dep2")
             initGitRepo(dependency2Path, tag: "1.0.0")
 
-            let appPath = path.appending(component: "app")
+            let appPath = path.appending("app")
             let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute([], packagePath: appPath)
-            XCTAssertDirectoryExists(appPath.appending(component: ".build"))
+            XCTAssertDirectoryExists(appPath.appending(".build"))
             XCTAssertMatch(stdout + stderr, .contains("'DeprecatedApp' is deprecated"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
@@ -613,14 +613,14 @@ class MiscellaneousTestCase: XCTestCase {
     func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() throws {
         try fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
             // prepare the deps as git sources
-            let dependency1Path = path.appending(component: "dep1")
+            let dependency1Path = path.appending("dep1")
             initGitRepo(dependency1Path, tag: "1.0.0")
-            let dependency2Path = path.appending(component: "dep2")
+            let dependency2Path = path.appending("dep2")
             initGitRepo(dependency2Path, tag: "1.0.0")
 
-            let appPath = path.appending(component: "app")
+            let appPath = path.appending("app")
             let (stdout, stderr) = try SwiftPMProduct.SwiftBuild.execute(["-Xswiftc", "-warnings-as-errors"], packagePath: appPath)
-            XCTAssertDirectoryExists(appPath.appending(component: ".build"))
+            XCTAssertDirectoryExists(appPath.appending(".build"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated1' is deprecated"))
             XCTAssertNoMatch(stdout + stderr, .contains("'Deprecated2' is deprecated"))
         }

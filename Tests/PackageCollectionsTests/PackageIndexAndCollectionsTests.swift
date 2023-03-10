@@ -18,6 +18,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
@@ -99,7 +101,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let collection = try tsc_await { callback in indexAndCollections.getCollection(mockCollections.first!.source, callback: callback) }
         XCTAssertEqual(collection, mockCollections.first, "collection should match")
     }
-    
+
     func testListPackages() throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
@@ -144,7 +146,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -153,7 +155,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -198,7 +200,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.identity == mockPackage.identity })?.collections ?? []), expectedCollections, "collections should match")
         }
     }
-    
+
     func testListTargets() throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
@@ -281,7 +283,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -290,7 +292,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -497,7 +499,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -506,7 +508,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -598,7 +600,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                           authors: nil,
                                                           languages: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                 name: UUID().uuidString,
                                                                 overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
@@ -607,7 +609,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                 createdBy: nil,
                                                                 signature: nil)
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
                                                                  name: UUID().uuidString,
                                                                  overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -680,12 +682,12 @@ private func makePackageCollections(
 
 private struct MockPackageIndex: PackageIndexProtocol {
     let isEnabled = true
-    
     let url: URL
+
     private let packages: [PackageCollectionsModel.Package]
     
     init(
-        url: URL = URL(string: "https://mock-package-index")!,
+        url: URL = "https://mock-package-index",
         packages: [PackageCollectionsModel.Package] = []
     ) {
         self.url = url

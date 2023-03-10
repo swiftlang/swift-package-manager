@@ -113,7 +113,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         let toolsVersion = ToolsVersion.v5_3
         
         let inMemoryFileSystem = InMemoryFileSystem()
-        let manifestFilePath = AbsolutePath(path: "/pkg/Package.swift/Package.swift")
+        let manifestFilePath = AbsolutePath("/pkg/Package.swift/Package.swift")
         try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true) // /pkg/Package.swift/
         
         // Test `ManifestAccessError.Kind.isADirectory`
@@ -189,7 +189,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         do {
             let inMemoryFileSystem = InMemoryFileSystem()
 
-            let manifestFilePath = AbsolutePath(path: "/pkg/Package.swift")
+            let manifestFilePath = AbsolutePath("/pkg/Package.swift")
 
             try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
             try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)

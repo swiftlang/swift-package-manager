@@ -13,9 +13,11 @@
 import Basics
 import Dispatch
 import Foundation
+import PackageLoading
 import PackageModel
 import TSCBasic
-import PackageLoading
+
+import struct TSCUtility.Version
 
 public class RegistryDownloadsManager: Cancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate
@@ -52,11 +54,11 @@ public class RegistryDownloadsManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping  (Result<AbsolutePath, Error>) -> Void
+        completion: @escaping (Result<AbsolutePath, Error>) -> Void
     ) {
         // wrap the callback in the requested queue
         let completion = { result in callbackQueue.async { completion(result) } }
-        
+
         let packageRelativePath: RelativePath
         let packagePath: AbsolutePath
 
@@ -99,7 +101,7 @@ public class RegistryDownloadsManager: Cancellable {
 
             // inform delegate that we are starting to fetch
             // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-            let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
+            let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
             delegateQueue.async {
                 let details = FetchDetails(fromCache: isCached, updatedCache: false)
                 self.delegate?.willFetch(package: package, version: version, fetchDetails: details)
@@ -128,7 +130,7 @@ public class RegistryDownloadsManager: Cancellable {
                 self.pendingLookups[package] = nil
                 self.pendingLookupsLock.unlock()
                 // and done
-                completion(result.map{ _ in packagePath })
+                completion(result.map { _ in packagePath })
             }
         }
     }
@@ -145,7 +147,7 @@ public class RegistryDownloadsManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping  (Result<FetchDetails, Error>) -> Void
+        completion: @escaping (Result<FetchDetails, Error>) -> Void
     ) {
         if let cachePath = self.cachePath {
             do {
@@ -171,10 +173,10 @@ public class RegistryDownloadsManager: Cancellable {
                         self.registryClient.downloadSourceArchive(
                             package: package,
                             version: version,
-                            fileSystem: self.fileSystem,
                             destinationPath: cachedPackagePath,
                             checksumAlgorithm: self.checksumAlgorithm,
                             progressHandler: updateDownloadProgress,
+                            fileSystem: self.fileSystem,
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue
                         ) { result in
@@ -199,14 +201,14 @@ public class RegistryDownloadsManager: Cancellable {
                 self.registryClient.downloadSourceArchive(
                     package: package,
                     version: version,
-                    fileSystem: self.fileSystem,
                     destinationPath: packagePath,
                     checksumAlgorithm: self.checksumAlgorithm,
                     progressHandler: updateDownloadProgress,
+                    fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: callbackQueue
                 ) { result in
-                    completion(result.map{ FetchDetails(fromCache: false, updatedCache: false) })
+                    completion(result.map { FetchDetails(fromCache: false, updatedCache: false) })
                 }
             }
         } else {
@@ -216,20 +218,20 @@ public class RegistryDownloadsManager: Cancellable {
             self.registryClient.downloadSourceArchive(
                 package: package,
                 version: version,
-                fileSystem: self.fileSystem,
                 destinationPath: packagePath,
                 checksumAlgorithm: self.checksumAlgorithm,
                 progressHandler: updateDownloadProgress,
+                fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue
             ) { result in
-                completion(result.map{ FetchDetails(fromCache: false, updatedCache: false) })
+                completion(result.map { FetchDetails(fromCache: false, updatedCache: false) })
             }
         }
 
         // utility to update progress
 
-        func updateDownloadProgress(downloaded: Int64, total: Int64?) -> Void {
+        func updateDownloadProgress(downloaded: Int64, total: Int64?) {
             delegateQueue.async {
                 self.delegate?.fetching(
                     package: package,
@@ -294,7 +296,12 @@ public protocol RegistryDownloadsManagerDelegate {
     func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails)
 
     /// Called when a package has finished fetching.
-    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval)
+    func didFetch(
+        package: PackageIdentity,
+        version: Version,
+        result: Result<RegistryDownloadsManager.FetchDetails, Error>,
+        duration: DispatchTimeInterval
+    )
 
     /// Called every time the progress of a repository fetch operation updates.
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
@@ -310,7 +317,6 @@ extension RegistryDownloadsManager {
     }
 }
 
-
 extension FileSystem {
     func validPackageDirectory(_ path: AbsolutePath) throws -> Bool {
         if !self.exists(path) {
@@ -320,16 +326,15 @@ extension FileSystem {
     }
 }
 
-
 extension PackageIdentity {
     internal func downloadPath() throws -> RelativePath {
-        guard let (scope, name) = self.scopeAndName else {
-            throw StringError("invalid package identity, expected registry scope and name")
+        guard let registryIdentity = self.registry else {
+            throw StringError("invalid package identifier \(self), expected registry scope and name")
         }
-        return RelativePath(scope.description).appending(component: name.description)
+        return RelativePath(registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
-    internal func downloadPath(version: Version) throws -> RelativePath  {
+    internal func downloadPath(version: Version) throws -> RelativePath {
         try self.downloadPath().appending(component: version.description)
     }
 }

@@ -174,7 +174,7 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertEqual(netrcProviders.count, 1)
                 XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                let auth = try tool.getAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
                 XCTAssertEqual(auth?.password, "custom")
 
@@ -212,7 +212,7 @@ final class SwiftToolTests: CommandsTestCase {
                 XCTAssertNotNil(netrcProvider)
                 XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
+                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
                 XCTAssertEqual(auth?.user, "custom@labkey.org")
                 XCTAssertEqual(auth?.password, "custom")
 
@@ -239,10 +239,18 @@ extension SwiftTool {
             options: options,
             toolWorkspaceConfiguration: .init(),
             workspaceDelegateProvider: {
-                ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)
+                ToolWorkspaceDelegate(
+                    observabilityScope: $0,
+                    outputHandler: $1,
+                    progressHandler: $2,
+                    inputHandler: $3
+                )
             },
             workspaceLoaderProvider: {
-                XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
+                XcodeWorkspaceLoader(
+                    fileSystem: $0,
+                    observabilityScope: $1
+                )
             })
     }
 }

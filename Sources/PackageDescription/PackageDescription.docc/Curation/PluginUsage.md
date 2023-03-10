@@ -6,7 +6,3 @@
 
 - ``plugin(name:)``
 - ``plugin(name:package:)``
-
-### Encoding and Decoding
-
--  ``encode(to:)``

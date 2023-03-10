@@ -20,15 +20,15 @@ import XCTest
 
 struct MockToolchain: PackageModel.Toolchain {
 #if os(Windows)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/link.exe")
+    let librarianPath = AbsolutePath("/fake/path/to/link.exe")
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/libtool")
+    let librarianPath = AbsolutePath("/fake/path/to/libtool")
 #elseif os(Android)
-    let librarianPath = AbsolutePath(path: "/fake/path/to/llvm-ar")
+    let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
 #else
-    let librarianPath = AbsolutePath(path: "/fake/path/to/ar")
+    let librarianPath = AbsolutePath("/fake/path/to/ar")
 #endif
-    let swiftCompilerPath = AbsolutePath(path: "/fake/path/to/swiftc")
+    let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     
     #if os(macOS)
     let extraFlags = BuildFlags(cxxCompilerFlags: ["-lc++"])
@@ -49,18 +49,12 @@ struct MockToolchain: PackageModel.Toolchain {
 }
 
 
-extension TSCUtility.Triple {
-    static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
-    static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
-    static let arm64Android = try! Triple("aarch64-unknown-linux-android")
-    static let windows = try! Triple("x86_64-unknown-windows-msvc")
-    static let wasi = try! Triple("wasm32-unknown-wasi")
-}
-
-extension AbsolutePath {
-    func escapedPathString() -> String {
-        return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
-    }
+extension Basics.Triple {
+    static let x86_64Linux = try! Self("x86_64-unknown-linux-gnu")
+    static let arm64Linux = try! Self("aarch64-unknown-linux-gnu")
+    static let arm64Android = try! Self("aarch64-unknown-linux-android")
+    static let windows = try! Self("x86_64-unknown-windows-msvc")
+    static let wasi = try! Self("wasm32-unknown-wasi")
 }
 
 let hostTriple = try! UserToolchain.default.triple
@@ -71,13 +65,13 @@ let hostTriple = try! UserToolchain.default.triple
 #endif
 
 func mockBuildParameters(
-    buildPath: AbsolutePath = AbsolutePath(path: "/path/to/build"),
+    buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     shouldLinkStaticSwiftStdlib: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    destinationTriple: TSCUtility.Triple = hostTriple,
+    destinationTriple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true
@@ -100,7 +94,7 @@ func mockBuildParameters(
 }
 
 func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
-    let triple: TSCUtility.Triple
+    let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
         triple = Triple.macOS

@@ -62,9 +62,9 @@ extension UserToolchain {
             // On macOS 11 and earlier, we don't know if concurrency actually works because not all SDKs and toolchains have the right bits.  We could examine the SDK and the various libraries, but the most accurate test is to just try to compile and run a snippet of code that requires async/await support.  It doesn't have to actually do anything, it's enough that all the libraries can be found (but because the library reference is weak we do need the linkage reference to `_swift_task_create` and the like).
             do {
                 try testWithTemporaryDirectory { tmpPath in
-                    let inputPath = tmpPath.appending(component: "foo.swift")
+                    let inputPath = tmpPath.appending("foo.swift")
                     try localFileSystem.writeFileContents(inputPath, string: "public func foo() async {}\nTask { await foo() }")
-                    let outputPath = tmpPath.appending(component: "foo")
+                    let outputPath = tmpPath.appending("foo")
                     let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
                     let backDeploymentLibPath = toolchainPath.appending(components: "lib", "swift-5.5", "macosx")
                     try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xlinker", "-rpath", "-Xlinker", backDeploymentLibPath.pathString, "-o", outputPath.pathString])
@@ -87,10 +87,10 @@ extension UserToolchain {
     public func supportsSerializedDiagnostics(otherSwiftFlags: [String] = []) -> Bool {
         do {
             try testWithTemporaryDirectory { tmpPath in
-                let inputPath = tmpPath.appending(component: "best.swift")
+                let inputPath = tmpPath.appending("best.swift")
                 try localFileSystem.writeFileContents(inputPath, string: "func foo() -> Bool {\nvar unused: Int\nreturn true\n}\n")
-                let outputPath = tmpPath.appending(component: "foo")
-                let serializedDiagnosticsPath = tmpPath.appending(component: "out.dia")
+                let outputPath = tmpPath.appending("foo")
+                let serializedDiagnosticsPath = tmpPath.appending("out.dia")
                 let toolchainPath = self.swiftCompilerPath.parentDirectory.parentDirectory
                 try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--toolchain", toolchainPath.pathString, "swiftc", inputPath.pathString, "-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", serializedDiagnosticsPath.pathString, "-g", "-o", outputPath.pathString] + otherSwiftFlags)
                 try Process.checkNonZeroExit(arguments: [outputPath.pathString])

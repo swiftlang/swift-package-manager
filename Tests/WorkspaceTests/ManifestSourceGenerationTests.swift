@@ -425,10 +425,10 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
-        let packageDir = AbsolutePath(path: "/tmp/MyLibrary")
-        let manifest = Manifest(
+        let packageDir = AbsolutePath("/tmp/MyLibrary")
+        let manifest = Manifest.createManifest(
             displayName: "MyLibrary",
-            path: packageDir.appending(component: "Package.swift"),
+            path: packageDir.appending("Package.swift"),
             packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
             packageLocation: packageDir.pathString,
             platforms: [],
@@ -464,7 +464,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
-            name: "thisPkg",
+            displayName: "thisPkg",
             path: .init(path: "/thisPkg"),
             toolsVersion: .v5_7,
             dependencies: [
@@ -504,5 +504,40 @@ class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(isContained)
 
         try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_8)
+    }
+
+    func testUpcomingAndExperimentalFeatures() throws {
+        let manifestContents = """
+            // swift-tools-version:5.8
+            import PackageDescription
+
+            let package = Package(
+                name: "UpcomingAndExperimentalFeatures",
+                targets: [
+                    .target(
+                        name: "MyTool",
+                        swiftSettings: [
+                            .enableUpcomingFeature("UpcomingFeatureOne"),
+                            .enableUpcomingFeature("UpcomingFeatureTwo"),
+                            .enableExperimentalFeature("ExperimentalFeature")
+                        ]
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
+    }
+
+    func testPluginNetworkingPermissionGeneration() throws {
+        let manifest = Manifest.createRootManifest(
+            displayName: "thisPkg",
+            path: .init(path: "/thisPkg"),
+            toolsVersion: .v5_9,
+            dependencies: [],
+            targets: [
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: "internet good")]))
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,6 +23,8 @@ import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
+
+import struct TSCUtility.Version
 
 private typealias JSONModel = PackageCollectionModel.V1
 
@@ -60,7 +62,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.observabilityScope = observabilityScope
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir ?? (try? fileSystem.swiftPMConfigurationDirectory.appending(component: "trust-root-certs").asURL) ?? AbsolutePath.root.asURL,
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? AbsolutePath.root.asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             observabilityScope: observabilityScope,
             callbackQueue: .sharedConcurrent
@@ -262,7 +264,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     serializationOkay = false
                 }
 
-                return .init(identity: .init(url: package.url),
+                // If package identity is set, use that. Otherwise create one from URL.
+                return .init(identity: package.identity.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: package.url),
                              location: package.url.absoluteString,
                              summary: package.summary,
                              keywords: package.keywords,
@@ -414,6 +417,8 @@ extension PackageModel.ProductType {
             self = .snippet
         case .test:
             self = .test
+        case .macro:
+            self = .macro
         }
     }
 }

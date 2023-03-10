@@ -83,19 +83,11 @@ public final class Package {
 
     /// The list of minimum versions for platforms supported by the package.
     @available(_PackageDescription, introduced: 5)
-    public var platforms: [SupportedPlatform]? {
-        get { return _platforms }
-        set { _platforms = newValue }
-    }
-    private var _platforms: [SupportedPlatform]?
+    public var platforms: [SupportedPlatform]?
 
     /// The default localization for resources.
     @available(_PackageDescription, introduced: 5.3)
-    public var defaultLocalization: LanguageTag? {
-        get { return _defaultLocalization }
-        set { _defaultLocalization = newValue }
-    }
-    private var _defaultLocalization: LanguageTag?
+    public var defaultLocalization: LanguageTag?
 
     /// The name to use for C modules.
     ///
@@ -230,7 +222,7 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
-        self._platforms = platforms
+        self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -272,8 +264,8 @@ public final class Package {
         cxxLanguageStandard: CXXLanguageStandard? = nil
     ) {
         self.name = name
-        self._defaultLocalization = defaultLocalization
-        self._platforms = platforms
+        self.defaultLocalization = defaultLocalization
+        self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.products = products
@@ -324,12 +316,12 @@ public final class Package {
 public struct LanguageTag: Hashable {
 
     /// An IETF language tag.
-    public let tag: String
+    let tag: String
 
     /// Creates a language tag from its IETF string representation.
     ///
     /// - Parameter tag: The string representation of an IETF language tag.
-    public init(_ tag: String) {
+    private init(_ tag: String) {
         self.tag = tag
     }
 }
@@ -437,15 +429,16 @@ public enum SystemPackageProvider {
 
 // MARK: - Package Dumping
 
-func manifestToJSON(_ package: Package) -> String {
-    struct Output: Encodable {
-        let package: Package
+private func manifestToJSON(_ package: Package) -> String {
+    struct Output: Codable {
+        let package: Serialization.Package
         let errors: [String]
+        let version: Int
     }
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = try! encoder.encode(Output(package: package, errors: errors))
+    let data = try! encoder.encode(Output(package: .init(package), errors: errors, version: 2))
     return String(data: data, encoding: .utf8)!
 }
 

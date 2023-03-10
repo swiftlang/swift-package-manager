@@ -198,6 +198,24 @@ Clone the following repositories beside the SwiftPM directory:
     For example, if the latest tag is 1.0.1:
     ```sh
     $> git clone https://github.com/apple/swift-collections --branch 1.0.1
+    ```
+
+7. [swift-crypto] and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
+
+    For example, if the latest tag is 2.3.0:
+    ```sh
+    $> git clone https://github.com/apple/swift-crypto --branch 2.3.0
+    ```
+
+8. [swift-asn1]
+   ```sh
+   $> git clone https://github.com/apple/swift-asn1
+   ```
+
+9. [swift-certificates]
+   ```sh
+   $> git clone https://github.com/apple/swift-certificates
+   ```
 
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-collections]: https://github.com/apple/swift-collections
@@ -205,6 +223,9 @@ Clone the following repositories beside the SwiftPM directory:
 [swift-llbuild]: https://github.com/apple/swift-llbuild
 [swift-system]: https://github.com/apple/swift-system
 [swift-tools-support-core]: https://github.com/apple/swift-tools-support-core
+[swift-crypto]: https://github.com/apple/swift-crypto
+[swift-asn1]: https://github.com/apple/swift-asn1
+[swift-certificates]: https://github.com/apple/swift-certificates
 [Yams]: https://github.com/jpsim/yams
 
 

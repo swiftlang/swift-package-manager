@@ -91,6 +91,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    private let driverSupport = DriverSupport()
+
     public init(
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
@@ -171,7 +173,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard DriverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
+        guard driverSupport.checkSupportedFrontendFlags(flags: ["import-prescan"], toolchain: self.buildParameters.toolchain, fileSystem: localFileSystem) else {
             return
         }
 
@@ -394,8 +396,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         if let pluginConfiguration = self.pluginConfiguration  {
+            let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
-                outputDir: pluginConfiguration.workDirectory.appending(component: "outputs"),
+                outputDir: pluginConfiguration.workDirectory.appending("outputs"),
                 builtToolsDir: self.buildParameters.buildPath,
                 buildEnvironment: self.buildParameters.buildEnvironment,
                 toolSearchDirectories: [self.buildParameters.toolchain.swiftCompilerPath.parentDirectory],
@@ -403,7 +406,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 pluginScriptRunner: pluginConfiguration.scriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem
-            )
+            ) { name, path in
+                try buildOperationForPluginDependencies.build(subset: .product(name))
+                if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
+                    return builtTool.binaryPath
+                } else {
+                    return nil
+                }
+            }
 
 
             // Surface any diagnostics from build tool plugins.
@@ -533,7 +543,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         self.buildSystemDelegate = buildSystemDelegate
 
-        let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
+        let databasePath = buildParameters.dataPath.appending("build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
@@ -606,6 +616,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // For the moment we just check for executables that other targets try to import.
                 if importedTarget.target.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
+                }
+                if importedTarget.target.type == .macro {
+                    return "module '\(importedModule)' is a macro, and cannot be imported by tests and other targets"
                 }
 
                 // Here we can add more checks in the future.

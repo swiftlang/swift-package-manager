@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SPMBuildCore
+import PackageModel
 import TSCBasic
 import XCTest
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 final class ArtifactsArchiveMetadataTests: XCTestCase {
     func testParseMetadata() throws {

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,16 +13,15 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import TSCBasic
-import SPMBuildCore
-import PackageModel
-import PackageLoading
-import PackageGraph
-import SourceControl
-import XCBuildSupport
-import Workspace
 import Foundation
+import PackageGraph
+import PackageLoading
 import PackageModel
+import SourceControl
+import SPMBuildCore
+import TSCBasic
+import Workspace
+import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 
@@ -62,27 +61,30 @@ public struct SwiftPackageTool: ParsableCommand {
             ArchiveSource.self,
             CompletionTool.self,
             PluginCommand.self,
-            
+
             DefaultCommand.self,
         ]
-        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+            + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
         defaultSubcommand: DefaultCommand.self,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup()
     var globalOptions: GlobalOptions
 
-    public init() {}
-
     public static var _errorLabel: String { "error" }
+
+    public init() {}
 }
 
 extension SwiftPackageTool {
-    // This command is the default when no other subcommand is passed. It is not shown in the help and is never invoked directly.
+    // This command is the default when no other subcommand is passed. It is not shown in the help and is never invoked
+    // directly.
     struct DefaultCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: nil,
-            shouldDisplay: false)
+            shouldDisplay: false
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -90,7 +92,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var pluginOptions: PluginCommand.PluginOptions
 
-        @Argument(parsing: .unconditionalRemaining)
+        @Argument(parsing: .captureForPassthrough)
         var remaining: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -99,41 +101,40 @@ extension SwiftPackageTool {
                 print(SwiftPackageTool.helpMessage())
                 return
             }
-            
+
             // Check for edge cases and unknown options to match the behavior in the absence of plugins.
             if command.isEmpty {
                 throw ValidationError("Unknown argument '\(command)'")
-            }
-            else if command.starts(with: "-") {
+            } else if command.starts(with: "-") {
                 throw ValidationError("Unknown option '\(command)'")
             }
 
             // Otherwise see if we can find a plugin.
-            
-            // We first have to try to resolve the package graph to find any plugins.
-            // TODO: Ideally we should only resolve plugin dependencies, if we had a way of distinguishing them.
-            let packageGraph = try swiftTool.loadPackageGraph()
-
-            // Otherwise find all plugins that match the command verb.
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command)'")
-            let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
-
-            // Complain if we didn't find exactly one. We have to formulate the error message taking into account that this might be a misspelled subcommand.
-            if matchingPlugins.isEmpty {
-                throw ValidationError("Unknown subcommand or plugin name '\(command)'")
-            }
-            else if matchingPlugins.count > 1 {
-                throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
-            }
-            
-            // At this point we know we found exactly one command plugin, so we run it.
             try PluginCommand.run(
-                plugin: matchingPlugins[0],
-                package: packageGraph.rootPackages[0],
-                packageGraph: packageGraph,
-                options: pluginOptions,
-                arguments: Array( remaining.dropFirst()),
-                swiftTool: swiftTool)
+                command: command,
+                options: self.pluginOptions,
+                arguments: self.remaining,
+                swiftTool: swiftTool
+            )
         }
+    }
+}
+
+extension PluginCommand.PluginOptions {
+    func merged(with other: Self) -> Self {
+        // validate against developer mistake
+        assert(
+            Mirror(reflecting: self).children.count == 3,
+            "Property added to PluginOptions without updating merged(with:)!"
+        )
+        // actual merge
+        var merged = self
+        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other
+            .allowWritingToPackageDirectory
+        merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
+        if other.allowNetworkConnections != .none {
+            merged.allowNetworkConnections = other.allowNetworkConnections
+        }
+        return merged
     }
 }

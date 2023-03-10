@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,10 +17,13 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import PackageSigning
 import TSCBasic
 
+import struct TSCUtility.Version
+
 public class MockRegistry {
-    private static let mockRegistryURL = URL(string: "http://localhost/registry/mock")!
+    private static let mockRegistryURL = URL("http://localhost/registry/mock")
 
     private let fileSystem: FileSystem
     private let identityResolver: IdentityResolver
@@ -37,7 +40,8 @@ public class MockRegistry {
         filesystem: FileSystem,
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
-        fingerprintStorage: PackageFingerprintStorage
+        fingerprintStorage: PackageFingerprintStorage,
+        signingEntityStorage: PackageSigningEntityStorage
     ) {
         self.fileSystem = filesystem
         self.identityResolver = identityResolver
@@ -45,23 +49,42 @@ public class MockRegistry {
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
 
         var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = .init(url: Self.mockRegistryURL)
+        configuration.defaultRegistry = .init(url: Self.mockRegistryURL, supportsAvailability: false)
+        configuration.security = .testDefault
 
         self.registryClient = RegistryClient(
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
             customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
-            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }
+            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
+            delegate: .none
         )
     }
 
-    public func addPackage(identity: PackageIdentity, versions: [Version], sourceControlURLs: [URL]? = .none, source: InMemoryRegistryPackageSource) {
-        self.addPackage(identity: identity, versions: versions.map{ $0.description }, sourceControlURLs: sourceControlURLs, source: source)
+    public func addPackage(
+        identity: PackageIdentity,
+        versions: [Version],
+        sourceControlURLs: [URL]? = .none,
+        source: InMemoryRegistryPackageSource
+    ) {
+        self.addPackage(
+            identity: identity,
+            versions: versions.map(\.description),
+            sourceControlURLs: sourceControlURLs,
+            source: source
+        )
     }
 
-    public func addPackage(identity: PackageIdentity, versions: [String], sourceControlURLs: [URL]? = .none, source: InMemoryRegistryPackageSource) {
+    public func addPackage(
+        identity: PackageIdentity,
+        versions: [String],
+        sourceControlURLs: [URL]? = .none,
+        source: InMemoryRegistryPackageSource
+    ) {
         self.packagesLock.withLock {
             // versions
             var updatedVersions = self.packageVersions[identity] ?? [:]
@@ -82,7 +105,11 @@ public class MockRegistry {
         }
     }
 
-    func httpHandler(request: LegacyHTTPClient.Request, progress: LegacyHTTPClient.ProgressHandler?, completion: @escaping (Result<LegacyHTTPClient.Response, Error>) -> Void) {
+    func httpHandler(
+        request: LegacyHTTPClient.Request,
+        progress: LegacyHTTPClient.ProgressHandler?,
+        completion: @escaping (Result<LegacyHTTPClient.Response, Error>) -> Void
+    ) {
         do {
             guard request.url.absoluteString.hasPrefix(Self.mockRegistryURL.absoluteString) else {
                 throw StringError("url outside mock registry \(Self.mockRegistryURL)")
@@ -107,7 +134,8 @@ public class MockRegistry {
     }
 
     private func handleRequest(request: LegacyHTTPClient.Request) throws -> LegacyHTTPClient.Response {
-        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1).split(separator: "/")
+        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1)
+            .split(separator: "/")
         switch routeComponents.count {
         case _ where routeComponents[0].hasPrefix("identifiers?url="):
             guard let query = request.url.query else {
@@ -121,16 +149,17 @@ public class MockRegistry {
             let package = PackageIdentity.plain(routeComponents.joined(separator: "."))
             return try self.getPackageMetadata(packageIdentity: package)
         case 3:
-            let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
+            let package = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
             let version = String(routeComponents[2])
             return try self.getVersionMetadata(packageIdentity: package, version: version)
         case 4 where routeComponents[3] == "Package.swift":
-            let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
+            let package = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
             let version = String(routeComponents[2])
             guard let components = URLComponents(url: request.url, resolvingAgainstBaseURL: false) else {
                 throw StringError("invalid url: \(request.url)")
             }
-            let toolsVersion = components.queryItems?.first(where: {$0.name == "swift-version"})?.value.flatMap(ToolsVersion.init(string:))
+            let toolsVersion = components.queryItems?.first(where: { $0.name == "swift-version" })?.value
+                .flatMap(ToolsVersion.init(string:))
             return try self.getManifest(packageIdentity: package, version: version, toolsVersion: toolsVersion)
         default:
             throw StringError("unknown request \(request.url)")
@@ -138,15 +167,19 @@ public class MockRegistry {
     }
 
     private func getPackageMetadata(packageIdentity: PackageIdentity) throws -> HTTPClientResponse {
-        guard let (scope, name) = packageIdentity.scopeAndName else {
-            throw StringError("invalid package identity \(packageIdentity)")
+        guard let registryIdentity = packageIdentity.registry else {
+            throw StringError("invalid package identifier '\(packageIdentity)'")
         }
 
         let versions = self.packageVersions[packageIdentity] ?? [:]
         let metadata = RegistryClient.Serialization.PackageMetadata(
-            releases: versions.keys.reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
-                partial[item] = .init(url: "\(Self.mockRegistryURL.absoluteString)/\(scope)/\(name)/\(item)")
-            }
+            releases: versions.keys
+                .reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
+                    partial[item] =
+                        .init(
+                            url: "\(Self.mockRegistryURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)"
+                        )
+                }
         )
 
         /*
@@ -177,7 +210,11 @@ public class MockRegistry {
             return .notFound()
         }
 
-        let zipfileContent = try self.zipFileContent(packageIdentity: packageIdentity, version: version, source: package)
+        let zipfileContent = try self.zipFileContent(
+            packageIdentity: packageIdentity,
+            version: version,
+            source: package
+        )
         let zipfileChecksum = self.checksumAlgorithm.hash(zipfileContent)
 
         let metadata = RegistryClient.Serialization.VersionMetadata(
@@ -187,10 +224,14 @@ public class MockRegistry {
                 .init(
                     name: "source-archive",
                     type: "application/zip",
-                    checksum: zipfileChecksum.hexadecimalRepresentation
-                )
+                    checksum: zipfileChecksum.hexadecimalRepresentation,
+                    signing: nil
+                ),
             ],
-            metadata: .init(description: "\(packageIdentity) description")
+            metadata: .init(
+                description: "\(packageIdentity) description",
+                readmeURL: "http://\(packageIdentity)/readme"
+            )
         )
 
         var headers = HTTPClientHeaders()
@@ -204,7 +245,11 @@ public class MockRegistry {
         )
     }
 
-    private func getManifest(packageIdentity: PackageIdentity, version: String, toolsVersion: ToolsVersion? = .none) throws -> HTTPClientResponse {
+    private func getManifest(
+        packageIdentity: PackageIdentity,
+        version: String,
+        toolsVersion: ToolsVersion? = .none
+    ) throws -> HTTPClientResponse {
         guard let package = self.packageVersions[packageIdentity]?[version] else {
             return .notFound()
         }
@@ -253,12 +298,13 @@ public class MockRegistry {
         fileSystem: FileSystem,
         destination: AbsolutePath
     ) throws -> HTTPClientResponse {
-        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1).split(separator: "/")
+        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1)
+            .split(separator: "/")
         guard routeComponents.count == 3, routeComponents[2].hasSuffix(".zip") else {
             throw StringError("invalid request \(request.url), expecting zip suffix")
         }
 
-        let packageIdentity = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
+        let packageIdentity = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
         let version = String(routeComponents[2].dropLast(4))
 
         guard let package = self.packageVersions[packageIdentity]?[version] else {
@@ -269,7 +315,11 @@ public class MockRegistry {
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
         }
 
-        let zipfileContent = try self.zipFileContent(packageIdentity: packageIdentity, version: version, source: package)
+        let zipfileContent = try self.zipFileContent(
+            packageIdentity: packageIdentity,
+            version: version,
+            source: package
+        )
         try fileSystem.writeFileContents(destination, string: zipfileContent)
 
         var headers = HTTPClientHeaders()
@@ -282,7 +332,11 @@ public class MockRegistry {
         )
     }
 
-    private func zipFileContent(packageIdentity: PackageIdentity, version: String, source: InMemoryRegistryPackageSource) throws -> String {
+    private func zipFileContent(
+        packageIdentity: PackageIdentity,
+        version: String,
+        source: InMemoryRegistryPackageSource
+    ) throws -> String {
         var content = "\(packageIdentity)_\(version)\n"
         content += source.path.pathString + "\n"
         for file in try source.listFiles() {
@@ -303,11 +357,11 @@ public struct InMemoryRegistryPackageSource {
 
     public func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .current) throws {
         try self.fileSystem.createDirectory(self.path, recursive: true)
-        let sourcesDir = self.path.appending(component: "Sources")
+        let sourcesDir = self.path.appending("Sources")
         for target in targets {
             let targetDir = sourcesDir.appending(component: target)
             try self.fileSystem.createDirectory(targetDir, recursive: true)
-            try self.fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+            try self.fileSystem.writeFileContents(targetDir.appending("file.swift"), bytes: "")
         }
         let manifestPath = self.path.appending(component: Manifest.filename)
         try self.fileSystem.writeFileContents(manifestPath, string: "// swift-tools-version:\(toolsVersion)")
@@ -339,16 +393,23 @@ private struct MockRegistryArchiver: Archiver {
         self.fileSystem = fileSystem
     }
 
-    func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
+    func extract(
+        from archivePath: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         do {
             let lines = try self.readFileContents(archivePath)
             guard lines.count >= 2 else {
                 throw StringError("invalid mock zip format, not enough lines")
             }
             let rootPath = lines[1]
-            for path in lines[2..<lines.count] {
+            for path in lines[2 ..< lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
-                let targetPath = try AbsolutePath(validating: relativePath, relativeTo: destinationPath.appending(component: "package"))
+                let targetPath = try AbsolutePath(
+                    validating: relativePath,
+                    relativeTo: destinationPath.appending("package")
+                )
                 if !self.fileSystem.exists(targetPath.parentDirectory) {
                     try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)
                 }
@@ -358,6 +419,14 @@ private struct MockRegistryArchiver: Archiver {
         } catch {
             completion(.failure(error))
         }
+    }
+
+    func compress(
+        directory: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        fatalError("not implemented")
     }
 
     func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
@@ -373,4 +442,16 @@ private struct MockRegistryArchiver: Archiver {
         let content: String = try self.fileSystem.readFileContents(path)
         return content.split(separator: "\n").map(String.init)
     }
+}
+
+extension RegistryConfiguration.Security {
+    public static let testDefault: RegistryConfiguration.Security = {
+        var signing = RegistryConfiguration.Security.Signing()
+        signing.onUnsigned = .silentAllow
+        signing.onUntrustedCertificate = .silentAllow
+
+        var security = RegistryConfiguration.Security()
+        security.default.signing = signing
+        return security
+    }()
 }

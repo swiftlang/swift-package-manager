@@ -16,7 +16,7 @@ import TSCBasic
 import PackageModel
 import PackageGraph
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.
@@ -293,6 +293,50 @@ public struct BuildParameters: Encodable {
         self.verboseOutput = verboseOutput
     }
 
+    public func withDestination(_ destinationTriple: Triple) throws -> BuildParameters {
+        let forceTestDiscovery: Bool
+        let testEntryPointPath: AbsolutePath?
+        switch self.testProductStyle {
+        case .entryPointExecutable(let explicitlyEnabledDiscovery, let explicitlySpecifiedPath):
+            forceTestDiscovery = explicitlyEnabledDiscovery
+            testEntryPointPath = explicitlySpecifiedPath
+        case .loadableBundle:
+            forceTestDiscovery = false
+            testEntryPointPath = nil
+        }
+
+        return .init(
+            dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
+            configuration: self.configuration,
+            toolchain: try UserToolchain(destination: Destination.hostDestination()),
+            hostTriple: self.hostTriple,
+            destinationTriple: destinationTriple,
+            flags: BuildFlags(),
+            pkgConfigDirectories: self.pkgConfigDirectories,
+            architectures: nil,
+            workers: self.workers,
+            shouldLinkStaticSwiftStdlib: self.shouldLinkStaticSwiftStdlib,
+            shouldEnableManifestCaching: self.shouldEnableManifestCaching,
+            canRenameEntrypointFunctionName: self.canRenameEntrypointFunctionName,
+            shouldCreateDylibForDynamicProducts: self.shouldCreateDylibForDynamicProducts,
+            sanitizers: self.sanitizers,
+            enableCodeCoverage: self.enableCodeCoverage,
+            indexStoreMode: self.indexStoreMode,
+            enableParseableModuleInterfaces: self.enableParseableModuleInterfaces,
+            emitSwiftModuleSeparately: self.emitSwiftModuleSeparately,
+            useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
+            useExplicitModuleBuild: self.useExplicitModuleBuild,
+            isXcodeBuildSystemEnabled: self.isXcodeBuildSystemEnabled,
+            enableTestability: self.enableTestability,
+            forceTestDiscovery: forceTestDiscovery,
+            testEntryPointPath: testEntryPointPath,
+            explicitTargetDependencyImportCheckingMode: self.explicitTargetDependencyImportCheckingMode,
+            linkerDeadStrip: self.linkerDeadStrip,
+            colorizedOutput: self.colorizedOutput,
+            verboseOutput: self.verboseOutput
+        )
+    }
+
     /// The path to the build directory (inside the data directory).
     public var buildPath: AbsolutePath {
         if isXcodeBuildSystemEnabled {
@@ -310,12 +354,12 @@ public struct BuildParameters: Encodable {
 
     /// The path to the code coverage directory.
     public var codeCovPath: AbsolutePath {
-        return buildPath.appending(component: "codecov")
+        return buildPath.appending("codecov")
     }
 
     /// The path to the code coverage profdata file.
     public var codeCovDataFile: AbsolutePath {
-        return codeCovPath.appending(component: "default.profdata")
+        return codeCovPath.appending("default.profdata")
     }
 
     public var llbuildManifest: AbsolutePath {
@@ -349,13 +393,16 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
+        let potentialExecutablePath = RelativePath("\(product.name)\(triple.executableExtension)")
+        let potentialLibraryPath = RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+
         switch product.type {
         case .executable, .snippet:
-            return RelativePath("\(product.name)\(triple.executableExtension)")
+            return potentialExecutablePath
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+            return potentialLibraryPath
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
@@ -369,6 +416,12 @@ public struct BuildParameters: Encodable {
             } else {
                 return RelativePath(base)
             }
+        case .macro:
+            #if BUILD_MACROS_AS_DYLIBS
+            return potentialLibraryPath
+            #else
+            return potentialExecutablePath
+            #endif
         }
     }
 }

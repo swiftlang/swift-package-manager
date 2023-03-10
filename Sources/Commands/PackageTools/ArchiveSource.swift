@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import SourceControl
 import TSCBasic
@@ -32,25 +33,47 @@ extension SwiftPackageTool {
         var output: AbsolutePath?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
-            let repository = GitRepository(path: packageRoot)
+            let packageDirectory = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
 
-            let destination: AbsolutePath
+            let archivePath: AbsolutePath
             if let output = output {
-                destination = output
+                archivePath = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
                 let packageName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
-                destination = packageRoot.appending(component: "\(packageName).zip")
+                archivePath = packageDirectory.appending("\(packageName).zip")
             }
 
-            try repository.archive(to: destination)
+            try SwiftPackageTool.archiveSource(
+                at: packageDirectory,
+                to: archivePath,
+                fileSystem: localFileSystem,
+                cancellator: swiftTool.cancellator
+            )
 
-            if destination.isDescendantOfOrEqual(to: packageRoot) {
-                let relativePath = destination.relative(to: packageRoot)
+            if archivePath.isDescendantOfOrEqual(to: packageDirectory) {
+                let relativePath = archivePath.relative(to: packageDirectory)
                 print("Created \(relativePath.pathString)")
             } else {
-                print("Created \(destination.pathString)")
+                print("Created \(archivePath.pathString)")
+            }
+        }
+    }
+
+    public static func archiveSource(
+        at packageDirectory: AbsolutePath,
+        to archivePath: AbsolutePath,
+        fileSystem: FileSystem,
+        cancellator: Cancellator?
+    ) throws  {
+        let gitRepositoryProvider = GitRepositoryProvider()
+        if gitRepositoryProvider.repositoryExists(at: packageDirectory) {
+            let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
+            try repository.archive(to: archivePath)
+        } else {
+            let zipArchiver = ZipArchiver(fileSystem: fileSystem, cancellator: cancellator)
+            try tsc_await {
+                zipArchiver.compress(directory: packageDirectory, to: archivePath, completion: $0)
             }
         }
     }

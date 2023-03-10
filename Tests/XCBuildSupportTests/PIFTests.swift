@@ -23,13 +23,13 @@ class PIFTests: XCTestCase {
         PIF.Workspace(
             guid: "workspace",
             name: "MyWorkspace",
-            path: AbsolutePath(path: "/path/to/workspace"),
+            path: "/path/to/workspace",
             projects: [
                 PIF.Project(
                     guid: "project",
                     name: "MyProject",
-                    path: AbsolutePath(path: "/path/to/workspace/project"),
-                    projectDirectory: AbsolutePath(path: "/path/to/workspace/project"),
+                    path: "/path/to/workspace/project",
+                    projectDirectory: "/path/to/workspace/project",
                     developmentRegion: "fr",
                     buildConfigurations: [
                         PIF.BuildConfiguration(
@@ -101,6 +101,17 @@ class PIFTests: XCTestCase {
                                             guid: "target-exe-frameworks-build-file-guid",
                                             targetGUID: "target-lib-guid",
                                             platformFilters: []
+                                        )
+                                    ]
+                                ),
+                                PIF.HeadersBuildPhase(
+                                    guid: "target-exe-headers-build-phase-guid",
+                                    buildFiles: [
+                                        PIF.BuildFile(
+                                            guid: "target-exe-headers-build-file-guid",
+                                            targetGUID: "target-lib-guid",
+                                            platformFilters: [],
+                                            headerVisibility: .public
                                         )
                                     ]
                                 )
@@ -275,14 +286,14 @@ class PIFTests: XCTestCase {
 
         XCTAssertEqual(workspace["type"]?.string, "workspace")
         XCTAssertEqual(workspaceContents["guid"]?.string, "workspace@11")
-        XCTAssertEqual(workspaceContents["path"]?.string, AbsolutePath(path: "/path/to/workspace").pathString)
+        XCTAssertEqual(workspaceContents["path"]?.string, AbsolutePath("/path/to/workspace").pathString)
         XCTAssertEqual(workspaceContents["name"]?.string, "MyWorkspace")
         XCTAssertEqual(workspaceContents["projects"]?.array, [project["signature"]!])
 
         XCTAssertEqual(project["type"]?.string, "project")
         XCTAssertEqual(projectContents["guid"]?.string, "project@11")
-        XCTAssertEqual(projectContents["path"]?.string, AbsolutePath(path: "/path/to/workspace/project").pathString)
-        XCTAssertEqual(projectContents["projectDirectory"]?.string, AbsolutePath(path: "/path/to/workspace/project").pathString)
+        XCTAssertEqual(projectContents["path"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
+        XCTAssertEqual(projectContents["projectDirectory"]?.string, AbsolutePath("/path/to/workspace/project").pathString)
         XCTAssertEqual(projectContents["projectName"]?.string, "MyProject")
         XCTAssertEqual(projectContents["projectIsPackage"]?.string, "true")
         XCTAssertEqual(projectContents["developmentRegion"]?.string, "fr")
@@ -371,7 +382,7 @@ class PIFTests: XCTestCase {
             XCTFail("invalid number of build configurations")
         }
 
-        if let buildPhases = exeTargetContents["buildPhases"]?.array, buildPhases.count == 2 {
+        if let buildPhases = exeTargetContents["buildPhases"]?.array, buildPhases.count == 3 {
             let buildPhase1 = buildPhases[0]
             XCTAssertEqual(buildPhase1["guid"]?.string, "target-exe-sources-build-phase-guid")
             XCTAssertEqual(buildPhase1["type"]?.string, "com.apple.buildphase.sources")
@@ -388,6 +399,17 @@ class PIFTests: XCTestCase {
             if let frameworks = buildPhase2["buildFiles"]?.array, frameworks.count == 1 {
                 XCTAssertEqual(frameworks[0]["guid"]?.string, "target-exe-frameworks-build-file-guid")
                 XCTAssertEqual(frameworks[0]["targetReference"]?.string, "target-lib-guid@11")
+            } else {
+                XCTFail("invalid number of build files")
+            }
+
+            let buildPhase3 = buildPhases[2]
+            XCTAssertEqual(buildPhase3["guid"]?.string, "target-exe-headers-build-phase-guid")
+            XCTAssertEqual(buildPhase3["type"]?.string, "com.apple.buildphase.headers")
+            if let frameworks = buildPhase3["buildFiles"]?.array, frameworks.count == 1 {
+                XCTAssertEqual(frameworks[0]["guid"]?.string, "target-exe-headers-build-file-guid")
+                XCTAssertEqual(frameworks[0]["targetReference"]?.string, "target-lib-guid@11")
+                XCTAssertEqual(frameworks[0]["headerVisibility"]?.string, "public")
             } else {
                 XCTFail("invalid number of build files")
             }

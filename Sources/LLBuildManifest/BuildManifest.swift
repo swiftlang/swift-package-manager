@@ -124,6 +124,7 @@ public struct BuildManifest {
     public mutating func addSwiftFrontendCmd(
         name: String,
         moduleName: String,
+        packageName: String,
         description: String,
         inputs: [Node],
         outputs: [Node],
@@ -164,6 +165,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node],
         executable: AbsolutePath,
+        packageName: String,
         moduleName: String,
         moduleAliases: [String: String]?,
         moduleOutputPath: AbsolutePath,

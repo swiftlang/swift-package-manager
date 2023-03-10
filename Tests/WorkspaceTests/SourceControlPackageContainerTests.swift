@@ -22,6 +22,7 @@ import TSCBasic
 import XCTest
 
 import enum TSCUtility.Git
+import struct TSCUtility.Version
 
 private class MockRepository: Repository {
     /// The fake location of the repository.
@@ -184,7 +185,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
-        let filePath = repoPath.appending(component: "Package.swift")
+        let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
@@ -200,7 +201,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
 
-        let p = AbsolutePath.root.appending(component: "repoManager")
+        let p = AbsolutePath.root.appending("repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             fileSystem: fs,
@@ -226,7 +227,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
-        let filePath = repoPath.appending(component: "Package.swift")
+        let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
@@ -252,7 +253,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
 
-        let p = AbsolutePath.root.appending(component: "repoManager")
+        let p = AbsolutePath.root.appending("repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             fileSystem: fs,
@@ -319,7 +320,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
-        let filePath = repoPath.appending(component: "Package.swift")
+        let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
@@ -337,7 +338,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
 
-        let p = AbsolutePath.root.appending(component: "repoManager")
+        let p = AbsolutePath.root.appending("repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             fileSystem: fs,
@@ -363,7 +364,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let repoPath = AbsolutePath.root
-        let filePath = repoPath.appending(component: "Package.swift")
+        let filePath = repoPath.appending("Package.swift")
 
         let specifier = RepositorySpecifier(path: repoPath)
         let repo = InMemoryGitRepository(path: repoPath, fs: fs)
@@ -386,7 +387,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         let inMemRepoProvider = InMemoryGitRepositoryProvider()
         inMemRepoProvider.add(specifier: specifier, repository: repo)
 
-        let p = AbsolutePath.root.appending(component: "repoManager")
+        let p = AbsolutePath.root.appending("repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
             fileSystem: fs,
@@ -456,7 +457,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
@@ -478,7 +479,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createFileSystemManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5,
                 dependencies: dependencies,
@@ -500,7 +501,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createRootManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
@@ -522,7 +523,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let manifest = Manifest.createFileSystemManifest(
-                name: "Foo",
+                displayName: "Foo",
                 path: .init(path: "/Foo"),
                 toolsVersion: .v5_2,
                 dependencies: dependencies,
@@ -545,13 +546,13 @@ class SourceControlPackageContainerTests: XCTestCase {
     func testMissingBranchDiagnostics() throws {
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
-            let packageDir = tmpDir.appending(component: "SomePackage")
+            let packageDir = tmpDir.appending("SomePackage")
             try localFileSystem.createDirectory(packageDir)
             initGitRepo(packageDir)
             let packageRepo = GitRepository(path: packageDir)
 
             // Create a package manifest in it (it only needs the `swift-tools-version` part, because we'll supply the manifest later).
-            let manifestFile = packageDir.appending(component: "Package.swift")
+            let manifestFile = packageDir.appending("Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:4.2"))
 
             // Commit it and tag it.
@@ -573,7 +574,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createRootManifest(
-                name: packageDir.basename,
+                displayName: packageDir.basename,
                 path: packageDir,
                 targets: [
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
@@ -616,12 +617,12 @@ class SourceControlPackageContainerTests: XCTestCase {
     // This lead to corrupt graph states.
     func testRepositoryPackageContainerCache() throws {
         try testWithTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending(component: "Package")
+            let packageDirectory = temporaryDirectory.appending("Package")
             try localFileSystem.createDirectory(packageDirectory)
             initGitRepo(packageDirectory)
             let packageRepository = GitRepository(path: packageDirectory)
 
-            let manifestFile = packageDirectory.appending(component: "Package.swift")
+            let manifestFile = packageDirectory.appending("Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:5.2"))
 
             try packageRepository.stage(file: "Package.swift")
@@ -638,7 +639,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             let version = Version(1, 0, 0)
             let manifest = Manifest.createRootManifest(
-                name: packageDirectory.basename,
+                displayName: packageDirectory.basename,
                 path: packageDirectory,
                 toolsVersion: .v5_2,
                 dependencies: [

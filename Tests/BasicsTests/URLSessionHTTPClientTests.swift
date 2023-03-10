@@ -28,7 +28,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -62,7 +62,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -96,7 +96,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
 
@@ -133,7 +133,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
 
@@ -169,7 +169,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = LegacyHTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "http://test")!
+        let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -230,8 +230,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
-            let url = URL(string: "https://downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
             let request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
             httpClient.execute(
                 request,
@@ -298,8 +298,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
-            let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://protected.downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
             var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
             request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
 
@@ -369,8 +369,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let progress100Expectation = XCTestExpectation(description: "progress100")
             let completionExpectation = XCTestExpectation(description: "completion")
 
-            let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://restricted.downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
             var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
             request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
 
@@ -435,8 +435,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let clientError = StringError("boom")
-            let url = URL(string: "https://downloader-tests.com/testClientError.zip")!
-            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
+            let url = URL("https://downloader-tests.com/testClientError.zip")
+            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending("download"))
             httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -496,8 +496,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let completionExpectation = XCTestExpectation(description: "completion")
 
-            let url = URL(string: "https://downloader-tests.com/testServerError.zip")!
-            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending(component: "download"))
+            let url = URL("https://downloader-tests.com/testServerError.zip")
+            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending("download"))
             request.options.validResponseCodes = [200]
 
             httpClient.execute(
@@ -544,8 +544,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
             let completionExpectation = XCTestExpectation(description: "error")
 
-            let url = URL(string: "https://downloader-tests.com/testFileSystemError.zip")!
-            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: temporaryDirectory.appending(component: "download"))
+            let url = URL("https://downloader-tests.com/testFileSystemError.zip")
+            let request = LegacyHTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: temporaryDirectory.appending("download"))
             httpClient.execute(request, progress: { _, _ in }, completion: { result in
                 switch result {
                 case .success:
@@ -570,14 +570,13 @@ final class URLSessionHTTPClientTest: XCTestCase {
     }
 
     // FIXME: remove this availability check when back-deployment is available on CI hosts.
-#if swift(>=5.5.2)
     func testAsyncHead() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
-        let url = URL(string: "http://async-head-test")!
+        let url = URL("http://async-head-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -602,7 +601,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
-        let url = URL(string: "http://async-get-test")!
+        let url = URL("http://async-get-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -626,7 +625,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
-        let url = URL(string: "http://async-post-test")!
+        let url = URL("http://async-post-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
 
@@ -654,7 +653,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
-        let url = URL(string: "http://async-put-test")!
+        let url = URL("http://async-put-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = UUID().uuidString.data(using: .utf8)
 
@@ -681,7 +680,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
-        let url = URL(string: "http://async-delete-test")!
+        let url = URL("http://async-delete-test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
         let responseStatus = 200
@@ -716,8 +715,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
-            let url = URL(string: "https://async-downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://async-downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
             let request = HTTPClient.Request.download(
                 url: url,
                 fileSystem: AsyncFileSystem { localFileSystem },
@@ -770,8 +769,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
-            let url = URL(string: "https://async-protected.downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://async-protected.downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
             var options = HTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
             let request = HTTPClient.Request.download(
@@ -828,8 +827,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
-            let url = URL(string: "https://async-restricted.downloader-tests.com/testBasics.zip")!
-            let destination = temporaryDirectory.appending(component: "download")
+            let url = URL("https://async-restricted.downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
 
             var options = HTTPClientRequest.Options()
             options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
@@ -883,11 +882,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let clientError = StringError("boom")
-            let url = URL(string: "https://async-downloader-tests.com/testClientError.zip")!
+            let url = URL("https://async-downloader-tests.com/testClientError.zip")
             let request = HTTPClient.Request.download(
                 url: url,
                 fileSystem: AsyncFileSystem { localFileSystem },
-                destination: temporaryDirectory.appending(component: "download")
+                destination: temporaryDirectory.appending("download")
             )
 
             MockURLProtocol.onRequest(request) { request in
@@ -936,14 +935,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let httpClient = HTTPClient(underlying: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
-            let url = URL(string: "https://async-downloader-tests.com/testServerError.zip")!
+            let url = URL("https://async-downloader-tests.com/testServerError.zip")
             var options = HTTPClientRequest.Options()
             options.validResponseCodes = [200]
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
                 fileSystem: AsyncFileSystem { localFileSystem },
-                destination: temporaryDirectory.appending(component: "download")
+                destination: temporaryDirectory.appending("download")
             )
 
             MockURLProtocol.onRequest(request) { request in
@@ -964,7 +963,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
         }
     }
-#endif // swift(>=5.5.2)
 }
 
 private class MockURLProtocol: URLProtocol {
@@ -977,11 +975,9 @@ private class MockURLProtocol: URLProtocol {
         self.onRequest(request.method.string, request.url, completion: completion)
     }
 
-#if swift(>=5.5.2)
     static func onRequest(_ request: HTTPClientRequest, completion: @escaping Action) {
         self.onRequest(request.method.string, request.url, completion: completion)
     }
-#endif
 
     static func onRequest(_ method: String, _ url: URL, completion: @escaping Action) {
         let key = Key(method, url)

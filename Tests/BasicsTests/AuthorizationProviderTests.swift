@@ -18,7 +18,7 @@ import TSCTestSupport
 
 final class AuthorizationProviderTests: XCTestCase {
     func testBasicAPIs() {
-        let url = URL(string: "http://\(UUID().uuidString)")!
+        let url = URL("http://\(UUID().uuidString)")
         let user = UUID().uuidString
         let password = UUID().uuidString
 
@@ -28,16 +28,16 @@ final class AuthorizationProviderTests: XCTestCase {
 
     func testNetrc() throws {
         try testWithTemporaryDirectory { tmpPath in
-            let netrcPath = tmpPath.appending(component: ".netrc")
+            let netrcPath = tmpPath.appending(".netrc")
 
             let provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
 
             let user = UUID().uuidString
 
-            let url = URL(string: "http://\(UUID().uuidString)")!
+            let url = URL("http://\(UUID().uuidString)")
             let password = UUID().uuidString
 
-            let otherURL = URL(string: "https://\(UUID().uuidString)")!
+            let otherURL = URL("https://\(UUID().uuidString)")
             let otherPassword = UUID().uuidString
 
             // Add
@@ -69,10 +69,10 @@ final class AuthorizationProviderTests: XCTestCase {
 
         let user = UUID().uuidString
 
-        let url = URL(string: "http://\(UUID().uuidString)")!
+        let url = URL("http://\(UUID().uuidString)")
         let password = UUID().uuidString
 
-        let otherURL = URL(string: "https://\(UUID().uuidString)")!
+        let otherURL = URL("https://\(UUID().uuidString)")
         let otherPassword = UUID().uuidString
 
         // Add
@@ -97,7 +97,7 @@ final class AuthorizationProviderTests: XCTestCase {
     }
 
     func testComposite() throws {
-        let url = URL(string: "http://\(UUID().uuidString)")!
+        let url = URL("http://\(UUID().uuidString)")
         let user = UUID().uuidString
         let passwordOne = UUID().uuidString
         let passwordTwo = UUID().uuidString
@@ -119,7 +119,7 @@ final class AuthorizationProviderTests: XCTestCase {
 
         do {
             // Neither has password
-            let unknownURL = URL(string: "http://\(UUID().uuidString)")!
+            let unknownURL = URL("http://\(UUID().uuidString)")
             let provider = CompositeAuthorizationProvider(providerOne, providerTwo, observabilityScope: ObservabilitySystem.NOOP)
             XCTAssertNil(provider.authentication(for: unknownURL))
         }

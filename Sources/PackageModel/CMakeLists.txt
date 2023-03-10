@@ -7,11 +7,14 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageModel
+  ArtifactsArchiveMetadata.swift
   BuildConfiguration.swift
   BuildEnvironment.swift
   BuildFlags.swift
   BuildSettings.swift
   Destination.swift
+  DestinationConfigurationStore.swift
+  DestinationBundle.swift
   Diagnostics.swift
   IdentityResolver.swift
   Manifest/Manifest.swift
@@ -31,6 +34,7 @@ add_library(PackageModel
   Platform.swift
   PlatformRegistry.swift
   Product.swift
+  RegistryReleaseMetadata.swift
   Resource.swift
   Sanitizers.swift
   Snippets/Model/Snippet.swift
@@ -42,6 +46,7 @@ add_library(PackageModel
   Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift
+  Toolset.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift
   UserToolchain.swift

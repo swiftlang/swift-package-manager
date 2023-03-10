@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,6 +20,8 @@ import SPMTestSupport
 import TSCBasic
 @testable import Workspace
 import XCTest
+
+import struct TSCUtility.Version
 
 class RegistryPackageContainerTests: XCTestCase {
 
@@ -263,7 +265,7 @@ class RegistryPackageContainerTests: XCTestCase {
                           callbackQueue: DispatchQueue,
                           completion: @escaping (Result<Manifest, Error>) -> Void) {
                     completion(.success(
-                        Manifest(
+                        Manifest.createManifest(
                             displayName: packageIdentity.description,
                             path: manifestPath,
                             packageKind: packageKind,
@@ -335,14 +337,14 @@ class RegistryPackageContainerTests: XCTestCase {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
         let fingerprintStorage = MockPackageFingerprintStorage()
 
-        guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
-            throw StringError("Invalid package identity")
+        guard let registryIdentity = packageIdentity.registry else {
+            throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
         var configuration = configuration
         if configuration == nil {
             configuration = PackageRegistry.RegistryConfiguration()
-            configuration!.defaultRegistry = .init(url: URL(string: "http://localhost")!)
+            configuration!.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
         }
 
         let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in
@@ -369,7 +371,8 @@ class RegistryPackageContainerTests: XCTestCase {
                     .init(
                         name: "source-archive",
                         type: "application/zip",
-                        checksum: ""
+                        checksum: "",
+                        signing: nil
                     )
                 ],
                 metadata: .init(description: "")
@@ -402,8 +405,8 @@ class RegistryPackageContainerTests: XCTestCase {
         let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
             // meh
             let path = packagePath
-                .appending(components: ".build", "registry", "downloads", packageScope.description, packageName.description)
-                .appending(component: "\(packageVersion).zip")
+                .appending(components: ".build", "registry", "downloads", registryIdentity.scope.description, registryIdentity.name.description)
+                .appending("\(packageVersion).zip")
             try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
             try! fileSystem.writeFileContents(path, string: "")
 
@@ -421,7 +424,7 @@ class RegistryPackageContainerTests: XCTestCase {
 
         let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
             do {
-                try fileSystem.createDirectory(to.appending(component: "top"), recursive: true)
+                try fileSystem.createDirectory(to.appending("top"), recursive: true)
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
@@ -432,6 +435,8 @@ class RegistryPackageContainerTests: XCTestCase {
             configuration: configuration!,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress , completion in
                 var pathComponents = request.url.pathComponents
@@ -441,10 +446,10 @@ class RegistryPackageContainerTests: XCTestCase {
                 guard pathComponents.count >= 2 else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
-                guard pathComponents[0] == packageScope.description else {
+                guard pathComponents[0] == registryIdentity.scope.description else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
-                guard pathComponents[1] == packageName.description else {
+                guard pathComponents[1] == registryIdentity.name.description else {
                     return completion(.failure(StringError("invalid url \(request.url)")))
                 }
 
@@ -461,16 +466,17 @@ class RegistryPackageContainerTests: XCTestCase {
                     completion(.failure(StringError("unexpected url \(request.url)")))
                 }
             }),
-            customArchiverProvider: { _ in archiver }
+            customArchiverProvider: { _ in archiver },
+            delegate: .none
         )
     }
 
     private func manifestLink(_ identity: PackageIdentity, _ version: ToolsVersion) -> String {
-        guard let (scope, name) = identity.scopeAndName else {
-            preconditionFailure("invalid identity")
+        guard let registryIdentity = identity.registry else {
+            preconditionFailure("invalid registry identity: '\(identity)'")
         }
         let versionString = version.patch == 0 ? "\(version.major).\(version.minor)" : version.description
-        return "<http://localhost/\(scope)/\(name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
+        return "<http://localhost/\(registryIdentity.scope)/\(registryIdentity.name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
     }
 }
 

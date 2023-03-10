@@ -17,6 +17,8 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Represents the workspace internal state persisted on disk.
 public final class WorkspaceState {
     /// The dependencies managed by the Workspace.
@@ -36,7 +38,7 @@ public final class WorkspaceState {
         storageDirectory: AbsolutePath,
         initializationWarningHandler: (String) -> Void
     ) {
-        self.storagePath = storageDirectory.appending(component: "workspace-state.json")
+        self.storagePath = storageDirectory.appending("workspace-state.json")
         self.storage = WorkspaceStateStorage(path: self.storagePath, fileSystem: fileSystem)
 
         // Load the state from disk, if possible.

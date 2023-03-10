@@ -51,7 +51,3 @@
 - ``Package/cLanguageStandard``
 - ``Package/cxxLanguageStandard``
 
-### Encoding and Decoding
-
-- ``Package/encode(to:)``
-

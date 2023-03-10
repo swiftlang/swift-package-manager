@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -81,6 +81,9 @@ extension PackageCollectionModel.V1.Collection {
     public struct Package: Equatable, Codable {
         /// The URL of the package. Currently only Git repository URLs are supported.
         public let url: URL
+        
+        /// Package identity for registry (https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#36-package-identification).
+        public let identity: String?
 
         /// A description of the package.
         public let summary: String?
@@ -100,6 +103,7 @@ extension PackageCollectionModel.V1.Collection {
         /// Creates a `Package`
         public init(
             url: URL,
+            identity: String? = nil,
             summary: String?,
             keywords: [String]?,
             versions: [PackageCollectionModel.V1.Collection.Package.Version],
@@ -107,6 +111,7 @@ extension PackageCollectionModel.V1.Collection {
             license: PackageCollectionModel.V1.License?
         ) {
             self.url = url
+            self.identity = identity
             self.summary = summary
             self.keywords = keywords
             self.versions = versions
@@ -335,12 +340,15 @@ extension PackageCollectionModel.V1 {
 
         /// A test product.
         case test
+        
+        /// A macro product.
+        case `macro`
     }
 }
 
 extension PackageCollectionModel.V1.ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, plugin, snippet, test
+        case library, executable, plugin, snippet, test, `macro`
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -357,6 +365,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             try container.encodeNil(forKey: .snippet)
         case .test:
             try container.encodeNil(forKey: .test)
+        case .macro:
+            try container.encodeNil(forKey: .macro)
         }
     }
 
@@ -378,6 +388,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             self = .snippet
         case .test:
             self = .test
+        case .macro:
+            self = .macro
         }
     }
 }

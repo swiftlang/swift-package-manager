@@ -29,50 +29,96 @@ public struct MockDependency {
         self.products = products
     }
 
-    // TODO: refactor this when adding registry support
     public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
         switch self.location {
         case .fileSystem(let path):
-            let path = baseURL.appending(path)
-            let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: path.pathString))
-            let identity = try identityResolver.resolveIdentity(for: remappedPath)
+            let absolutePath = baseURL.appending(path)
+            let mappedLocation = identityResolver.mappedLocation(for: absolutePath.pathString)
+            guard let mappedPath = try? AbsolutePath(validating: mappedLocation) else {
+                throw StringError("invalid mapping of '\(path)' to '\(mappedLocation)', no requirement information available.")
+            }
+            let identity = try identityResolver.resolveIdentity(for: mappedPath)
             return .fileSystem(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                path: remappedPath,
+                path: mappedPath,
                 productFilter: self.products
             )
         case .localSourceControl(let path, let requirement):
             let absolutePath = baseURL.appending(path)
-            let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: absolutePath.pathString))
-            let identity = try identityResolver.resolveIdentity(for: remappedPath)
+            let mappedLocation = identityResolver.mappedLocation(for: absolutePath.pathString)
+            guard let mappedPath = try? AbsolutePath(validating: mappedLocation) else {
+                throw StringError("invalid mapping of '\(path)' to '\(mappedLocation)', no requirement information available.")
+            }
+            let identity = try identityResolver.resolveIdentity(for: mappedPath)
             return .localSourceControl(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                path: remappedPath,
+                path: mappedPath,
                 requirement: requirement,
                 productFilter: self.products
             )
-        case .remoteSourceControl(let url, let requirement):
-            let remappedURLString = identityResolver.mappedLocation(for: url.absoluteString)
-            guard let remappedURL = URL(string: remappedURLString) else {
-                throw StringError("invalid url: \(remappedURLString))")
+        case .remoteSourceControl(let url, let _requirement):
+            let mappedLocation = identityResolver.mappedLocation(for: url.absoluteString)
+            if PackageIdentity.plain(mappedLocation).isRegistry {
+                let identity = PackageIdentity.plain(mappedLocation)
+                let requirement: RegistryRequirement
+                switch _requirement {
+                case .branch, .revision:
+                    throw StringError("invalid mapping of source control to registry, requirement information mismatch.")
+                case .exact(let value):
+                    requirement = .exact(value)
+                case .range(let value):
+                    requirement = .range(value)
+                }
+                return .registry(
+                    identity: identity,
+                    requirement: requirement,
+                    productFilter: self.products
+                )
+
+            } else if let mappedURL = URL(string: mappedLocation) {
+                let identity = try identityResolver.resolveIdentity(for: mappedURL)
+                return .remoteSourceControl(
+                    identity: identity,
+                    deprecatedName: self.deprecatedName,
+                    url: mappedURL,
+                    requirement: _requirement,
+                    productFilter: self.products
+                )
+            } else {
+                throw StringError("invalid mapping of '\(url)' to '\(mappedLocation)'")
             }
-            let identity = try identityResolver.resolveIdentity(for: remappedURL)
-            return .remoteSourceControl(
-                identity: identity,
-                deprecatedName: self.deprecatedName,
-                url: remappedURL,
-                requirement: requirement,
-                productFilter: self.products
-            )
-        case .registry(let identity, let requirement):
-            return .registry(
-                identity: identity,
-                requirement: requirement,
-                productFilter: self.products
-            )
+        case .registry(let identity, let _requirement):
+            let mappedLocation = identityResolver.mappedLocation(for: identity.description)
+            if PackageIdentity.plain(mappedLocation).isRegistry {
+                let identity = PackageIdentity.plain(mappedLocation)
+                return .registry(
+                    identity: identity,
+                    requirement: _requirement,
+                    productFilter: self.products
+                )
+            } else if let mappedURL = URL(string: mappedLocation) {
+                let identity = try identityResolver.resolveIdentity(for: mappedURL)
+                let requirement: SourceControlRequirement
+                switch _requirement {
+                case .exact(let value):
+                    requirement = .exact(value)
+                case .range(let value):
+                    requirement = .range(value)
+                }
+                return .remoteSourceControl(
+                    identity: identity,
+                    deprecatedName: self.deprecatedName,
+                    url: mappedURL,
+                    requirement: requirement,
+                    productFilter: self.products
+                )
+            } else {
+                throw StringError("invalid mapping of '\(identity)' to '\(mappedLocation)'")
+            }
         }
+        
     }
 
     public static func fileSystem(path: String, products: ProductFilter = .everything) -> MockDependency {

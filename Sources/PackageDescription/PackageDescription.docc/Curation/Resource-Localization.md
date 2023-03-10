@@ -7,10 +7,6 @@
 - ``base``
 - ``default``
 
-### Encoding and Decoding
-
-- ``encode(to:)``
-
 ### Hashing
 
 - ``hash(into:)``

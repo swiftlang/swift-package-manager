@@ -20,6 +20,8 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
 
@@ -40,7 +42,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
             self.cache = SQLiteBackedCache<CacheValue>(
                 tableName: "github_cache",
-                path: configuration.cacheDir.appending(component: "package-metadata.db"),
+                path: configuration.cacheDir.appending("package-metadata.db"),
                 configuration: cacheConfig
             )
         } else {

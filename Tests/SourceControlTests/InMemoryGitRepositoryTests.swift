@@ -24,7 +24,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
 
         try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
         XCTAssertTrue(!repo.hasUncommittedChanges())
-        let filePath = AbsolutePath(path: "/new-dir/subdir").appending(component: "new-file.txt")
+        let filePath = AbsolutePath("/new-dir/subdir").appending("new-file.txt")
 
         try repo.writeFileContents(filePath, bytes: "one")
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
@@ -80,7 +80,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
 
         let specifier = RepositorySpecifier(path: .init(path: "/foo"))
         try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
-        let filePath = AbsolutePath(path: "/new-dir/subdir").appending(component: "new-file.txt")
+        let filePath = AbsolutePath("/new-dir/subdir").appending("new-file.txt")
         try repo.writeFileContents(filePath, bytes: "one")
         try repo.commit()
         try repo.tag(name: v1)
@@ -91,7 +91,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let provider = InMemoryGitRepositoryProvider()
         provider.add(specifier: specifier, repository: repo)
 
-        let fooRepoPath = AbsolutePath(path: "/fooRepo")
+        let fooRepoPath = AbsolutePath("/fooRepo")
         try provider.fetch(repository: specifier, to: fooRepoPath)
         let fooRepo = try provider.open(repository: specifier, at: fooRepoPath)
 
@@ -100,7 +100,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertEqual(try fooRepo.getTags().sorted(), [v1, v2])
         XCTAssert(fooRepo.exists(revision: try fooRepo.resolveRevision(tag: v1)))
 
-        let fooCheckoutPath = AbsolutePath(path: "/fooCheckout")
+        let fooCheckoutPath = AbsolutePath("/fooCheckout")
         XCTAssertFalse(try provider.workingCopyExists(at: fooCheckoutPath))
         _ = try provider.createWorkingCopy(repository: specifier, sourcePath: fooRepoPath, at: fooCheckoutPath, editable: false)
         XCTAssertTrue(try provider.workingCopyExists(at: fooCheckoutPath))

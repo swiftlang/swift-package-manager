@@ -16,7 +16,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import TSCBasic
-import struct TSCUtility.Triple
 
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {
@@ -50,6 +49,7 @@ public protocol PluginScriptRunner {
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,

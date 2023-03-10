@@ -23,6 +23,8 @@ import Workspace
 import XCTest
 
 final class APIDiffTests: CommandsTestCase {
+    private let driverSupport = DriverSupport()
+
     @discardableResult
     private func execute(
         _ args: [String],
@@ -53,7 +55,7 @@ final class APIDiffTests: CommandsTestCase {
       // not all of which can be tested for easily. Fortunately, we can test for the
       // `-disable-fail-on-error` option, and any version which supports this flag
       // will meet the other requirements.
-      guard DriverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fileSystem: localFileSystem) else {
+      guard driverSupport.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], toolchain: try UserToolchain.default, fileSystem: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }
@@ -61,9 +63,9 @@ final class APIDiffTests: CommandsTestCase {
     func testInvokeAPIDiffDigester() throws {
         try skipIfApiDigesterUnsupported()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Foo")
+            let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
-            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+            try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
@@ -75,9 +77,9 @@ final class APIDiffTests: CommandsTestCase {
     func testSimpleAPIDiff() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Foo")
+            let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
-            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+            try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
@@ -90,7 +92,7 @@ final class APIDiffTests: CommandsTestCase {
     func testMultiTargetAPIDiff() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
                 $0 <<< "public func baz() -> String { \"hello, world!\" }"
             }
@@ -110,7 +112,7 @@ final class APIDiffTests: CommandsTestCase {
     func testBreakageAllowlist() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
                 $0 <<< "public func baz() -> String { \"hello, world!\" }"
             }
@@ -138,7 +140,7 @@ final class APIDiffTests: CommandsTestCase {
     func testCheckVendedModulesOnly() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "NonAPILibraryTargets")
+            let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
                 $0 <<< "public func baz() -> String { \"hello, world!\" }"
             }
@@ -171,7 +173,7 @@ final class APIDiffTests: CommandsTestCase {
     func testFilters() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "NonAPILibraryTargets")
+            let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
                 $0 <<< "public func baz() -> String { \"hello, world!\" }"
             }
@@ -232,7 +234,7 @@ final class APIDiffTests: CommandsTestCase {
     func testAPIDiffOfModuleWithCDependency() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "CTargetDep")
+            let packageRoot = fixturePath.appending("CTargetDep")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
                 $0 <<< """
@@ -259,7 +261,7 @@ final class APIDiffTests: CommandsTestCase {
     func testNoBreakingChanges() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             // Introduce an API-compatible change
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
                 $0 <<< "public func bar() -> Int { 100 }"
@@ -273,12 +275,12 @@ final class APIDiffTests: CommandsTestCase {
     func testAPIDiffAfterAddingNewTarget() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
                 $0 <<< "public let foo = \"All new module!\""
             }
-            try localFileSystem.writeFileContents(packageRoot.appending(component: "Package.swift")) {
+            try localFileSystem.writeFileContents(packageRoot.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:4.2
                 import PackageDescription
@@ -307,7 +309,7 @@ final class APIDiffTests: CommandsTestCase {
     func testBadTreeish() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Foo")
+            let packageRoot = fixturePath.appending("Foo")
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stderr, .contains("error: Couldn’t get revision"))
             }
@@ -318,11 +320,11 @@ final class APIDiffTests: CommandsTestCase {
         try skipIfApiDigesterUnsupportedOrUnset()
         try withTemporaryDirectory { baselineDir in
             try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-                let packageRoot = fixturePath.appending(component: "Foo")
+                let packageRoot = fixturePath.appending("Foo")
                 let repo = GitRepository(path: packageRoot)
                 try repo.checkout(newBranch: "feature")
                 // Overwrite the existing decl.
-                try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+                try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                     $0 <<< "public let foo = 42"
                 }
                 try repo.stage(file: "Foo.swift")
@@ -338,7 +340,7 @@ final class APIDiffTests: CommandsTestCase {
 
                 // Update `main` and ensure the baseline is regenerated.
                 try repo.checkout(revision: .init(identifier: "main"))
-                try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+                try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                     $0 <<< "public let foo = 42"
                 }
                 try repo.stage(file: "Foo.swift")
@@ -354,13 +356,13 @@ final class APIDiffTests: CommandsTestCase {
     func testBaselineDirOverride() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Foo")
+            let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
-            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+            try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
 
-            let baselineDir = fixturePath.appending(component: "Baselines")
+            let baselineDir = fixturePath.appending("Baselines")
             let repo = GitRepository(path: packageRoot)
             let revision = try repo.resolveRevision(identifier: "1.2.3")
 
@@ -377,16 +379,16 @@ final class APIDiffTests: CommandsTestCase {
     func testRegenerateBaseline() throws {
        try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Foo")
+            let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
-            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+            try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
 
             let repo = GitRepository(path: packageRoot)
             let revision = try repo.resolveRevision(identifier: "1.2.3")
 
-            let baselineDir = fixturePath.appending(component: "Baselines")
+            let baselineDir = fixturePath.appending("Baselines")
             let fooBaselinePath = baselineDir.appending(components: revision.identifier, "Foo.json")
 
             try localFileSystem.createDirectory(fooBaselinePath.parentDirectory, recursive: true)
@@ -418,7 +420,7 @@ final class APIDiffTests: CommandsTestCase {
     func testBrokenAPIDiff() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "BrokenPkg")
+            let packageRoot = fixturePath.appending("BrokenPkg")
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stderr, .contains("baseline for Swift2 contains no symbols, swift-api-digester output"))
             }

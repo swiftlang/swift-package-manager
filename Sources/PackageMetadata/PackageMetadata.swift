@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -21,6 +21,7 @@ import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.FileSystem
 import func TSCBasic.withTemporaryDirectory
+import struct TSCUtility.Version
 
 public struct Package {
     public enum Source {
@@ -69,13 +70,35 @@ public struct PackageSearchClient {
     private func guessReadMeURL(baseURL: URL, defaultBranch: String) -> URL {
         return baseURL.appendingPathComponent("raw").appendingPathComponent(defaultBranch).appendingPathComponent("README.md")
     }
+    
+    private func guessReadMeURL(alternateLocations: [URL]?) -> URL? {
+        if let alternateURL = alternateLocations?.first {
+            // FIXME: This is pretty crude, we should let the registry metadata provide the value instead.
+            return guessReadMeURL(baseURL: alternateURL, defaultBranch: "main")
+        }
+        return nil
+    }
+    
+    private func getReadMeURL(
+        package: PackageIdentity,
+        version: Version,
+        callback: @escaping (Result<URL?, Error>) -> Void
+    ) {
+        self.registryClient.getPackageVersionMetadata(
+            package: package,
+            version: version,
+            observabilityScope: observabilityScope,
+            callbackQueue: DispatchQueue.sharedConcurrent
+        ) { result in
+            callback(result.tryMap { metadata in metadata.readmeURL })
+        }
+    }
 
     public func findPackages(
         _ query: String,
         callback: @escaping (Result<[Package], Error>) -> Void
     ) {
         let identity = PackageIdentity.plain(query)
-        let isRegistryIdentity = identity.scopeAndName != nil
 
         // Search the package index and collections for a search term.
         let search = { (error: Error?) -> Void in
@@ -101,7 +124,10 @@ public struct PackageSearchClient {
             }
         }
 
-        // Interpret the given search term as a URL and fetch the corresponding Git repository to determine the available version tags and branches. If the search term cannot be interpreted as a URL or there are any errors during the process, we fall back to searching the configured index or package collections.
+        // Interpret the given search term as a URL and fetch the corresponding Git repository to
+        // determine the available version tags and branches. If the search term cannot be interpreted
+        // as a URL or there are any errors during the process, we fall back to searching the configured
+        // index or package collections.
         let fetchStandalonePackageByURL = { (error: Error?) -> Void in
             guard let url = URL(string: query) else {
                 return search(error)
@@ -133,23 +159,40 @@ public struct PackageSearchClient {
             }
         }
 
-        // If the given search term can be interpreted as a registry identity, try to get package metadata for it from the configured registry. If there are any errors or the search term does not work as a registry identity, we will fall back on `fetchStandalonePackageByURL`.
-        if isRegistryIdentity {
+        // If the given search term can be interpreted as a registry identity, try to get
+        // package metadata for it from the configured registry. If there are any errors
+        // or the search term does not work as a registry identity, we will fall back on
+        // `fetchStandalonePackageByURL`.
+        if identity.isRegistry {
             return self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope, callbackQueue: DispatchQueue.sharedConcurrent) { result in
                 do {
                     let metadata = try result.get()
-                    let readmeURL: URL?
-                    if let alternateURL = metadata.alternateLocations?.first {
-                        // FIXME: This is pretty crude, we should let the registry metadata provide the value instead.
-                        readmeURL = guessReadMeURL(baseURL: alternateURL, defaultBranch: "main")
+                    let versions = metadata.versions.sorted(by: >)
+
+                    // See if the latest package version has readmeURL set
+                    if let version = versions.first {
+                        self.getReadMeURL(package: identity, version: version) { result in
+                            let readmeURL: URL?
+                            if case .success(.some(let readmeURLForVersion)) = result {
+                                readmeURL = readmeURLForVersion
+                            } else {
+                                readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
+                            }
+                            
+                            return callback(.success([Package(identity: identity,
+                                                              versions: metadata.versions,
+                                                              readmeURL: readmeURL,
+                                                              source: .registry(url: metadata.registry.url)
+                                                             )]))
+                        }
                     } else {
-                        readmeURL = nil
+                        let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
+                        return callback(.success([Package(identity: identity,
+                                                          versions: metadata.versions,
+                                                          readmeURL: readmeURL,
+                                                          source: .registry(url: metadata.registry.url)
+                                                         )]))
                     }
-                    return callback(.success([Package(identity: identity,
-                                                      versions: metadata.versions,
-                                                      readmeURL: readmeURL,
-                                                      source: .registry(url: metadata.registry.url)
-                                                     )]))
                 } catch {
                     return fetchStandalonePackageByURL(error)
                 }
@@ -157,5 +200,43 @@ public struct PackageSearchClient {
         } else {
             return fetchStandalonePackageByURL(nil)
         }
+    }
+
+    public func lookupIdentities(
+        scmURL: URL,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
+    ) {
+        return registryClient.lookupIdentities(
+            scmURL: scmURL,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            completion: completion
+        )
+    }
+
+    public func lookupSCMURLs(
+        package: PackageIdentity,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Set<URL>, Error>) -> Void
+    ) {
+        return registryClient.getPackageMetadata(
+            package: package,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue) { result in
+                do {
+                    let metadata = try result.get()
+                    let alternateLocations = metadata.alternateLocations ?? []
+                    return completion(.success(Set(alternateLocations)))
+                } catch {
+                    return completion(.failure(error))
+                }
+            }
     }
 }

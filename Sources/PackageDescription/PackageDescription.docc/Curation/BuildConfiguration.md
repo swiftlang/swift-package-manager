@@ -6,7 +6,3 @@
 
 - ``debug``
 - ``release``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

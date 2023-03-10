@@ -47,7 +47,7 @@ class CFamilyTargetTestCase: XCTestCase {
 
     func testCUsingCAndSwiftDep() throws {
         try fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             XCTAssertBuilds(packageRoot)
             let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")

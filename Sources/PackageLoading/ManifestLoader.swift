@@ -16,6 +16,7 @@ import Dispatch
 import PackageModel
 import TSCBasic
 import enum TSCUtility.Diagnostics
+import struct TSCUtility.Version
 
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest is empty, or at least from SwiftPM's perspective it is.
@@ -30,6 +31,9 @@ public enum ManifestParseError: Swift.Error, Equatable {
 
     /// The manifest loader specified import restrictions that the given manifest violated.
     case importsRestrictedModules([String])
+
+    /// The JSON payload received from executing the manifest has an unsupported version, usually indicating an invalid mix-and-match of SwiftPM and PackageDescription libraries.
+    case unsupportedVersion(version: Int, underlyingError: String? = nil)
 }
 
 // used to output the errors via the observability system
@@ -50,6 +54,12 @@ extension ManifestParseError: CustomStringConvertible {
             return "invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
         case .importsRestrictedModules(let modules):
             return "invalid manifest, imports restricted modules: \(modules.joined(separator: ", "))"
+        case .unsupportedVersion(let version, let underlyingError):
+            let message = "serialized JSON uses unsupported version \(version), indicating use of a mismatched PackageDescription library"
+            if let underlyingError = underlyingError {
+                return "\(message), underlying error: \(underlyingError)"
+            }
+            return message
         }
     }
 }
@@ -509,7 +519,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         do {
             try withTemporaryDirectory { tempDir, cleanupTempDir in
-                let manifestTempFilePath = tempDir.appending(component: "manifest.swift")
+                let manifestTempFilePath = tempDir.appending("manifest.swift")
                 try localFileSystem.writeFileContents(manifestTempFilePath, bytes: ByteString(manifestPreamble.contents + manifestContents))
 
                 #if os(Windows)
@@ -518,7 +528,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let vfsOverlayTempFilePath: AbsolutePath? = nil
                 #else
                 let effectiveManifestPath = manifestPath
-                let vfsOverlayTempFilePath = tempDir.appending(component: "vfs.yaml")
+                let vfsOverlayTempFilePath = tempDir.appending("vfs.yaml")
                 try VFSOverlay(roots: [
                     VFSOverlay.File(name: manifestPath.pathString, externalContents: manifestTempFilePath.pathString)
                 ]).write(to: vfsOverlayTempFilePath, fileSystem: localFileSystem)
@@ -636,8 +646,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Add the arguments for emitting serialized diagnostics, if requested.
         if self.serializedDiagnostics, let databaseCacheDir = self.databaseCacheDir {
-            let diaDir = databaseCacheDir.appending(component: "ManifestLoading")
-            let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
+            let diaDir = databaseCacheDir.appending("ManifestLoading")
+            let diagnosticFile = diaDir.appending("\(packageIdentity).dia")
             do {
                 try localFileSystem.createDirectory(diaDir, recursive: true)
                 cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
@@ -672,7 +682,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     #else
                     let executableSuffix = ""
                     #endif
-                    let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
+                    let compiledManifestFile = tmpDir.appending("\(packageIdentity)-manifest\(executableSuffix)")
                     cmd += ["-o", compiledManifestFile.pathString]
 
                     evaluationResult.compilerCommandLine = cmd
@@ -698,7 +708,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         }
 
                         // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
-                        let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
+                        let jsonOutputFile = tmpDir.appending("\(packageIdentity)-output.json")
                         guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
                             return completion(.failure(StringError("couldn't create the manifest's JSON output file")))
                         }
@@ -830,7 +840,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns path to the manifest database inside the given cache directory.
     private static func manifestCacheDBPath(_ cacheDir: AbsolutePath) -> AbsolutePath {
-        return cacheDir.appending(component: "manifest.db")
+        return cacheDir.appending("manifest.db")
     }
 
     /// reset internal cache

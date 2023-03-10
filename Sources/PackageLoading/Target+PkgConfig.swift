@@ -148,7 +148,7 @@ extension SystemPackageProviderDescription {
 
     /// Check if the provider is available for the current platform.
     var isAvailable: Bool {
-        guard let platform = Platform.currentPlatform else { return false }
+        guard let platform = Platform.current else { return false }
         switch self {
         case .brew:
             if case .darwin = platform {

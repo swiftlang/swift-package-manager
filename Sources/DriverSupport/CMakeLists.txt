@@ -7,13 +7,14 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(DriverSupport
-  Frontend.swift
+  DriverSupportUtils.swift
   SPMSwiftDriverExecutor.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(DriverSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 target_link_libraries(DriverSupport PUBLIC
   Basics
+  PackageModel
   SwiftDriver)
 
 if(USE_CMAKE_INSTALL)

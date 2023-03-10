@@ -18,13 +18,15 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
+import struct TSCUtility.Version
+
 final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/fingerprints")
+        let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = URL(string: "https://example.packages.com")!
-        let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
+        let registryURL = URL("https://example.packages.com")
+        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
 
         // Add fingerprints for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
@@ -70,9 +72,9 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testNotFound() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/fingerprints")
+        let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = URL(string: "https://example.packages.com")!
+        let registryURL = URL("https://example.packages.com")
 
         let package = PackageIdentity.plain("mona.LinkedList")
         try storage.put(package: package, version: Version("1.0.0"), fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0"))
@@ -95,9 +97,9 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testSingleFingerprintPerKind() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/fingerprints")
+        let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let registryURL = URL(string: "https://example.packages.com")!
+        let registryURL = URL("https://example.packages.com")
 
         let package = PackageIdentity.plain("mona.LinkedList")
         // Write registry checksum for v1.0.0
@@ -118,9 +120,9 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testHappyCase_PackageReferenceAPI() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/fingerprints")
+        let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let sourceControlURL = URL(string: "https://example.com/mona/LinkedList.git")!
+        let sourceControlURL = URL("https://example.com/mona/LinkedList.git")
         let packageRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: sourceControlURL), url: sourceControlURL)
 
         try storage.put(package: packageRef, version: Version("1.0.0"), fingerprint: .init(origin: .sourceControl(sourceControlURL), value: "gitHash-1.0.0"))
@@ -136,10 +138,10 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testDifferentRepoURLsThatHaveSameIdentity() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let directoryPath = AbsolutePath(path: "/fingerprints")
+        let directoryPath = AbsolutePath("/fingerprints")
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
-        let fooURL = URL(string: "https://example.com/foo/LinkedList.git")!
-        let barURL = URL(string: "https://example.com/bar/LinkedList.git")!
+        let fooURL = URL("https://example.com/foo/LinkedList.git")
+        let barURL = URL("https://example.com/bar/LinkedList.git")
 
         // foo and bar have the same identity `LinkedList`
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)

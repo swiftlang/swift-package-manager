@@ -13,10 +13,10 @@
 import Basics
 import TSCBasic
 
-public class MockHashAlgorithm: HashAlgorithm {
-    public typealias Handler = (ByteString) -> ByteString
+public final class MockHashAlgorithm {
+    public typealias Handler = @Sendable (ByteString) -> ByteString
 
-    public private(set) var hashes = ThreadSafeArrayStore<ByteString>()
+    public let hashes = ThreadSafeArrayStore<ByteString>()
     private let handler: Handler?
 
     public init(handler: Handler? = nil) {
@@ -32,3 +32,5 @@ public class MockHashAlgorithm: HashAlgorithm {
         }
     }
 }
+
+extension MockHashAlgorithm: HashAlgorithm {}

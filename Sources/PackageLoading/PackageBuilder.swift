@@ -76,6 +76,9 @@ public enum ModuleError: Swift.Error {
 
     /// A plugin target didn't declare a capability.
     case pluginCapabilityNotDeclared(target: String)
+
+    /// A C target has declared an embedded resource
+    case embedInCodeNotSupported(target: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -124,6 +127,8 @@ extension ModuleError: CustomStringConvertible {
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         case .pluginCapabilityNotDeclared(let target):
             return "plugin target '\(target)' doesn't have a 'capability' property"
+        case .embedInCodeNotSupported(let target):
+            return "embedding resources in code not supported for C-family language target \(target)"
         }
     }
 }
@@ -847,6 +852,8 @@ public final class PackageBuilder {
             targetType = .test
         case .executable:
             targetType = .executable
+        case .macro:
+            targetType = .macro
         default:
             targetType = sources.computeTargetType()
             if targetType == .executable && manifest.toolsVersion >= .v5_4 && warnAboutImplicitExecutableTargets {
@@ -884,6 +891,10 @@ public final class PackageBuilder {
                 throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
             } else {
                 moduleMapType = .none
+            }
+
+            if resources.contains(where: { $0.rule == .embedInCode }) {
+                throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
             }
 
             return try ClangTarget(
@@ -980,7 +991,7 @@ public final class PackageBuilder {
                     decl = .OTHER_LDFLAGS
                 }
 
-            case .upcomingFeatures(let _values):
+            case .enableUpcomingFeature(let value):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError("only Swift supports upcoming features")
@@ -989,9 +1000,9 @@ public final class PackageBuilder {
                     decl = .OTHER_SWIFT_FLAGS
                 }
 
-                values = _values.precedeElements(with: "-enable-upcoming-feature")
+                values = ["-enable-upcoming-feature", value]
 
-            case .experimentalFeatures(let _values):
+            case .enableExperimentalFeature(let value):
                 switch setting.tool {
                 case .c, .cxx, .linker:
                     throw InternalError(
@@ -1001,8 +1012,7 @@ public final class PackageBuilder {
                     decl = .OTHER_SWIFT_FLAGS
                 }
 
-                values = _values.precedeElements(
-                    with: "-enable-experimental-feature")
+                values = ["-enable-experimental-feature", value]
             }
 
             // Create an assignment for this setting.
@@ -1212,7 +1222,7 @@ public final class PackageBuilder {
                 guard self.validateLibraryProduct(product, with: targets) else {
                     continue
                 }
-            case .test:
+            case .test, .macro:
                 break
             case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: targets) else {
@@ -1234,7 +1244,7 @@ public final class PackageBuilder {
         // for them.
         let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
             switch product.type {
-            case .library, .plugin, .test:
+            case .library, .plugin, .test, .macro:
                 return []
             case .executable, .snippet:
                 return product.targets
@@ -1295,6 +1305,12 @@ public final class PackageBuilder {
         try targets
             .filter { $0.type == .snippet }
             .map { try Product(package: self.identity, name: $0.name, type: .snippet, targets: [$0]) }
+            .forEach(append)
+
+        // Create implicit macro products
+        try targets
+            .filter { $0.type == .macro }
+            .map { try Product(package: self.identity, name: $0.name, type: .macro, targets: [$0]) }
             .forEach(append)
 
         return products.map{ $0.item }
@@ -1448,7 +1464,7 @@ extension Target.Dependency {
 
 extension PackageBuilder {
     fileprivate func createSnippetTargets(dependencies: [Target.Dependency]) throws -> [Target] {
-        let snippetsDirectory = packagePath.appending(component: "Snippets")
+        let snippetsDirectory = packagePath.appending("Snippets")
         guard fileSystem.isDirectory(snippetsDirectory) else {
             return []
         }

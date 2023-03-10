@@ -67,7 +67,7 @@ To list the plugins that are available within the context of a package, use the 
 ❯ swift package plugin --list
 ```
 
-Command plugins that need to write to the file system will cause SwiftPM to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment.
+Command plugins that need to write to the file system will cause SwiftPM to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment. Similarly, the `--allow-network-connections` flag can be used to allow network connections without showing a prompt.
 
 ## Writing a Plugin
 
@@ -149,7 +149,7 @@ import PackagePlugin
 struct MyPlugin: BuildToolPlugin {
     
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-        guard let target = target as? SourceModuleTarget else { return [] }
+        guard let target = target.sourceModule else { return [] }
         let inputFiles = target.sourceFiles.filter({ $0.path.extension == "dat" })
         return try inputFiles.map {
             let inputFile = $0
@@ -300,7 +300,7 @@ struct MyCommandPlugin: CommandPlugin {
         for target in targets {
             // Skip any type of target that doesn't have source files.
             // Note: We could choose to instead emit a warning or error here.
-            guard let target = target as? SourceModuleTarget else { continue }
+            guard let target = target.sourceModule else { continue }
 
             // Invoke `sometool` on the target directory, passing a configuration
             // file from the package directory.
@@ -326,7 +326,7 @@ struct MyCommandPlugin: CommandPlugin {
 }
 ```
 
-Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessaily operate on just a single target.  The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
+Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessarily operate on just a single target.  The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
 
 Command plugins can also accept arguments, which can control options for the plugin's actions or can further narrow down what the plugin operates on.  This example supports the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
 

@@ -19,6 +19,8 @@ import PackageCollections
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
     case invalidVersionString(String)

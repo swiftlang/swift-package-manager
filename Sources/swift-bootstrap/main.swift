@@ -25,7 +25,6 @@ import XCBuildSupport
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
-import struct TSCUtility.Triple
 
 SwiftBootstrapBuildTool.main()
 
@@ -160,7 +159,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
             let scratchDirectory =
                 try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
                 self.scratchDirectory ??
-                packagePath.appending(component: ".build")
+                packagePath.appending(".build")
 
             let builder = try Builder(
                 fileSystem: localFileSystem,

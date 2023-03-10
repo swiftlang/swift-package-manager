@@ -21,6 +21,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         case system
         case binary
         case plugin
+        case `macro`
     }
 
     /// Represents a target's dependency on another entity.
@@ -42,6 +43,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         public enum Rule: Encodable, Equatable, Sendable {
             case process(localization: Localization?)
             case copy
+            case embedInCode
         }
 
         public enum Localization: String, Encodable, Sendable {
@@ -116,7 +118,27 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         case custom(verb: String, description: String)
     }
 
+    public enum PluginNetworkPermissionScope: Equatable, Codable, Sendable {
+        case none
+        case local(ports: [UInt8])
+        case all(ports: [UInt8])
+        case docker
+        case unixDomainSocket
+
+        public init?(_ scopeString: String, ports: [UInt8]) {
+            switch scopeString {
+            case "none": self = .none
+            case "local": self = .local(ports: ports)
+            case "all": self = .all(ports: ports)
+            case "docker": self = .docker
+            case "unix-socket": self = .unixDomainSocket
+            default: return nil
+            }
+        }
+    }
+
     public enum PluginPermission: Equatable, Codable, Sendable {
+        case allowNetworkConnections(scope: PluginNetworkPermissionScope, reason: String)
         case writeToPackageDirectory(reason: String)
     }
 
@@ -187,6 +209,15 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+        case .macro:
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }

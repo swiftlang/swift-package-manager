@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,6 +20,8 @@ import TSCBasic
 import Workspace
 import XCTest
 
+import struct TSCUtility.Version
+
 public typealias Diagnostic = TSCBasic.Diagnostic
 
 public final class MockWorkspace {
@@ -29,6 +31,7 @@ public final class MockWorkspace {
     let packages: [MockPackage]
     let customToolsVersion: ToolsVersion?
     let fingerprints: MockPackageFingerprintStorage
+    let signingEntities: MockPackageSigningEntityStorage
     let mirrors: DependencyMirrors
     public var registryClient: RegistryClient
     let registry: MockRegistry
@@ -49,6 +52,7 @@ public final class MockWorkspace {
         packages: [MockPackage] = [],
         toolsVersion customToolsVersion: ToolsVersion? = .none,
         fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
+        signingEntities customSigningEntities: MockPackageSigningEntityStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
         binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
@@ -62,8 +66,12 @@ public final class MockWorkspace {
         self.roots = roots
         self.packages = packages
         self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
+        self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
         self.mirrors = customMirrors ?? DependencyMirrors()
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
+        self.identityResolver = DefaultIdentityResolver(
+            locationMapper: self.mirrors.effectiveURL(for:),
+            identityMapper: self.mirrors.effectiveIdentity(for:)
+        )
         self.manifestLoader = MockManifestLoader(manifests: [:])
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryProvider = InMemoryGitRepositoryProvider()
@@ -72,7 +80,8 @@ public final class MockWorkspace {
             filesystem: self.fileSystem,
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            fingerprintStorage: self.fingerprints
+            fingerprintStorage: self.fingerprints,
+            signingEntityStorage: self.signingEntities
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.customToolsVersion = customToolsVersion
@@ -86,11 +95,11 @@ public final class MockWorkspace {
     }
 
     public var rootsDir: AbsolutePath {
-        return self.sandbox.appending(component: "roots")
+        return self.sandbox.appending("roots")
     }
 
     public var packagesDir: AbsolutePath {
-        return self.sandbox.appending(component: "pkgs")
+        return self.sandbox.appending("pkgs")
     }
 
     public var artifactsDir: AbsolutePath {
@@ -125,7 +134,14 @@ public final class MockWorkspace {
                 if let containerProvider = customPackageContainerProvider {
                     let observability = ObservabilitySystem.makeForTesting()
                     let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
-                    let container = try temp_await { containerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observability.topScope, on: .sharedConcurrent, completion: $0) }
+                    let container = try temp_await {
+                        containerProvider.getContainer(
+                            for: packageRef,
+                            skipUpdate: true,
+                            observabilityScope: observability.topScope,
+                            on: .sharedConcurrent, completion: $0
+                        )
+                    }
                     guard let customContainer = container as? CustomPackageContainer else {
                         throw StringError("invalid custom container: \(container)")
                     }
@@ -195,12 +211,11 @@ public final class MockWorkspace {
                 throw InternalError("unknown package type")
             }
 
-            let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: packageLocation, version: v)] = try Manifest(
+                manifests[.init(url: packageLocation, version: v)] = try Manifest.createManifest(
                     displayName: package.name,
-                    path: manifestPath,
+                    path: packagePath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,
                     platforms: package.platforms,
@@ -208,16 +223,16 @@ public final class MockWorkspace {
                     toolsVersion: packageToolsVersion,
                     dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { try ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
-                    targets: try package.targets.map { try $0.convert() }
+                    targets: try package.targets.map { try $0.convert(identityResolver: self.identityResolver) }
                 )
             }
 
             func writePackageContent(fileSystem: FileSystem, root: AbsolutePath, toolsVersion: ToolsVersion) throws {
-                let sourcesDir = root.appending(component: "Sources")
+                let sourcesDir = root.appending("Sources")
                 for target in package.targets {
                     let targetDir = sourcesDir.appending(component: target.name)
                     try fileSystem.createDirectory(targetDir, recursive: true)
-                    try fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+                    try fileSystem.writeFileContents(targetDir.appending("file.swift"), bytes: "")
                 }
                 let manifestPath = root.appending(component: Manifest.filename)
                 try fileSystem.writeFileContents(manifestPath, bytes: "")
@@ -250,9 +265,9 @@ public final class MockWorkspace {
         let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             location: .init(
-                scratchDirectory: self.sandbox.appending(component: ".build"),
-                editsDirectory: self.sandbox.appending(component: "edits"),
-                resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
+                scratchDirectory: self.sandbox.appending(".build"),
+                editsDirectory: self.sandbox.appending("edits"),
+                resolvedVersionsFile: self.sandbox.appending("Package.resolved"),
                 localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
@@ -266,6 +281,7 @@ public final class MockWorkspace {
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
                 sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
                 fingerprintCheckingMode: .strict,
+                signingEntityCheckingMode: .strict,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
                 restrictImports: .none
             ),

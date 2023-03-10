@@ -14,8 +14,6 @@ import Basics
 import TSCBasic
 import XCTest
 
-#if swift(>=5.5.2)
-
 func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: @escaping (AbsolutePath) async throws -> Void
@@ -33,8 +31,6 @@ func testWithTemporaryDirectory(
         try await  body(tmpDirPath)
     }.value
 }
-
-#endif
 
 class VFSTests: XCTestCase {
     func testLocalBasics() throws {
@@ -54,22 +50,22 @@ class VFSTests: XCTestCase {
         let fs = TSCBasic.localFileSystem
         try withTemporaryFile { [contents] vfsPath in
             try withTemporaryDirectory(removeTreeOnDeinit: true) { [contents] tempDirPath in
-                let file = tempDirPath.appending(component: "best")
+                let file = tempDirPath.appending("best")
                 try fs.writeFileContents(file, string: "best")
 
-                let sym = tempDirPath.appending(component: "hello")
+                let sym = tempDirPath.appending("hello")
                 try fs.createSymbolicLink(sym, pointingAt: file, relative: false)
 
-                let executable = tempDirPath.appending(component: "exec-foo")
+                let executable = tempDirPath.appending("exec-foo")
                 try fs.writeFileContents(executable, bytes: ByteString(contents))
 #if !os(Windows)
                 try fs.chmod(.executable, path: executable, options: [])
 #endif
 
-                let executableSym = tempDirPath.appending(component: "exec-sym")
+                let executableSym = tempDirPath.appending("exec-sym")
                 try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
 
-                try fs.createDirectory(tempDirPath.appending(component: "dir"))
+                try fs.createDirectory(tempDirPath.appending("dir"))
                 try fs.writeFileContents(tempDirPath.appending(components: ["dir", "file"]), body: { _ in })
 
                 try VirtualFileSystem.serializeDirectoryTree(tempDirPath, into: vfsPath.path, fs: fs, includeContents: [executable])
@@ -78,62 +74,62 @@ class VFSTests: XCTestCase {
             let vfs = try VirtualFileSystem(path: vfsPath.path, fs: fs)
 
             // exists()
-            XCTAssertTrue(vfs.exists(AbsolutePath(path: "/")))
-            XCTAssertFalse(vfs.exists(AbsolutePath(path: "/does-not-exist")))
+            XCTAssertTrue(vfs.exists(AbsolutePath("/")))
+            XCTAssertFalse(vfs.exists(AbsolutePath("/does-not-exist")))
 
             // isFile()
-            let filePath = AbsolutePath(path: "/best")
+            let filePath = AbsolutePath("/best")
             XCTAssertTrue(vfs.exists(filePath))
             XCTAssertTrue(vfs.isFile(filePath))
             XCTAssertEqual(try vfs.getFileInfo(filePath).fileType, .typeRegular)
             XCTAssertFalse(vfs.isDirectory(filePath))
-            XCTAssertFalse(vfs.isFile(AbsolutePath(path: "/does-not-exist")))
-            XCTAssertFalse(vfs.isSymlink(AbsolutePath(path: "/does-not-exist")))
-            XCTAssertThrowsError(try vfs.getFileInfo(AbsolutePath(path: "/does-not-exist")))
+            XCTAssertFalse(vfs.isFile(AbsolutePath("/does-not-exist")))
+            XCTAssertFalse(vfs.isSymlink(AbsolutePath("/does-not-exist")))
+            XCTAssertThrowsError(try vfs.getFileInfo(AbsolutePath("/does-not-exist")))
 
             // isSymlink()
-            let symPath = AbsolutePath(path: "/hello")
+            let symPath = AbsolutePath("/hello")
             XCTAssertTrue(vfs.isSymlink(symPath))
             XCTAssertTrue(vfs.isFile(symPath))
             XCTAssertEqual(try vfs.getFileInfo(symPath).fileType, .typeSymbolicLink)
             XCTAssertFalse(vfs.isDirectory(symPath))
 
             // isExecutableFile
-            let executablePath = AbsolutePath(path: "/exec-foo")
-            let executableSymPath = AbsolutePath(path: "/exec-sym")
+            let executablePath = AbsolutePath("/exec-foo")
+            let executableSymPath = AbsolutePath("/exec-sym")
             XCTAssertTrue(vfs.isExecutableFile(executablePath))
             XCTAssertTrue(vfs.isExecutableFile(executableSymPath))
             XCTAssertTrue(vfs.isSymlink(executableSymPath))
             XCTAssertFalse(vfs.isExecutableFile(symPath))
             XCTAssertFalse(vfs.isExecutableFile(filePath))
-            XCTAssertFalse(vfs.isExecutableFile(AbsolutePath(path: "/does-not-exist")))
-            XCTAssertFalse(vfs.isExecutableFile(AbsolutePath(path: "/")))
+            XCTAssertFalse(vfs.isExecutableFile(AbsolutePath("/does-not-exist")))
+            XCTAssertFalse(vfs.isExecutableFile(AbsolutePath("/")))
 
             // readFileContents
             let execFileContents = try vfs.readFileContents(executablePath)
             XCTAssertEqual(execFileContents, ByteString(contents))
 
             // isDirectory()
-            XCTAssertTrue(vfs.isDirectory(AbsolutePath(path: "/")))
-            XCTAssertFalse(vfs.isDirectory(AbsolutePath(path: "/does-not-exist")))
+            XCTAssertTrue(vfs.isDirectory(AbsolutePath("/")))
+            XCTAssertFalse(vfs.isDirectory(AbsolutePath("/does-not-exist")))
 
             // getDirectoryContents()
             do {
-                _ = try vfs.getDirectoryContents(AbsolutePath(path: "/does-not-exist"))
+                _ = try vfs.getDirectoryContents(AbsolutePath("/does-not-exist"))
                 XCTFail("Unexpected success")
             } catch {
-                XCTAssertEqual(error.localizedDescription, "no such file or directory: \(AbsolutePath(path: "/does-not-exist"))")
+                XCTAssertEqual(error.localizedDescription, "no such file or directory: \(AbsolutePath("/does-not-exist"))")
             }
 
-            let thisDirectoryContents = try vfs.getDirectoryContents(AbsolutePath(path: "/"))
+            let thisDirectoryContents = try vfs.getDirectoryContents(AbsolutePath("/"))
             XCTAssertFalse(thisDirectoryContents.contains(where: { $0 == "." }))
             XCTAssertFalse(thisDirectoryContents.contains(where: { $0 == ".." }))
             XCTAssertEqual(thisDirectoryContents.sorted(), ["best", "dir", "exec-foo", "exec-sym", "hello"])
 
-            let contents = try vfs.getDirectoryContents(AbsolutePath(path: "/dir"))
+            let contents = try vfs.getDirectoryContents(AbsolutePath("/dir"))
             XCTAssertEqual(contents, ["file"])
 
-            let fileContents = try vfs.readFileContents(AbsolutePath(path: "/dir/file"))
+            let fileContents = try vfs.readFileContents(AbsolutePath("/dir/file"))
             XCTAssertEqual(fileContents, "")
         }
     }

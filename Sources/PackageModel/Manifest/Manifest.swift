@@ -11,13 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 import Foundation
+import TSCBasic
+
+import struct TSCUtility.Version
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
 public final class Manifest: Sendable {
-
     /// The standard filename for the manifest.
     public static let filename = basename + ".swift"
 
@@ -33,7 +34,7 @@ public final class Manifest: Sendable {
     // to the repository state, it shouldn't matter where it is.
     //
     /// The path of the manifest file.
-    //@available(*, deprecated)
+    // @available(*, deprecated)
     public let path: AbsolutePath
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
@@ -104,16 +105,16 @@ public final class Manifest: Sendable {
         path: AbsolutePath,
         packageKind: PackageReference.Kind,
         packageLocation: String,
-        defaultLocalization: String? = nil,
+        defaultLocalization: String?,
         platforms: [PlatformDescription],
-        version: TSCUtility.Version? = nil,
-        revision: String? = nil,
+        version: TSCUtility.Version?,
+        revision: String?,
         toolsVersion: ToolsVersion,
-        pkgConfig: String? = nil,
-        providers: [SystemPackageProviderDescription]? = nil,
-        cLanguageStandard: String? = nil,
-        cxxLanguageStandard: String? = nil,
-        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        pkgConfig: String?,
+        providers: [SystemPackageProviderDescription]?,
+        cLanguageStandard: String?,
+        cxxLanguageStandard: String?,
+        swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
@@ -135,7 +136,7 @@ public final class Manifest: Sendable {
         self.dependencies = dependencies
         self.products = products
         self.targets = targets
-        self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
     }
 
     /// Returns the targets required for a particular product filter.
@@ -200,9 +201,9 @@ public final class Manifest: Sendable {
 
     /// Returns the targets required for building the provided products.
     public func targetsRequired(for products: [ProductDescription]) -> [TargetDescription] {
-        let productsByName = Dictionary(products.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
-        let targetsByName = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
-        let productTargetNames = products.flatMap({ $0.targets })
+        let productsByName = Dictionary(products.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        let targetsByName = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        let productTargetNames = products.flatMap(\.targets)
 
         let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
 
@@ -237,11 +238,10 @@ public final class Manifest: Sendable {
 
             return []
 
-
         })
 
         let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
-        let requiredTargets = requiredTargetNames.compactMap{ targetsByName[$0] }
+        let requiredTargets = requiredTargetNames.compactMap { targetsByName[$0] }
         return requiredTargets
     }
 
@@ -252,9 +252,8 @@ public final class Manifest: Sendable {
         for targets: [TargetDescription],
         keepUnused: Bool = false
     ) -> [PackageDependency] {
-
         var registry: (known: [PackageIdentity: ProductFilter], unknown: Set<String>) = ([:], [])
-        let availablePackages = Set(dependencies.lazy.map{ $0.identity })
+        let availablePackages = Set(dependencies.lazy.map(\.identity))
 
         for target in targets {
             for targetDependency in target.dependencies {
@@ -310,9 +309,10 @@ public final class Manifest: Sendable {
     /// Finds the package dependency referenced by the specified plugin usage.
     /// - Returns: Returns `nil` if  the used plugin is from the same package or if the package the used plugin is from cannot be found.
     public func packageDependency(
-        referencedBy pluginUsage: TargetDescription.PluginUsage) -> PackageDependency? {
+        referencedBy pluginUsage: TargetDescription.PluginUsage
+    ) -> PackageDependency? {
         switch pluginUsage {
-        case .plugin(_, let .some(package)):
+        case .plugin(_, .some(let package)):
             return packageDependency(referencedBy: package)
         default:
             return nil
@@ -322,7 +322,7 @@ public final class Manifest: Sendable {
     private func packageDependency(
         referencedBy packageName: String
     ) -> PackageDependency? {
-        return self.dependencies.first(where: {
+        self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
             $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
@@ -334,8 +334,8 @@ public final class Manifest: Sendable {
     /// If none is found, it is assumed that the string is the package identity itself
     /// (although it may actually be a dangling reference diagnosed later).
     private func packageIdentity(referencedBy packageName: String) -> PackageIdentity {
-        return packageDependency(referencedBy: packageName)?.identity
-        ?? .plain(packageName)
+        packageDependency(referencedBy: packageName)?.identity
+            ?? .plain(packageName)
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
@@ -358,9 +358,10 @@ public final class Manifest: Sendable {
                     product: product,
                     inPackage: packageIdentity(referencedBy: package),
                     registry: &registry.known,
-                    availablePackages: availablePackages) {
-                        // This is an invalid manifest condition diagnosed later. (No such package.)
-                        // Treating it as unknown gracefully allows resolution to continue for now.
+                    availablePackages: availablePackages
+                ) {
+                    // This is an invalid manifest condition diagnosed later. (No such package.)
+                    // Treating it as unknown gracefully allows resolution to continue for now.
                     registry.unknown.insert(product)
                 }
             } else { // < 5.2
@@ -381,17 +382,18 @@ public final class Manifest: Sendable {
                     product: product,
                     inPackage: packageIdentity(referencedBy: product),
                     registry: &registry.known,
-                    availablePackages: availablePackages) {
-                        // If it doesn’t match a package, it should be a target, not a product.
-                        if targets.contains(where: { $0.name == product }) {
-                            break
-                        } else {
-                            // But in case the user is trying to reference a product,
-                            // we still need to pass on the invalid reference
-                            // so that the resolver fetches all dependencies
-                            // in order to provide the diagnostic pass with the information it needs.
-                            registry.unknown.insert(product)
-                        }
+                    availablePackages: availablePackages
+                ) {
+                    // If it doesn’t match a package, it should be a target, not a product.
+                    if targets.contains(where: { $0.name == product }) {
+                        break
+                    } else {
+                        // But in case the user is trying to reference a product,
+                        // we still need to pass on the invalid reference
+                        // so that the resolver fetches all dependencies
+                        // in order to provide the diagnostic pass with the information it needs.
+                        registry.unknown.insert(product)
+                    }
                 }
             }
         }
@@ -415,7 +417,8 @@ public final class Manifest: Sendable {
                     product: name,
                     inPackage: packageIdentity(referencedBy: package),
                     registry: &registry.known,
-                    availablePackages: availablePackages) {
+                    availablePackages: availablePackages
+                ) {
                     // Invalid, diagnosed later; see the dependency version of this method.
                     registry.unknown.insert(name)
                 }
@@ -465,21 +468,22 @@ extension Manifest: Hashable {
 
 extension Manifest: CustomStringConvertible {
     public var description: String {
-        return "<Manifest: \(self.displayName)>"
+        "<Manifest: \(self.displayName)>"
     }
 }
 
 extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
-         case name, path, url, version, targetMap, toolsVersion,
-              pkgConfig,providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
-              dependencies, products, targets, platforms, packageKind, revision,
-              defaultLocalization
+        case name, path, url, version, targetMap, toolsVersion,
+             pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
+             dependencies, products, targets, platforms, packageKind, revision,
+             defaultLocalization
     }
+
     /// Coding user info key for dump-package command.
     ///
     /// Presence of this key will hide some keys when encoding the Manifest object.
-    public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
+    public static let dumpPackageKey: CodingUserInfoKey = .init(rawValue: "dumpPackage")!
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)

@@ -57,7 +57,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         let storage = Storage(
             sources: FilePackageCollectionsSourcesStorage(
                 fileSystem: fileSystem,
-                path: configuration.configurationDirectory?.appending(component: "collections.json")
+                path: configuration.configurationDirectory?.appending("collections.json")
             ),
             collections: SQLitePackageCollectionsStorage(
                 location: configuration.cacheDirectory.map { .path($0.appending(components: "package-collection.db")) },

@@ -13,47 +13,38 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import SPMBuildCore
 import PackageModel
-import TSCBasic
+import SPMBuildCore
 
-struct ListDestinations: ParsableCommand {
-    static let configuration = CommandConfiguration(
+import struct TSCBasic.AbsolutePath
+
+struct ListDestinations: DestinationCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
-            """
-            Print a list of IDs of available cross-compilation destinations available on the filesystem.
-            """
+        """
+        Print a list of IDs of available cross-compilation destinations available on the filesystem.
+        """
     )
 
     @OptionGroup()
     var locations: LocationOptions
 
-    func run() throws {
-        let fileSystem = localFileSystem
-        let observabilitySystem = ObservabilitySystem(
-            SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .warning)
-        )
-        let observabilityScope = observabilitySystem.topScope
-
-        guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: locations.crossCompilationDestinationsDirectory
-        ) else {
-            let expectedPath = try fileSystem.swiftPMCrossCompilationDestinationsDirectory
-            throw StringError(
-                "Couldn't find or create a directory where cross-compilation destinations are stored: \(expectedPath)"
-            )
-        }
-
-        if !fileSystem.exists(destinationsDirectory) {
-            destinationsDirectory = try fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
-        }
-
-        let validBundles = try DestinationsBundle.getAllValidBundles(
+    func run(
+        buildTimeTriple: Triple,
+        _ destinationsDirectory: AbsolutePath,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
+        let validBundles = try DestinationBundle.getAllValidBundles(
             destinationsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
+
+        guard !validBundles.isEmpty else {
+            observabilityScope.emit(info: "No cross-compilation destinations are currently installed.")
+            return
+        }
 
         for bundle in validBundles {
             bundle.artifacts.keys.forEach { print($0) }

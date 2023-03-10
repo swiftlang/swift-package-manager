@@ -25,6 +25,7 @@ add_library(Basics
   Errors.swift
   FileSystem/AsyncFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
+  FileSystem/Path+Extensions.swift
   FileSystem/VFSOverlay.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
@@ -47,6 +48,7 @@ add_library(Basics
   String+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
+  Triple.swift
   Version+Extensions.swift
   WritableByteStream+Extensions.swift)
 target_link_libraries(Basics PUBLIC

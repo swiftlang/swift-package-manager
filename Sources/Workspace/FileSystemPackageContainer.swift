@@ -17,6 +17,8 @@ import PackageLoading
 import PackageModel
 import TSCBasic
 
+import struct TSCUtility.Version
+
 /// Local file system package container.
 ///
 /// This class represent packages that are referenced locally in the file system.

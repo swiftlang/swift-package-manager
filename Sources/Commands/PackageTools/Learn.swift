@@ -50,7 +50,7 @@ extension SwiftPackageTool {
         }
 
         func loadSnippetsAndSnippetGroups(fileSystem: FileSystem, from package: ResolvedPackage) throws -> [SnippetGroup] {
-            let snippetsDirectory = package.path.appending(component: "Snippets")
+            let snippetsDirectory = package.path.appending("Snippets")
             guard fileSystem.isDirectory(snippetsDirectory) else {
                 return []
             }
@@ -68,7 +68,7 @@ extension SwiftPackageTool {
                     let snippets = try files(fileSystem: fileSystem, in: subdirectory, fileExtension: "swift")
                         .map { try Snippet(parsing: $0) }
 
-                    let explanationFile = subdirectory.appending(component: "Explanation.md")
+                    let explanationFile = subdirectory.appending("Explanation.md")
 
                     let snippetGroupExplanation: String
                     if fileSystem.isFile(explanationFile) {

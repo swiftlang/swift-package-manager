@@ -10,12 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import struct Foundation.URL
 
-public struct Registry: Hashable, Codable {
+public struct Registry: Hashable, CustomStringConvertible {
     public var url: URL
+    public var supportsAvailability: Bool
 
-    public init(url: URL) {
+    public init(url: URL, supportsAvailability: Bool) {
         self.url = url
+        self.supportsAvailability = supportsAvailability
+    }
+
+    public var description: String {
+        self.url.absoluteString
     }
 }

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import _Concurrency
 import DequeModule
 
@@ -62,5 +60,3 @@ public actor TokenBucket {
         }
     }
 }
-
-#endif

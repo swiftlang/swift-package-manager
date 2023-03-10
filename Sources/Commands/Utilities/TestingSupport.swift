@@ -116,6 +116,14 @@ enum TestingSupport {
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()
 
+        // If the standard output or error stream is NOT a TTY, set the NO_COLOR
+        // environment variable. This environment variable is a de facto
+        // standard used to inform downstream processes not to add ANSI escape
+        // codes to their output. SEE: https://www.no-color.org
+        if !stdoutStream.isTTY || !stderrStream.isTTY {
+            env["NO_COLOR"] = "1"
+        }
+
         // Add the code coverage related variables.
         if buildParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.

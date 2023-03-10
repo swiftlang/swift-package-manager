@@ -21,7 +21,6 @@ import Workspace
 import XCTest
 
 import struct TSCUtility.SerializedDiagnostics
-import struct TSCUtility.Triple
 
 class PluginInvocationTests: XCTestCase {
 
@@ -38,7 +37,7 @@ class PluginInvocationTests: XCTestCase {
             fileSystem: fileSystem,
             manifests: [
                 Manifest.createRootManifest(
-                    name: "Foo",
+                    displayName: "Foo",
                     path: .init(path: "/Foo"),
                     products: [
                         ProductDescription(
@@ -118,6 +117,7 @@ class PluginInvocationTests: XCTestCase {
                 workingDirectory: AbsolutePath,
                 writableDirectories: [AbsolutePath],
                 readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
@@ -186,8 +186,8 @@ class PluginInvocationTests: XCTestCase {
         }
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
-        let outputDir = AbsolutePath(path: "/Foo/.build")
-        let builtToolsDir = AbsolutePath(path: "/Foo/.build/debug")
+        let outputDir = AbsolutePath("/Foo/.build")
+        let builtToolsDir = AbsolutePath("/Foo/.build/debug")
         let pluginRunner = MockPluginScriptRunner()
         let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
@@ -212,11 +212,11 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstResult.buildCommands.count, 1)
         let evalFirstCommand = try XCTUnwrap(evalFirstResult.buildCommands.first)
         XCTAssertEqual(evalFirstCommand.configuration.displayName, "Do something")
-        XCTAssertEqual(evalFirstCommand.configuration.executable, AbsolutePath(path: "/bin/FooTool"))
+        XCTAssertEqual(evalFirstCommand.configuration.executable, AbsolutePath("/bin/FooTool"))
         XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
         XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
-        XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath(path: "/Foo/Sources/Foo"))
-        XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending(component: "FooTool")])
+        XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
+        XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending("FooTool")])
         XCTAssertEqual(evalFirstCommand.outputFiles, [])
 
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
@@ -233,7 +233,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -255,13 +255,13 @@ class PluginInvocationTests: XCTestCase {
             
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func Foo() { }
                 """)
             
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
@@ -304,7 +304,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Create a plugin script runner for the duration of the test.
-            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginCacheDir = tmpPath.appending("plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
@@ -371,7 +371,7 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with syntactically valid contents that still produces a warning.
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
@@ -483,7 +483,7 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with syntactically valid contents that no longer produces a warning.
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
@@ -539,7 +539,7 @@ class PluginInvocationTests: XCTestCase {
             }
 
             // Now replace the plugin script source with a broken one again.
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
@@ -600,7 +600,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library product and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
             // swift-tools-version: 5.7
             import PackageDescription
             let package = Package(
@@ -622,7 +622,7 @@ class PluginInvocationTests: XCTestCase {
 
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   import Foo
                   @main struct MyBuildToolPlugin: BuildToolPlugin {
@@ -635,7 +635,7 @@ class PluginInvocationTests: XCTestCase {
 
             let fooPkgDir = tmpPath.appending(components: "FooPackage")
             try localFileSystem.createDirectory(fooPkgDir, recursive: true)
-            try localFileSystem.writeFileContents(fooPkgDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(fooPkgDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.7
                 import PackageDescription
                 let package = Package(
@@ -654,7 +654,7 @@ class PluginInvocationTests: XCTestCase {
                 """)
             let fooTargetDir = fooPkgDir.appending(components: "Sources", "Foo")
             try localFileSystem.createDirectory(fooTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(fooTargetDir.appending(component: "file.swift"), string: """
+            try localFileSystem.writeFileContents(fooTargetDir.appending("file.swift"), string: """
                   public func foo() { }
                   """)
 
@@ -698,7 +698,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.7
                 import PackageDescription
                 let package = Package(
@@ -721,12 +721,12 @@ class PluginInvocationTests: XCTestCase {
 
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                     public func hello() { }
                     """)
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   import MyLibrary
                   @main struct MyBuildToolPlugin: BuildToolPlugin {
@@ -777,7 +777,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version:5.7
 
                 import PackageDescription
@@ -809,7 +809,7 @@ class PluginInvocationTests: XCTestCase {
 
             let libTargetDir = packageDir.appending(components: "Sources", "MyLib")
             try localFileSystem.createDirectory(libTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(libTargetDir.appending(component: "file.swift"), string: """
+            try localFileSystem.writeFileContents(libTargetDir.appending("file.swift"), string: """
                 public struct MyUtilLib {
                     public let strings: [String]
                     public init(args: [String]) {
@@ -820,7 +820,7 @@ class PluginInvocationTests: XCTestCase {
 
             let depTargetDir = packageDir.appending(components: "Sources", "Y")
             try localFileSystem.createDirectory(depTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(depTargetDir.appending(component: "main.swift"), string: """
+            try localFileSystem.writeFileContents(depTargetDir.appending("main.swift"), string: """
                 struct Y {
                     func run() {
                         print("You passed us two arguments, argumentOne, and argumentTwo")
@@ -831,7 +831,7 @@ class PluginInvocationTests: XCTestCase {
 
             let pluginTargetDir = packageDir.appending(components: "Plugins", "X")
             try localFileSystem.createDirectory(pluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(pluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(pluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   @main struct X: BuildToolPlugin {
                       func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
@@ -878,7 +878,7 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Create a plugin script runner for the duration of the test.
-            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginCacheDir = tmpPath.appending("plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
@@ -887,8 +887,8 @@ class PluginInvocationTests: XCTestCase {
 
             // Invoke build tool plugin
             do {
-                let outputDir = packageDir.appending(component: ".build")
-                let builtToolsDir = outputDir.appending(component: "debug")
+                let outputDir = packageDir.appending(".build")
+                let builtToolsDir = outputDir.appending("debug")
                 let result = try packageGraph.invokeBuildToolPlugins(
                     outputDir: outputDir,
                     builtToolsDir: builtToolsDir,
@@ -917,7 +917,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.7
                 import PackageDescription
                 let package = Package(
@@ -947,12 +947,12 @@ class PluginInvocationTests: XCTestCase {
 
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                     public func hello() { }
                     """)
             let xPluginTargetDir = packageDir.appending(components: "Plugins", "XPlugin")
             try localFileSystem.createDirectory(xPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(xPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(xPluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   import XcodeProjectPlugin
                   @main struct XBuildToolPlugin: BuildToolPlugin {
@@ -964,7 +964,7 @@ class PluginInvocationTests: XCTestCase {
                   """)
             let yPluginTargetDir = packageDir.appending(components: "Plugins", "YPlugin")
             try localFileSystem.createDirectory(yPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(yPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(yPluginTargetDir.appending("plugin.swift"), string: """
                      import PackagePlugin
                      import Foundation
                      @main struct YPlugin: BuildToolPlugin {
@@ -980,7 +980,7 @@ class PluginInvocationTests: XCTestCase {
 
             let otherPackageDir = tmpPath.appending(components: "OtherPackage")
             try localFileSystem.createDirectory(otherPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(otherPackageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(otherPackageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.7
                 import PackageDescription
                 let package = Package(
@@ -1008,7 +1008,7 @@ class PluginInvocationTests: XCTestCase {
 
             let qPluginTargetDir = otherPackageDir.appending(components: "Plugins", "QPlugin")
             try localFileSystem.createDirectory(qPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(qPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(qPluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   import XcodeProjectPlugin
                   @main struct QBuildToolPlugin: BuildToolPlugin {
@@ -1084,7 +1084,7 @@ class PluginInvocationTests: XCTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                    // swift-tools-version: 5.7
                    import PackageDescription
                    let package = Package(
@@ -1137,7 +1137,7 @@ class PluginInvocationTests: XCTestCase {
                     }
                  }
             """
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: content)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: content)
             let artifactVariants = artifactSupportedTriples.map {
                 """
                 { "path": "LocalBinaryTool\($0.tripleString).sh", "supportedTriples": ["\($0.tripleString)"] }
@@ -1184,16 +1184,26 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).filter{ $0.name == "Foo" }.first as? PluginTarget)
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets
+                .map(\.underlyingTarget)
+                .filter { $0.name == "Foo" }
+                .first as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "Foo")
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Construct a toolchain with a made-up host/target triple
             let destination = try Destination.default
-            let toolchain = try UserToolchain(destination: Destination(hostTriple: hostTriple, targetTriple: hostTriple, sdkRootDir: destination.sdkRootDir, toolchainBinDir: destination.toolchainBinDir))
+            let toolchain = try UserToolchain(
+                destination: Destination(
+                    hostTriple: hostTriple,
+                    targetTriple: hostTriple,
+                    toolset: destination.toolset,
+                    pathsConfiguration: destination.pathsConfiguration
+                )
+            )
 
             // Create a plugin script runner for the duration of the test.
-            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginCacheDir = tmpPath.appending("plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
@@ -1201,8 +1211,8 @@ class PluginInvocationTests: XCTestCase {
             )
 
             // Invoke build tool plugin
-            let outputDir = packageDir.appending(component: ".build")
-            let builtToolsDir = outputDir.appending(component: "debug")
+            let outputDir = packageDir.appending(".build")
+            let builtToolsDir = outputDir.appending("debug")
             let result = try packageGraph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,

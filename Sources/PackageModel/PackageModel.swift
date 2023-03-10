@@ -13,8 +13,7 @@
 import Basics
 import struct Foundation.URL
 import TSCBasic
-// Re-export Version from PackageModel, since it is a key part of the model.
-@_exported import struct TSCUtility.Version
+import struct TSCUtility.Version
 
 import enum TSCUtility.PackageLocation
 import struct TSCUtility.PolymorphicCodableArray
@@ -125,6 +124,9 @@ extension Package.Error: CustomStringConvertible {
 extension Manifest {
     public var disambiguateByProductIDs: Bool {
         return self.toolsVersion >= .v5_8
+    }
+    public var usePackageNameFlag: Bool {
+        return self.toolsVersion >= .v5_9
     }
 }
 

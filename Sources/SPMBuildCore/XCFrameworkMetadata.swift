@@ -14,7 +14,7 @@ import Foundation
 import PackageModel
 import TSCBasic
 
-import struct TSCUtility.Triple
+import struct Basics.Triple
 
 public struct XCFrameworkMetadata: Equatable {
     public struct Library: Equatable {
@@ -48,7 +48,7 @@ public struct XCFrameworkMetadata: Equatable {
 
 extension XCFrameworkMetadata {
     public static func parse(fileSystem: FileSystem, rootPath: AbsolutePath) throws -> XCFrameworkMetadata {
-        let path = rootPath.appending(component: "Info.plist")
+        let path = rootPath.appending("Info.plist")
         guard fileSystem.exists(path) else {
             throw StringError("XCFramework Info.plist not found at '\(rootPath)'")
         }

@@ -52,7 +52,7 @@ class DependencyResolutionTests: XCTestCase {
                 try repo.tag(name: tag)
             }
 
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -62,7 +62,7 @@ class DependencyResolutionTests: XCTestCase {
 
     func testExternalComplex() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            XCTAssertBuilds(fixturePath.appending(component: "app"))
+            XCTAssertBuilds(fixturePath.appending("app"))
             let output = try Process.checkNonZeroExit(args: fixturePath.appending(components: "app", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Dealer").pathString)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
@@ -71,7 +71,7 @@ class DependencyResolutionTests: XCTestCase {
     func testConvenienceBranchInit() throws {
         try fixture(name: "DependencyResolution/External/Branch") { fixturePath in
             // Tests the convenience init .package(url: , branch: )
-            let app = fixturePath.appending(component: "Bar")
+            let app = fixturePath.appending("Bar")
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
         }
@@ -80,8 +80,8 @@ class DependencyResolutionTests: XCTestCase {
     func testMirrors() throws {
         try fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
             let prefix = try resolveSymlinks(fixturePath)
-            let appPath = prefix.appending(component: "App")
-            let appPinsPath = appPath.appending(component: "Package.resolved")
+            let appPath = prefix.appending("App")
+            let appPinsPath = appPath.appending("Package.resolved")
 
             // prepare the dependencies as git repos
             try ["Foo", "Bar", "BarMirror"].forEach { directory in
@@ -108,13 +108,13 @@ class DependencyResolutionTests: XCTestCase {
             }
 
             // clean
-            try localFileSystem.removeFileTree(appPath.appending(component: ".build"))
+            try localFileSystem.removeFileTree(appPath.appending(".build"))
             try localFileSystem.removeFileTree(appPinsPath)
 
             // set mirror
             _ = try executeSwiftPackage(appPath, extraArgs: ["config", "set-mirror",
-                                                              "--original-url", prefix.appending(component: "Bar").pathString,
-                                                              "--mirror-url", prefix.appending(component: "BarMirror").pathString])
+                                                              "--original-url", prefix.appending("Bar").pathString,
+                                                              "--mirror-url", prefix.appending("BarMirror").pathString])
 
             // run with mirror
             do {
@@ -141,7 +141,7 @@ class DependencyResolutionTests: XCTestCase {
 
     func testPackageLookupCaseInsensitive() throws {
         try fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { fixturePath in
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["update"], packagePath: fixturePath.appending(component: "pkg"))
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["update"], packagePath: fixturePath.appending("pkg"))
             XCTAssert(result.exitStatus == .terminated(code: 0), try! result.utf8Output() + result.utf8stderrOutput())
         }
     }

@@ -33,9 +33,9 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testRepositorySpecifier() {
         do {
-            let s1 = RepositorySpecifier(url: URL(string: "a")!)
-            let s2 = RepositorySpecifier(url: URL(string: "a")!)
-            let s3 = RepositorySpecifier(url: URL(string: "b")!)
+            let s1 = RepositorySpecifier(url: "a")
+            let s2 = RepositorySpecifier(url: "a")
+            let s3 = RepositorySpecifier(url: "b")
 
             XCTAssertEqual(s1, s1)
             XCTAssertEqual(s1, s2)
@@ -60,12 +60,12 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() throws {
         try testWithTemporaryDirectory { path in
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
-            let testCheckoutPath = path.appending(component: "checkout")
+            let testCheckoutPath = path.appending("checkout")
             let provider = GitRepositoryProvider()
             XCTAssertTrue(try provider.workingCopyExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(path: testRepoPath)
@@ -134,7 +134,7 @@ class GitRepositoryTests: XCTestCase {
 #else
             try systemQuietly(["tar", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
 #endif
-            let testRepoPath = path.appending(component: "TestRepo")
+            let testRepoPath = path.appending("TestRepo")
 
             // Check hash resolution.
             let repo = GitRepository(path: testRepoPath)
@@ -185,11 +185,11 @@ class GitRepositoryTests: XCTestCase {
 
     func testSubmoduleRead() throws {
         try testWithTemporaryDirectory { path in
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
-            let repoPath = path.appending(component: "repo")
+            let repoPath = path.appending("repo")
             try makeDirectories(repoPath)
             initGitRepo(repoPath)
 
@@ -208,7 +208,7 @@ class GitRepositoryTests: XCTestCase {
     /// Test the Git file system view.
     func testGitFileView() throws {
         try testWithTemporaryDirectory { path in
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
@@ -220,18 +220,18 @@ class GitRepositoryTests: XCTestCase {
                 set -e
                 exit 0
                 """
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-1.txt"), bytes: test1FileContents)
-            try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
+            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-1.txt"), bytes: test1FileContents)
+            try localFileSystem.createDirectory(testRepoPath.appending("subdir"))
             try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-3.sh"), bytes: test3FileContents)
-            try localFileSystem.chmod(.executable, path: testRepoPath.appending(component: "test-file-3.sh"), options: [])
+            try localFileSystem.writeFileContents(testRepoPath.appending("test-file-3.sh"), bytes: test3FileContents)
+            try localFileSystem.chmod(.executable, path: testRepoPath.appending("test-file-3.sh"), options: [])
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt", "test-file-3.sh")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
 
             // Get the the repository via the provider. the provider.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
@@ -254,7 +254,7 @@ class GitRepositoryTests: XCTestCase {
 #endif
 
             // Check read of a directory.
-            let subdirPath = AbsolutePath(path: "/subdir")
+            let subdirPath = AbsolutePath("/subdir")
             XCTAssertEqual(try view.getDirectoryContents(AbsolutePath(path: "/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
             XCTAssertEqual(try view.getDirectoryContents(subdirPath).sorted(), ["test-file-2.txt"])
             XCTAssertThrows(FileSystemError(.isDirectory, subdirPath)) {
@@ -267,21 +267,21 @@ class GitRepositoryTests: XCTestCase {
             }
 
             // Check read through a non-directory.
-            let notDirectoryPath1 = AbsolutePath(path: "/test-file-1.txt")
+            let notDirectoryPath1 = AbsolutePath("/test-file-1.txt")
             XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath1)) {
                 _ = try view.getDirectoryContents(notDirectoryPath1)
             }
-            let notDirectoryPath2 = AbsolutePath(path: "/test-file-1.txt/thing")
+            let notDirectoryPath2 = AbsolutePath("/test-file-1.txt/thing")
             XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath2)) {
                 _ = try view.readFileContents(notDirectoryPath2)
             }
 
             // Check read/write into a missing directory.
-            let noEntryPath1 = AbsolutePath(path: "/does-not-exist")
+            let noEntryPath1 = AbsolutePath("/does-not-exist")
             XCTAssertThrows(FileSystemError(.noEntry, noEntryPath1)) {
                 _ = try view.getDirectoryContents(noEntryPath1)
             }
-            let noEntryPath2 = AbsolutePath(path: "/does/not/exist")
+            let noEntryPath2 = AbsolutePath("/does/not/exist")
             XCTAssertThrows(FileSystemError(.noEntry, noEntryPath2)) {
                 _ = try view.readFileContents(noEntryPath2)
             }
@@ -296,13 +296,13 @@ class GitRepositoryTests: XCTestCase {
     func testCheckouts() throws {
         try testWithTemporaryDirectory { path in
             // Create a test repository.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "initial")
             let initialRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Add a couple files and a directory.
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
@@ -310,18 +310,18 @@ class GitRepositoryTests: XCTestCase {
             let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Fetch the repository using the provider.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
+            let checkoutPath = path.appending("checkout")
             _ = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
             // The remote of this checkout should point to the clone.
             XCTAssertEqual(try GitRepository(path: checkoutPath).remotes()[0].url, testClonePath.pathString)
 
-            let editsPath = path.appending(component: "edit")
+            let editsPath = path.appending("edit")
             _ = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: editsPath, editable: true)
             // The remote of this checkout should point to the original repo.
             XCTAssertEqual(try GitRepository(path: editsPath).remotes()[0].url, testRepoPath.pathString)
@@ -331,10 +331,10 @@ class GitRepositoryTests: XCTestCase {
                 let workingCopy = try provider.openWorkingCopy(at: path)
                 try workingCopy.checkout(tag: "test-tag")
                 XCTAssertEqual(try workingCopy.getCurrentRevision(), currentRevision)
-                XCTAssertFileExists(path.appending(component: "test.txt"))
+                XCTAssertFileExists(path.appending("test.txt"))
                 try workingCopy.checkout(tag: "initial")
                 XCTAssertEqual(try workingCopy.getCurrentRevision(), initialRevision)
-                XCTAssertNoSuchPath(path.appending(component: "test.txt"))
+                XCTAssertNoSuchPath(path.appending("test.txt"))
             }
         }
     }
@@ -342,14 +342,14 @@ class GitRepositoryTests: XCTestCase {
     func testFetch() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
             XCTAssertEqual(try repo.getTags(), ["1.2.3"])
 
             // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
@@ -357,12 +357,12 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
+            let checkoutPath = path.appending("checkout")
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
             XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
 
             // Add a new file to original repo.
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
@@ -381,27 +381,27 @@ class GitRepositoryTests: XCTestCase {
     func testHasUnpushedCommits() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
             // Create a bare clone it somewhere because we want to later push into the repo.
-            let testBareRepoPath = path.appending(component: "test-repo-bare")
+            let testBareRepoPath = path.appending("test-repo-bare")
             try systemQuietly([Git.tool, "clone", "--bare", testRepoPath.pathString, testBareRepoPath.pathString])
 
             // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testBareRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
+            let checkoutPath = path.appending("checkout")
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: true)
 
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
             // Add a new file to checkout.
-            try localFileSystem.writeFileContents(checkoutPath.appending(component: "test.txt"), bytes: "Hi")
+            try localFileSystem.writeFileContents(checkoutPath.appending("test.txt"), bytes: "Hi")
             let checkoutTestRepo = GitRepository(path: checkoutPath)
             try checkoutTestRepo.stage(file: "test.txt")
             try checkoutTestRepo.commit()
@@ -417,7 +417,7 @@ class GitRepositoryTests: XCTestCase {
     func testSetRemote() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
@@ -447,12 +447,12 @@ class GitRepositoryTests: XCTestCase {
     func testUncommitedChanges() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
             // Create a file (which we will modify later).
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
             let repo = GitRepository(path: testRepoPath)
 
             XCTAssert(repo.hasUncommittedChanges())
@@ -466,7 +466,7 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertFalse(repo.hasUncommittedChanges())
 
             // Modify the file in the repo.
-            try localFileSystem.writeFileContents(repo.path.appending(component: "test.txt"), bytes: "Hello")
+            try localFileSystem.writeFileContents(repo.path.appending("test.txt"), bytes: "Hello")
             XCTAssert(repo.hasUncommittedChanges())
         }
     }
@@ -474,7 +474,7 @@ class GitRepositoryTests: XCTestCase {
     func testBranchOperations() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
@@ -504,13 +504,13 @@ class GitRepositoryTests: XCTestCase {
     func testCheckoutRevision() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
 
             func createAndStageTestFile() throws {
-                try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+                try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
                 try repo.stage(file: "test.txt")
             }
 
@@ -550,17 +550,17 @@ class GitRepositoryTests: XCTestCase {
 
             // Create repos: foo and bar, foo will have bar as submodule and then later
             // the submodule ref will be updated in foo.
-            let fooPath = path.appending(component: "foo-original")
+            let fooPath = path.appending("foo-original")
             let fooSpecifier = RepositorySpecifier(path: fooPath)
-            let fooRepoPath = path.appending(component: "foo-repo")
-            let fooWorkingPath = path.appending(component: "foo-working")
-            let barPath = path.appending(component: "bar-original")
-            let bazPath = path.appending(component: "baz-original")
+            let fooRepoPath = path.appending("foo-repo")
+            let fooWorkingPath = path.appending("foo-working")
+            let barPath = path.appending("bar-original")
+            let bazPath = path.appending("baz-original")
             // Create the repos and add a file.
             for path in [fooPath, barPath, bazPath] {
                 try makeDirectories(path)
                 initGitRepo(path)
-                try localFileSystem.writeFileContents(path.appending(component: "hello.txt"), bytes: "hello")
+                try localFileSystem.writeFileContents(path.appending("hello.txt"), bytes: "hello")
                 let repo = GitRepository(path: path)
                 try repo.stageEverything()
                 try repo.commit()
@@ -579,7 +579,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Checkout the first tag which doesn't has submodule.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertNoSuchPath(fooWorkingPath.appending(component: "bar"))
+            XCTAssertNoSuchPath(fooWorkingPath.appending("bar"))
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
@@ -603,7 +603,7 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertNoSuchPath(fooWorkingPath.appending(components: "bar"))
 
             // Add something to bar.
-            try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
+            try localFileSystem.writeFileContents(barPath.appending("bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
@@ -614,7 +614,7 @@ class GitRepositoryTests: XCTestCase {
             try bar.commit()
 
             // Update the ref of bar in foo and tag as 1.0.2
-            try systemQuietly([Git.tool, "-C", fooPath.appending(component: "bar").pathString, "pull"])
+            try systemQuietly([Git.tool, "-C", fooPath.appending("bar").pathString, "pull"])
             try foo.stageEverything()
             try foo.commit()
             try foo.tag(name: "1.0.2")
@@ -636,14 +636,14 @@ class GitRepositoryTests: XCTestCase {
     func testAlternativeObjectStoreValidation() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
             XCTAssertEqual(try repo.getTags(), ["1.2.3"])
 
             // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
@@ -651,7 +651,7 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
+            let checkoutPath = path.appending("checkout")
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
 
             // The object store should be valid.
@@ -666,20 +666,20 @@ class GitRepositoryTests: XCTestCase {
     func testAreIgnored() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test_repo")
+            let testRepoPath = path.appending("test_repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
 
             // Add a .gitignore
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1\nignored file2")
+            try localFileSystem.writeFileContents(testRepoPath.appending(".gitignore"), bytes: "ignored_file1\nignored file2")
 
-            let ignored = try repo.areIgnored([testRepoPath.appending(component: "ignored_file1"), testRepoPath.appending(component: "ignored file2"), testRepoPath.appending(component: "not ignored")])
+            let ignored = try repo.areIgnored([testRepoPath.appending("ignored_file1"), testRepoPath.appending("ignored file2"), testRepoPath.appending("not ignored")])
             XCTAssertTrue(ignored[0])
             XCTAssertTrue(ignored[1])
             XCTAssertFalse(ignored[2])
 
-            let notIgnored = try repo.areIgnored([testRepoPath.appending(component: "not_ignored")])
+            let notIgnored = try repo.areIgnored([testRepoPath.appending("not_ignored")])
             XCTAssertFalse(notIgnored[0])
         }
     }
@@ -687,15 +687,15 @@ class GitRepositoryTests: XCTestCase {
     func testAreIgnoredWithSpaceInRepoPath() throws {
         try testWithTemporaryDirectory { path in
             // Create a repo.
-            let testRepoPath = path.appending(component: "test repo")
+            let testRepoPath = path.appending("test repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
 
             // Add a .gitignore
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: ".gitignore"), bytes: "ignored_file1")
+            try localFileSystem.writeFileContents(testRepoPath.appending(".gitignore"), bytes: "ignored_file1")
 
-            let ignored = try repo.areIgnored([testRepoPath.appending(component: "ignored_file1")])
+            let ignored = try repo.areIgnored([testRepoPath.appending("ignored_file1")])
             XCTAssertTrue(ignored[0])
         }
     }
@@ -703,7 +703,7 @@ class GitRepositoryTests: XCTestCase {
     func testMissingDefaultBranch() throws {
         try testWithTemporaryDirectory { path in
             // Create a repository.
-            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
@@ -716,7 +716,7 @@ class GitRepositoryTests: XCTestCase {
             try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "symbolic-ref", "HEAD", "refs/heads/_non_existent_branch_"])
 
             // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
+            let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
@@ -724,13 +724,13 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(try clonedRepo.getTags(), [])
 
             // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
+            let checkoutPath = path.appending("checkout")
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
-            XCTAssertNoSuchPath(checkoutPath.appending(component: "file.swift"))
+            XCTAssertNoSuchPath(checkoutPath.appending("file.swift"))
 
             // Try to check out the `main` branch.
             try checkoutRepo.checkout(revision: Revision(identifier: "newMain"))
-            XCTAssertFileExists(checkoutPath.appending(component: "file.swift"))
+            XCTAssertFileExists(checkoutPath.appending("file.swift"))
 
             // The following will throw if HEAD was set incorrectly and we didn't do a no-checkout clone.
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())

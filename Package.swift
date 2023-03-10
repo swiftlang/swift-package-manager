@@ -1,10 +1,10 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.7
 
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -55,13 +55,6 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V1"] == nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.2.3" : "1.1.7"
-var swiftSettings: [SwiftSetting] = []
-if useSwiftCryptoV2 {
-    swiftSettings.append(.define("CRYPTO_v2"))
-}
-
 var packageCollectionsSigningTargets = [Target]()
 var packageCollectionsSigningDeps: [Target.Dependency] = [
     "Basics",
@@ -96,8 +89,7 @@ packageCollectionsSigningTargets.append(
     .target(
          /** Package collections signing */
          name: "PackageCollectionsSigning",
-         dependencies: packageCollectionsSigningDeps,
-         swiftSettings: swiftSettings
+         dependencies: packageCollectionsSigningDeps
     )
 )
 
@@ -128,7 +120,7 @@ let package = Package(
         .library(
             name: "PackageDescription",
             type: .dynamic,
-            targets: ["PackageDescription"]
+            targets: ["PackageDescription", "CompilerPluginSupport"]
         ),
         .library(
             name: "PackagePlugin",
@@ -158,7 +150,7 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+                .unsafeFlags(["-enable-library-evolution"]),
             ]
         ),
 
@@ -170,7 +162,7 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+                .unsafeFlags(["-enable-library-evolution"]),
             ]
         ),
 
@@ -204,7 +196,8 @@ let package = Package(
                 "Basics",
                 "PackageFingerprint",
                 "PackageLoading",
-                "PackageModel"
+                "PackageModel",
+                "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -289,6 +282,17 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        
+        .target(
+            name: "PackageSigning",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "X509", package: "swift-certificates"),
+                "Basics",
+                "PackageModel",
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Package Manager Functionality
 
@@ -318,7 +322,8 @@ let package = Package(
         .target(
             name: "DriverSupport",
             dependencies: [
-		"Basics",
+                "Basics",
+                "PackageModel",
                 .product(name: "SwiftDriver", package: "swift-driver"),
             ],
             exclude: ["CMakeLists.txt"]
@@ -338,6 +343,7 @@ let package = Package(
                 "PackageGraph",
                 "PackageModel",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
             ],
@@ -363,7 +369,6 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Build",
-                "PackageFingerprint",
                 "PackageLoading",
                 "PackageModel",
                 "PackageGraph",
@@ -398,7 +403,8 @@ let package = Package(
                 "CoreCommands",
                 "SPMBuildCore",
                 "PackageModel",
-            ]
+            ],
+            exclude: ["CMakeLists.txt", "README.md"]
         ),
 
         .target(
@@ -426,6 +432,7 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
@@ -461,7 +468,8 @@ let package = Package(
         .executableTarget(
             /** Interacts with cross-compilation destinations */
             name: "swift-experimental-destination",
-            dependencies: ["Commands", "CrossCompilationDestinationsTool"]
+            dependencies: ["Commands", "CrossCompilationDestinationsTool"],
+            exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
             /** Runs package tests */
@@ -504,6 +512,18 @@ let package = Package(
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
             ]),
 
+        // MARK: Support for Swift macros, should eventually move to a plugin-based solution
+
+        .target(
+            name: "CompilerPluginSupport",
+            dependencies: ["PackageDescription"],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ]
+        ),
+
         // MARK: Additional Test Dependencies
 
         .target(
@@ -515,6 +535,7 @@ let package = Package(
                 "PackageGraph",
                 "PackageLoading",
                 "PackageRegistry",
+                "PackageSigning",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",
@@ -548,11 +569,14 @@ let package = Package(
                 "swift-package",
                 "swift-test",
                 "swift-run",
-                "Commands",
-                "Workspace",
-                "SPMTestSupport",
+                "Basics",
                 "Build",
-                "SourceControl"
+                "Commands",
+                "PackageModel",
+                "PackageRegistryTool",
+                "SourceControl",
+                "SPMTestSupport",
+                "Workspace",
             ]
         ),
         .testTarget(
@@ -616,7 +640,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageCollectionsModelTests",
-            dependencies: ["PackageCollectionsModel"]
+            dependencies: ["PackageCollectionsModel", "SPMTestSupport"]
         ),
         .testTarget(
             name: "PackageCollectionsSigningTests",
@@ -639,6 +663,10 @@ let package = Package(
             dependencies: ["SPMTestSupport", "PackageRegistry"]
         ),
         .testTarget(
+            name: "PackageSigningTests",
+            dependencies: ["SPMTestSupport", "PackageSigning"]
+        ),
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"],
             exclude: ["Inputs/TestRepo.tgz"]
@@ -648,7 +676,6 @@ let package = Package(
             dependencies: ["XCBuildSupport", "SPMTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
-
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
@@ -674,7 +701,7 @@ let relatedDependenciesBranch = "main"
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", .branch(relatedDependenciesBranch)),
+            .package(url: "https://github.com/apple/swift-llbuild.git", branch: relatedDependenciesBranch),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
@@ -688,15 +715,16 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch(relatedDependenciesBranch)),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.4")),
-        .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
+        .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.3.0")),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-certificates.git", branch: "main"),
     ]
 } else {
     package.dependencies += [
@@ -706,5 +734,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
+        .package(path: "../swift-certificates"),
     ]
 }

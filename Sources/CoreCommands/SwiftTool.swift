@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -45,7 +45,6 @@ import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import class TSCUtility.PercentProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol
-import struct TSCUtility.Triple
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
@@ -54,28 +53,46 @@ public struct ToolWorkspaceConfiguration {
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
 
-    public init(wantsMultipleTestProducts: Bool = false,
-                wantsREPLProduct: Bool = false)
-    {
+    public init(
+        wantsMultipleTestProducts: Bool = false,
+        wantsREPLProduct: Bool = false
+    ) {
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
 }
 
-public typealias WorkspaceDelegateProvider = (_ observabilityScope: ObservabilityScope, _ outputHandler: @escaping (String, Bool) -> Void, _ progressHandler: @escaping (Int64, Int64, String?) -> Void) -> WorkspaceDelegate
-public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope) -> WorkspaceLoader
+public typealias WorkspaceDelegateProvider = (
+    _ observabilityScope: ObservabilityScope,
+    _ outputHandler: @escaping (String, Bool) -> Void,
+    _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
+    _ inputHandler: @escaping (String, (String?) -> Void) -> Void
+) -> WorkspaceDelegate
+public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
+    -> WorkspaceLoader
 
-public protocol SwiftCommand: ParsableCommand {
-    var globalOptions: GlobalOptions { get }
+public protocol _SwiftCommand {
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
-
     func buildSystemProvider(_ swiftTool: SwiftTool) throws -> BuildSystemProvider
+}
+
+extension _SwiftCommand {
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        return .init()
+    }
+}
+
+public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
+
     func run(_ swiftTool: SwiftTool) throws
 }
 
 extension SwiftCommand {
+    public static var _errorLabel: String { "error" }
+
     public func run() throws {
         let swiftTool = try SwiftTool(
             options: globalOptions,
@@ -101,11 +118,41 @@ extension SwiftCommand {
             throw error
         }
     }
+}
 
+public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
+    var globalOptions: GlobalOptions { get }
+
+    func run(_ swiftTool: SwiftTool) async throws
+}
+
+extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        return .init()
+    public func run() async throws {
+        let swiftTool = try SwiftTool(
+            options: globalOptions,
+            toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
+            workspaceDelegateProvider: self.workspaceDelegateProvider,
+            workspaceLoaderProvider: self.workspaceLoaderProvider
+        )
+        swiftTool.buildSystemProvider = try buildSystemProvider(swiftTool)
+        var toolError: Error? = .none
+        do {
+            try await self.run(swiftTool)
+            if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
+                throw ExitCode.failure
+            }
+        } catch {
+            toolError = error
+        }
+
+        // wait for all observability items to process
+        swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
+
+        if let error = toolError {
+            throw error
+        }
     }
 }
 
@@ -137,7 +184,8 @@ public final class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
-            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope).load(workspace: workspace)
+            packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
+                .load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -182,6 +230,9 @@ public final class SwiftTool {
     /// The min severity at which to log diagnostics
     public let logLevel: Basics.Diagnostic.Severity
 
+    // should use sandbox on external subcommands
+    public var shouldDisableSandbox: Bool
+
     /// The file system in use
     public let fileSystem: FileSystem
 
@@ -195,26 +246,46 @@ public final class SwiftTool {
 
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
+    private let driverSupport = DriverSupport()
+
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    public convenience init(options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(), workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
+    public convenience init(
+        options: GlobalOptions,
+        toolWorkspaceConfiguration: ToolWorkspaceConfiguration = .init(),
+        workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+    ) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
         // CLI commands that have user facing output, use stdout directly to emit the final result
         // this means that the build output from "swift build" goes to stdout
         // but the build output from "swift test" goes to stderr, while the tests output go to stdout
-        try self.init(outputStream: TSCBasic.stderrStream, options: options, toolWorkspaceConfiguration: toolWorkspaceConfiguration, workspaceDelegateProvider: workspaceDelegateProvider, workspaceLoaderProvider: workspaceLoaderProvider)
+        try self.init(
+            outputStream: TSCBasic.stderrStream,
+            options: options,
+            toolWorkspaceConfiguration: toolWorkspaceConfiguration,
+            workspaceDelegateProvider: workspaceDelegateProvider,
+            workspaceLoaderProvider: workspaceLoaderProvider
+        )
     }
 
     // marked internal for testing
-    internal init(outputStream: OutputByteStream, options: GlobalOptions, toolWorkspaceConfiguration: ToolWorkspaceConfiguration, workspaceDelegateProvider: @escaping WorkspaceDelegateProvider, workspaceLoaderProvider: @escaping WorkspaceLoaderProvider) throws {
+    internal init(
+        outputStream: OutputByteStream,
+        options: GlobalOptions,
+        toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
+        workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
+        workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
+    ) throws {
         self.fileSystem = localFileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
+        self.shouldDisableSandbox = options.security.shouldDisableSandbox
         self.toolWorkspaceConfiguration = toolWorkspaceConfiguration
         self.workspaceDelegateProvider = workspaceDelegateProvider
         self.workspaceLoaderProvider = workspaceLoaderProvider
@@ -279,7 +350,8 @@ public final class SwiftTool {
                 var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
-                    to: sigaction.__Unnamed_union___sigaction_handler.self)
+                    to: sigaction.__Unnamed_union___sigaction_handler.self
+                )
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
                 #endif
@@ -300,15 +372,19 @@ public final class SwiftTool {
         self.scratchDirectory =
             try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
-            (packageRoot ?? cwd).appending(component: ".build")
+            (packageRoot ?? cwd).appending(".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: options, fileSystem: fileSystem)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: options.locations.crossCompilationDestinationsDirectory
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(
+            options: options,
+            fileSystem: fileSystem
         )
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
+        self.sharedCrossCompilationDestinationsDirectory = try fileSystem
+            .getSharedCrossCompilationDestinationsDirectory(
+                explicitDirectory: options.locations.crossCompilationDestinationsDirectory
+            )
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -330,12 +406,18 @@ public final class SwiftTool {
         // --enable-test-discovery should never be called on darwin based platforms
         #if canImport(Darwin)
         if options.build.enableTestDiscovery {
-            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope
+                .emit(
+                    warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms"
+                )
         }
         #endif
 
         if options.caching.shouldDisableManifestCaching {
-            observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+            observabilityScope
+                .emit(
+                    warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead"
+                )
         }
 
         if let _ = options.security.netrcFilePath, options.security.netrc == false {
@@ -353,7 +435,12 @@ public final class SwiftTool {
             return workspace
         }
 
-        let delegate = self.workspaceDelegateProvider(self.observabilityScope, self.observabilityHandler.print, self.observabilityHandler.progress)
+        let delegate = self.workspaceDelegateProvider(
+            self.observabilityScope,
+            self.observabilityHandler.print,
+            self.observabilityHandler.progress,
+            self.observabilityHandler.prompt
+        )
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
@@ -377,6 +464,7 @@ public final class SwiftTool {
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
+                signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
                 restrictImports: .none
             ),
@@ -394,7 +482,7 @@ public final class SwiftTool {
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(component: "Packages")
+            return multiRootPackageDataFile.appending("Packages")
         }
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
@@ -413,13 +501,25 @@ public final class SwiftTool {
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
-            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+            let newPath = Workspace.DefaultLocations
+                .mirrorsConfigurationFile(
+                    at: multiRootPackageDataFile
+                        .appending(components: "xcshareddata", "swiftpm", "configuration")
+                )
+            return try Workspace.migrateMirrorsConfiguration(
+                from: legacyPath,
+                to: newPath,
+                observabilityScope: observabilityScope
+            )
         } else {
             // migrate from legacy location
             let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
             let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+            return try Workspace.migrateMirrorsConfiguration(
+                from: legacyPath,
+                to: newPath,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -437,7 +537,10 @@ public final class SwiftTool {
         authorization.keychain = self.options.security.keychain ? .enabled : .disabled
         #endif
 
-        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeAuthorizationProvider(
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
     }
 
     public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
@@ -453,7 +556,10 @@ public final class SwiftTool {
         authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
         #endif
 
-        return try authorization.makeRegistryAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeRegistryAuthorizationProvider(
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
     }
 
     /// Resolve the dependencies.
@@ -477,7 +583,8 @@ public final class SwiftTool {
     /// Fetch and load the complete package graph.
     ///
     /// - Parameters:
-    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
+    /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
     public func loadPackageGraph(
         explicitProduct: String? = nil,
@@ -508,12 +615,12 @@ public final class SwiftTool {
 
     public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
         let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
-        let cacheDir = pluginsDir.appending(component: "cache")
+        let cacheDir = pluginsDir.appending("cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain(),
-            enableSandbox: !self.options.security.shouldDisableSandbox,
+            enableSandbox: !self.shouldDisableSandbox,
             verboseOutput: self.logLevel <= .info
         )
         // register the plugin runner system with the cancellation handler
@@ -523,15 +630,15 @@ public final class SwiftTool {
 
     /// Returns the user toolchain to compile the actual product.
     public func getDestinationToolchain() throws -> UserToolchain {
-        return try _destinationToolchain.get()
+        try _destinationToolchain.get()
     }
 
     public func getHostToolchain() throws -> UserToolchain {
-        return try _hostToolchain.get()
+        try _hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
-        return try _manifestLoader.get()
+        try _manifestLoader.get()
     }
 
     public func canUseCachedBuildManifest() throws -> Bool {
@@ -551,7 +658,7 @@ public final class SwiftTool {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -619,8 +726,8 @@ public final class SwiftTool {
                 architectures: options.build.architectures,
                 workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
-                canRenameEntrypointFunctionName: DriverSupport.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], fileSystem: self.fileSystem
+                canRenameEntrypointFunctionName: driverSupport.checkSupportedFrontendFlags(
+                    flags: ["entry-point-function-name"], toolchain: destinationToolchain, fileSystem: self.fileSystem
                 ),
                 sanitizers: options.build.enabledSanitizers,
                 enableCodeCoverage: false, // set by test commands when appropriate
@@ -650,12 +757,27 @@ public final class SwiftTool {
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {
-                destination = try Destination(fromFile: customDestination, fileSystem: fileSystem)
-            } else if let target = options.build.customCompileTriple,
-                      let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
+                let destinations = try Destination.decode(
+                    fromFile: customDestination,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
+                )
+                if destinations.count == 1 {
+                    destination = destinations[0]
+                } else if destinations.count > 1,
+                          let triple = options.build.customCompileTriple,
+                          let matchingDestination = destinations.first(where: { $0.targetTriple == triple })
+                {
+                    destination = matchingDestination
+                } else {
+                    return .failure(DestinationError.noDestinationsDecoded(customDestination))
+                }
+            } else if let triple = options.build.customCompileTriple,
+                      let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
+            {
                 destination = targetDestination
             } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
-                destination = try DestinationsBundle.selectDestination(
+                destination = try DestinationBundle.selectDestination(
                     fromBundlesAt: sharedCrossCompilationDestinationsDirectory,
                     fileSystem: fileSystem,
                     matching: destinationSelector,
@@ -674,10 +796,10 @@ public final class SwiftTool {
             destination.targetTriple = triple
         }
         if let binDir = options.build.customCompileToolchain {
-            destination.toolchainBinDir = binDir.appending(components: "usr", "bin")
+            destination.add(toolsetRootPath: binDir.appending(components: "usr", "bin"))
         }
         if let sdk = options.build.customCompileSDK {
-            destination.sdkRootDir = sdk
+            destination.pathsConfiguration.sdkRootPath = sdk
         }
         destination.architectures = options.build.architectures
 
@@ -714,11 +836,11 @@ public final class SwiftTool {
 
             var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: self.fileSystem) {
+            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
             // Disable the implicit string processing import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a StringProcessing module.
-            if DriverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], fileSystem: self.fileSystem) {
+            if driverSupport.checkSupportedFrontendFlags(flags: ["disable-implicit-string-processing-module-import"], toolchain: try self.buildParameters().toolchain, fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-string-processing-module-import"]
             }
 
@@ -729,7 +851,7 @@ public final class SwiftTool {
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 toolchain: self.getHostToolchain(),
-                isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
+                isManifestSandboxEnabled: !self.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags,
                 restrictImports: nil
@@ -882,8 +1004,8 @@ extension BuildOptions.TargetDependencyImportCheckingMode {
     }
 }
 
-public extension Basics.Diagnostic {
-    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+extension Basics.Diagnostic {
+    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -25,7 +25,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -57,12 +57,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.summary, "Fixed a few bugs")
@@ -75,9 +75,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -102,12 +104,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             let manifest = version.manifests.values.first!
@@ -119,8 +121,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertFalse(collection.isSigned)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -128,7 +132,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testInvalidURL() throws {
-        let url = URL(string: "ftp://www.test.com/collection.json")!
+        let url = URL("ftp://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
         httpClient.configuration.circuitBreakerStrategy = .none
@@ -144,7 +148,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testExceedsDownloadSizeLimitHead() throws {
         let maxSize: Int64 = 50
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -166,7 +170,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testExceedsDownloadSizeLimitGet() throws {
         let maxSize: Int64 = 50
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -194,7 +198,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testNoContentLengthOnGet() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -215,7 +219,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testExceedsDownloadSizeLimitProgress() throws {
         let maxSize: Int64 = 50
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, progress, completion in
@@ -246,7 +250,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulHead_unavailable() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
@@ -266,7 +270,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulGet_unavailable() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
@@ -292,7 +296,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulHead_notFound() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -311,7 +315,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulGet_notFound() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -336,7 +340,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testBadJSON() throws {
-        let url = URL(string: "https://www.test.com/collection.json")!
+        let url = URL("https://www.test.com/collection.json")
         let data = "blah".data(using: .utf8)!
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -368,7 +372,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -403,12 +407,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.summary, "Fixed a few bugs")
@@ -421,13 +425,15 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
@@ -437,7 +443,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSigned_skipSignatureCheck() throws {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -471,12 +477,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.summary, "Fixed a few bugs")
@@ -489,13 +495,15 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertFalse(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
@@ -504,7 +512,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -546,7 +554,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -607,12 +615,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             let manifest = version.manifests.values.first!
@@ -624,19 +632,21 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
     func testRequiredSigningGood() throws {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -675,12 +685,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.summary, "Fixed a few bugs")
@@ -693,20 +703,22 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
     func testRequiredSigningMultiplePoliciesGood() throws {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -750,12 +762,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.identity, .init(urlString: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, PackageIdentity.plain("repos.one"))
             XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
-            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
-            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.readmeURL, "https://www.example.com/repos/RepoOne/README")
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.summary, "Fixed a few bugs")
@@ -768,20 +780,22 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
-            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+            
+            XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
 
     func testMissingRequiredSignature() throws {
         try fixture(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
-            let url = URL(string: "https://www.test.com/collection.json")!
+            let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: LegacyHTTPClient.Handler = { request, _, completion in

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
-
 import _Concurrency
 import Foundation
 import DequeModule
@@ -257,5 +255,3 @@ public extension HTTPClient {
         )
     }
 }
-
-#endif

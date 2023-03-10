@@ -13,8 +13,11 @@ add_library(PackageLoading
   ManifestLoader+Validation.swift
   ModuleMapGenerator.swift
   PackageBuilder.swift
+  PackageDescriptionSerialization.swift
   ManifestJSONParser.swift
+  Platform.swift
   PkgConfig.swift
+  RegistryReleaseMetadataSerialization.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
   ToolsVersionParser.swift)
@@ -22,7 +25,6 @@ target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
-  SourceControl
   TSCUtility)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)

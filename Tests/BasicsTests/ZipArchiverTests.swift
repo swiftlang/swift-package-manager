@@ -14,6 +14,7 @@ import Basics
 import TSCBasic
 import TSCTestSupport
 import XCTest
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
@@ -21,7 +22,7 @@ class ZipArchiverTests: XCTestCase {
             let archiver = ZipArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "archive.zip")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
-            let content = tmpdir.appending(component: "file")
+            let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
             XCTAssertEqual((try? localFileSystem.readFileContents(content))?.cString, "Hello World!")
         }
@@ -30,8 +31,8 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverArchiveDoesntExist() {
         let fileSystem = InMemoryFileSystem()
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let archive = AbsolutePath(path: "/archive.zip")
-        XCTAssertThrowsError(try archiver.extract(from: archive, to: AbsolutePath(path: "/"))) { error in
+        let archive = AbsolutePath("/archive.zip")
+        XCTAssertThrowsError(try archiver.extract(from: archive, to: "/")) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, archive))
         }
     }
@@ -39,8 +40,8 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverDestinationDoesntExist() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip")
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let destination = AbsolutePath(path: "/destination")
-        XCTAssertThrowsError(try archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination)) { error in
+        let destination = AbsolutePath("/destination")
+        XCTAssertThrowsError(try archiver.extract(from: "/archive.zip", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
@@ -48,8 +49,8 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverDestinationIsFile() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.zip", "/destination")
         let archiver = ZipArchiver(fileSystem: fileSystem)
-        let destination = AbsolutePath(path: "/destination")
-        XCTAssertThrowsError(try archiver.extract(from: AbsolutePath(path: "/archive.zip"), to: destination)) { error in
+        let destination = AbsolutePath("/destination")
+        XCTAssertThrowsError(try archiver.extract(from: "/archive.zip", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
         }
     }
@@ -87,12 +88,73 @@ class ZipArchiverTests: XCTestCase {
         // error
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath.root.appending(component: "does_not_exist.zip")
+            let path = AbsolutePath.root.appending("does_not_exist.zip")
             XCTAssertThrowsError(try archiver.validate(path: path)) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
             }
         }
     }
+
+    func testCompress() throws {
+        #if os(Linux)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
+         try testWithTemporaryDirectory { tmpdir in
+             let archiver = ZipArchiver(fileSystem: localFileSystem)
+
+             let rootDir = tmpdir.appending(component: UUID().uuidString)
+             try localFileSystem.createDirectory(rootDir)
+             try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
+
+             let dir1 = rootDir.appending("dir1")
+             try localFileSystem.createDirectory(dir1)
+             try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
+
+             let dir2 = dir1.appending("dir2")
+             try localFileSystem.createDirectory(dir2)
+             try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
+             try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
+
+             let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
+             try archiver.compress(directory: rootDir, to: archivePath)
+             XCTAssertFileExists(archivePath)
+
+             let extractRootDir = tmpdir.appending(component: UUID().uuidString)
+             try localFileSystem.createDirectory(extractRootDir)
+             try archiver.extract(from: archivePath, to: extractRootDir)
+             try localFileSystem.stripFirstLevel(of: extractRootDir)
+
+             XCTAssertFileExists(extractRootDir.appending("file1.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
+                 "Hello World!"
+             )
+
+             let extractedDir1 = extractRootDir.appending("dir1")
+             XCTAssertDirectoryExists(extractedDir1)
+             XCTAssertFileExists(extractedDir1.appending("file2.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
+                 "Hello World 2!"
+             )
+
+             let extractedDir2 = extractedDir1.appending("dir2")
+             XCTAssertDirectoryExists(extractedDir2)
+             XCTAssertFileExists(extractedDir2.appending("file3.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending("file3.txt")),
+                 "Hello World 3!"
+             )
+             XCTAssertFileExists(extractedDir2.appending("file4.txt"))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
+                 "Hello World 4!"
+             )
+         }
+     }
 }
 
 class ArchiverTests: XCTestCase {
@@ -105,6 +167,24 @@ class ArchiverTests: XCTestCase {
             let finishGroup = DispatchGroup()
 
             func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
+                let cancelSemaphore = DispatchSemaphore(value: 0)
+                self.cancelSemaphores.append(cancelSemaphore)
+
+                self.startGroup.enter()
+                DispatchQueue.sharedConcurrent.async {
+                    self.startGroup.leave()
+                    self.finishGroup.enter()
+                    defer { self.finishGroup.leave() }
+                    switch cancelSemaphore.wait(timeout: .now() + .seconds(5)) {
+                    case .success:
+                        completion(.success(()))
+                    case .timedOut:
+                        completion(.failure(StringError("should be cancelled")))
+                    }
+                }
+            }
+
+            func compress(directory: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
                 let cancelSemaphore = DispatchSemaphore(value: 0)
                 self.cancelSemaphores.append(cancelSemaphore)
 
@@ -157,6 +237,10 @@ class ArchiverTests: XCTestCase {
             XCTAssertResultSuccess(result)
         }
 
+        archiver.compress(directory: .root, to: .root) { result in
+            XCTAssertResultSuccess(result)
+        }
+
         archiver.validate(path: .root) { result in
             XCTAssertResultSuccess(result)
         }
@@ -173,6 +257,11 @@ extension Archiver {
     fileprivate func extract(from: AbsolutePath, to: AbsolutePath) throws {
         try tsc_await {
             self.extract(from: from, to: to, completion: $0)
+        }
+    }
+    fileprivate func compress(directory: AbsolutePath, to: AbsolutePath) throws {
+        try tsc_await {
+            self.compress(directory: directory, to: to, completion: $0)
         }
     }
     fileprivate func validate(path: AbsolutePath) throws -> Bool {

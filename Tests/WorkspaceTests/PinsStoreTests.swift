@@ -19,20 +19,22 @@ import SPMTestSupport
 import SourceControl
 import Workspace
 
+import struct TSCUtility.Version
+
 final class PinsStoreTests: XCTestCase {
 
     let v1: Version = "1.0.0"
 
     func testBasics() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
 
         do {
-            let fooPath = AbsolutePath(path: "/foo")
+            let fooPath = AbsolutePath("/foo")
             let foo = PackageIdentity(path: fooPath)
             let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
 
-            let barPath = AbsolutePath(path: "/bar")
+            let barPath = AbsolutePath("/bar")
             let bar = PackageIdentity(path: barPath)
             let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
@@ -78,7 +80,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control version pin.
 
         do {
-            let path = AbsolutePath(path: "/foo")
+            let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -98,7 +100,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control branch pin.
 
         do {
-            let path = AbsolutePath(path: "/foo")
+            let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -118,7 +120,7 @@ final class PinsStoreTests: XCTestCase {
         // Test source control revision pin.
 
         do {
-            let path = AbsolutePath(path: "/foo")
+            let path = AbsolutePath("/foo")
             let identity = PackageIdentity(path: path)
             let revision = UUID().uuidString
 
@@ -156,7 +158,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string:
             """
@@ -194,7 +196,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingSchema2() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string:
             """
@@ -238,7 +240,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingUnknownSchemaVersion() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
 
         let version = -1
         try fs.writeFileContents(pinsFile, string: "{ \"version\": \(version) }");
@@ -251,7 +253,7 @@ final class PinsStoreTests: XCTestCase {
 
     func testLoadingBadFormat() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
 
         try fs.writeFileContents(pinsFile, string: "boom")
 
@@ -262,13 +264,13 @@ final class PinsStoreTests: XCTestCase {
 
     func testEmptyPins() throws {
         let fs = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pinsfile.txt")
+        let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         try store.saveState(toolsVersion: ToolsVersion.current)
         XCTAssertFalse(fs.exists(pinsFile))
 
-        let fooPath = AbsolutePath(path: "/foo")
+        let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
@@ -285,16 +287,16 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testPinsWithMirrors() throws {
-        let fooURL = URL(string: "https://github.com/corporate/foo.git")!
+        let fooURL = URL("https://github.com/corporate/foo.git")
         let fooIdentity = PackageIdentity(url: fooURL)
-        let fooMirroredURL = URL(string: "https://github.corporate.com/team/foo.git")!
+        let fooMirroredURL = URL("https://github.corporate.com/team/foo.git")
 
-        let barURL = URL(string: "https://github.com/corporate/baraka.git")!
+        let barURL = URL("https://github.com/corporate/baraka.git")
         let barIdentity = PackageIdentity(url: barURL)
-        let barMirroredURL = URL(string: "https://github.corporate.com/team/bar.git")!
+        let barMirroredURL = URL("https://github.corporate.com/team/bar.git")
         let barMirroredIdentity = PackageIdentity(url: barMirroredURL)
 
-        let bazURL = URL(string: "https://github.com/cool/baz.git")!
+        let bazURL = URL("https://github.com/cool/baz.git")
         let bazIdentity = PackageIdentity(url: bazURL)
 
         let mirrors = DependencyMirrors()
@@ -302,7 +304,7 @@ final class PinsStoreTests: XCTestCase {
         mirrors.set(mirrorURL: barMirroredURL.absoluteString, forURL: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pins.txt")
+        let pinsFile = AbsolutePath("/pins.txt")
 
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
@@ -341,11 +343,11 @@ final class PinsStoreTests: XCTestCase {
 
     func testPinsWithMirrorsDeterminism() throws {
         let fooIdentity = PackageIdentity.plain("foo")
-        let fooURL1 = URL(string: "https://github.com/corporate/foo")!
-        let fooURL2 = URL(string: "https://github.com/corporate/foo.git")!
-        let fooURL3 = URL(string: "https://github.com/old-corporate/foo")!
-        let fooURL4 = URL(string: "https://github.com/old-corporate/foo.git")!
-        let fooMirroredURL = URL(string: "https://github.corporate.com/team/foo")!
+        let fooURL1 = URL("https://github.com/corporate/foo")
+        let fooURL2 = URL("https://github.com/corporate/foo.git")
+        let fooURL3 = URL("https://github.com/old-corporate/foo")
+        let fooURL4 = URL("https://github.com/old-corporate/foo.git")
+        let fooMirroredURL = URL("https://github.corporate.com/team/foo")
 
         let mirrors = DependencyMirrors()
         mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL1.absoluteString)
@@ -354,7 +356,7 @@ final class PinsStoreTests: XCTestCase {
         mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL4.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
-        let pinsFile = AbsolutePath(path: "/pins.txt")
+        let pinsFile = AbsolutePath("/pins.txt")
 
         let store1 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
         store1.pin(
@@ -387,11 +389,11 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testMirrorsDeterminism() throws {
-        let URL1 = URL(string: "https://github.com/corporate/foo")!
-        let URL2 = URL(string: "https://github.com/corporate/foo.git")!
-        let URL3 = URL(string: "https://github.com/old-corporate/foo")!
-        let URL4 = URL(string: "https://github.com/old-corporate/foo.git")!
-        let mirroredURL = URL(string: "https://github.corporate.com/team/foo")!
+        let URL1 = URL("https://github.com/corporate/foo")
+        let URL2 = URL("https://github.com/corporate/foo.git")
+        let URL3 = URL("https://github.com/old-corporate/foo")
+        let URL4 = URL("https://github.com/old-corporate/foo.git")
+        let mirroredURL = URL("https://github.corporate.com/team/foo")
 
         do {
             let mirrors = DependencyMirrors([

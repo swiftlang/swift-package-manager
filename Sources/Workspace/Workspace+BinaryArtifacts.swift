@@ -17,7 +17,6 @@ import SPMBuildCore
 import TSCBasic
 
 import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 import PackageLoading
 
 extension Workspace {
@@ -569,15 +568,5 @@ extension FileSystem {
         return try self.getDirectoryContents(rootDirectory)
             .map{ rootDirectory.appending(component: $0) }
             .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
-    }
-}
-
-extension AbsolutePath {
-    fileprivate func basenameWithoutAnyExtension() -> String {
-        var basename = self.basename
-        if let index = basename.firstIndex(of: ".") {
-            basename.removeSubrange(index ..< basename.endIndex)
-        }
-        return String(basename)
     }
 }

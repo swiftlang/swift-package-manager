@@ -46,7 +46,7 @@ final class CancellatorTests: XCTestCase {
     func testTSCProcess() throws {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending(component: "script")
+            let scriptPath = temporaryDirectory.appending("script")
             try localFileSystem.writeFileContents(scriptPath) {
                 """
                 set -e
@@ -104,7 +104,7 @@ final class CancellatorTests: XCTestCase {
     func testTSCProcessForceKill() throws {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending(component: "script")
+            let scriptPath = temporaryDirectory.appending("script")
             try localFileSystem.writeFileContents(scriptPath) {
                 """
                 set -e
@@ -170,7 +170,7 @@ final class CancellatorTests: XCTestCase {
     func testFoundationProcess() throws {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending(component: "script")
+            let scriptPath = temporaryDirectory.appending("script")
             try localFileSystem.writeFileContents(scriptPath) {
                 """
                 set -e
@@ -232,7 +232,7 @@ final class CancellatorTests: XCTestCase {
     func testFoundationProcessForceKill() throws {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending(component: "script")
+            let scriptPath = temporaryDirectory.appending("script")
             try localFileSystem.writeFileContents(scriptPath) {
                 """
                 set -e

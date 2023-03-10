@@ -92,7 +92,7 @@ final class PackageToolTests: CommandsTestCase {
     func testUnknownSubommand() throws {
         try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             XCTAssertThrowsCommandExecutionError(try execute(["foo"], packagePath: fixturePath)) { error in
-                XCTAssertMatch(error.stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
+                XCTAssertMatch(error.stderr, .contains("Unknown subcommand or plugin name ‘foo’"))
             }
         }
     }
@@ -117,7 +117,7 @@ final class PackageToolTests: CommandsTestCase {
     func testNetrcFile() throws {
         try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
-            let netrcPath = fixturePath.appending(component: ".netrc")
+            let netrcPath = fixturePath.appending(".netrc")
             try fs.writeFileContents(netrcPath) { stream in
                 stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
             }
@@ -150,10 +150,10 @@ final class PackageToolTests: CommandsTestCase {
 
     func testEnableDisableCache() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
-            let cachePath = fixturePath.appending(component: "cache")
-            let repositoriesCachePath = cachePath.appending(component: "repositories")
+            let cachePath = fixturePath.appending("cache")
+            let repositoriesCachePath = cachePath.appending("repositories")
 
             do {
                 // Remove .build and cache folder
@@ -243,7 +243,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testResolve() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
 
             // Check that `resolve` works.
             _ = try execute(["resolve"], packagePath: packageRoot)
@@ -254,7 +254,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testUpdate() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
@@ -262,7 +262,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
             // Retag the dependency, and update.
-            let repo = GitRepository(path: fixturePath.appending(component: "Foo"))
+            let repo = GitRepository(path: fixturePath.appending("Foo"))
             try repo.tag(name: "1.2.4")
             _ = try execute(["update"], packagePath: packageRoot)
 
@@ -274,10 +274,10 @@ final class PackageToolTests: CommandsTestCase {
 
     func testCache() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
-            let cachePath = fixturePath.appending(component: "cache")
-            let repositoriesCachePath = cachePath.appending(component: "repositories")
+            let cachePath = fixturePath.appending("cache")
+            let repositoriesCachePath = cachePath.appending("repositories")
 
             // Perform an initial fetch and populate the cache
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
@@ -439,7 +439,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testDumpPackage() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "app")
+            let packageRoot = fixturePath.appending("app")
             let (dumpOutput, _) = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
@@ -519,7 +519,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testShowDependencies() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "app")
+            let packageRoot = fixturePath.appending("app")
             let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
@@ -545,7 +545,7 @@ final class PackageToolTests: CommandsTestCase {
         ])
 
         let manifestA = Manifest.createRootManifest(
-            name: "PackageA",
+            displayName: "PackageA",
             path: .init(path: "/PackageA"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -561,7 +561,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestB = Manifest.createFileSystemManifest(
-            name: "PackageB",
+            displayName: "PackageB",
             path: .init(path: "/PackageB"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -577,7 +577,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestC = Manifest.createFileSystemManifest(
-            name: "PackageC",
+            displayName: "PackageC",
             path: .init(path: "/PackageC"),
             toolsVersion: .v5_3,
             dependencies: [
@@ -592,7 +592,7 @@ final class PackageToolTests: CommandsTestCase {
         )
 
         let manifestD = Manifest.createFileSystemManifest(
-            name: "PackageD",
+            displayName: "PackageD",
             path: .init(path: "/PackageD"),
             toolsVersion: .v5_3,
             products: [
@@ -648,7 +648,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Create root package.
             try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+            try fs.writeFileContents(root.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:4.2
                 import PackageDescription
@@ -662,7 +662,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+            try fs.writeFileContents(dep.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:4.2
                 import PackageDescription
@@ -681,7 +681,7 @@ final class PackageToolTests: CommandsTestCase {
                 try depGit.tag(name: "1.0.0")
             }
 
-            let resultPath = root.appending(component: "result.json")
+            let resultPath = root.appending("result.json")
             _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
 
             XCTAssertFileExists(resultPath)
@@ -696,70 +696,66 @@ final class PackageToolTests: CommandsTestCase {
     func testInitEmpty() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--type", "empty"], packagePath: path)
 
-            XCTAssertFileExists(path.appending(component: "Package.swift"))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
+            XCTAssertFileExists(path.appending("Package.swift"))
         }
     }
 
     func testInitExecutable() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--type", "executable"], packagePath: path)
 
-            let manifest = path.appending(component: "Package.swift")
+            let manifest = path.appending("Package.swift")
             let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
         }
     }
 
     func testInitLibrary() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             try fs.createDirectory(path)
             _ = try execute(["init"], packagePath: path)
 
-            XCTAssertFileExists(path.appending(component: "Package.swift"))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
+            XCTAssertFileExists(path.appending("Package.swift"))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Tests")).sorted(), ["FooTests"])
         }
     }
 
     func testInitCustomNameExecutable() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            let path = tmpPath.appending("Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
 
-            let manifest = path.appending(component: "Package.swift")
+            let manifest = path.appending("Package.swift")
             let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertFileExists(manifest)
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["CustomName.swift"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["CustomNameTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources")), ["main.swift"])
         }
     }
 
     func testPackageEditAndUnedit() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
-            let fooPath = fixturePath.appending(component: "foo")
+            let fooPath = fixturePath.appending("foo")
             func build() throws -> (stdout: String, stderr: String) {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
@@ -813,13 +809,13 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
-            let bazTot = fixturePath.appending(component: "tot")
+            let bazTot = fixturePath.appending("tot")
             try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
 
             // Edit a file in baz ToT checkout.
-            let bazTotPackageFile = bazTot.appending(component: "Package.swift")
+            let bazTotPackageFile = bazTot.appending("Package.swift")
             let stream = BufferedOutputByteStream()
             stream <<< (try localFileSystem.readFileContents(bazTotPackageFile)) <<< "\n// Edited."
             try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
@@ -838,11 +834,11 @@ final class PackageToolTests: CommandsTestCase {
 
     func testPackageClean() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            let buildPath = packageRoot.appending(component: ".build")
+            let buildPath = packageRoot.appending(".build")
             let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
@@ -857,11 +853,11 @@ final class PackageToolTests: CommandsTestCase {
 
     func testPackageReset() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            let buildPath = packageRoot.appending(component: ".build")
+            let buildPath = packageRoot.appending(".build")
             let binFile = buildPath.appending(components: try UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
@@ -869,7 +865,7 @@ final class PackageToolTests: CommandsTestCase {
 
             _ = try execute(["clean"], packagePath: packageRoot)
             XCTAssertNoSuchPath(binFile)
-            XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending(component: "repositories")).isEmpty)
+            XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty)
 
             // Fully clean.
             _ = try execute(["reset"], packagePath: packageRoot)
@@ -882,7 +878,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testPinningBranchAndRevision() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
-            let fooPath = fixturePath.appending(component: "foo")
+            let fooPath = fixturePath.appending("foo")
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
@@ -891,11 +887,11 @@ final class PackageToolTests: CommandsTestCase {
 
             try execute("update")
 
-            let pinsFile = fooPath.appending(component: "Package.resolved")
+            let pinsFile = fooPath.appending("Package.resolved")
             XCTAssertFileExists(pinsFile)
 
             // Update bar repo.
-            let barPath = fixturePath.appending(component: "bar")
+            let barPath = fixturePath.appending("bar")
             let barRepo = GitRepository(path: barPath)
             try barRepo.checkout(newBranch: "YOLO")
             let yoloRevision = try barRepo.getCurrentRevision()
@@ -928,7 +924,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testPinning() throws {
         try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
-            let fooPath = fixturePath.appending(component: "foo")
+            let fooPath = fixturePath.appending("foo")
             func build() throws -> String {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
@@ -948,7 +944,7 @@ final class PackageToolTests: CommandsTestCase {
             }
 
             // We should see a pin file now.
-            let pinsFile = fooPath.appending(component: "Package.resolved")
+            let pinsFile = fooPath.appending("Package.resolved")
             XCTAssertFileExists(pinsFile)
 
             // Test pins file.
@@ -991,7 +987,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Update bar repo.
             do {
-                let barPath = fixturePath.appending(component: "bar")
+                let barPath = fixturePath.appending("bar")
                 let barRepo = GitRepository(path: barPath)
                 try localFileSystem.writeFileContents(barPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 6\n")
                 try barRepo.stageEverything()
@@ -1032,7 +1028,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testOnlyUseVersionsFromResolvedFileFetchesWithExistingState() throws {
         func writeResolvedFile(packageDir: AbsolutePath, repositoryURL: String, revision: String, version: String) throws {
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.resolved")) {
+            try localFileSystem.writeFileContents(packageDir.appending("Package.resolved")) {
                 $0 <<< """
                     {
                       "object": {
@@ -1056,7 +1052,7 @@ final class PackageToolTests: CommandsTestCase {
 
         try testWithTemporaryDirectory { tmpPath in
             let packageDir = tmpPath.appending(components: "library")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:5.0
                 import PackageDescription
@@ -1083,7 +1079,7 @@ final class PackageToolTests: CommandsTestCase {
             let repositoryURL = "file://\(packageDir.pathString)"
 
             let clientDir = tmpPath.appending(components: "client")
-            try localFileSystem.writeFileContents(clientDir.appending(component: "Package.swift")) {
+            try localFileSystem.writeFileContents(clientDir.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:5.0
                 import PackageDescription
@@ -1130,7 +1126,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Create root package.
             try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
-            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+            try fs.writeFileContents(root.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:4.2
                 import PackageDescription
@@ -1145,7 +1141,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Create dependency.
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
-            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+            try fs.writeFileContents(dep.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version:4.2
                 import PackageDescription
@@ -1174,8 +1170,8 @@ final class PackageToolTests: CommandsTestCase {
     func testMirrorConfig() throws {
         try testWithTemporaryDirectory { fixturePath in
             let fs = localFileSystem
-            let packageRoot = fixturePath.appending(component: "Foo")
-            let configOverride = fixturePath.appending(component: "configoverride")
+            let packageRoot = fixturePath.appending("Foo")
+            let configOverride = fixturePath.appending("configoverride")
             let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
 
             fs.createEmptyFiles(at: packageRoot, files:
@@ -1232,6 +1228,141 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testMirrorSimple() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending("MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(url: "https://scm.com/org/foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+        }
+    }
+
+    func testMirrorURLToRegistry() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending("MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(url: "https://scm.com/org/foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "org.bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("org.bar"))
+            XCTAssertNoMatch(output, .contains("https://scm.com/org/foo"))
+        }
+    }
+
+    func testMirrorRegistryToURL() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            let fs = localFileSystem
+            let packageRoot = fixturePath.appending("MyPackage")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
+
+            fs.createEmptyFiles(
+                at: packageRoot,
+                files:
+                "/Sources/Foo/Foo.swift",
+                "/Tests/FooTests/FooTests.swift",
+                "/Package.swift"
+            )
+
+            try fs.writeFileContents(packageRoot.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.7
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(id: "org.foo", from: "1.0.0")
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ])
+                    ]
+                )
+                """
+            )
+
+            try execute(["config", "set-mirror", "--original-url", "org.foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            XCTAssertTrue(fs.isFile(configFile))
+
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("https://scm.com/org/bar"))
+            XCTAssertNoMatch(output, .contains("org.foo"))
+        }
+    }
+
     func testPackageLoadingCommandPathResilience() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "skipping on non-macOS")
@@ -1254,7 +1385,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
 
                 // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
-                let packageRoot = fixturePath.appending(component: "Library")
+                let packageRoot = fixturePath.appending("Library")
                 let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
                 let textOutput = try result.utf8Output() + result.utf8stderrOutput()
@@ -1273,7 +1404,7 @@ final class PackageToolTests: CommandsTestCase {
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift")) {
                 $0 <<< """
                 // swift-tools-version: 5.5
                 import PackageDescription
@@ -1330,7 +1461,7 @@ final class PackageToolTests: CommandsTestCase {
                             }
 
                             // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
-                            let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
+                            let fooFiles = target.sourceModule?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
                             return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: fooFiles, inputFiles: fooFiles) ]
                         }
 
@@ -1361,7 +1492,7 @@ final class PackageToolTests: CommandsTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -1383,13 +1514,13 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func Foo() { }
                 """
             )
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 import Foundation
                 @main
@@ -1420,7 +1551,7 @@ final class PackageToolTests: CommandsTestCase {
 
     func testArchiveSource() throws {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending(component: "Bar")
+            let packageRoot = fixturePath.appending("Bar")
 
             // Running without arguments or options
             do {
@@ -1440,9 +1571,9 @@ final class PackageToolTests: CommandsTestCase {
                 }
             }
 
-            // Runnning with output as absolute path within package root
+            // Running with output as absolute path within package root
             do {
-                let destination = packageRoot.appending(component: "Bar-1.2.3.zip")
+                let destination = packageRoot.appending("Bar-1.2.3.zip")
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
@@ -1452,7 +1583,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Running with output is outside the package root
             try withTemporaryDirectory { tempDirectory in
-                let destination = tempDirectory.appending(component: "Bar-1.2.3.zip")
+                let destination = tempDirectory.appending("Bar-1.2.3.zip")
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
@@ -1470,7 +1601,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderrOutput)""#)
             }
 
-            // Runnning with output as absolute path to existing directory
+            // Running with output as absolute path to existing directory
             do {
                 let destination = AbsolutePath.root
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
@@ -1616,7 +1747,7 @@ final class PackageToolTests: CommandsTestCase {
                         let targets = try context.package.targets(named: targetNames)
 
                         // Print out the source files so that we can check them.
-                        if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
+                        if let sourceFiles = targets.first(where: { $0.name == "MyLibrary" })?.sourceModule?.sourceFiles {
                             for file in sourceFiles {
                                 print("  \\(file.path): \\(file.type)")
                             }
@@ -1694,7 +1825,7 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("error: Unknown subcommand or plugin name 'my-nonexistent-cmd'"))
+                XCTAssertMatch(output, .contains("Unknown subcommand or plugin name ‘my-nonexistent-cmd’"))
             }
 
             // Check that the .docc file was properly vended to the plugin.
@@ -1715,6 +1846,109 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(output, .contains("Initial working directory: \(workingDirectory)"))
             }
         }
+    }
+
+    func testCommandPluginNetworkingPermissions(permissionsManifestFragment: String, permissionError: String, reason: String, remedy: [String]) throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .target(name: "MyLibrary"),
+                            .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(permissionsManifestFragment))),
+                        ]
+                    )
+                    """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                    """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(context: PluginContext, arguments: [String]) throws {
+                            print("hello world")
+                        }
+                    }
+                    """
+            }
+
+            #if os(macOS)
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "Network"], packagePath: packageDir)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertNoMatch(try result.utf8Output(), .contains("hello world"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ wants permission to allow \(permissionError)."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Stated reason: “\(reason)”."))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("Use `\(remedy.joined(separator: " "))` to allow this."))
+            }
+            #endif
+
+            // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin"] + remedy + ["Network"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("hello world"))
+            }
+        }
+    }
+
+    func testCommandPluginNetworkingPermissions() throws {
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(), reason: \"internet good\")]",
+            permissionError: "all network connections on all ports",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: [23, 42]), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 23, 42",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .all(ports: 1..<4), reason: \"internet good\")]",
+            permissionError: "all network connections on ports: 1, 2, 3",
+            reason: "internet good",
+            remedy: ["--allow-network-connections", "all"])
+
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(), reason: \"localhost good\")]",
+            permissionError: "local network connections on all ports",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: [23, 42]), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 23, 42",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .local(ports: 1..<4), reason: \"localhost good\")]",
+            permissionError: "local network connections on ports: 1, 2, 3",
+            reason: "localhost good",
+            remedy: ["--allow-network-connections", "local"])
+
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .docker, reason: \"docker good\")]",
+            permissionError: "docker unix domain socket connections",
+            reason: "docker good",
+            remedy: ["--allow-network-connections", "docker"])
+        try testCommandPluginNetworkingPermissions(
+            permissionsManifestFragment: "[.allowNetworkConnections(scope: .unixDomainSocket, reason: \"unix sockets good\")]",
+            permissionError: "unix domain socket connections",
+            reason: "unix sockets good",
+            remedy: ["--allow-network-connections", "unixDomainSocket"])
     }
 
     func testCommandPluginPermissions() throws {
@@ -1806,6 +2040,104 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
             }
           #endif
+
+            // Check default command with arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+
+            // Check plugin arguments after plugin name
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler",  "--allow-writing-to-package-directory"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+
+            // Check default command with arguments after plugin name
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["PackageScribbler", "--allow-writing-to-package-directory", ], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+        }
+    }
+
+    func testCommandPluginArgumentsNotSwallowed() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                import Foundation
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "MyPlugin", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                """
+                import PackagePlugin
+                import Foundation
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        print (arguments)
+                        guard arguments.contains("--foo") else {
+                            throw "expecting argument foo"
+                        }
+                        guard arguments.contains("--help") else {
+                            throw "expecting argument help"
+                        }
+                        guard arguments.contains("--version") else {
+                            throw "expecting argument version"
+                        }
+                        guard arguments.contains("--verbose") else {
+                            throw "expecting argument verbose"
+                        }
+                        print("success")
+                    }
+                }
+                extension String: Error {}
+                """
+            }
+
+            // Check arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("success"))
+                XCTAssertEqual(try result.utf8stderrOutput(), "")
+            }
+
+            // Check default command arguments
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["MyPlugin", "--foo", "--help", "--version", "--verbose"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("success"))
+                XCTAssertEqual(try result.utf8stderrOutput(), "")
+            }
         }
     }
 
@@ -1955,7 +2287,7 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main
                 struct MyCommandPlugin: CommandPlugin {
@@ -2002,13 +2334,13 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func GetGreeting() -> String { return "Hello" }
                 """
             )
             let myExecutableTargetDir = packageDir.appending(components: "Sources", "MyExecutable")
             try localFileSystem.createDirectory(myExecutableTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myExecutableTargetDir.appending(component: "main.swift"), string: """
+            try localFileSystem.writeFileContents(myExecutableTargetDir.appending("main.swift"), string: """
                 import MyLibrary
                 print("\\(GetGreeting()), World!")
                 """
@@ -2112,7 +2444,7 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main
                 struct MyCommandPlugin: CommandPlugin {
@@ -2147,13 +2479,13 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func Foo() { }
                 """
             )
             let myBasicTestsTargetDir = packageDir.appending(components: "Tests", "MyBasicTests")
             try localFileSystem.createDirectory(myBasicTestsTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending(component: "Test1.swift"), string: """
+            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending("Test1.swift"), string: """
                 import XCTest
                 class TestSuite1: XCTestCase {
                     func testBooleanInvariants() throws {
@@ -2165,7 +2497,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 """
             )
-            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending(component: "Test2.swift"), string: """
+            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending("Test2.swift"), string: """
                 import XCTest
                 class TestSuite2: XCTestCase {
                     func testStringInvariants() throws {
@@ -2176,7 +2508,7 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myExtendedTestsTargetDir = packageDir.appending(components: "Tests", "MyExtendedTests")
             try localFileSystem.createDirectory(myExtendedTestsTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myExtendedTestsTargetDir.appending(component: "Test3.swift"), string: """
+            try localFileSystem.writeFileContents(myExtendedTestsTargetDir.appending("Test3.swift"), string: """
                 import XCTest
                 class TestSuite3: XCTestCase {
                     func testArrayInvariants() throws {
@@ -2209,7 +2541,7 @@ final class PackageToolTests: CommandsTestCase {
             // Create a sample package with a plugin to test various parts of the API.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -2268,31 +2600,31 @@ final class PackageToolTests: CommandsTestCase {
 
             let firstTargetDir = packageDir.appending(components: "Sources", "FirstTarget")
             try localFileSystem.createDirectory(firstTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(firstTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(firstTargetDir.appending("library.swift"), string: """
                 public func FirstFunc() { }
                 """)
 
             let secondTargetDir = packageDir.appending(components: "Sources", "SecondTarget")
             try localFileSystem.createDirectory(secondTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(secondTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(secondTargetDir.appending("library.swift"), string: """
                 public func SecondFunc() { }
                 """)
 
             let thirdTargetDir = packageDir.appending(components: "Sources", "ThirdTarget")
             try localFileSystem.createDirectory(thirdTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(thirdTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(thirdTargetDir.appending("library.swift"), string: """
                 public func ThirdFunc() { }
                 """)
 
             let fourthTargetDir = packageDir.appending(components: "Sources", "FourthTarget")
             try localFileSystem.createDirectory(fourthTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(fourthTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(fourthTargetDir.appending("library.swift"), string: """
                 public func FourthFunc() { }
                 """)
 
             let fifthTargetDir = packageDir.appending(components: "Sources", "FifthTarget")
             try localFileSystem.createDirectory(fifthTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(fifthTargetDir.appending(component: "main.swift"), string: """
+            try localFileSystem.writeFileContents(fifthTargetDir.appending("main.swift"), string: """
                 @main struct MyExec {
                     func run() throws {}
                 }
@@ -2300,7 +2632,7 @@ final class PackageToolTests: CommandsTestCase {
 
             let testTargetDir = packageDir.appending(components: "Tests", "TestTarget")
             try localFileSystem.createDirectory(testTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(testTargetDir.appending(component: "tests.swift"), string: """
+            try localFileSystem.writeFileContents(testTargetDir.appending("tests.swift"), string: """
                 import XCTest
                 class MyTestCase: XCTestCase {
                 }
@@ -2308,7 +2640,7 @@ final class PackageToolTests: CommandsTestCase {
 
             let pluginTargetTargetDir = packageDir.appending(components: "Plugins", "PrintTargetDependencies")
             try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(pluginTargetTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(pluginTargetTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct PrintTargetDependencies: CommandPlugin {
                     func performCommand(
@@ -2332,9 +2664,14 @@ final class PackageToolTests: CommandsTestCase {
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
                         print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
 
-                        if let target = target as? SourceModuleTarget {
+                        if let target = target.sourceModule {
                             print("Module kind of '\\(target.name)': \\(target.kind)")
                         }
+
+                        var sourceModules = context.package.sourceModules
+                        print("sourceModules in package: \\(sourceModules.map { $0.name })")
+                        sourceModules = context.package.products.first?.sourceModules ?? []
+                        print("sourceModules in first product: \\(sourceModules.map { $0.name })")
                     }
                 }
                 extension String: Error {}
@@ -2343,7 +2680,7 @@ final class PackageToolTests: CommandsTestCase {
             // Create a separate vendored package so that we can test dependencies across products in other packages.
             let helperPackageDir = packageDir.appending(components: "VendoredDependencies", "HelperPackage")
             try localFileSystem.createDirectory(helperPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(helperPackageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(helperPackageDir.appending("Package.swift"), string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -2360,7 +2697,7 @@ final class PackageToolTests: CommandsTestCase {
                     ]
                 )
                 """)
-            try localFileSystem.writeFileContents(helperPackageDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(helperPackageDir.appending("library.swift"), string: """
                 public func Foo() { }
                 """)
 
@@ -2460,20 +2797,20 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func GetGreeting() -> String { return "Hello" }
                 """
             )
             let myExecutableTargetDir = packageDir.appending(components: "Sources", "MyExecutable")
             try localFileSystem.createDirectory(myExecutableTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myExecutableTargetDir.appending(component: "main.swift"), string: """
+            try localFileSystem.writeFileContents(myExecutableTargetDir.appending("main.swift"), string: """
                 import MyLibrary
                 print("\\(GetGreeting()), World!")
                 """
             )
             let myBuildToolPluginTargetDir = packageDir.appending(components: "Plugins", "MyBuildToolPlugin")
             try localFileSystem.createDirectory(myBuildToolPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
                     func createBuildCommands(
@@ -2487,7 +2824,7 @@ final class PackageToolTests: CommandsTestCase {
             )
             let myCommandPluginTargetDir = packageDir.appending(components: "Plugins", "MyCommandPlugin")
             try localFileSystem.createDirectory(myCommandPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -2520,7 +2857,7 @@ final class PackageToolTests: CommandsTestCase {
             }
 
             // Deliberately break the command plugin.
-            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -2557,7 +2894,7 @@ final class PackageToolTests: CommandsTestCase {
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
                    // swift-tools-version: 5.7
                    import PackageDescription
                    let package = Package(
@@ -2581,7 +2918,7 @@ final class PackageToolTests: CommandsTestCase {
 
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "Foo")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
                      import PackagePlugin
                      @main struct FooPlugin: BuildToolPlugin {
                          func createBuildCommands(

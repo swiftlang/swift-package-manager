@@ -19,12 +19,12 @@ import TSCUtility
 extension SwiftPackageTool {
     struct Format: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "_format")
+            commandName: "_format", shouldDisplay: false)
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(parsing: .unconditionalRemaining,
+        @Argument(parsing: .captureForPassthrough,
                   help: "Pass flag through to the swift-format tool")
         var swiftFormatFlags: [String] = []
 

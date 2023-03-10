@@ -7,7 +7,3 @@
 - ``brew(_:)``
 - ``apt(_:)``
 - ``yum(_:)``
-
-### Encoding and Decoding
-
-- ``encode(to:)``

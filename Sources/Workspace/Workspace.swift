@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,12 +19,13 @@ import PackageModel
 import PackageFingerprint
 import PackageGraph
 import PackageRegistry
+import PackageSigning
 import SourceControl
 import TSCBasic
 
 import enum TSCUtility.Diagnostics
 import enum TSCUtility.SignpostName
-import struct TSCUtility.Triple
+import struct TSCUtility.Version
 
 public typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -115,6 +116,25 @@ public protocol WorkspaceDelegate: AnyObject {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllBinaryArtifacts()
+
+    // handlers for unsigned and untrusted registry based dependencies
+    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
+    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
+}
+
+// FIXME: default implementation until the feature is stable, at which point we should remove this and force the clients to implement
+extension WorkspaceDelegate {
+    public func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        // true == continue resolution
+        // false == stop dependency resolution
+        completion(true)
+    }
+
+    public func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        // true == continue resolution
+        // false == stop dependency resolution
+        completion(true)
+    }
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
@@ -162,6 +182,44 @@ private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManag
 
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
+    }
+}
+
+private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
+    private unowned let workspaceDelegate: Workspace.Delegate?
+
+    init(workspaceDelegate: Workspace.Delegate?) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func onUnsigned(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        if let delegate = self.workspaceDelegate {
+            delegate.onUnsignedRegistryPackage(
+                registryURL: registry.url,
+                package: package,
+                version: version,
+                completion: completion
+            )
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(true)
+        }
+    }
+
+    func onUntrusted(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        if let delegate = self.workspaceDelegate {
+            delegate.onUntrustedRegistryPackage(
+                registryURL: registry.url,
+                package: package,
+                version: version,
+                completion: completion
+            )
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(true)
+        }
     }
 }
 
@@ -349,6 +407,7 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: .none,
             customFingerprints: .none,
+            customSigningEntities: .none,
             customMirrors: .none,
             customToolsVersion: .none,
             customHostToolchain: customHostToolchain,
@@ -485,6 +544,7 @@ public class Workspace {
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration? = .none,
         customFingerprints: PackageFingerprintStorage? = .none,
+        customSigningEntities: PackageSigningEntityStorage? = .none,
         customMirrors: DependencyMirrors? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customHostToolchain: UserToolchain? = .none,
@@ -509,6 +569,7 @@ public class Workspace {
             initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: customRegistriesConfiguration,
             customFingerprints: customFingerprints,
+            customSigningEntities: customSigningEntities,
             customMirrors: customMirrors,
             customToolsVersion: customToolsVersion,
             customHostToolchain: customHostToolchain,
@@ -536,6 +597,7 @@ public class Workspace {
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration?,
         customFingerprints: PackageFingerprintStorage?,
+        customSigningEntities: PackageSigningEntityStorage?,
         customMirrors: DependencyMirrors?,
         customToolsVersion: ToolsVersion?,
         customHostToolchain: UserToolchain?,
@@ -572,7 +634,11 @@ public class Workspace {
             sharedMirrorsFile: location.sharedMirrorsConfigurationFile
         ).mirrors
 
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(
+            locationMapper: mirrors.effectiveURL(for:),
+            identityMapper: mirrors.effectiveIdentity(for:)
+        )
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
@@ -593,6 +659,13 @@ public class Workspace {
                 directoryPath: $0
             )
         }
+        
+        let signingEntities = customSigningEntities ?? location.sharedSigningEntitiesDirectory.map {
+            FilePackageSigningEntityStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
 
         let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
             fileSystem: fileSystem,
@@ -603,8 +676,11 @@ public class Workspace {
         let registryClient = customRegistryClient ?? RegistryClient(
             configuration: registriesConfiguration,
             fingerprintStorage: fingerprints,
-            fingerprintCheckingMode: configuration.fingerprintCheckingMode,
-            authorizationProvider: registryAuthorizationProvider
+            fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
+            signingEntityStorage: signingEntities,
+            signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
+            authorizationProvider: registryAuthorizationProvider,
+            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate)
         )
 
         let registryDownloadsManager = RegistryDownloadsManager(
@@ -618,7 +694,8 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
-        if registryClient.configured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
+        // FIXME: activate when the root manifest has registry based deps too
+        if registryClient.explicitlyConfigured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,
@@ -3038,7 +3115,7 @@ extension Workspace: PackageContainerProvider {
                             manifestLoader: self.manifestLoader,
                             currentToolsVersion: self.currentToolsVersion,
                             fingerprintStorage: self.fingerprints,
-                            fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
+                            fingerprintCheckingMode: FingerprintCheckingMode.map(self.configuration.fingerprintCheckingMode),
                             observabilityScope: observabilityScope
                         )
                     }
@@ -3119,6 +3196,28 @@ extension Workspace: PackageContainerProvider {
 
         // Save the state.
         try self.state.save()
+    }
+}
+
+extension FingerprintCheckingMode {
+    static func map(_ checkingMode: WorkspaceConfiguration.CheckingMode) -> FingerprintCheckingMode {
+        switch checkingMode {
+        case .strict:
+            return .strict
+        case .warn:
+            return .warn
+        }
+    }
+}
+
+extension SigningEntityCheckingMode {
+    static func map(_ checkingMode: WorkspaceConfiguration.CheckingMode) -> SigningEntityCheckingMode {
+        switch checkingMode {
+        case .strict:
+            return .strict
+        case .warn:
+            return .warn
+        }
     }
 }
 
@@ -3718,7 +3817,7 @@ extension Workspace {
         private let transformationMode: TransformationMode
 
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
-        private let identitiesCache = ThreadSafeKeyValueStore<URL, (identity: PackageIdentity, expirationTime: DispatchTime)>()
+        private let identityLookupCache = ThreadSafeKeyValueStore<URL, (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)>()
 
         init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
             self.underlying = underlying
@@ -3949,18 +4048,25 @@ extension Workspace {
             callbackQueue: DispatchQueue,
             completion: @escaping (Result<PackageIdentity?, Error>) -> Void
         ) {
-            if let cached = self.identitiesCache[url], cached.expirationTime > .now() {
-                return completion(.success(cached.identity))
+            if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
+                switch cached.result {
+                case .success(let identity):
+                    return completion(.success(identity))
+                case .failure:
+                    // server error, do not try again
+                    return completion(.success(.none))
+                }
             }
 
-            self.registryClient.lookupIdentities(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+            self.registryClient.lookupIdentities(scmURL: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
                 switch result {
                 case .failure(let error):
+                    self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
                     completion(.failure(error))
                 case .success(let identities):
                     // FIXME: returns first result... need to consider how to address multiple ones
                     let identity = identities.first
-                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now() + self.cacheTTL) }
+                    self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
                     completion(.success(identity))
                 }
             }

@@ -217,6 +217,8 @@ fileprivate extension SourceCodeFragment {
 	            self.init(enum: "plugin", subnodes: params, multiline: true)
 	        case .test:
 	            self.init(enum: "test", subnodes: params, multiline: true)
+            case .macro:
+                self.init(enum: "macro", subnodes: params, multiline: true)
             }
         }
     }
@@ -312,6 +314,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "binaryTarget", subnodes: params, multiline: true)
         case .plugin:
             self.init(enum: "plugin", subnodes: params, multiline: true)
+        case .macro:
+            self.init(enum: "macro", subnodes: params, multiline: true)
         }
     }
 
@@ -422,6 +426,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
+        case .embedInCode:
+            self.init(enum: "embedInCode", subnodes: params)
         }
     }
 
@@ -456,9 +462,30 @@ fileprivate extension SourceCodeFragment {
         }
     }
 
+    init(from networkPermissionScope: TargetDescription.PluginNetworkPermissionScope) {
+        switch networkPermissionScope {
+        case .none:
+            self.init(enum: "none")
+        case .local(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "local", subnodes: [ports])
+        case .all(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "all", subnodes: [ports])
+        case .docker:
+            self.init(enum: "docker")
+        case .unixDomainSocket:
+            self.init(enum: "unixDomainSocket")
+        }
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single plugin permission.
     init(from permission: TargetDescription.PluginPermission) {
         switch permission {
+        case .allowNetworkConnections(let scope, let reason):
+            let scope = SourceCodeFragment(key: "scope", subnode: .init(from: scope))
+            let reason = SourceCodeFragment(key: "reason", string: reason)
+            self.init(enum: "allowNetworkConnections", subnodes: [scope, reason])
         case .writeToPackageDirectory(let reason):
             let param = SourceCodeFragment(key: "reason", string: reason)
             self.init(enum: "writeToPackageDirectory", subnodes: [param])
@@ -470,7 +497,7 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         switch setting.kind {
-        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value):
+        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -487,7 +514,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .unsafeFlags(let values), .upcomingFeatures(let values), .experimentalFeatures(let values):
+        case .unsafeFlags(let values):
             params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -639,10 +666,10 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedFramework"
         case .unsafeFlags:
             return "unsafeFlags"
-        case .upcomingFeatures:
-            return "upcomingFeatures"
-        case .experimentalFeatures:
-            return "experimentalFeatures"
+        case .enableUpcomingFeature:
+            return "enableUpcomingFeature"
+        case .enableExperimentalFeature:
+            return "enableExperimentalFeature"
         }
     }
 }

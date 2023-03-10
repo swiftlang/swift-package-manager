@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,22 +15,17 @@ import Basics
 import Commands
 import CoreCommands
 import Foundation
-import PackageGraph
-import PackageLoading
 import PackageModel
 import PackageRegistry
-import SourceControl
-import SPMBuildCore
 import TSCBasic
-import Workspace
 
 #if os(Windows)
 import WinSDK
 
 private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
-    struct StaticStorage {
+    enum StaticStorage {
         static var buffer: UnsafeMutableBufferPointer<CChar> =
-                .allocate(capacity: 255)
+            .allocate(capacity: 255)
     }
 
     let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
@@ -51,139 +46,32 @@ private func getpass(_ prompt: String) -> UnsafePointer<CChar> {
     defer { SetConsoleMode(hStdIn, dwMode) }
 
     var dwNumberOfCharsRead: DWORD = 0
-    _ = ReadConsoleA(hStdIn, StaticStorage.buffer.baseAddress,
-                     DWORD(StaticStorage.buffer.count), &dwNumberOfCharsRead,
-                     nil)
+    _ = ReadConsoleA(
+        hStdIn,
+        StaticStorage.buffer.baseAddress,
+        DWORD(StaticStorage.buffer.count),
+        &dwNumberOfCharsRead,
+        nil
+    )
     return UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!)
 }
 #endif
 
-private enum RegistryConfigurationError: Swift.Error {
-    case missingScope(PackageIdentity.Scope? = nil)
-    case invalidURL(String)
-}
-
-extension RegistryConfigurationError: CustomStringConvertible {
-    var description: String {
-        switch self {
-        case .missingScope(let scope?):
-            return "no existing entry for scope: \(scope)"
-        case .missingScope:
-            return "no existing entry for default scope"
-        case .invalidURL(let url):
-            return "invalid URL: \(url)"
-        }
-    }
-}
-
-public struct SwiftPackageRegistryTool: ParsableCommand {
-    public static var configuration = CommandConfiguration(
-        commandName: "package-registry",
-        _superCommandName: "swift",
-        abstract: "Interact with package registry and manage related configuration",
-        discussion: "SEE ALSO: swift package",
-        version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
-            Set.self,
-            Unset.self,
-            Login.self,
-            Logout.self,
-        ],
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
-
-    @OptionGroup()
-    var globalOptions: GlobalOptions
-
-    public init() {}
-
-    struct Set: SwiftCommand {
-        static let configuration = CommandConfiguration(
-            abstract: "Set a custom registry")
-
-        @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
-
-        @Flag(help: "Apply settings to all projects for this user")
-        var global: Bool = false
-
-        @Option(help: "Associate the registry with a given scope")
-        var scope: String?
-
-        @Argument(help: "The registry URL")
-        var url: String
-
-        func run(_ swiftTool: SwiftTool) throws {
-            guard let url = URL(string: self.url), url.scheme == "https" else {
-                throw RegistryConfigurationError.invalidURL(self.url)
-            }
-
-            let scope = try scope.map(PackageIdentity.Scope.init(validating:))
-
-            let set: (inout RegistryConfiguration) throws -> Void = { configuration in
-                if let scope = scope {
-                    configuration.scopedRegistries[scope] = .init(url: url)
-                } else {
-                    configuration.defaultRegistry = .init(url: url)
-                }
-            }
-
-            let configuration = try getRegistriesConfig(swiftTool)
-            if self.global {
-                try configuration.updateShared(with: set)
-            } else {
-                try configuration.updateLocal(with: set)
-            }
-        }
-    }
-
-    struct Unset: SwiftCommand {
-        static let configuration = CommandConfiguration(
-            abstract: "Remove a configured registry")
-
-        @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
-
-        @Flag(help: "Apply settings to all projects for this user")
-        var global: Bool = false
-
-        @Option(help: "Associate the registry with a given scope")
-        var scope: String?
-
-        func run(_ swiftTool: SwiftTool) throws {
-            let scope = try scope.map(PackageIdentity.Scope.init(validating:))
-
-            let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
-                if let scope = scope {
-                    guard let _ = configuration.scopedRegistries[scope] else {
-                        throw RegistryConfigurationError.missingScope(scope)
-                    }
-                    configuration.scopedRegistries.removeValue(forKey: scope)
-                } else {
-                    guard let _ = configuration.defaultRegistry else {
-                        throw RegistryConfigurationError.missingScope()
-                    }
-                    configuration.defaultRegistry = nil
-                }
-            }
-
-            let configuration = try getRegistriesConfig(swiftTool)
-            if self.global {
-                try configuration.updateShared(with: unset)
-            } else {
-                try configuration.updateLocal(with: unset)
-            }
-        }
-    }
-
+extension SwiftPackageRegistryTool {
     struct Login: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Log in to a registry")
+            abstract: "Log in to a registry"
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Argument(help: "The registry URL")
-        var url: String
+        var url: URL?
+
+        var registryURL: URL? {
+            self.url
+        }
 
         @Option(help: "Username")
         var username: String?
@@ -200,14 +88,22 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
-            // Require HTTPS
-            guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
-                throw RegistryConfigurationError.invalidURL(self.url)
+            let configuration = try getRegistriesConfig(swiftTool)
+
+            // compute and validate registry URL
+            guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
+                throw ValidationError.unknownRegistry
+            }
+
+            try registryURL.validateRegistryURL()
+
+            guard let host = registryURL.host?.lowercased() else {
+                throw ValidationError.invalidURL(registryURL)
             }
 
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
-                throw StringError("No credential store available")
+                throw ValidationError.unknownCredentialStore
             }
 
             let authenticationType: RegistryConfiguration.AuthenticationType
@@ -222,7 +118,9 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 if let password = self.password {
                     // User provided password
                     storePassword = password
-                } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
+                } else if let stored = authorizationProvider.authentication(for: registryURL),
+                          stored.user == storeUsername
+                {
                     // Password found in credential store
                     storePassword = stored.password
                     saveChanges = false
@@ -238,7 +136,9 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 if let token = self.token {
                     // User provided token
                     storePassword = token
-                } else if let stored = authorizationProvider.authentication(for: url), stored.user == storeUsername {
+                } else if let stored = authorizationProvider.authentication(for: registryURL),
+                          stored.user == storeUsername
+                {
                     // Token found in credential store
                     storePassword = stored.password
                     saveChanges = false
@@ -256,7 +156,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             // Save in cache so we can try the credentials and persist to storage only if login succeeds
             try tsc_await { callback in
                 authorizationWriter?.addOrUpdate(
-                    for: url,
+                    for: registryURL,
                     user: storeUsername,
                     password: storePassword,
                     persist: false,
@@ -267,33 +167,35 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             // `url` can either be base URL of the registry, in which case the login API
             // is assumed to be at /login, or the full URL of the login API.
             var loginAPIPath: String?
-            if !url.path.isEmpty, url.path != "/" {
-                loginAPIPath = url.path
+            if !registryURL.path.isEmpty, registryURL.path != "/" {
+                loginAPIPath = registryURL.path
             }
 
             // Login URL must be HTTPS
             guard let loginURL = URL(string: "https://\(host)\(loginAPIPath ?? "/login")") else {
-                throw RegistryConfigurationError.invalidURL(self.url)
+                throw ValidationError.invalidURL(registryURL)
             }
-
-            let configuration = try getRegistriesConfig(swiftTool)
 
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
-            registryConfiguration.registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
+            registryConfiguration
+                .registryAuthentication[host] = .init(type: authenticationType, loginAPIPath: loginAPIPath)
 
             // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
             let registryClient = RegistryClient(
                 configuration: registryConfiguration,
                 fingerprintStorage: .none,
                 fingerprintCheckingMode: .strict,
-                authorizationProvider: authorizationProvider
+                signingEntityStorage: .none,
+                signingEntityCheckingMode: .strict,
+                authorizationProvider: authorizationProvider,
+                delegate: .none
             )
 
             // Try logging in
             try tsc_await { callback in
                 registryClient.login(
-                    url: loginURL,
+                    loginURL: loginURL,
                     timeout: .seconds(5),
                     observabilityScope: swiftTool.observabilityScope,
                     callbackQueue: .sharedConcurrent,
@@ -331,7 +233,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             if saveChanges {
                 try tsc_await { callback in
                     authorizationWriter?.addOrUpdate(
-                        for: url,
+                        for: registryURL,
                         user: storeUsername,
                         password: storePassword,
                         persist: true,
@@ -358,23 +260,36 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
     struct Logout: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Log out from a registry")
+            abstract: "Log out from a registry"
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         @Argument(help: "The registry URL")
-        var url: String
+        var url: URL?
+
+        var registryURL: URL? {
+            self.url
+        }
 
         func run(_ swiftTool: SwiftTool) throws {
-            // Require HTTPS
-            guard let url = URL(string: self.url), url.scheme == "https", let host = url.host?.lowercased() else {
-                throw RegistryConfigurationError.invalidURL(self.url)
+            let configuration = try getRegistriesConfig(swiftTool)
+
+            // compute and validate registry URL
+            guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
+                throw ValidationError.unknownRegistry
+            }
+
+            try registryURL.validateRegistryURL()
+
+            guard let host = registryURL.host?.lowercased() else {
+                throw ValidationError.invalidURL(registryURL)
             }
 
             // We need to be able to read/write credentials
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
-                throw StringError("No credential store available")
+                throw ValidationError.unknownCredentialStore
             }
 
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
@@ -382,13 +297,11 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
             // Only OS credential store supports deletion
             if osStore {
-                try tsc_await { callback in authorizationWriter?.remove(for: url, callback: callback) }
+                try tsc_await { callback in authorizationWriter?.remove(for: registryURL, callback: callback) }
                 print("Credentials have been removed from operating system's secure credential store.")
             } else {
                 print("netrc file not updated. Please remove credentials from the file manually.")
             }
-
-            let configuration = try getRegistriesConfig(swiftTool)
 
             // Update user-level registry configuration file
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
@@ -399,14 +312,5 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             print("Registry configuration updated.")
             print("Logout successful.")
         }
-    }
-
-    static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
-        let workspace = try swiftTool.getActiveWorkspace()
-        return try .init(
-            fileSystem: swiftTool.fileSystem,
-            localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
-            sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
-        )
     }
 }

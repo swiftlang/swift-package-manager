@@ -48,7 +48,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             cacheConfig.maxSizeInMegabytes = configuration.cacheMaxSizeInMegabytes
             self.cache = SQLiteBackedCache<CacheValue>(
                 tableName: "package_index_cache",
-                path: configuration.cacheDirectory.appending(component: "index-package-metadata.db"),
+                path: configuration.cacheDirectory.appending("index-package-metadata.db"),
                 configuration: cacheConfig
             )
         } else {

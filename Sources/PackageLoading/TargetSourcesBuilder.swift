@@ -298,8 +298,10 @@ public struct TargetSourcesBuilder {
             }
 
             return Resource(rule: .process(localization: implicitLocalization ?? explicitLocalization), path: path)
-        case .copy:
+        case .copyResource:
             return Resource(rule: .copy, path: path)
+        case .embedResourceInCode:
+            return Resource(rule: .embedInCode, path: path)
         }
     }
 
@@ -504,7 +506,7 @@ public struct TargetSourcesBuilder {
                 } else {
                     observabilityScope.emit(warning: "Only Swift is supported for generated plugin source files at this time: \(absPath)")
                 }
-            case .copy, .processResource:
+            case .copyResource, .processResource, .embedResourceInCode:
                 if let resource = Self.resource(for: absPath, with: rule, defaultLocalization: defaultLocalization, targetName: targetName, targetPath: targetPath, observabilityScope: observabilityScope) {
                     resources.append(resource)
                 } else {
@@ -537,8 +539,11 @@ public struct FileRuleDescription {
         /// This defaults to copy if there's no specialized behavior.
         case processResource(localization: TargetDescription.Resource.Localization?)
 
+        /// The embed rule.
+        case embedResourceInCode
+
         /// The copy rule.
-        case copy
+        case copyResource
 
         /// The modulemap rule.
         case modulemap
@@ -709,7 +714,9 @@ extension FileRuleDescription.Rule {
         case .process(let localization):
             self = .processResource(localization: localization)
         case .copy:
-            self = .copy
+            self = .copyResource
+        case .embedInCode:
+            self = .embedResourceInCode
         }
     }
 }
