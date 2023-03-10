@@ -214,15 +214,15 @@ extension RegistryConfiguration {
             }
 
             public enum OnUnsignedAction: String, Hashable, Codable {
+                case prompt
                 case error
-//                case prompt
                 case warn
                 case silentAllow
             }
 
             public enum OnUntrustedCertificateAction: String, Hashable, Codable {
+                case prompt
                 case error
-//                case prompt
                 case warn
                 case silentAllow
             }
