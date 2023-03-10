@@ -116,6 +116,25 @@ public protocol WorkspaceDelegate: AnyObject {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllBinaryArtifacts()
+
+    // handlers for unsigned and untrusted registry based dependencies
+    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
+    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void)
+}
+
+// FIXME: default implementation until the feature is stable, at which point we should remove this and force the clients to implement
+extension WorkspaceDelegate {
+    public func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        // true == continue resolution
+        // false == stop dependency resolution
+        completion(true)
+    }
+
+    public func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        // true == continue resolution
+        // false == stop dependency resolution
+        completion(true)
+    }
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
@@ -163,6 +182,44 @@ private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManag
 
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
+    }
+}
+
+private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
+    private unowned let workspaceDelegate: Workspace.Delegate?
+
+    init(workspaceDelegate: Workspace.Delegate?) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func onUnsigned(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        if let delegate = self.workspaceDelegate {
+            delegate.onUnsignedRegistryPackage(
+                registryURL: registry.url,
+                package: package,
+                version: version,
+                completion: completion
+            )
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(true)
+        }
+    }
+
+    func onUntrusted(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        if let delegate = self.workspaceDelegate {
+            delegate.onUntrustedRegistryPackage(
+                registryURL: registry.url,
+                package: package,
+                version: version,
+                completion: completion
+            )
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(true)
+        }
     }
 }
 
@@ -622,7 +679,8 @@ public class Workspace {
             fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
             signingEntityStorage: signingEntities,
             signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
-            authorizationProvider: registryAuthorizationProvider
+            authorizationProvider: registryAuthorizationProvider,
+            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate)
         )
 
         let registryDownloadsManager = RegistryDownloadsManager(

@@ -239,10 +239,18 @@ extension SwiftTool {
             options: options,
             toolWorkspaceConfiguration: .init(),
             workspaceDelegateProvider: {
-                ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)
+                ToolWorkspaceDelegate(
+                    observabilityScope: $0,
+                    outputHandler: $1,
+                    progressHandler: $2,
+                    inputHandler: $3
+                )
             },
             workspaceLoaderProvider: {
-                XcodeWorkspaceLoader(fileSystem: $0, observabilityScope: $1)
+                XcodeWorkspaceLoader(
+                    fileSystem: $0,
+                    observabilityScope: $1
+                )
             })
     }
 }

@@ -128,7 +128,8 @@ extension SwiftPackageRegistryTool {
                 fingerprintCheckingMode: .strict,
                 signingEntityStorage: .none,
                 signingEntityCheckingMode: .strict,
-                authorizationProvider: authorizationProvider
+                authorizationProvider: authorizationProvider,
+                delegate: .none
             )
 
             // step 1: publishing configuration

@@ -188,7 +188,8 @@ extension SwiftPackageRegistryTool {
                 fingerprintCheckingMode: .strict,
                 signingEntityStorage: .none,
                 signingEntityCheckingMode: .strict,
-                authorizationProvider: authorizationProvider
+                authorizationProvider: authorizationProvider,
+                delegate: .none
             )
 
             // Try logging in
