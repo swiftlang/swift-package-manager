@@ -20,22 +20,32 @@ import PackageSigning
 
 import struct TSCUtility.Version
 
+protocol SignatureValidationDelegate {
+    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
+    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
+}
+
 struct SignatureValidation {
+    typealias Delegate = SignatureValidationDelegate
+
     private let signingEntityTOFU: PackageSigningEntityTOFU
     private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
         .PackageVersionMetadata
+    private let delegate: Delegate
 
     init(
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
         versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
-            .PackageVersionMetadata
+            .PackageVersionMetadata,
+        delegate: Delegate
     ) {
         self.signingEntityTOFU = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode
         )
         self.versionMetadataProvider = versionMetadataProvider
+        self.delegate = delegate
     }
 
     func validate(
@@ -135,21 +145,46 @@ struct SignatureValidation {
             }
 
             switch onUnsigned {
+            case .prompt:
+                self.delegate.onUnsigned(registry: registry, package: package, version: version) { `continue` in
+                    if `continue` {
+                        completion(.success(.none))
+                    } else {
+                        completion(.failure(sourceArchiveNotSignedError))
+                    }
+                }
             case .error:
                 completion(.failure(sourceArchiveNotSignedError))
-            //                case .prompt:
-            //                    if case RegistryError.sourceArchiveNotSigned = error {
-            //                        // Source archive is not signed
-            //                        // TODO: Call delegate to prompt user to continue with unsigned package or error.
-            //                        fatalError("TO BE IMPLEMENTED")
-            //                    } else {
-            //                        // Cannot determine if source archive is signed or not
-            //                        // TODO: Call delegate to prompt user to continue with package as if it were unsigned or
-            //                        /error.
-            //                        fatalError("TO BE IMPLEMENTED")
-            //                    }
             case .warn:
                 observabilityScope.emit(warning: "\(sourceArchiveNotSignedError)")
+                completion(.success(.none))
+            case .silentAllow:
+                // Continue without logging
+                completion(.success(.none))
+            }
+        } catch RegistryError.signerNotTrusted {
+            guard let onUntrusted = configuration.onUntrustedCertificate else {
+                return completion(.failure(
+                    RegistryError
+                        .missingConfiguration(details: "security.signing.onUntrustedCertificate")
+                ))
+            }
+
+            switch onUntrusted {
+            case .prompt:
+                self.delegate.onUntrusted(registry: registry, package: package.underlying, version: version) { `continue` in
+                    if `continue` {
+                        completion(.success(.none))
+                    } else {
+                        completion(.failure(RegistryError.signerNotTrusted))
+                    }
+                }
+            case .error:
+                // TODO: populate error with signer detail
+                completion(.failure(RegistryError.signerNotTrusted))
+            case .warn:
+                // TODO: populate error with signer detail
+                observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")
                 completion(.success(.none))
             case .silentAllow:
                 // Continue without logging
@@ -203,28 +238,7 @@ struct SignatureValidation {
                 case .certificateInvalid(let reason):
                     completion(.failure(RegistryError.invalidSigningCertificate(reason: reason)))
                 case .certificateNotTrusted:
-                    guard let onUntrusted = configuration.onUntrustedCertificate else {
-                        return completion(.failure(
-                            RegistryError
-                                .missingConfiguration(details: "security.signing.onUntrustedCertificate")
-                        ))
-                    }
-
-                    switch onUntrusted {
-                    case .error:
-                        // TODO: populate error with signer detail
-                        completion(.failure(RegistryError.signerNotTrusted))
-//                    case .prompt:
-//                        // TODO: Call delegate to prompt user to continue with package or error.
-//                        fatalError("TO BE IMPLEMENTED")
-                    case .warn:
-                        // TODO: populate error with signer detail
-                        observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")
-                        completion(.success(.none))
-                    case .silentAllow:
-                        // Continue without logging
-                        completion(.success(.none))
-                    }
+                    completion(.failure(RegistryError.signerNotTrusted))
                 }
             } catch {
                 completion(.failure(RegistryError.failedToValidateSignature(error)))
