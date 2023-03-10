@@ -33,7 +33,7 @@ public actor HTTPClient {
     private let configuration: HTTPClientConfiguration
 
     /// Underlying implementation of ``HTTPClient``.
-    private let underlying: Implementation
+    private let implementation: Implementation
 
     /// An `async`-friendly semaphore to handle limits on the number of concurrent requests.
     private let tokenBucket: TokenBucket
@@ -41,9 +41,9 @@ public actor HTTPClient {
     /// Array of `HostErrors` values, which is used for applying a circuit-breaking strategy.
     private var hostsErrors = [String: HostErrors]()
 
-    public init(configuration: HTTPClientConfiguration = .init(), underlying: Implementation? = nil) {
+    public init(configuration: HTTPClientConfiguration = .init(), implementation: Implementation? = nil) {
         self.configuration = configuration
-        self.underlying = underlying ?? URLSessionHTTPClient().execute
+        self.implementation = implementation ?? URLSessionHTTPClient().execute
         self.tokenBucket = TokenBucket(tokens: configuration.maxConcurrentRequests ?? Concurrency.maxOperations)
     }
 
@@ -103,7 +103,7 @@ public actor HTTPClient {
         }
 
         let response = try await self.tokenBucket.withToken {
-            try await self.underlying(request) { received, expected in
+            try await self.implementation(request) { received, expected in
                 if let max = request.options.maximumResponseSizeInBytes {
                     guard received < max else {
                         // It's a responsibility of the underlying client implementation to cancel the request

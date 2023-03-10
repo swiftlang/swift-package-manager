@@ -31,47 +31,47 @@ import struct TSCBasic.FileSystemError
 /// substitute a virtual file system or redirect file system operations.
 public actor AsyncFileSystem: Actor {
     /// Underlying synchronous implementation that conforms to ``FileSystem`` protocol.
-    private let underlying: FileSystem
+    private let implementation: FileSystem
 
     /// Initialize a new instance of the actor.
     /// - Parameter implementation: an underlying synchronous filesystem.
     public init(_ implementationInitializer: @Sendable () -> FileSystem) {
-        self.underlying = implementationInitializer()
+        self.implementation = implementationInitializer()
     }
 
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
-        underlying.exists(path, followSymlink: followSymlink)
+        implementation.exists(path, followSymlink: followSymlink)
     }
 
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        underlying.isDirectory(path)
+        implementation.isDirectory(path)
     }
 
     /// Check whether the given path is accessible and a file.
     func isFile(_ path: AbsolutePath) -> Bool {
-        underlying.isFile(path)
+        implementation.isFile(path)
     }
 
     /// Check whether the given path is an accessible and executable file.
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
-        underlying.isExecutableFile(path)
+        implementation.isExecutableFile(path)
     }
 
     /// Check whether the given path is accessible and is a symbolic link.
     func isSymlink(_ path: AbsolutePath) -> Bool {
-        underlying.isSymlink(path)
+        implementation.isSymlink(path)
     }
 
     /// Check whether the given path is accessible and readable.
     func isReadable(_ path: AbsolutePath) -> Bool {
-        underlying.isReadable(path)
+        implementation.isReadable(path)
     }
 
     /// Check whether the given path is accessible and writable.
     func isWritable(_ path: AbsolutePath) -> Bool {
-        underlying.isWritable(path)
+        implementation.isWritable(path)
     }
 
     // FIXME: Actual file system interfaces will allow more efficient access to
@@ -79,7 +79,7 @@ public actor AsyncFileSystem: Actor {
     //
     /// Get the contents of the given directory, in an undefined order.
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        try underlying.getDirectoryContents(path)
+        try implementation.getDirectoryContents(path)
     }
 
     /// Get the current working directory (similar to `getcwd(3)`), which can be
@@ -88,45 +88,45 @@ public actor AsyncFileSystem: Actor {
     /// unavailable while the current process was still working in it.
     /// This follows the POSIX `getcwd(3)` semantics.
     var currentWorkingDirectory: AbsolutePath? {
-        underlying.currentWorkingDirectory
+        implementation.currentWorkingDirectory
     }
 
     /// Change the current working directory.
     /// - Parameters:
     ///   - path: The path to the directory to change the current working directory to.
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        try underlying.changeCurrentWorkingDirectory(to: path)
+        try implementation.changeCurrentWorkingDirectory(to: path)
     }
 
     /// Get the home directory of current user
     var homeDirectory: AbsolutePath {
         get throws {
-            try underlying.homeDirectory
+            try implementation.homeDirectory
         }
     }
 
     /// Get the caches directory of current user
     var cachesDirectory: AbsolutePath? {
-        underlying.cachesDirectory
+        implementation.cachesDirectory
     }
 
     /// Get the temp directory
     var tempDirectory: AbsolutePath {
         get throws {
-            try underlying.tempDirectory
+            try implementation.tempDirectory
         }
     }
 
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws {
-        try underlying.createDirectory(path)
+        try implementation.createDirectory(path)
     }
 
     /// Create the given directory.
     ///
     /// - recursive: If true, create missing parent directories if possible.
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        try underlying.createDirectory(path, recursive: recursive)
+        try implementation.createDirectory(path, recursive: recursive)
     }
 
     /// Creates a symbolic link of the source path at the target path
@@ -135,7 +135,7 @@ public actor AsyncFileSystem: Actor {
     ///   - destination: The path to which the link points to.
     ///   - isRelative: If `true`, the symlink contents will be a relative path, otherwise it will be absolute.
     func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, isRelative: Bool) throws {
-        try underlying.createSymbolicLink(path, pointingAt: destination, relative: isRelative)
+        try implementation.createSymbolicLink(path, pointingAt: destination, relative: isRelative)
     }
 
     // FIXME: This is obviously not a very efficient or flexible API.
@@ -144,21 +144,21 @@ public actor AsyncFileSystem: Actor {
     ///
     /// - Returns: The file contents as bytes, or nil if missing.
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
-        try underlying.readFileContents(path)
+        try implementation.readFileContents(path)
     }
 
     // FIXME: This is obviously not a very efficient or flexible API.
     //
     /// Write the contents of a file.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        try underlying.writeFileContents(path, bytes: bytes)
+        try implementation.writeFileContents(path, bytes: bytes)
     }
 
     // FIXME: This is obviously not a very efficient or flexible API.
     //
     /// Write the contents of a file.
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString, atomically: Bool) throws {
-        try underlying.writeFileContents(path, bytes: bytes, atomically: atomically)
+        try implementation.writeFileContents(path, bytes: bytes, atomically: atomically)
     }
 
     /// Recursively deletes the file system entity at `path`.
@@ -166,34 +166,34 @@ public actor AsyncFileSystem: Actor {
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
     /// to be an error).
     func removeFileTree(_ path: AbsolutePath) throws {
-        try underlying.removeFileTree(path)
+        try implementation.removeFileTree(path)
     }
 
     /// Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option> = .init()) throws {
-        try underlying.chmod(mode, path: path, options: options)
+        try implementation.chmod(mode, path: path, options: options)
     }
 
     /// Returns the file info of the given path.
     ///
     /// The method throws if the underlying stat call fails.
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        try underlying.getFileInfo(path)
+        try implementation.getFileInfo(path)
     }
 
     /// Copy a file or directory.
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        try underlying.copy(from: sourcePath, to: destinationPath)
+        try implementation.copy(from: sourcePath, to: destinationPath)
     }
 
     /// Move a file or directory.
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        try underlying.move(from: sourcePath, to: destinationPath)
+        try implementation.move(from: sourcePath, to: destinationPath)
     }
 
     /// Execute the given block while holding the lock.
     func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
-        try underlying.withLock(on: path, type: type, body)
+        try implementation.withLock(on: path, type: type, body)
     }
 }
 
