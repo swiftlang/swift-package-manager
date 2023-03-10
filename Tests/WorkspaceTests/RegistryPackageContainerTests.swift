@@ -466,7 +466,8 @@ class RegistryPackageContainerTests: XCTestCase {
                     completion(.failure(StringError("unexpected url \(request.url)")))
                 }
             }),
-            customArchiverProvider: { _ in archiver }
+            customArchiverProvider: { _ in archiver },
+            delegate: .none
         )
     }
 

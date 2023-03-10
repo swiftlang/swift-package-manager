@@ -60,7 +60,8 @@ public class MockRegistry {
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
             customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
-            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }
+            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
+            delegate: .none
         )
     }
 

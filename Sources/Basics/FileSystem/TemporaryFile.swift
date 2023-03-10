@@ -12,13 +12,7 @@
 
 import _Concurrency
 import Foundation
-#if swift(>=5.7)
 @preconcurrency import TSCBasic
-#else
-import TSCBasic
-#endif
-
-#if swift(>=5.5.2)
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when
@@ -85,8 +79,6 @@ public func withTemporaryDirectory<Result>(
         return try await body(path)
     }
 }
-
-#endif
 
 private func createTemporaryDirectory(fileSystem: FileSystem, dir: AbsolutePath?, prefix: String) throws -> AbsolutePath {
     // This random generation is needed so that

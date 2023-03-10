@@ -14,6 +14,7 @@ import Basics
 import CoreCommands
 import Dispatch
 import class Foundation.NSLock
+import struct Foundation.URL
 import OrderedCollections
 import PackageGraph
 import PackageModel
@@ -47,15 +48,18 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     private let outputHandler: (String, Bool) -> Void
     private let progressHandler: (Int64, Int64, String?) -> Void
+    private let inputHandler: (String, (String?) -> Void) -> Void
 
     init(
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (String, Bool) -> Void,
-        progressHandler: @escaping (Int64, Int64, String?) -> Void
+        progressHandler: @escaping (Int64, Int64, String?) -> Void,
+        inputHandler: @escaping (String, (String?) -> Void) -> Void
     ) {
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
         self.progressHandler = progressHandler
+        self.inputHandler = inputHandler
     }
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
@@ -171,6 +175,36 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.progressHandler(step, total, "Downloading \(artifacts)")
     }
 
+    // registry signature handlers
+
+    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        self.inputHandler("\(package) @ \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
+            switch response?.lowercased() {
+            case "yes":
+                completion(true) // continue
+            case "no":
+                completion(false) // stop resolution
+            default:
+                self.outputHandler("invalid response: '\(response ?? "")'", false)
+                completion(false)
+            }
+        }
+    }
+
+    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+        self.inputHandler("\(package) @ \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
+            switch response?.lowercased() {
+            case "yes":
+                completion(true) // continue
+            case "no":
+                completion(false) // stop resolution
+            default:
+                self.outputHandler("invalid response: '\(response ?? "")'", false)
+                completion(false)
+            }
+        }
+    }
+
     // noop
 
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
@@ -184,7 +218,12 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
 public extension _SwiftCommand {
     var workspaceDelegateProvider: WorkspaceDelegateProvider {
         return {
-            ToolWorkspaceDelegate(observabilityScope: $0, outputHandler: $1, progressHandler: $2)
+            ToolWorkspaceDelegate(
+                observabilityScope: $0,
+                outputHandler: $1,
+                progressHandler: $2,
+                inputHandler: $3
+            )
         }
     }
 

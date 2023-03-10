@@ -903,7 +903,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1034,7 +1035,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1158,7 +1160,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1288,7 +1291,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1408,7 +1412,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1534,7 +1539,8 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending("Package.swift"), string: "")
                     callback(.success(()))
                 })
-            }
+            },
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1606,7 +1612,8 @@ final class RegistryClientTests: XCTestCase {
             fingerprintCheckingMode: .strict,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1686,6 +1693,7 @@ final class RegistryClientTests: XCTestCase {
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient
+            ,delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1733,7 +1741,8 @@ final class RegistryClientTests: XCTestCase {
             fingerprintCheckingMode: .strict,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -2764,7 +2773,8 @@ func makeRegistryClient(
         signingEntityCheckingMode: signingEntityCheckingMode,
         authorizationProvider: authorizationProvider,
         customHTTPClient: httpClient,
-        customArchiverProvider: { _ in MockArchiver() }
+        customArchiverProvider: { _ in MockArchiver() },
+        delegate: .none
     )
 }
 

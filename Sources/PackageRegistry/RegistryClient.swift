@@ -21,9 +21,16 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
+public protocol RegistryClientDelegate {
+    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
+    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
+}
+
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
 public final class RegistryClient: Cancellable {
+    public typealias Delegate = RegistryClientDelegate
+
     private static let apiVersion: APIVersion = .v1
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
     private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
@@ -37,6 +44,7 @@ public final class RegistryClient: Cancellable {
     private let signingEntityStorage: PackageSigningEntityStorage?
     private let signingEntityCheckingMode: SigningEntityCheckingMode
     private let jsonDecoder: JSONDecoder
+    private let delegate: Delegate?
 
     private let availabilityCache = ThreadSafeKeyValueStore<
         URL,
@@ -56,7 +64,8 @@ public final class RegistryClient: Cancellable {
         signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: LegacyHTTPClient? = .none,
-        customArchiverProvider: ((FileSystem) -> Archiver)? = .none
+        customArchiverProvider: ((FileSystem) -> Archiver)? = .none,
+        delegate: Delegate?
     ) {
         self.configuration = configuration
 
@@ -91,6 +100,7 @@ public final class RegistryClient: Cancellable {
         self.signingEntityStorage = signingEntityStorage
         self.signingEntityCheckingMode = signingEntityCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
+        self.delegate = delegate
     }
 
     public var explicitlyConfigured: Bool {
@@ -737,7 +747,8 @@ public final class RegistryClient: Cancellable {
                 let signatureValidation = SignatureValidation(
                     signingEntityStorage: self.signingEntityStorage,
                     signingEntityCheckingMode: self.signingEntityCheckingMode,
-                    versionMetadataProvider: { _, _ in versionMetadata }
+                    versionMetadataProvider: { _, _ in versionMetadata },
+                    delegate: RegistryClientSignatureValidationDelegate(underlying: self.delegate)
                 )
 
                 // checksum TOFU validation helper
@@ -1078,7 +1089,7 @@ public final class RegistryClient: Cancellable {
             guard signatureFormat != nil else {
                 return completion(.failure(RegistryError.missingSignatureFormat))
             }
-            
+
             body.append(contentsOf: """
             Content-Disposition: form-data; name=\"source-archive-signature\"\r
             Content-Type: application/octet-stream\r
@@ -1116,7 +1127,7 @@ public final class RegistryClient: Cancellable {
             body: body,
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
-        
+
         if signature != nil, let signatureFormat = signatureFormat {
             request.headers.add(name: "X-Swift-Package-Signature-Format", value: signatureFormat.rawValue)
         }
@@ -1959,8 +1970,41 @@ extension RegistryReleaseMetadata {
     }
 }
 
-// MARK: - Utilities
+private struct RegistryClientSignatureValidationDelegate: SignatureValidation.Delegate {
+    let underlying: RegistryClient.Delegate?
 
+    func onUnsigned(
+        registry: Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
+        if let underlying = self.underlying {
+            underlying.onUnsigned(registry: registry, package: package, version: version, completion: completion)
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(false)
+        }
+    }
+
+    func onUntrusted(
+        registry: Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
+        if let underlying = self.underlying {
+            underlying.onUntrusted(registry: registry, package: package, version: version, completion: completion)
+        } else {
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(false)
+        }
+    }
+}
+
+// MARK: - Utilities
 
 extension URLComponents {
     fileprivate mutating func appendPathComponents(_ components: String...) {

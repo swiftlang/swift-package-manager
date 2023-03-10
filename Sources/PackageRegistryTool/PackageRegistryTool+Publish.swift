@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
 import ArgumentParser
 import Basics
 import Commands
@@ -25,8 +24,7 @@ import Workspace
 import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    struct Publish: AsyncSwiftCommand {
+    struct Publish: SwiftCommand {
         static let metadataFilename = "package-metadata.json"
 
         static let configuration = CommandConfiguration(
@@ -78,7 +76,7 @@ extension SwiftPackageRegistryTool {
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
         var dryRun: Bool = false
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             let configuration = try getRegistriesConfig(swiftTool).configuration
 
             // validate package location
@@ -130,7 +128,8 @@ extension SwiftPackageRegistryTool {
                 fingerprintCheckingMode: .strict,
                 signingEntityStorage: .none,
                 signingEntityCheckingMode: .strict,
-                authorizationProvider: authorizationProvider
+                authorizationProvider: authorizationProvider,
+                delegate: .none
             )
 
             // step 1: publishing configuration
@@ -194,7 +193,7 @@ extension SwiftPackageRegistryTool {
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
                 let signaturePath = workingDirectory
                     .appending("\(self.packageIdentity)-\(self.packageVersion).sig")
-                signature = try await PackageArchiveSigner.sign(
+                signature = try PackageArchiveSigner.sign(
                     archivePath: archivePath,
                     signaturePath: signaturePath,
                     mode: signingMode,
@@ -214,17 +213,21 @@ extension SwiftPackageRegistryTool {
 
             swiftTool.observabilityScope
                 .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
-            let result = try await registryClient.publish(
-                registryURL: registryURL,
-                packageIdentity: self.packageIdentity,
-                packageVersion: self.packageVersion,
-                packageArchive: archivePath,
-                packageMetadata: self.customMetadataPath,
-                signature: signature,
-                signatureFormat: self.signatureFormat,
-                fileSystem: localFileSystem,
-                observabilityScope: swiftTool.observabilityScope
-            )
+            let result = try tsc_await {
+                registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: self.packageIdentity,
+                    packageVersion: self.packageVersion,
+                    packageArchive: archivePath,
+                    packageMetadata: self.customMetadataPath,
+                    signature: signature,
+                    signatureFormat: self.signatureFormat,
+                    fileSystem: localFileSystem,
+                    observabilityScope: swiftTool.observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    completion: $0
+                )
+            }
 
             switch result {
             case .published(.none):
@@ -286,39 +289,6 @@ enum MetadataLocation {
             return path
         case .external(let path):
             return path
-        }
-    }
-}
-
-// TODO: migrate registry client to async
-extension RegistryClient {
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    public func publish(
-        registryURL: URL,
-        packageIdentity: PackageIdentity,
-        packageVersion: Version,
-        packageArchive: AbsolutePath,
-        packageMetadata: AbsolutePath?,
-        signature: [UInt8]?,
-        signatureFormat: SignatureFormat?,
-        timeout: DispatchTimeInterval? = .none,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
-    ) async throws -> PublishResult {
-        try await withCheckedThrowingContinuation { continuation in
-            self.publish(
-                registryURL: registryURL,
-                packageIdentity: packageIdentity,
-                packageVersion: packageVersion,
-                packageArchive: packageArchive,
-                packageMetadata: packageMetadata,
-                signature: signature,
-                signatureFormat: signatureFormat,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: continuation.resume(with:)
-            )
         }
     }
 }

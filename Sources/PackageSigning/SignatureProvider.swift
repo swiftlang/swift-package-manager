@@ -27,9 +27,9 @@ public enum SignatureProvider {
         intermediateCertificates: [[UInt8]],
         format: SignatureFormat,
         observabilityScope: ObservabilityScope
-    ) async throws -> [UInt8] {
+    ) throws -> [UInt8] {
         let provider = format.provider
-        return try await provider.sign(
+        return try provider.sign(
             content: content,
             identity: identity,
             intermediateCertificates: intermediateCertificates,
@@ -141,7 +141,7 @@ protocol SignatureProviderProtocol {
         identity: SigningIdentity,
         intermediateCertificates: [[UInt8]],
         observabilityScope: ObservabilityScope
-    ) async throws -> [UInt8]
+    ) throws -> [UInt8]
 
     func status(
         signature: [UInt8],
@@ -165,7 +165,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         identity: SigningIdentity,
         intermediateCertificates: [[UInt8]],
         observabilityScope: ObservabilityScope
-    ) async throws -> [UInt8] {
+    ) throws -> [UInt8] {
         #if canImport(Security)
         if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
             let secIdentity = identity as! SecIdentity // !-safe because we ensure type above

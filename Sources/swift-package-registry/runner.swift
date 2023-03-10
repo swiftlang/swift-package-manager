@@ -15,7 +15,7 @@ import PackageRegistryTool
 
 @main
 struct Runner {
-    static func main() async {
-        await SwiftPackageRegistryTool.main()
+    static func main() {
+        SwiftPackageRegistryTool.main()
     }
 }

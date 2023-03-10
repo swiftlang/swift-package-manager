@@ -33,9 +33,4 @@ public final class MockHashAlgorithm {
     }
 }
 
-// Older compilers are unable to infer sendability for `Optional` closures even when those are `@Sendable`.
-#if swift(<5.6)
-extension MockHashAlgorithm: UnsafeSendable {}
-#endif
-
 extension MockHashAlgorithm: HashAlgorithm {}

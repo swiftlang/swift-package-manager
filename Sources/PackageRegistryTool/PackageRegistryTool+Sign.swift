@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
-
 import ArgumentParser
 import Basics
 import CoreCommands
@@ -19,9 +17,10 @@ import PackageSigning
 import TSCBasic
 @_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity init at L139 fails
 
+import struct Foundation.Data
+
 extension SwiftPackageRegistryTool {
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    struct Sign: AsyncSwiftCommand {
+    struct Sign: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Sign a package source archive"
         )
@@ -56,7 +55,7 @@ extension SwiftPackageRegistryTool {
         )
         var certificateChainPaths: [AbsolutePath] = []
 
-        func run(_ swiftTool: SwiftTool) async throws {
+        func run(_ swiftTool: SwiftTool) throws {
             // Validate source archive path
             guard localFileSystem.exists(self.sourceArchivePath) else {
                 throw StringError("Source archive not found at '\(self.sourceArchivePath)'.")
@@ -90,7 +89,7 @@ extension SwiftPackageRegistryTool {
             }
 
             swiftTool.observabilityScope.emit(info: "signing the archive at '\(self.sourceArchivePath)'")
-            try await PackageArchiveSigner.sign(
+            try PackageArchiveSigner.sign(
                 archivePath: self.sourceArchivePath,
                 signaturePath: self.signaturePath,
                 mode: signingMode,
@@ -108,7 +107,6 @@ extension SignatureFormat: ExpressibleByArgument {
     }
 }
 
-@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public enum PackageArchiveSigner {
     @discardableResult
     public static func sign(
@@ -118,7 +116,7 @@ public enum PackageArchiveSigner {
         signatureFormat: SignatureFormat,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> [UInt8] {
+    ) throws -> [UInt8] {
         let archiveData = try fileSystem.readFileContents(archivePath)
 
         let signingIdentity: SigningIdentity
@@ -126,7 +124,7 @@ public enum PackageArchiveSigner {
         switch mode {
         case .identityStore(let label, let intermediateCertPaths):
             let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
-            let matches = await signingIdentityStore.find(by: label)
+            let matches = signingIdentityStore.find(by: label)
             guard let identity = matches.first else {
                 throw StringError("'\(label)' not found in the system identity store.")
             }
@@ -144,7 +142,7 @@ public enum PackageArchiveSigner {
             intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
         }
 
-        let signature = try await SignatureProvider.sign(
+        let signature = try SignatureProvider.sign(
             content: archiveData.contents,
             identity: signingIdentity,
             intermediateCertificates: intermediateCertificates,

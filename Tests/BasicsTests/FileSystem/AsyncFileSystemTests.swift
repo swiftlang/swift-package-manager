@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
 import _Concurrency
 
 @testable import Basics
@@ -107,5 +106,3 @@ final class AsyncFileSystemTests: XCTestCase {
         }
     }
 }
-
-#endif // swift(>=5.5.2)

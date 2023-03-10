@@ -65,7 +65,8 @@ public struct ToolWorkspaceConfiguration {
 public typealias WorkspaceDelegateProvider = (
     _ observabilityScope: ObservabilityScope,
     _ outputHandler: @escaping (String, Bool) -> Void,
-    _ progressHandler: @escaping (Int64, Int64, String?) -> Void
+    _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
+    _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
     -> WorkspaceLoader
@@ -437,7 +438,8 @@ public final class SwiftTool {
         let delegate = self.workspaceDelegateProvider(
             self.observabilityScope,
             self.observabilityHandler.print,
-            self.observabilityHandler.progress
+            self.observabilityHandler.progress,
+            self.observabilityHandler.prompt
         )
         let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(

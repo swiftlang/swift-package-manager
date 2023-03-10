@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if swift(>=5.5.2)
 import _Concurrency
 
 import class TSCBasic.BufferedOutputByteStream
@@ -264,5 +263,3 @@ extension AsyncFileSystem {
         try self.removeFileTree(tempDirectory)
     }
 }
-
-#endif // swift(>=5.5.2)
