@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import XCTest
 
 import _CryptoExtras // for RSA
@@ -17,8 +18,9 @@ import Basics
 import Crypto
 @testable import PackageSigning
 import SPMTestSupport
+import SwiftASN1
 import func TSCBasic.tsc_await
-import X509
+@testable import X509 // need internal APIs for OCSP testing
 
 final class SigningTests: XCTestCase {
     func testCMS1_0_0EndToEnd() async throws {
@@ -29,9 +31,9 @@ final class SigningTests: XCTestCase {
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
-
         let signatureFormat = SignatureFormat.cms_1_0_0
-        let signature = try await SignatureProvider.sign(
+
+        let signature = try SignatureProvider.sign(
             content: content,
             identity: signingIdentity,
             intermediateCertificates: keyAndCertChain.intermediateCertificates,
@@ -39,10 +41,12 @@ final class SigningTests: XCTestCase {
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Security)
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
 
         let status = try await SignatureProvider.status(
             signature: signature,
@@ -55,10 +59,12 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertEqual("Test (EC)", signingEntity.name)
-        XCTAssertEqual("Test (EC)", signingEntity.organizationalUnit)
-        XCTAssertEqual("Test (EC)", signingEntity.organization)
-        #endif
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (EC)", name)
+        XCTAssertEqual("Test (EC)", organizationalUnit)
+        XCTAssertEqual("Test (EC)", organization)
     }
 
     func testCMSEndToEndWithECSigningIdentity() async throws {
@@ -71,18 +77,19 @@ final class SigningTests: XCTestCase {
         let content = Array("per aspera ad astra".utf8)
 
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
-
-        let signature = try await cmsProvider.sign(
+        let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
             intermediateCertificates: keyAndCertChain.intermediateCertificates,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Security)
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
 
         let status = try await cmsProvider.status(
             signature: signature,
@@ -94,10 +101,12 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertEqual("Test (EC)", signingEntity.name)
-        XCTAssertEqual("Test (EC)", signingEntity.organizationalUnit)
-        XCTAssertEqual("Test (EC)", signingEntity.organization)
-        #endif
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (EC)", name)
+        XCTAssertEqual("Test (EC)", organizationalUnit)
+        XCTAssertEqual("Test (EC)", organization)
     }
 
     func testCMSEndToEndWithRSASigningIdentity() async throws {
@@ -110,18 +119,19 @@ final class SigningTests: XCTestCase {
         let content = Array("per aspera ad astra".utf8)
 
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
-
-        let signature = try await cmsProvider.sign(
+        let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
             intermediateCertificates: keyAndCertChain.intermediateCertificates,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        // FIXME: test cert chain is not considered valid on non-Darwin platforms
-        #if canImport(Security)
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = [keyAndCertChain.rootCertificate]
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
 
         let status = try await cmsProvider.status(
             signature: signature,
@@ -133,10 +143,12 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertEqual("Test (RSA)", signingEntity.name)
-        XCTAssertEqual("Test (RSA)", signingEntity.organizationalUnit)
-        XCTAssertEqual("Test (RSA)", signingEntity.organization)
-        #endif
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (RSA)", name)
+        XCTAssertEqual("Test (RSA)", organizationalUnit)
+        XCTAssertEqual("Test (RSA)", organization)
     }
 
     func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
@@ -152,7 +164,7 @@ final class SigningTests: XCTestCase {
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
 
         do {
-            _ = try await cmsProvider.sign(
+            _ = try cmsProvider.sign(
                 content: content,
                 identity: signingIdentity,
                 intermediateCertificates: keyAndCertChain.intermediateCertificates,
@@ -166,36 +178,30 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    #if os(macOS)
-    func testCMS1_0_0EndToEndWithSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
-        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
-        }
-        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = await identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
-
-        let signingIdentity = matches[0]
+    func testCMS1_0_0EndToEndWithSelfSignedCertificate() async throws {
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
         let content = Array("per aspera ad astra".utf8)
 
         let signatureFormat = SignatureFormat.cms_1_0_0
-        // This call will trigger OS prompt(s) for key access
-        let signature = try await SignatureProvider.sign(
+        let signature = try SignatureProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: try tsc_await { self.wwdrIntermediates(callback: $0) },
-            // TODO: don't need to do this for WWDR certs
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
             format: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
 
         let status = try await SignatureProvider.status(
             signature: signature,
@@ -208,14 +214,400 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertNotNil(signingEntity.name)
-        XCTAssertNotNil(signingEntity.organizationalUnit)
-        XCTAssertNotNil(signingEntity.organization)
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (EC)", name)
+        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
+        XCTAssertEqual("Test (EC) org", organization)
     }
-    #endif
+
+    func testCMSEndToEndWithSelfSignedECSigningIdentity() async throws {
+        let keyAndCertChain = try tsc_await { self.ecSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (EC)", name)
+        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
+        XCTAssertEqual("Test (EC) org", organization)
+    }
+
+    func testCMSEndToEndWithSelfSignedRSASigningIdentity() async throws {
+        let keyAndCertChain = try tsc_await { self.rsaSelfSignedTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(_RSA.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+        guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
+            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+        }
+        XCTAssertEqual("Test (RSA)", name)
+        XCTAssertEqual("Test (RSA) org unit", organizationalUnit)
+        XCTAssertEqual("Test (RSA) org", organization)
+    }
+
+    func testCMSBadSignature() async throws {
+        let content = Array("per aspera ad astra".utf8)
+        let signature = Array("bad signature".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: .init(),
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .invalid = status else {
+            return XCTFail("Expected signature status to be .invalid but got \(status)")
+        }
+    }
+
+    func testCMSInvalidSignature() async throws {
+        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let signatureContent = Array("per aspera ad astra".utf8)
+        let otherContent = Array("ad infinitum".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let signature = try cmsProvider.sign(
+            content: signatureContent,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: otherContent,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .invalid = status else {
+            return XCTFail("Expected signature status to be .invalid but got \(status)")
+        }
+    }
+
+    func testCMSUntrustedCertificate() async throws {
+        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [], // trust store is empty
+            includeDefaultTrustStore: false,
+            certificateExpiration: .disabled,
+            certificateRevocation: .disabled
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .certificateNotTrusted = status else {
+            return XCTFail("Expected signature status to be .certificateNotTrusted but got \(status)")
+        }
+    }
+
+    func testCMSCheckCertificateValidityPeriod() async throws {
+        let keyAndCertChain = try tsc_await { self.ecTestKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        do {
+            let verifierConfiguration = VerifierConfiguration(
+                trustedRoots: [keyAndCertChain.rootCertificate],
+                includeDefaultTrustStore: false,
+                certificateExpiration: .enabled(
+                    validationTime: signingIdentity.certificate.notValidBefore
+                        .addingTimeInterval(-60 * 60 * 24 * 3)
+                ),
+                certificateRevocation: .disabled
+            )
+
+            let status = try await cmsProvider.status(
+                signature: signature,
+                content: content,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+
+            guard case .certificateInvalid(let reason) = status else {
+                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+            }
+            XCTAssertTrue(reason.contains("not yet valid"))
+        }
+
+        do {
+            let verifierConfiguration = VerifierConfiguration(
+                trustedRoots: [keyAndCertChain.rootCertificate],
+                includeDefaultTrustStore: false,
+                certificateExpiration: .enabled(
+                    validationTime: signingIdentity.certificate.notValidAfter
+                        .addingTimeInterval(60 * 60 * 24 * 3)
+                ),
+                certificateRevocation: .disabled
+            )
+
+            let status = try await cmsProvider.status(
+                signature: signature,
+                content: content,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+
+            guard case .certificateInvalid(let reason) = status else {
+                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+            }
+            XCTAssertTrue(reason.contains("has expired"))
+        }
+    }
+
+    func testCMSCheckCertificateRevocationStatus() async throws {
+        let ocspHandler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.post, URL(OCSPTestHelper.responderURI)):
+                guard let requestBody = request.body else {
+                    throw StringError("Empty request body")
+                }
+                let ocspRequest = try OCSPRequest(derEncoded: Array(requestBody))
+                let nonce = try XCTUnwrap(ocspRequest.tbsRequest.requestExtensions?.ocspNonce)
+                let singleRequest = try XCTUnwrap(ocspRequest.tbsRequest.requestList.first)
+                let ocspResponse = OCSPResponse.successful(.signed(responses: [OCSPSingleResponse(
+                    certID: singleRequest.certID,
+                    certStatus: .unknown,
+                    thisUpdate: try .init(Date() - .days(1)),
+                    nextUpdate: try .init(Date() + .days(1))
+                )], responseExtensions: { nonce }))
+                return HTTPClientResponse(statusCode: 200, body: Data(ocspResponse.derEncodedBytes))
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: OCSPTestHelper.chainWithSingleCertWithOCSP[0],
+            privateKey: Certificate.PrivateKey(OCSPTestHelper.privateKey)
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(
+            signatureAlgorithm: .ecdsaP256,
+            customHTTPClient: HTTPClient(implementation: ocspHandler)
+        )
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: [],
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        // certificateRevocation = .strict doesn't allow status 'unknown'
+        do {
+            let verifierConfiguration = VerifierConfiguration(
+                trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
+                includeDefaultTrustStore: false,
+                certificateExpiration: .disabled,
+                certificateRevocation: .strict
+            )
+
+            let status = try await cmsProvider.status(
+                signature: signature,
+                content: content,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+            guard case .certificateInvalid(let reason) = status else {
+                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+            }
+            XCTAssertTrue(reason.contains("status unknown"))
+        }
+
+        // certificateRevocation = .allowSoftFail allows status 'unknown'
+        do {
+            let verifierConfiguration = VerifierConfiguration(
+                trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
+                includeDefaultTrustStore: false,
+                certificateExpiration: .disabled,
+                certificateRevocation: .allowSoftFail
+            )
+
+            let status = try await cmsProvider.status(
+                signature: signature,
+                content: content,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+            guard case .valid = status else {
+                return XCTFail("Expected signature status to be .valid but got \(status)")
+            }
+        }
+    }
+
+    func testCMSEndToEndWithRSAKeyADPCertificate() async throws {
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        let keyAndCertChain = try tsc_await { rsaADPKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(_RSA.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: true,
+            certificateExpiration: .enabled(validationTime: nil),
+            certificateRevocation: .strict
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+
+        func rsaADPKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
+            do {
+                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                    let privateKey = try readFileContents(
+                        in: fixturePath,
+                        pathComponents: "Certificates", "development_key.p8"
+                    )
+                    let certificate = try readFileContents(
+                        in: fixturePath,
+                        pathComponents: "Certificates", "development.cer"
+                    )
+
+                    callback(.success(KeyAndCertChain(
+                        privateKey: privateKey,
+                        certificateChain: [certificate]
+                    )))
+                }
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
 
     #if os(macOS)
-    func testCMSEndToEndWithECSigningIdentityFromKeychain() async throws {
+    func testCMS1_0_0EndToEndWithADPSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
@@ -225,7 +617,65 @@ final class SigningTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = await identityStore.find(by: label)
+        let matches = identityStore.find(by: label)
+        XCTAssertTrue(!matches.isEmpty)
+
+        let signingIdentity = matches[0]
+        let content = Array("per aspera ad astra".utf8)
+
+        let signatureFormat = SignatureFormat.cms_1_0_0
+        // This call will trigger OS prompt(s) for key access
+        let signature = try SignatureProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
+            format: signatureFormat,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [],
+            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            certificateExpiration: .enabled(validationTime: nil),
+            certificateRevocation: .strict
+        )
+
+        let status = try await SignatureProvider.status(
+            signature: signature,
+            content: content,
+            format: signatureFormat,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid(let signingEntity) = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+        switch signingEntity {
+        case .recognized(_, let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        case .unrecognized(let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        }
+    }
+    #endif
+
+    #if os(macOS)
+    func testCMSEndToEndWithECKeyADPSigningIdentityFromKeychain() async throws {
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
+            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
+        }
+        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+        let matches = identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
@@ -233,16 +683,19 @@ final class SigningTests: XCTestCase {
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
 
         // This call will trigger OS prompt(s) for key access
-        let signature = try await cmsProvider.sign(
+        let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: try tsc_await { self.wwdrIntermediates(callback: $0) },
-            // TODO: don't need to do this for WWDR certs
+            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [],
+            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            certificateExpiration: .enabled(validationTime: nil),
+            certificateRevocation: .strict
+        )
 
         let status = try await cmsProvider.status(
             signature: signature,
@@ -254,14 +707,21 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertNotNil(signingEntity.name)
-        XCTAssertNotNil(signingEntity.organizationalUnit)
-        XCTAssertNotNil(signingEntity.organization)
+        switch signingEntity {
+        case .recognized(_, let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        case .unrecognized(let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        }
     }
     #endif
 
     #if os(macOS)
-    func testCMSEndToEndWithRSASigningIdentityFromKeychain() async throws {
+    func testCMSEndToEndWithRSAKeyADPSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
         #else
         try XCTSkipIf(true)
@@ -271,7 +731,7 @@ final class SigningTests: XCTestCase {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = await identityStore.find(by: label)
+        let matches = identityStore.find(by: label)
         XCTAssertTrue(!matches.isEmpty)
 
         let signingIdentity = matches[0]
@@ -279,16 +739,19 @@ final class SigningTests: XCTestCase {
         let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .rsa)
 
         // This call will trigger OS prompt(s) for key access
-        let signature = try await cmsProvider.sign(
+        let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: try tsc_await { self.wwdrIntermediates(callback: $0) },
-            // TODO: don't need to do this for WWDR certs
+            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
             observabilityScope: ObservabilitySystem.NOOP
         )
 
-        var verifierConfiguration = VerifierConfiguration()
-        verifierConfiguration.trustedRoots = try tsc_await { self.wwdrRoots(callback: $0) }
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [],
+            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            certificateExpiration: .enabled(validationTime: nil),
+            certificateRevocation: .strict
+        )
 
         let status = try await cmsProvider.status(
             signature: signature,
@@ -300,9 +763,16 @@ final class SigningTests: XCTestCase {
         guard case .valid(let signingEntity) = status else {
             return XCTFail("Expected signature status to be .valid but got \(status)")
         }
-        XCTAssertNotNil(signingEntity.name)
-        XCTAssertNotNil(signingEntity.organizationalUnit)
-        XCTAssertNotNil(signingEntity.organization)
+        switch signingEntity {
+        case .recognized(_, let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        case .unrecognized(let name, let organizationalUnit, let organization):
+            XCTAssertNotNil(name)
+            XCTAssertNotNil(organizationalUnit)
+            XCTAssertNotNil(organization)
+        }
     }
     #endif
 
@@ -329,6 +799,28 @@ final class SigningTests: XCTestCase {
                 callback(.success(KeyAndCertChain(
                     privateKey: privateKey,
                     certificateChain: [certificate, intermediateCA, rootCA]
+                )))
+            }
+        } catch {
+            callback(.failure(error))
+        }
+    }
+
+    private func ecSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let privateKey = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "Test_ec_self_signed_key.p8"
+                )
+                let certificate = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "Test_ec_self_signed.cer"
+                )
+
+                callback(.success(KeyAndCertChain(
+                    privateKey: privateKey,
+                    certificateChain: [certificate]
                 )))
             }
         } catch {
@@ -366,26 +858,22 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    private func wwdrIntermediates(callback: (Result<[[UInt8]], Error>) -> Void) {
+    private func rsaSelfSignedTestKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
         do {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let intermediateCA = try readFileContents(
+                let privateKey = try readFileContents(
                     in: fixturePath,
-                    pathComponents: "Certificates",
-                    "AppleWWDRCAG3.cer"
+                    pathComponents: "Certificates", "Test_rsa_self_signed_key.p8"
                 )
-                callback(.success([intermediateCA]))
-            }
-        } catch {
-            callback(.failure(error))
-        }
-    }
+                let certificate = try readFileContents(
+                    in: fixturePath,
+                    pathComponents: "Certificates", "Test_rsa_self_signed.cer"
+                )
 
-    private func wwdrRoots(callback: (Result<[[UInt8]], Error>) -> Void) {
-        do {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                let rootCA = try readFileContents(in: fixturePath, pathComponents: "Certificates", "AppleIncRoot.cer")
-                callback(.success([rootCA]))
+                callback(.success(KeyAndCertChain(
+                    privateKey: privateKey,
+                    certificateChain: [certificate]
+                )))
             }
         } catch {
             callback(.failure(error))
@@ -410,5 +898,136 @@ final class SigningTests: XCTestCase {
         var rootCertificate: [UInt8] {
             self.certificateChain.last!
         }
+    }
+}
+
+// MARK: - Helpers for OCSP related testing
+
+enum OCSPTestHelper {
+    static let responderURI = "http://ocsp.localhost"
+    static let responderID = ResponderID.byName(try! DistinguishedName {
+        CommonName("SwiftPM Test OCSP Responder")
+    })
+
+    static let privateKey = P256.Signing.PrivateKey()
+
+    static func certificate(
+        subject: DistinguishedName,
+        issuer: DistinguishedName,
+        ocspServer: String? = nil
+    ) -> Certificate {
+        try! Certificate(
+            version: .v3,
+            serialNumber: .init(),
+            publicKey: .init(self.privateKey.publicKey),
+            notValidBefore: Date() - .days(365),
+            notValidAfter: Date() + .days(365),
+            issuer: issuer,
+            subject: subject,
+            signatureAlgorithm: .ecdsaWithSHA256,
+            extensions: .init {
+                if let ocspServer {
+                    AuthorityInformationAccess([
+                        AuthorityInformationAccess.AccessDescription(
+                            method: .ocspServer,
+                            location: GeneralName.uniformResourceIdentifier(ocspServer)
+                        ),
+                    ])
+                }
+            },
+            issuerPrivateKey: .init(self.privateKey)
+        )
+    }
+
+    static let ca1Name = try! DistinguishedName {
+        CountryName("US")
+        OrganizationName("SwiftPM Test")
+        CommonName("SwiftPM Test CA 1")
+    }
+
+    static let intermediate1Name = try! DistinguishedName {
+        CountryName("US")
+        OrganizationName("SwiftPM Test")
+        CommonName("SwiftPM Test Intermediate CA 1")
+    }
+
+    static let localhostLeafName = try! DistinguishedName {
+        CountryName("US")
+        OrganizationName("SwiftPM Test")
+        CommonName("localhost")
+    }
+
+    static let chainWithSingleCertWithOCSP = [
+        certificate(subject: localhostLeafName, issuer: intermediate1Name, ocspServer: responderURI),
+        certificate(subject: intermediate1Name, issuer: intermediate1Name),
+    ]
+}
+
+extension Certificate {
+    fileprivate var derEncodedBytes: [UInt8] {
+        var serializer = DER.Serializer()
+        try! serializer.serialize(self)
+        return serializer.serializedBytes
+    }
+}
+
+extension TimeInterval {
+    private static let oneDay: TimeInterval = 60 * 60 * 24
+
+    static func days(_ days: Int) -> TimeInterval {
+        Double(days) * self.oneDay
+    }
+}
+
+private let gregorianCalendar = Calendar(identifier: .gregorian)
+private let utcTimeZone = TimeZone(identifier: "UTC")!
+
+extension GeneralizedTime {
+    init(_ date: Date) throws {
+        let components = gregorianCalendar.dateComponents(in: utcTimeZone, from: date)
+        try self.init(
+            year: components.year!,
+            month: components.month!,
+            day: components.day!,
+            hours: components.hour!,
+            minutes: components.minute!,
+            seconds: components.second!,
+            fractionalSeconds: 0.0
+        )
+    }
+}
+
+extension BasicOCSPResponse {
+    static func signed(responseData: OCSPResponseData) -> Self {
+        // TODO: actually sign the response once we validate the signature
+        .init(
+            responseData: responseData,
+            signatureAlgorithm: .ecdsaWithSHA256,
+            signature: .init(bytes: [][...])
+        )
+    }
+
+    static func signed(
+        version: OCSPVersion = .v1,
+        responderID: ResponderID = OCSPTestHelper.responderID,
+        producedAt: GeneralizedTime = try! .init(Date()),
+        responses: [OCSPSingleResponse],
+        @ExtensionsBuilder responseExtensions: () -> Certificate.Extensions = { .init() }
+    ) -> Self {
+        .signed(responseData: .init(
+            version: version,
+            responderID: responderID,
+            producedAt: producedAt,
+            responses: responses,
+            responseExtensions: responseExtensions()
+        ))
+    }
+}
+
+extension OCSPResponse {
+    fileprivate var derEncodedBytes: [UInt8] {
+        var serializer = DER.Serializer()
+        try! serializer.serialize(self)
+        return serializer.serializedBytes
     }
 }

@@ -9,7 +9,8 @@ let package = Package(
                 path: ".",
                 exclude: ["README.md", "generate.sh"],
                 resources: [
-                    .embedInCode("AppleWWDRCAG2.cer")
+                    .embedInCode("Intermediates"),
+                    .embedInCode("Roots"),
                 ]),
     ]
 )

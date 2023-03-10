@@ -492,7 +492,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // Generate signature
             let signaturePath = temporaryDirectory.appending(component: "signature")
-            try await PackageArchiveSigner.sign(
+            try PackageArchiveSigner.sign(
                 archivePath: archivePath,
                 signaturePath: signaturePath,
                 mode: .certificate(
@@ -505,8 +505,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observabilityScope
             )
 
-            // FIXME: test cert chain is not considered valid on non-Darwin platforms
-            #if canImport(Security)
             // Read and validate signature
             let signature = try localFileSystem.readFileContents(signaturePath).contents
             let archive = try localFileSystem.readFileContents(archivePath).contents
@@ -524,7 +522,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
             guard case .valid = signatureStatus else {
                 return XCTFail("Expected signature status to be .valid but got \(signatureStatus)")
             }
-            #endif
         }
 
         // basic validation

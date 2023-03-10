@@ -27,8 +27,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
 
         // Record signing entities for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
-        let appleseed = SigningEntity(type: nil, name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity(type: nil, name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
+        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
         try storage.put(package: package, version: Version("1.0.0"), signingEntity: davinci)
         try storage.put(package: package, version: Version("1.1.0"), signingEntity: davinci)
         try storage.put(package: package, version: Version("2.0.0"), signingEntity: appleseed)
@@ -64,8 +64,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let appleseed = SigningEntity(type: nil, name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity(type: nil, name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
+        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
         let version = Version("1.0.0")
         try storage.put(package: package, version: version, signingEntity: davinci)
 

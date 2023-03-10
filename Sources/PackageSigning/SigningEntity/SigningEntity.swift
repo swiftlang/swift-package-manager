@@ -15,37 +15,38 @@
 
 // MARK: - SigningEntity is the entity that generated the signature
 
-public struct SigningEntity: Hashable, Codable, CustomStringConvertible {
-    public let type: SigningEntityType?
-    public let name: String?
-    public let organizationalUnit: String?
-    public let organization: String?
+public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
+    case recognized(type: SigningEntityType, name: String?, organizationalUnit: String?, organization: String?)
+    case unrecognized(name: String?, organizationalUnit: String?, organization: String?)
 
-    public var isRecognized: Bool {
-        self.type != nil
-    }
-
-    public init(
-        type: SigningEntityType?,
-        name: String?,
-        organizationalUnit: String?,
-        organization: String?
-    ) {
-        self.type = type
-        self.name = name
-        self.organizationalUnit = organizationalUnit
-        self.organization = organization
-    }
-
-    init(certificate: Certificate) {
-        self.type = certificate.signingEntityType
-        self.name = certificate.subject.commonName
-        self.organizationalUnit = certificate.subject.organizationalUnitName
-        self.organization = certificate.subject.organizationName
+    static func from(certificate: Certificate) -> SigningEntity {
+        let name = certificate.subject.commonName
+        let organizationalUnit = certificate.subject.organizationalUnitName
+        let organization = certificate.subject.organizationName
+        
+        if let type = certificate.signingEntityType {
+            return .recognized(
+                type: type,
+                name: name,
+                organizationalUnit: organizationalUnit,
+                organization: organization
+            )
+        } else {
+            return .unrecognized(
+                name: name,
+                organizationalUnit: organizationalUnit,
+                organization: organization
+            )
+        }
     }
 
     public var description: String {
-        "SigningEntity[type=\(String(describing: self.type)), name=\(String(describing: self.name)), organizationalUnit=\(String(describing: self.organizationalUnit)), organization=\(String(describing: self.organization))]"
+        switch self {
+        case .recognized(let type, let name, let organizationalUnit, let organization):
+            return "SigningEntity[type=\(type), name=\(String(describing: name)), organizationalUnit=\(String(describing: organizationalUnit)), organization=\(String(describing: organization))]"
+        case .unrecognized(let name, let organizationalUnit, let organization):
+            return "SigningEntity[name=\(String(describing: name)), organizationalUnit=\(String(describing: organizationalUnit)), organization=\(String(describing: organization))]"
+        }
     }
 }
 
@@ -61,10 +62,13 @@ extension ASN1ObjectIdentifier.NameAttributes {
 
 extension Certificate {
     var signingEntityType: SigningEntityType? {
-        // TODO: check that cert is chained to WWDR roots
-        if self.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker) {
+        if self.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker),
+           Certificates.wwdrIntermediates
+           .first(where: { $0.subject == self.issuer && $0.publicKey.isValidSignature(self.signature, for: self) }) !=
+           nil
+        {
             return .adp
         }
-        return nil
+        return .none
     }
 }

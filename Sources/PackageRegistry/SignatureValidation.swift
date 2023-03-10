@@ -18,6 +18,7 @@ import Basics
 import PackageModel
 import PackageSigning
 
+import TSCBasic
 import struct TSCUtility.Version
 
 protocol SignatureValidationDelegate {
@@ -55,6 +56,7 @@ struct SignatureValidation {
         content: Data,
         configuration: RegistryConfiguration.Security.Signing,
         timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
@@ -66,6 +68,7 @@ struct SignatureValidation {
             content: content,
             configuration: configuration,
             timeout: timeout,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -95,6 +98,7 @@ struct SignatureValidation {
         content: Data,
         configuration: RegistryConfiguration.Security.Signing,
         timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
@@ -130,19 +134,20 @@ struct SignatureValidation {
                 signatureFormat: signatureFormat,
                 content: content,
                 configuration: configuration,
+                fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 completion: completion
             )
         } catch RegistryError.sourceArchiveNotSigned(let registry, let package, let version) {
+            guard let onUnsigned = configuration.onUnsigned else {
+                return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
+            }
+
             let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
                 registry: registry,
                 package: package,
                 version: version
             )
-
-            guard let onUnsigned = configuration.onUnsigned else {
-                return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
-            }
 
             switch onUnsigned {
             case .prompt:
@@ -157,34 +162,6 @@ struct SignatureValidation {
                 completion(.failure(sourceArchiveNotSignedError))
             case .warn:
                 observabilityScope.emit(warning: "\(sourceArchiveNotSignedError)")
-                completion(.success(.none))
-            case .silentAllow:
-                // Continue without logging
-                completion(.success(.none))
-            }
-        } catch RegistryError.signerNotTrusted {
-            guard let onUntrusted = configuration.onUntrustedCertificate else {
-                return completion(.failure(
-                    RegistryError
-                        .missingConfiguration(details: "security.signing.onUntrustedCertificate")
-                ))
-            }
-
-            switch onUntrusted {
-            case .prompt:
-                self.delegate.onUntrusted(registry: registry, package: package.underlying, version: version) { `continue` in
-                    if `continue` {
-                        completion(.success(.none))
-                    } else {
-                        completion(.failure(RegistryError.signerNotTrusted))
-                    }
-                }
-            case .error:
-                // TODO: populate error with signer detail
-                completion(.failure(RegistryError.signerNotTrusted))
-            case .warn:
-                // TODO: populate error with signer detail
-                observabilityScope.emit(warning: "\(RegistryError.signerNotTrusted)")
                 completion(.success(.none))
             case .silentAllow:
                 // Continue without logging
@@ -215,6 +192,7 @@ struct SignatureValidation {
         signatureFormat: SignatureFormat,
         content: Data,
         configuration: RegistryConfiguration.Security.Signing,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
@@ -224,9 +202,7 @@ struct SignatureValidation {
                     signature: Array(signature),
                     content: Array(content),
                     format: signatureFormat,
-                    // TODO: load trusted roots (trustedRootCertificatesPath, includeDefaultTrustedRootCertificates)
-                    // TODO: build policy set (validationChecks)
-                    verifierConfiguration: .init(),
+                    verifierConfiguration: try VerifierConfiguration.from(configuration, fileSystem: fileSystem),
                     observabilityScope: observabilityScope
                 )
 
@@ -237,12 +213,105 @@ struct SignatureValidation {
                     completion(.failure(RegistryError.invalidSignature(reason: reason)))
                 case .certificateInvalid(let reason):
                     completion(.failure(RegistryError.invalidSigningCertificate(reason: reason)))
-                case .certificateNotTrusted:
-                    completion(.failure(RegistryError.signerNotTrusted))
+                case .certificateNotTrusted(let signingEntity):
+                    guard let onUntrusted = configuration.onUntrustedCertificate else {
+                        return completion(.failure(
+                            RegistryError.missingConfiguration(details: "security.signing.onUntrustedCertificate")
+                        ))
+                    }
+
+                    let signerNotTrustedError = RegistryError.signerNotTrusted(signingEntity)
+
+                    switch onUntrusted {
+                    case .prompt:
+                        self.delegate
+                            .onUntrusted(
+                                registry: registry,
+                                package: package.underlying,
+                                version: version
+                            ) { `continue` in
+                                if `continue` {
+                                    completion(.success(.none))
+                                } else {
+                                    completion(.failure(signerNotTrustedError))
+                                }
+                            }
+                    case .error:
+                        completion(.failure(signerNotTrustedError))
+                    case .warn:
+                        observabilityScope.emit(warning: "\(signerNotTrustedError)")
+                        completion(.success(.none))
+                    case .silentAllow:
+                        // Continue without logging
+                        completion(.success(.none))
+                    }
                 }
             } catch {
                 completion(.failure(RegistryError.failedToValidateSignature(error)))
             }
         }
+    }
+}
+
+extension VerifierConfiguration {
+    fileprivate static func from(
+        _ configuration: RegistryConfiguration.Security.Signing,
+        fileSystem: FileSystem
+    ) throws -> VerifierConfiguration {
+        var verifierConfiguration = VerifierConfiguration()
+
+        // Load trusted roots from configured directory
+        if let trustedRootsDirectoryPath = configuration.trustedRootCertificatesPath {
+            let trustedRootsDirectory: AbsolutePath
+            do {
+                trustedRootsDirectory = try AbsolutePath(validating: trustedRootsDirectoryPath)
+            } catch {
+                throw RegistryError.badConfiguration(details: "\(trustedRootsDirectoryPath) is invalid: \(error)")
+            }
+
+            guard fileSystem.isDirectory(trustedRootsDirectory) else {
+                throw RegistryError.badConfiguration(details: "\(trustedRootsDirectoryPath) is not a directory")
+            }
+
+            do {
+                let trustedRoots = try fileSystem.getDirectoryContents(trustedRootsDirectory).map {
+                    let trustRootPath = trustedRootsDirectory.appending(component: $0)
+                    return try fileSystem.readFileContents(trustRootPath).contents
+                }
+                verifierConfiguration.trustedRoots = trustedRoots
+            } catch {
+                throw RegistryError.badConfiguration(details: "failed to load trust roots: \(error)")
+            }
+        }
+
+        // Should default trust store be included?
+        if let includeDefaultTrustedRoots = configuration.includeDefaultTrustedRootCertificates {
+            verifierConfiguration.includeDefaultTrustStore = includeDefaultTrustedRoots
+        }
+
+        if let validationChecks = configuration.validationChecks {
+            // Check certificate expiry
+            if let certificateExpiration = validationChecks.certificateExpiration {
+                switch certificateExpiration {
+                case .enabled:
+                    verifierConfiguration.certificateExpiration = .enabled(validationTime: nil)
+                case .disabled:
+                    verifierConfiguration.certificateExpiration = .disabled
+                }
+            }
+            // Check certificate revocation status
+            if let certificateRevocation = validationChecks.certificateRevocation {
+                switch certificateRevocation {
+                case .strict:
+                    verifierConfiguration.certificateRevocation = .strict
+                case .allowSoftFail:
+                    verifierConfiguration.certificateRevocation = .allowSoftFail
+                case .disabled:
+                    verifierConfiguration.certificateRevocation = .disabled
+                }
+            }
+        }
+
+        return verifierConfiguration
     }
 }

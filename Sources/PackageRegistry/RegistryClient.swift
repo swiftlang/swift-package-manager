@@ -791,6 +791,7 @@ public final class RegistryClient: Cancellable {
                                             content: archiveContent,
                                             configuration: self.configuration.signing(for: package, registry: registry),
                                             timeout: timeout,
+                                            fileSystem: fileSystem,
                                             observabilityScope: observabilityScope,
                                             callbackQueue: callbackQueue
                                         ) { signatureResult in
@@ -1335,11 +1336,12 @@ public enum RegistryError: Error, CustomStringConvertible {
         error: Error
     )
     case missingConfiguration(details: String)
+    case badConfiguration(details: String)
     case missingSignatureFormat
     case unknownSignatureFormat(String)
     case invalidSignature(reason: String)
     case invalidSigningCertificate(reason: String)
-    case signerNotTrusted
+    case signerNotTrusted(SigningEntity)
     case failedToValidateSignature(Error)
     case signingEntityForReleaseChanged(
         package: PackageIdentity,
@@ -1427,6 +1429,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "failed retrieving '\(packageIdentity)@\(version)' source archive signature from '\(registry)': \(error)"
         case .missingConfiguration(let details):
             return "unable to proceed because of missing configuration: \(details)"
+        case .badConfiguration(let details):
+            return "unable to proceed because of bad configuration: \(details)"
         case .missingSignatureFormat:
             return "missing signature format"
         case .unknownSignatureFormat(let format):
@@ -1435,8 +1439,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "signature is invalid: \(reason)"
         case .invalidSigningCertificate(let reason):
             return "the signing certificate is invalid: \(reason)"
-        case .signerNotTrusted:
-            return "the signer is not trusted"
+        case .signerNotTrusted(let signingEntity):
+            return "the signer \(signingEntity) is not trusted"
         case .failedToValidateSignature(let error):
             return "failed to validate signature: \(error)"
         case .signingEntityForReleaseChanged(let package, let version, let latest, let previous):
@@ -1950,16 +1954,16 @@ extension RegistryReleaseMetadata {
                 }
                 return RegistrySignature(
                     signedBy: signingEntity.flatMap {
-                        switch $0.type {
-                        case .adp:
+                        switch $0 {
+                        case .recognized(let type, let name, let organizationalUnit, let organization):
                             return .recognized(
-                                type: "adp",
-                                commonName: $0.name,
-                                organization: $0.organization,
-                                identity: $0.organizationalUnit
+                                type: type.rawValue,
+                                commonName: name,
+                                organization: organization,
+                                identity: organizationalUnit
                             )
-                        case .none:
-                            return .unrecognized(commonName: $0.name, organization: $0.organization)
+                        case .unrecognized(let name, _, let organization):
+                            return .unrecognized(commonName: name, organization: organization)
                         }
                     },
                     format: $0.signatureFormat,
