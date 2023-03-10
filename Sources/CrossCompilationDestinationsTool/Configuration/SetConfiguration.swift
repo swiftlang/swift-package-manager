@@ -24,19 +24,19 @@ struct SetConfiguration: ConfigurationCommand {
         Sets configuration options for installed cross-compilation destinations.
         """
     )
-    
+
     @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
-    
+
     @Option(help: "A path to a directory containing the SDK root.")
     var sdkRootPath: String? = nil
-    
+
     @Option(help: "A path to a directory containing Swift resources for dynamic linking.")
     var swiftResourcesPath: String? = nil
-    
+
     @Option(help: "A path to a directory containing Swift resources for static linking.")
     var swiftStaticResourcesPath: String? = nil
-    
+
     @Option(
         parsing: .singleValue,
         help: """
@@ -45,7 +45,7 @@ struct SetConfiguration: ConfigurationCommand {
         """
     )
     var includeSearchPath: [String] = []
-    
+
     @Option(
         parsing: .singleValue,
         help: """
@@ -54,7 +54,7 @@ struct SetConfiguration: ConfigurationCommand {
         """
     )
     var librarySearchPath: [String] = []
-    
+
     @Option(
         parsing: .singleValue,
         help: """
@@ -62,7 +62,7 @@ struct SetConfiguration: ConfigurationCommand {
         """
     )
     var toolsetPath: [String] = []
-    
+
     @Argument(
         help: """
         An identifier of an already installed destination. Use the `list` subcommand to see all available \
@@ -70,7 +70,7 @@ struct SetConfiguration: ConfigurationCommand {
         """
     )
     var destinationID: String
-    
+
     @Argument(help: "The run-time triple of the destination to configure.")
     var runTimeTriple: String
 
