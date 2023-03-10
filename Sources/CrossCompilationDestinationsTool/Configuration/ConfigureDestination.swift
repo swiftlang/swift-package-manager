@@ -20,6 +20,7 @@ struct ConfigureDestination: ParsableCommand {
         """,
         subcommands: [
             ResetConfiguration.self,
+            SetConfiguration.self,
             ShowConfiguration.self,
         ]
     )

@@ -7,8 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(CrossCompilationDestinationsTool
+  Configuration/ConfigurationCommand.swift
   Configuration/ConfigureDestination.swift
   Configuration/ResetConfiguration.swift
+  Configuration/SetConfiguration.swift
   Configuration/ShowConfiguration.swift
   DestinationCommand.swift
   InstallDestination.swift

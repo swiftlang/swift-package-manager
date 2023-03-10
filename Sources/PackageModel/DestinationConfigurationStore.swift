@@ -16,6 +16,7 @@ import TSCBasic
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 
+/// Storage for configuration properties of cross-compilation destinations.
 public final class DestinationConfigurationStore {
     /// Triple of the machine on which SwiftPM is running.
     private let buildTimeTriple: Triple

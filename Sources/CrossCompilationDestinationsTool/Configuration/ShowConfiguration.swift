@@ -17,7 +17,7 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-struct ShowConfiguration: DestinationCommand {
+struct ShowConfiguration: ConfigurationCommand {
     static let configuration = CommandConfiguration(
         commandName: "show",
         abstract: """
@@ -41,30 +41,13 @@ struct ShowConfiguration: DestinationCommand {
 
     func run(
         buildTimeTriple: Triple,
+        runTimeTriple: Triple,
+        _ destination: Destination,
+        _ configurationStore: DestinationConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let configurationStore = try DestinationConfigurationStore(
-            buildTimeTriple: buildTimeTriple,
-            destinationsDirectoryPath: destinationsDirectory,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-
-        let triple = try Triple(runTimeTriple)
-
-        guard let configuration = try configurationStore.readConfiguration(
-            destinationID: destinationID,
-            runTimeTriple: triple
-        )?.pathsConfiguration else {
-            throw DestinationError.destinationNotFound(
-                artifactID: destinationID,
-                builtTimeTriple: buildTimeTriple,
-                runTimeTriple: triple
-            )
-        }
-
-        print(configuration)
+        print(destination.pathsConfiguration)
     }
 }
 
