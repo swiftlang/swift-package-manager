@@ -45,12 +45,11 @@ Swift 5.8
 
 * [#5810]
 
-SwiftPM now allows exposing an executable product that consists solely of a binary target that is backed by an artifact bundle. This allow vending binary executables as their own separate package, independently of the plugins that are using them.  
+  SwiftPM now allows exposing an executable product that consists solely of a binary target that is backed by an artifact bundle. This allow vending binary executables as their own separate package, independently of the plugins that are using them.  
 
 * [#5819]
 
-
-Improved handling of offline behavior when a cached version of a dependency exists on disk. SwiftPM will check for network availability status to determine if it should attempt to update a checked version of a dependency, and when offline will use the cached version without an update.
+  Improved handling of offline behavior when a cached version of a dependency exists on disk. SwiftPM will check for network availability status to determine if it should attempt to update a checked version of a dependency, and when offline will use the cached version without an update.
 
 * [#5874]
 
@@ -58,14 +57,11 @@ Improved handling of offline behavior when a cached version of a dependency exis
   
 * [#5892]
 
-Added new `--emit-extension-block-symbols` and `--omit-extension-block-symbols` via `swift package dump-symbol-graph`. `--emit-extension-block-symbols` dumps symbol graph files that are extension block symbol format. The default behavior does not change. The `--omit-extension-block-symbols` flag will be used to explicitly disable the feature once the default behavior has been changed to `--emit-extension-block-symbols` in the future.
+  Added new `--emit-extension-block-symbols` and `--omit-extension-block-symbols` via `swift package dump-symbol-graph`. `--emit-extension-block-symbols` dumps symbol graph files that are extension block symbol format. The default behavior does not change. The `--omit-extension-block-symbols` flag will be used to explicitly disable the feature once the default behavior has been changed to `--emit-extension-block-symbols` in the future.
   
 * [#5949]
   
-  New `--pkg-config-path` option on `build`, `test`, and `run` commands has been
-  introduced as an alternative to passing `PKG_CONFIG_PATH` environment variable.
-  It allows specifying alternative path to search for `.pc` files used by
-  `pkg-config`. Use the option multiple times to specify more than one path.  
+  New `--pkg-config-path` option on `build`, `test`, and `run` commands has been introduced as an alternative to passing `PKG_CONFIG_PATH` environment variable. It allows specifying alternative path to search for `.pc` files used by `pkg-config`. Use the option multiple times to specify more than one path.  
 
 Swift 5.7
 -----------
@@ -288,6 +284,8 @@ Swift 3.0
 [SE-0303]: https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 [SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
+[SE-0362]: https://github.com/apple/swift-evolution/blob/main/proposals/0362-piecemeal-future-features.md
+[SE-0378]: https://github.com/apple/swift-evolution/blob/main/proposals/0378-package-registry-auth.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -315,5 +313,12 @@ Swift 3.0
 [#4135]: https://github.com/apple/swift-package-manager/pull/4135
 [#4168]: https://github.com/apple/swift-package-manager/pull/4168
 [#5728]: https://github.com/apple/swift-package-manager/pull/5728
+[#5810]: https://github.com/apple/swift-package-manager/pull/5810
+[#5819]: https://github.com/apple/swift-package-manager/pull/5819
 [#5874]: https://github.com/apple/swift-package-manager/pull/5874
 [#5949]: https://github.com/apple/swift-package-manager/pull/5949
+[#5892]: https://github.com/apple/swift-package-manager/pull/5892
+[#6060]: https://github.com/apple/swift-package-manager/pull/6060
+[#6067]: https://github.com/apple/swift-package-manager/pull/6067
+[#6114]: https://github.com/apple/swift-package-manager/pull/6114
+[#6144]: https://github.com/apple/swift-package-manager/pull/6144
