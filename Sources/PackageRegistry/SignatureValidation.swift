@@ -77,6 +77,7 @@ struct SignatureValidation {
                 // Always do signing entity TOFU check at the end,
                 // whether the package is signed or not.
                 self.signingEntityTOFU.validate(
+                    registry: registry,
                     package: package,
                     version: version,
                     signingEntity: signingEntity,

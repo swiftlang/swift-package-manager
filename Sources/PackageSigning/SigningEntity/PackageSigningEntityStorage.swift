@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Foundation.URL
+
 import Basics
 import Dispatch
 import PackageModel
@@ -22,40 +24,131 @@ public protocol PackageSigningEntityStorage {
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[SigningEntity: Set<Version>], Error>) -> Void
+        callback: @escaping (Result<PackageSigners, Error>) -> Void
     )
 
-    /// Record signing entity for a given package version.
+    /// Record signer for a given package version.
+    ///
+    /// This throws `PackageSigningEntityStorageError.conflict` if `signingEntity`
+    /// of the package version is different from that in storage.
     func put(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// Add signer for a given package version.
+    ///
+    /// If the package version already has other `SigningEntity`s in storage, this
+    /// API **adds** `signingEntity` to the package version's signers rather than
+    /// throwing an error.
+    func add(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// Make `signingEntity` the package's expected signer starting from the given version.
+    func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// Make `signingEntity` the only signer for a given package.
+    ///
+    /// This API deletes all other existing signers from storage, therefore making
+    /// `signingEntity` the package's sole signer.
+    func changeSigningEntityForAllVersions(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     )
 }
 
-extension Dictionary where Key == SigningEntity, Value == Set<Version> {
-    public func signingEntity(of version: Version) -> SigningEntity? {
-        for (signingEntity, versions) in self {
-            if versions.contains(version) {
-                return signingEntity
-            }
-        }
-        return nil
-    }
+// MARK: - Models
 
-    public var versionSigners: [Version: SigningEntity] {
-        var versionSigners = [Version: SigningEntity]()
-        for (signingEntity, versions) in self {
-            versions.forEach { version in
-                versionSigners[version] = signingEntity
+extension SigningEntity {
+    public enum Origin: Hashable, Codable, CustomStringConvertible {
+        case registry(URL)
+
+        public var url: URL {
+            switch self {
+            case .registry(let url):
+                return url
             }
         }
-        return versionSigners
+
+        public var description: String {
+            switch self {
+            case .registry(let url):
+                return "registry(\(url))"
+            }
+        }
     }
 }
+
+public struct PackageSigner: Codable {
+    public let signingEntity: SigningEntity
+    public internal(set) var origins: Set<SigningEntity.Origin>
+    public internal(set) var versions: Set<Version>
+}
+
+public struct PackageSigners {
+    public internal(set) var expectedSigner: (signingEntity: SigningEntity, fromVersion: Version)?
+    public internal(set) var signers: [SigningEntity: PackageSigner]
+
+    public var isEmpty: Bool {
+        self.signers.isEmpty
+    }
+
+    init() {
+        self.expectedSigner = .none
+        self.signers = [:]
+    }
+
+    init(
+        expectedSigner: (signingEntity: SigningEntity, fromVersion: Version)?,
+        signers: [SigningEntity: PackageSigner]
+    ) {
+        self.expectedSigner = expectedSigner
+        self.signers = signers
+    }
+
+    public var versionSigningEntities: [Version: Set<SigningEntity>] {
+        var versionSigningEntities = [Version: Set<SigningEntity>]()
+        for (signingEntity, versions) in self.signers.map({ ($0.key, $0.value.versions) }) {
+            versions.forEach { version in
+                var signingEntities: Set<SigningEntity> = versionSigningEntities.removeValue(forKey: version) ?? []
+                signingEntities.insert(signingEntity)
+                versionSigningEntities[version] = signingEntities
+            }
+        }
+        return versionSigningEntities
+    }
+
+    public func signingEntities(of version: Version) -> Set<SigningEntity> {
+        Set(self.signers.values.filter { $0.versions.contains(version) }.map(\.signingEntity))
+    }
+}
+
+// MARK: - Errors
 
 public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConvertible {
     case conflict(package: PackageIdentity, version: Version, given: SigningEntity, existing: SigningEntity)
