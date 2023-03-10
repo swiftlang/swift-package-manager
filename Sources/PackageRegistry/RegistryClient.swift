@@ -65,7 +65,7 @@ public final class RegistryClient: Cancellable {
         authorizationProvider: AuthorizationProvider? = .none,
         customHTTPClient: LegacyHTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none,
-        delegate: Delegate? = .none
+        delegate: Delegate?
     ) {
         self.configuration = configuration
 
@@ -1980,11 +1980,11 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         completion: (Bool) -> Void
     ) {
         if let underlying = self.underlying {
-            // TODO: record the responses locally
             underlying.onUnsigned(registry: registry, package: package, version: version, completion: completion)
         } else {
-            // TODO: consider this to be false by default
-            completion(true)
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(false)
         }
     }
 
@@ -1995,11 +1995,11 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         completion: (Bool) -> Void
     ) {
         if let underlying = self.underlying {
-            // TODO: record the responses locally
             underlying.onUntrusted(registry: registry, package: package, version: version, completion: completion)
         } else {
-            // TODO: consider this to be false by default
-            completion(true)
+            // true == continue resolution
+            // false == stop dependency resolution
+            completion(false)
         }
     }
 }

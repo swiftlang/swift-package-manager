@@ -22,7 +22,6 @@ import XCTest
 import struct TSCUtility.Version
 
 final class SignatureValidationTests: XCTestCase {
-    // TODO: add testUnsignedPackage_shouldPrompt
     // TODO: add tests for signed package
 
     func testUnsignedPackage_shouldError() throws {
@@ -311,7 +310,6 @@ final class SignatureValidationTests: XCTestCase {
             ) { error in
                 guard case RegistryError.sourceArchiveNotSigned = error else {
                     return XCTFail("Expected RegistryError.sourceArchiveNotSigned, got '\(error)'")
-
                 }
             }
         }
@@ -426,22 +424,42 @@ extension SignatureValidation {
     }
 }
 
-fileprivate struct RejectingSignatureValidationDelegate: SignatureValidation.Delegate {
-    func onUnsigned(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+private struct RejectingSignatureValidationDelegate: SignatureValidation.Delegate {
+    func onUnsigned(
+        registry: PackageRegistry.Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
         completion(false)
     }
 
-    func onUntrusted(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUntrusted(
+        registry: PackageRegistry.Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
         completion(false)
     }
 }
 
-fileprivate struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegate {
-    func onUnsigned(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegate {
+    func onUnsigned(
+        registry: PackageRegistry.Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
         completion(true)
     }
 
-    func onUntrusted(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUntrusted(
+        registry: PackageRegistry.Registry,
+        package: PackageModel.PackageIdentity,
+        version: TSCUtility.Version,
+        completion: (Bool) -> Void
+    ) {
         completion(true)
     }
 }

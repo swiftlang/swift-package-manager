@@ -48,6 +48,11 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
         self.outputHandler.outputStream
     }
 
+    // prompt for user input
+    func prompt(_ message: String, completion: (String?) -> Void) {
+        self.outputHandler.prompt(message: message, completion: completion)
+    }
+
     func wait(timeout: DispatchTime) {
         self.outputHandler.wait(timeout: timeout)
     }
@@ -118,6 +123,20 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
                     text: description ?? ""
                 )
             }
+        }
+
+        // to read input from user
+        func prompt(message: String, completion: (String?) -> Void) {
+            guard self.outputStream.isTTY else {
+                return completion(.none)
+            }
+            let answer = self.queue.sync {
+                self.progressAnimation.clear()
+                self.outputStream.write(message.utf8)
+                self.outputStream.flush()
+                return readLine(strippingNewline: true)
+            }
+            completion(answer)
         }
 
         func wait(timeout: DispatchTime) {
