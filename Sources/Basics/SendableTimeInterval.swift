@@ -12,12 +12,7 @@
 
 import enum Dispatch.DispatchTimeInterval
 
-#if swift(<5.7)
-extension DispatchTimeInterval: UnsafeSendable {}
-#else
 extension DispatchTimeInterval: @unchecked Sendable {}
-#endif
-
 
 /// This typealias hides `DispatchTimeInterval` as an implementation detail until we can use `Swift.Duration`, as the
 /// latter requires macOS 13.

@@ -159,12 +159,7 @@ public struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
     }
 }
 
-#if swift(<5.7)
-extension SwiftToolObservabilityHandler.OutputHandler: UnsafeSendable {}
-#else
 extension SwiftToolObservabilityHandler.OutputHandler: @unchecked Sendable {}
-#endif
-
 extension SwiftToolObservabilityHandler.OutputHandler: DiagnosticsHandler {}
 
 /// This type is used to write on the underlying stream.
