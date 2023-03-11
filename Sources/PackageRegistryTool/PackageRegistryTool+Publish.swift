@@ -141,7 +141,7 @@ extension SwiftPackageRegistryTool {
 
             guard localFileSystem.exists(metadataLocation.path) else {
                 throw StringError(
-                    "Publishing to '\(registryURL)' requires metadata file but none was found at '\(metadataLocation)'."
+                    "Publishing to '\(registryURL)' requires metadata file but none was found at '\(metadataLocation.path)'."
                 )
             }
 
@@ -212,7 +212,7 @@ extension SwiftPackageRegistryTool {
             }
 
             swiftTool.observabilityScope
-                .emit(info: "publishing '\(self.packageIdentity)' archive at '\(archivePath)' to '\(registryURL)'")
+                .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
             let result = try tsc_await {
                 registryClient.publish(
                     registryURL: registryURL,
@@ -231,14 +231,14 @@ extension SwiftPackageRegistryTool {
 
             switch result {
             case .published(.none):
-                print("\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL)")
+                print("\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL)")
             case .published(.some(let location)):
                 print(
-                    "\(packageIdentity)@\(packageVersion) was successfully published to \(registryURL) and is available at \(location)"
+                    "\(packageIdentity) version \(packageVersion) was successfully published to \(registryURL) and is available at '\(location)'"
                 )
             case .processing(let statusURL, _):
                 print(
-                    "\(packageIdentity)@\(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at \(statusURL)."
+                    "\(packageIdentity) version \(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at '\(statusURL)'."
                 )
             }
         }
