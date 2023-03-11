@@ -234,7 +234,7 @@ struct PackageSigningEntityTOFU {
         case .warn:
             observabilityScope
                 .emit(
-                    warning: "The signing entity \(String(describing: latest)) for '\(package)@\(version)' does not match previously recorded value \(existing)"
+                    warning: "The signing entity '\(String(describing: latest))' for \(package) version \(version) does not match previously recorded value '\(existing)'"
                 )
             completion(.success(()))
         }
@@ -256,7 +256,7 @@ struct PackageSigningEntityTOFU {
         case .warn:
             observabilityScope
                 .emit(
-                    warning: "The signing entity \(String(describing: latest)) for '\(package)' does not match previously recorded value \(existing)"
+                    warning: "The signing entity '\(String(describing: latest))' for \(package) does not match previously recorded value '\(existing)'"
                 )
             completion(.success(()))
         }

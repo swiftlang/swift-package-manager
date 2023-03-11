@@ -1386,17 +1386,17 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .pathAlreadyExists(let path):
             return "path already exists '\(path)'"
         case .failedRetrievingReleases(let registry, let packageIdentity, let error):
-            return "failed fetching '\(packageIdentity)' releases list from '\(registry)': \(error)"
+            return "failed fetching \(packageIdentity) releases list from \(registry): \(error)"
         case .failedRetrievingReleaseInfo(let registry, let packageIdentity, let version, let error):
-            return "failed fetching '\(packageIdentity)@\(version)' release information from '\(registry)': \(error)"
+            return "failed fetching \(packageIdentity) version \(version) release information from \(registry): \(error)"
         case .failedRetrievingReleaseChecksum(let registry, let packageIdentity, let version, let error):
-            return "failed fetching '\(packageIdentity)@\(version)' release checksum from '\(registry)': \(error)"
+            return "failed fetching \(packageIdentity) version \(version) release checksum from \(registry): \(error)"
         case .failedRetrievingManifest(let registry, let packageIdentity, let version, let error):
-            return "failed retrieving '\(packageIdentity)@\(version)' manifest from '\(registry)': \(error)"
+            return "failed retrieving \(packageIdentity) version \(version) manifest from \(registry): \(error)"
         case .failedDownloadingSourceArchive(let registry, let packageIdentity, let version, let error):
-            return "failed downloading '\(packageIdentity)@\(version)' source archive from '\(registry)': \(error)"
+            return "failed downloading \(packageIdentity) version \(version) source archive from \(registry): \(error)"
         case .failedIdentityLookup(let registry, let scmURL, let error):
-            return "failed looking up identity for '\(scmURL)' on '\(registry)': \(error)"
+            return "failed looking up identity for \(scmURL) on \(registry): \(error)"
         case .failedLoadingPackageArchive(let path):
             return "failed loading package archive at '\(path)' for publishing"
         case .failedLoadingPackageMetadata(let path):
@@ -1420,13 +1420,13 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .packageVersionNotFound:
             return "package version not found on registry"
         case .sourceArchiveMissingChecksum(let registry, let packageIdentity, let version):
-            return "'\(packageIdentity)@\(version)' source archive from '\(registry)' has no checksum"
+            return "\(packageIdentity) version \(version) source archive from \(registry) has no checksum"
         case .sourceArchiveNotSigned(let registry, let packageIdentity, let version):
-            return "'\(packageIdentity)@\(version)' source archive from '\(registry)' is not signed"
+            return "\(packageIdentity) version \(version) source archive from \(registry) is not signed"
         case .failedLoadingSignature:
             return "failed loading signature for validation"
         case .failedRetrievingSourceArchiveSignature(let registry, let packageIdentity, let version, let error):
-            return "failed retrieving '\(packageIdentity)@\(version)' source archive signature from '\(registry)': \(error)"
+            return "failed retrieving '\(packageIdentity)' version \(version) source archive signature from '\(registry)': \(error)"
         case .missingConfiguration(let details):
             return "unable to proceed because of missing configuration: \(details)"
         case .badConfiguration(let details):
@@ -1444,9 +1444,9 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .failedToValidateSignature(let error):
             return "failed to validate signature: \(error)"
         case .signingEntityForReleaseChanged(let package, let version, let latest, let previous):
-            return "the signing entity '\(String(describing: latest))' for '\(package)@\(version)' is different from the previously recorded value '\(previous)'"
+            return "the signing entity '\(String(describing: latest))' for \(package) version \(version) is different from the previously recorded value '\(previous)'"
         case .signingEntityForPackageChanged(let package, let latest, let previous):
-            return "the signing entity '\(String(describing: latest))' for '\(package)' is different from the previously recorded value '\(previous)'"
+            return "the signing entity '\(String(describing: latest))' for \(package) is different from the previously recorded value '\(previous)'"
         }
     }
 }

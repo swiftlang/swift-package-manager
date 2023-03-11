@@ -63,7 +63,7 @@ public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConv
     public var description: String {
         switch self {
         case .conflict(let package, let version, let given, let existing):
-            return "\(package)@\(version) was previously signed by \(existing), which is different from \(given)."
+            return "\(package) version \(version) was previously signed by '\(existing)', which is different from '\(given)'."
         }
     }
 }

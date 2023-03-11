@@ -13210,7 +13210,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .equal("failed fetching 'org.foo' releases list from 'http://localhost': boom"),
+                        diagnostic: .equal("failed fetching org.foo releases list from http://localhost: boom"),
                         severity: .error
                     )
                 }
@@ -13233,7 +13233,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed fetching 'org.foo' releases list from 'http://localhost': server error 500: Internal Server Error"
+                            "failed fetching org.foo releases list from http://localhost: server error 500: Internal Server Error"
                         ),
                         severity: .error
                     )
@@ -13296,7 +13296,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed fetching 'org.foo@1.0.0' release information from 'http://localhost': boom"
+                            "failed fetching org.foo version 1.0.0 release information from http://localhost: boom"
                         ),
                         severity: .error
                     )
@@ -13320,7 +13320,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed fetching 'org.foo@1.0.0' release information from 'http://localhost': server error 500: Internal Server Error"
+                            "failed fetching org.foo version 1.0.0 release information from http://localhost: server error 500: Internal Server Error"
                         ),
                         severity: .error
                     )
@@ -13382,7 +13382,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .equal("failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': boom"),
+                        diagnostic: .equal("failed retrieving org.foo version 1.0.0 manifest from http://localhost: boom"),
                         severity: .error
                     )
                 }
@@ -13405,7 +13405,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed retrieving 'org.foo@1.0.0' manifest from 'http://localhost': server error 500: Internal Server Error"
+                            "failed retrieving org.foo version 1.0.0 manifest from http://localhost: server error 500: Internal Server Error"
                         ),
                         severity: .error
                     )
@@ -13468,7 +13468,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': boom"
+                            "failed downloading org.foo version 1.0.0 source archive from http://localhost: boom"
                         ),
                         severity: .error
                     )
@@ -13492,7 +13492,7 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .equal(
-                            "failed downloading 'org.foo@1.0.0' source archive from 'http://localhost': server error 500: Internal Server Error"
+                            "failed downloading org.foo version 1.0.0 source archive from http://localhost: server error 500: Internal Server Error"
                         ),
                         severity: .error
                     )
