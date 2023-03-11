@@ -37,15 +37,15 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[SigningEntity: Set<Version>], Error>) -> Void
+        callback: @escaping (Result<PackageSigners, Error>) -> Void
     ) {
         let callback = self.makeAsync(callback, on: callbackQueue)
 
         do {
-            let signedVersions = try self.withLock {
+            let packageSigners = try self.withLock {
                 try self.loadFromDisk(package: package)
             }
-            callback(.success(signedVersions))
+            callback(.success(packageSigners))
         } catch {
             callback(.failure(error))
         }
@@ -55,6 +55,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -63,27 +64,27 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
 
         do {
             try self.withLock {
-                var signedVersions = try self.loadFromDisk(package: package)
+                var packageSigners = try self.loadFromDisk(package: package)
 
-                if let existing = signedVersions.signingEntity(of: version) {
-                    // Error if we try to write a different signing entity for a version
-                    guard signingEntity == existing else {
-                        throw PackageSigningEntityStorageError.conflict(
-                            package: package,
-                            version: version,
-                            given: signingEntity,
-                            existing: existing
-                        )
-                    }
-                    // Don't need to do anything if signing entities are the same
-                    return
+                let otherSigningEntities = packageSigners.signingEntities(of: version).filter { $0 != signingEntity }
+                // Error if we try to write a different signing entity for a version
+                guard otherSigningEntities.isEmpty else {
+                    throw PackageSigningEntityStorageError.conflict(
+                        package: package,
+                        version: version,
+                        given: signingEntity,
+                        existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
+                    )
                 }
 
-                var versions = signedVersions.removeValue(forKey: signingEntity) ?? []
-                versions.insert(version)
-                signedVersions[signingEntity] = versions
+                self.add(
+                    packageSigners: &packageSigners,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
 
-                try self.saveToDisk(package: package, signedVersions: signedVersions)
+                try self.saveToDisk(package: package, packageSigners: packageSigners)
             }
             callback(.success(()))
         } catch {
@@ -91,28 +92,136 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         }
     }
 
-    private func loadFromDisk(package: PackageIdentity) throws -> [SigningEntity: Set<Version>] {
+    public func add(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let callback = self.makeAsync(callback, on: callbackQueue)
+
+        do {
+            try self.withLock {
+                var packageSigners = try self.loadFromDisk(package: package)
+                self.add(
+                    packageSigners: &packageSigners,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
+                try self.saveToDisk(package: package, packageSigners: packageSigners)
+            }
+            callback(.success(()))
+        } catch {
+            callback(.failure(error))
+        }
+    }
+
+    public func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let callback = self.makeAsync(callback, on: callbackQueue)
+
+        do {
+            try self.withLock {
+                var packageSigners = try self.loadFromDisk(package: package)
+                packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
+                self.add(
+                    packageSigners: &packageSigners,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
+                try self.saveToDisk(package: package, packageSigners: packageSigners)
+            }
+            callback(.success(()))
+        } catch {
+            callback(.failure(error))
+        }
+    }
+
+    public func changeSigningEntityForAllVersions(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let callback = self.makeAsync(callback, on: callbackQueue)
+
+        do {
+            try self.withLock {
+                var packageSigners = try self.loadFromDisk(package: package)
+                packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
+                // Delete all other signers
+                packageSigners.signers = packageSigners.signers.filter { $0.key == signingEntity }
+                self.add(
+                    packageSigners: &packageSigners,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
+                try self.saveToDisk(package: package, packageSigners: packageSigners)
+            }
+            callback(.success(()))
+        } catch {
+            callback(.failure(error))
+        }
+    }
+
+    private func add(
+        packageSigners: inout PackageSigners,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        version: Version
+    ) {
+        if var existingSigner = packageSigners.signers.removeValue(forKey: signingEntity) {
+            existingSigner.origins.insert(origin)
+            existingSigner.versions.insert(version)
+            packageSigners.signers[signingEntity] = existingSigner
+        } else {
+            let signer = PackageSigner(
+                signingEntity: signingEntity,
+                origins: [origin],
+                versions: [version]
+            )
+            packageSigners.signers[signingEntity] = signer
+        }
+    }
+
+    private func loadFromDisk(package: PackageIdentity) throws -> PackageSigners {
         let path = self.directoryPath.appending(component: package.signedVersionsFilename)
 
         guard self.fileSystem.exists(path) else {
-            return [:]
+            return .init()
         }
 
         let data: Data = try fileSystem.readFileContents(path)
         guard data.count > 0 else {
-            return [:]
+            return .init()
         }
 
         let container = try self.decoder.decode(StorageModel.Container.self, from: data)
-        return try container.signedVersionsByEntity()
+        return try container.packageSigners()
     }
 
-    private func saveToDisk(package: PackageIdentity, signedVersions: [SigningEntity: Set<Version>]) throws {
+    private func saveToDisk(package: PackageIdentity, packageSigners: PackageSigners) throws {
         if !self.fileSystem.exists(self.directoryPath) {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
-        let container = try StorageModel.Container(signedVersions)
+        let container = try StorageModel.Container(packageSigners)
         let buffer = try encoder.encode(container)
 
         let path = self.directoryPath.appending(component: package.signedVersionsFilename)
@@ -136,23 +245,30 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
 
 private enum StorageModel {
     struct Container: Codable {
-        let signedVersions: [SignedVersions]
+        let expectedSigner: ExpectedSigner?
+        let signers: [PackageSigner]
 
-        init(_ signedVersionsByEntity: [SigningEntity: Set<Version>]) throws {
-            self.signedVersions = signedVersionsByEntity
-                .map { SignedVersions(signingEntity: $0.key, versions: $0.value) }
+        init(_ packageSigners: PackageSigners) throws {
+            self.expectedSigner = packageSigners.expectedSigner.map {
+                ExpectedSigner(signingEntity: $0.signingEntity, fromVersion: $0.fromVersion)
+            }
+            self.signers = Array(packageSigners.signers.values)
         }
 
-        func signedVersionsByEntity() throws -> [SigningEntity: Set<Version>] {
-            try Dictionary(throwingUniqueKeysWithValues: self.signedVersions.map {
-                ($0.signingEntity, $0.versions)
+        func packageSigners() throws -> PackageSigners {
+            let signers = try Dictionary(throwingUniqueKeysWithValues: self.signers.map {
+                ($0.signingEntity, $0)
             })
+            return PackageSigners(
+                expectedSigner: self.expectedSigner.map { ($0.signingEntity, $0.fromVersion) },
+                signers: signers
+            )
         }
     }
 
-    struct SignedVersions: Codable {
+    struct ExpectedSigner: Codable {
         let signingEntity: SigningEntity
-        let versions: Set<Version>
+        let fromVersion: Version
     }
 }
 

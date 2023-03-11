@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 import Basics
 import PackageModel
 @testable import PackageRegistry
-import PackageSigning
+@testable import PackageSigning
 import SPMTestSupport
 import TSCBasic
 import XCTest
@@ -22,6 +24,7 @@ import struct TSCUtility.Version
 
 final class PackageSigningEntityTOFUTests: XCTestCase {
     func testSigningEntitySeenForTheFirstTime() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -43,6 +46,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // It should be ok to assign one.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
@@ -51,7 +55,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // `signingEntity` meets requirement to be used for TOFU
         // (i.e., it's .recognized), so it should be saved to storage.
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -59,11 +63,12 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[signingEntity], [version])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [version])
     }
 
     func testNilSigningEntityShouldNotBeSaved() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
 
@@ -79,6 +84,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // It should be ok to continue not to have one.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: .none
@@ -86,7 +92,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is nil, so it should not be saved to storage.
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -94,10 +100,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertTrue(signedVersions.isEmpty)
+        XCTAssertTrue(packageSigners.isEmpty)
     }
 
     func testUnrecognizedSigningEntityShouldNotBeSaved() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.unrecognized(
@@ -118,6 +125,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // It should be ok to continue not to have one.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
@@ -125,7 +133,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is not .recognized, so it should not be saved to storage.
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -133,10 +141,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertTrue(signedVersions.isEmpty)
+        XCTAssertTrue(packageSigners.isEmpty)
     }
 
     func testSigningEntityMatchesStorageForSameVersion() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -147,7 +156,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [signingEntity: [version]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [signingEntity: PackageSigner(
+                    signingEntity: signingEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [version]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -160,6 +176,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // Signer remaining the same should be ok.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
@@ -168,6 +185,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     }
 
     func testSigningEntityDoesNotMatchStorageForSameVersion_strictMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -176,7 +194,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -184,7 +202,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: [version]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [version]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
 
@@ -197,19 +222,21 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // The given signer "J. Appleseed" is different so it should fail.
         XCTAssertThrowsError(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
             )
         ) { error in
-            guard case RegistryError.signingEntityForReleaseChanged(_, _, _, let previous) = error else {
+            guard case RegistryError.signingEntityForReleaseChanged(_, _, _, let latest, let previous) = error else {
                 return XCTFail("Expected RegistryError.signingEntityForReleaseChanged, got '\(error)'")
             }
-            XCTAssertEqual(previous, existingSigner)
+            XCTAssertEqual(latest, signingEntity)
+            XCTAssertEqual(previous, existingSigningEntity)
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -217,11 +244,12 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], [version])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
     }
 
     func testSigningEntityDoesNotMatchStorageForSameVersion_warnMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -230,7 +258,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -238,7 +266,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: [version]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [version]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
 
@@ -254,6 +289,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // of .warn mode, no error is thrown.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity,
@@ -263,11 +299,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // But there should be a warning
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            result.check(diagnostic: .contains("different from the previously recorded value"), severity: .warning)
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -275,11 +311,70 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], [version])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
+    }
+
+    func testPackageVersionLosingSigningEntity_strictMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
+        let version = Version("1.1.1")
+        let existingSigningEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Smith",
+            organizationalUnit: nil,
+            organization: nil
+        )
+
+        let signingEntityStorage = MockPackageSigningEntityStorage(
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [version]
+                )]
+            )]
+        )
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+
+        let tofu = PackageSigningEntityTOFU(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        // Storage has "J. Smith" as signer for package version.
+        // The given signer is nil which is different so it should fail.
+        XCTAssertThrowsError(
+            try tofu.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: .none
+            )
+        ) { error in
+            guard case RegistryError.signingEntityForReleaseChanged(_, _, _, let latest, let previous) = error else {
+                return XCTFail("Expected RegistryError.signingEntityForReleaseChanged, got '\(error)'")
+            }
+            XCTAssertNil(latest)
+            XCTAssertEqual(previous, existingSigningEntity)
+        }
+
+        // Storage should not be updated
+        let packageSigners = try tsc_await { callback in
+            signingEntityStorage.get(
+                package: package.underlying,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                callback: callback
+            )
+        }
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
     }
 
     func testSigningEntityMatchesStorageForDifferentVersion() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
@@ -291,7 +386,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [signingEntity: [existingVersion]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [signingEntity: PackageSigner(
+                    signingEntity: signingEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [existingVersion]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -300,10 +402,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode
         )
 
-        // Storage has "J. Appleseed" as signer for package.
+        // Storage has "J. Appleseed" as signer for package v2.0.0.
         // Signer remaining the same should be ok.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
@@ -311,7 +414,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with version 1.1.1 added
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -319,11 +422,12 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[signingEntity], [existingVersion, version])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [existingVersion, version])
     }
 
     func testSigningEntityDoesNotMatchStorageForDifferentVersion_strictMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
@@ -333,7 +437,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -341,7 +445,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: [existingVersion]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [existingVersion]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
 
@@ -350,23 +461,33 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode
         )
 
-        // Storage has "J. Smith" as signer for package.
+        // Storage has "J. Smith" as signer for package v2.0.0.
         // The given signer "J. Appleseed" is different so it should fail.
         XCTAssertThrowsError(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
             )
         ) { error in
-            guard case RegistryError.signingEntityForPackageChanged(_, _, let previous) = error else {
+            guard case RegistryError.signingEntityForPackageChanged(
+                _,
+                _,
+                _,
+                let latest,
+                let previous,
+                let previousVersion
+            ) = error else {
                 return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
             }
-            XCTAssertEqual(previous, existingSigner)
+            XCTAssertEqual(latest, signingEntity)
+            XCTAssertEqual(previous, existingSigningEntity)
+            XCTAssertEqual(previousVersion, existingVersion)
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -374,11 +495,12 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], [existingVersion])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [existingVersion])
     }
 
     func testSigningEntityDoesNotMatchStorageForDifferentVersion_warnMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersion = Version("2.0.0")
@@ -388,7 +510,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
             organizationalUnit: nil,
             organization: nil
         )
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -396,7 +518,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: [existingVersion]]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [existingVersion]
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
 
@@ -407,11 +536,12 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        // Storage has "J. Smith" as signer for package.
+        // Storage has "J. Smith" as signer for package v2.0.0.
         // The given signer "J. Appleseed" is different, but because
         // of .warn mode, no error is thrown.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity,
@@ -421,11 +551,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // But there should be a warning
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            result.check(diagnostic: .contains("different from the previously recorded value"), severity: .warning)
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -433,15 +563,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], [existingVersion])
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [existingVersion])
     }
 
     func testNilSigningEntityWhenStorageHasNewerSignedVersions() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -449,7 +580,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: existingVersions]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: existingVersions
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -463,6 +601,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // this is before package started being signed.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: .none
@@ -470,7 +609,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -478,15 +617,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], existingVersions)
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
     }
 
     func testNilSigningEntityWhenStorageHasOlderSignedVersions_strictMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.6.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -494,7 +634,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: existingVersions]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: existingVersions
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
 
@@ -508,20 +655,29 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // onwards all versions are signed.
         XCTAssertThrowsError(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: .none
             )
         ) { error in
-            guard case RegistryError.signingEntityForPackageChanged(_, let latest, let previous) = error else {
+            guard case RegistryError.signingEntityForPackageChanged(
+                _,
+                _,
+                _,
+                let latest,
+                let previous,
+                let previousVersion
+            ) = error else {
                 return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
             }
             XCTAssertNil(latest)
-            XCTAssertEqual(previous, existingSigner)
+            XCTAssertEqual(previous, existingSigningEntity)
+            XCTAssertEqual(previousVersion, Version("1.5.0"))
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -529,15 +685,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], existingVersions)
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
     }
 
     func testNilSigningEntityWhenStorageHasOlderSignedVersions_warnMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.6.1")
         let existingVersions = Set([Version("1.5.0"), Version("2.0.0")])
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -545,7 +702,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: existingVersions]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: existingVersions
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
 
@@ -562,6 +726,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // no error is thrown.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: .none,
@@ -571,11 +736,11 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // But there should be a warning
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            result.check(diagnostic: .contains("different from the previously recorded value"), severity: .warning)
         }
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -583,15 +748,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], existingVersions)
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
     }
 
     func testNilSigningEntityWhenStorageHasOlderSignedVersionsInDifferentMajorVersion() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("2.0.0")
         let existingVersions = Set([Version("1.5.0"), Version("3.0.0")])
-        let existingSigner = SigningEntity.recognized(
+        let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
             organizationalUnit: nil,
@@ -599,7 +765,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: [existingSigner: existingVersions]]
+            [package.underlying: PackageSigners(
+                expectedSigner: .none,
+                signers: [existingSigningEntity: PackageSigner(
+                    signingEntity: existingSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: existingVersions
+                )]
+            )]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -615,6 +788,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // we assume none of them is signed.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: .none
@@ -622,7 +796,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let signedVersions = try tsc_await { callback in
+        let packageSigners = try tsc_await { callback in
             signingEntityStorage.get(
                 package: package.underlying,
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -630,11 +804,220 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 callback: callback
             )
         }
-        XCTAssertEqual(signedVersions.count, 1)
-        XCTAssertEqual(signedVersions[existingSigner], existingVersions)
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
+    }
+
+    func testSigningEntityOfNewerVersionMatchesExpectedSigner() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
+        let version = Version("2.0.0")
+        let expectedSigningEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Smith",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let expectedFromVersion = Version("1.5.0")
+
+        let signingEntityStorage = MockPackageSigningEntityStorage(
+            [package.underlying: PackageSigners(
+                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                signers: [expectedSigningEntity: PackageSigner(
+                    signingEntity: expectedSigningEntity,
+                    origins: [.registry(registry.url)],
+                    versions: [expectedFromVersion]
+                )]
+            )]
+        )
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let tofu = PackageSigningEntityTOFU(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        // Package has expected signer starting from v1.5.0.
+        // The given v2.0.0 is newer than v1.5.0, and signer
+        // matches the expected signer.
+        XCTAssertNoThrow(
+            try tofu.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: expectedSigningEntity
+            )
+        )
+
+        // Storage should be updated with v2.0.0 added
+        let packageSigners = try tsc_await { callback in
+            signingEntityStorage.get(
+                package: package.underlying,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                callback: callback
+            )
+        }
+        XCTAssertEqual(packageSigners.signers.count, 1)
+        XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion, version])
+    }
+
+    func testSigningEntityOfNewerVersionDoesNotMatchExpectedSignerButOlderThanExisting() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
+        let version = Version("2.0.0")
+        let signingEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let existingVersion = Version("2.2.0")
+        let expectedSigningEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Smith",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let expectedFromVersion = Version("1.5.0")
+
+        let signingEntityStorage = MockPackageSigningEntityStorage(
+            [package.underlying: PackageSigners(
+                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                signers: [
+                    expectedSigningEntity: PackageSigner(
+                        signingEntity: expectedSigningEntity,
+                        origins: [.registry(registry.url)],
+                        versions: [expectedFromVersion]
+                    ),
+                    signingEntity: PackageSigner(
+                        signingEntity: signingEntity,
+                        origins: [.registry(registry.url)],
+                        versions: [existingVersion]
+                    ),
+                ]
+            )]
+        )
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let tofu = PackageSigningEntityTOFU(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        // Package has expected signer starting from v1.5.0, but
+        // the given signer was recorded previously for v2.2.0.
+        // The given v2.0.0 is before v2.2.0, and we allow the same
+        // signer for older versions.
+        XCTAssertNoThrow(
+            try tofu.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity
+            )
+        )
+
+        // Storage should be updated with v2.0.0 added
+        let packageSigners = try tsc_await { callback in
+            signingEntityStorage.get(
+                package: package.underlying,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                callback: callback
+            )
+        }
+        XCTAssertEqual(packageSigners.signers.count, 2)
+        XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion])
+        XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [existingVersion, version])
+    }
+
+    func testSigningEntityOfNewerVersionDoesNotMatchExpectedSignerAndNewerThanExisting() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
+        let package = PackageIdentity.plain("mona.LinkedList").registry!
+        let version = Version("2.3.0")
+        let signingEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let existingVersion = Version("2.2.0")
+        let expectedSigningEntity = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Smith",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let expectedFromVersion = Version("1.5.0")
+
+        let signingEntityStorage = MockPackageSigningEntityStorage(
+            [package.underlying: PackageSigners(
+                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                signers: [
+                    expectedSigningEntity: PackageSigner(
+                        signingEntity: expectedSigningEntity,
+                        origins: [.registry(registry.url)],
+                        versions: [expectedFromVersion]
+                    ),
+                    signingEntity: PackageSigner(
+                        signingEntity: signingEntity,
+                        origins: [.registry(registry.url)],
+                        versions: [existingVersion]
+                    ),
+                ]
+            )]
+        )
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let tofu = PackageSigningEntityTOFU(
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        // Package has expected signer starting from v1.5.0, and
+        // the given signer was recorded previously for v2.2.0, but
+        // the given v2.3.0 is after v2.2.0, which we don't allow
+        // because we assume the signer has "stopped" signing at v2.2.0.
+        XCTAssertThrowsError(
+            try tofu.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                signingEntity: signingEntity
+            )
+        ) { error in
+            guard case RegistryError.signingEntityForPackageChanged(
+                _,
+                _,
+                _,
+                let latest,
+                let previous,
+                let previousVersion
+            ) = error else {
+                return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
+            }
+            XCTAssertEqual(latest, signingEntity)
+            XCTAssertEqual(previous, expectedSigningEntity)
+            XCTAssertEqual(previousVersion, expectedFromVersion)
+        }
+
+        // Storage should not be updated
+        let packageSigners = try tsc_await { callback in
+            signingEntityStorage.get(
+                package: package.underlying,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                callback: callback
+            )
+        }
+        XCTAssertEqual(packageSigners.signers.count, 2)
+        XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion])
+        XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [existingVersion])
     }
 
     func testWriteConflictsWithStorage_strictMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -655,6 +1038,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // This triggers a storage write conflict
         XCTAssertThrowsError(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity
@@ -667,6 +1051,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
     }
 
     func testWriteConflictsWithStorage_warnMode() throws {
+        let registry = Registry(url: URL("https://packages.example.com"), supportsAvailability: false)
         let package = PackageIdentity.plain("mona.LinkedList").registry!
         let version = Version("1.1.1")
         let signingEntity = SigningEntity.recognized(
@@ -690,6 +1075,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // because of .warn mode, no error is thrown.
         XCTAssertNoThrow(
             try tofu.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity,
@@ -699,13 +1085,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // But there should be a warning
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            result.check(diagnostic: .contains("different from the previously recorded value"), severity: .warning)
         }
     }
 }
 
 extension PackageSigningEntityTOFU {
     fileprivate func validate(
+        registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         signingEntity: SigningEntity?,
@@ -713,6 +1100,7 @@ extension PackageSigningEntityTOFU {
     ) throws {
         try tsc_await {
             self.validate(
+                registry: registry,
                 package: package,
                 version: version,
                 signingEntity: signingEntity,
@@ -725,19 +1113,20 @@ extension PackageSigningEntityTOFU {
 }
 
 private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
-    func get(
+    public func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[SigningEntity: Set<Version>], Error>) -> Void
+        callback: @escaping (Result<PackageSigners, Error>) -> Void
     ) {
-        callback(.success([:]))
+        callback(.success(PackageSigners()))
     }
 
-    func put(
+    public func put(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -753,6 +1142,42 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
             given: signingEntity,
             existing: existing
         )))
+    }
+
+    public func add(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        callback(.failure(StringError("unexpected call")))
+    }
+
+    public func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        callback(.failure(StringError("unexpected call")))
+    }
+
+    public func changeSigningEntityForAllVersions(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        callback(.failure(StringError("unexpected call")))
     }
 }
 

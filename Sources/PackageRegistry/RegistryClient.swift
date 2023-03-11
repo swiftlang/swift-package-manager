@@ -809,7 +809,8 @@ public final class RegistryClient: Cancellable {
                                                     switch checksumResult {
                                                     case .success:
                                                         do {
-                                                            // validate that the destination does not already exist (again, as this
+                                                            // validate that the destination does not already exist
+                                                            // (again, as this
                                                             // is
                                                             // async)
                                                             guard !fileSystem.exists(destinationPath) else {
@@ -1344,12 +1345,20 @@ public enum RegistryError: Error, CustomStringConvertible {
     case signerNotTrusted(SigningEntity)
     case failedToValidateSignature(Error)
     case signingEntityForReleaseChanged(
+        registry: Registry,
         package: PackageIdentity,
         version: Version,
         latest: SigningEntity?,
         previous: SigningEntity
     )
-    case signingEntityForPackageChanged(package: PackageIdentity, latest: SigningEntity?, previous: SigningEntity)
+    case signingEntityForPackageChanged(
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
+        latest: SigningEntity?,
+        previous: SigningEntity,
+        previousVersion: Version
+    )
 
     public var description: String {
         switch self {
@@ -1443,10 +1452,17 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "the signer \(signingEntity) is not trusted"
         case .failedToValidateSignature(let error):
             return "failed to validate signature: \(error)"
-        case .signingEntityForReleaseChanged(let package, let version, let latest, let previous):
-            return "the signing entity '\(String(describing: latest))' for \(package) version \(version) is different from the previously recorded value '\(previous)'"
-        case .signingEntityForPackageChanged(let package, let latest, let previous):
-            return "the signing entity '\(String(describing: latest))' for \(package) is different from the previously recorded value '\(previous)'"
+        case .signingEntityForReleaseChanged(let registry, let package, let version, let latest, let previous):
+            return "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(previous)'"
+        case .signingEntityForPackageChanged(
+            let registry,
+            let package,
+            let version,
+            let latest,
+            let previous,
+            let previousVersion
+        ):
+            return "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(previous)' for version \(previousVersion)"
         }
     }
 }
