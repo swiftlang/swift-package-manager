@@ -14,7 +14,7 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 import PackageModel
-@testable import PackageSigning
+import PackageSigning
 
 import struct TSCUtility.Version
 
@@ -38,7 +38,7 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
             }
         } else {
             callbackQueue.async {
-                callback(.success(.init()))
+                callback(.success(PackageSigners()))
             }
         }
     }
@@ -54,9 +54,8 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     ) {
         do {
             try self.lock.withLock {
-                var packageSigners: PackageSigners = self.packageSigners[package] ?? .init()
-
-                let otherSigningEntities = packageSigners.signingEntities(of: version).filter { $0 != signingEntity }
+                let otherSigningEntities = self.packageSigners[package]?.signingEntities(of: version)
+                    .filter { $0 != signingEntity } ?? []
                 // Error if we try to write a different signing entity for a version
                 guard otherSigningEntities.isEmpty else {
                     throw PackageSigningEntityStorageError.conflict(
@@ -67,14 +66,12 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
                     )
                 }
 
-                self.add(
-                    packageSigners: &packageSigners,
+                self.addSigner(
+                    package: package,
                     signingEntity: signingEntity,
                     origin: origin,
                     version: version
                 )
-
-                self.packageSigners[package] = packageSigners
             }
 
             callbackQueue.async {
@@ -97,14 +94,12 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
         self.lock.withLock {
-            var packageSigners: PackageSigners = self.packageSigners[package] ?? .init()
-            self.add(
-                packageSigners: &packageSigners,
+            self.addSigner(
+                package: package,
                 signingEntity: signingEntity,
                 origin: origin,
                 version: version
             )
-            self.packageSigners[package] = packageSigners
         }
         callback(.success(()))
     }
@@ -119,15 +114,17 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
         self.lock.withLock {
-            var packageSigners: PackageSigners = self.packageSigners[package] ?? .init()
-            packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
-            self.add(
-                packageSigners: &packageSigners,
+            self.setExpectedSigner(
+                package: package,
+                expectedSigningEntity: signingEntity,
+                expectedFromVersion: version
+            )
+            self.addSigner(
+                package: package,
                 signingEntity: signingEntity,
                 origin: origin,
                 version: version
             )
-            self.packageSigners[package] = packageSigners
         }
         callback(.success(()))
     }
@@ -142,38 +139,72 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
         self.lock.withLock {
-            var packageSigners: PackageSigners = self.packageSigners[package] ?? .init()
-            packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
+            self.setExpectedSigner(
+                package: package,
+                expectedSigningEntity: signingEntity,
+                expectedFromVersion: version
+            )
             // Delete all other signers
-            packageSigners.signers = packageSigners.signers.filter { $0.key == signingEntity }
-            self.add(
-                packageSigners: &packageSigners,
+            if let existing = self.packageSigners[package] {
+                self.packageSigners[package] = PackageSigners(
+                    expectedSigner: existing.expectedSigner,
+                    signers: existing.signers.filter { $0.key == signingEntity }
+                )
+            }
+            self.addSigner(
+                package: package,
                 signingEntity: signingEntity,
                 origin: origin,
                 version: version
             )
-            self.packageSigners[package] = packageSigners
         }
         callback(.success(()))
     }
 
-    private func add(
-        packageSigners: inout PackageSigners,
+    private func setExpectedSigner(
+        package: PackageIdentity,
+        expectedSigningEntity: SigningEntity,
+        expectedFromVersion: Version
+    ) {
+        self.packageSigners[package] = PackageSigners(
+            expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+            signers: self.packageSigners[package]?.signers ?? [:]
+        )
+    }
+
+    private func addSigner(
+        package: PackageIdentity,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
         version: Version
     ) {
-        if var existingSigner = packageSigners.signers.removeValue(forKey: signingEntity) {
-            existingSigner.origins.insert(origin)
-            existingSigner.versions.insert(version)
-            packageSigners.signers[signingEntity] = existingSigner
+        let packageSigners = self.packageSigners[package] ?? PackageSigners()
+
+        let packageSigner: PackageSigner
+        if let existingSigner = packageSigners.signers[signingEntity] {
+            var origins = existingSigner.origins
+            origins.insert(origin)
+            var versions = existingSigner.versions
+            versions.insert(version)
+            packageSigner = PackageSigner(
+                signingEntity: signingEntity,
+                origins: origins,
+                versions: versions
+            )
         } else {
-            let signer = PackageSigner(
+            packageSigner = PackageSigner(
                 signingEntity: signingEntity,
                 origins: [origin],
                 versions: [version]
             )
-            packageSigners.signers[signingEntity] = signer
         }
+
+        var signers = packageSigners.signers
+        signers[signingEntity] = packageSigner
+
+        self.packageSigners[package] = PackageSigners(
+            expectedSigner: packageSigners.expectedSigner,
+            signers: signers
+        )
     }
 }

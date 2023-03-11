@@ -108,27 +108,32 @@ public struct PackageSigner: Codable {
     public let signingEntity: SigningEntity
     public internal(set) var origins: Set<SigningEntity.Origin>
     public internal(set) var versions: Set<Version>
+
+    public init(
+        signingEntity: SigningEntity,
+        origins: Set<SigningEntity.Origin>,
+        versions: Set<Version>
+    ) {
+        self.signingEntity = signingEntity
+        self.origins = origins
+        self.versions = versions
+    }
 }
 
 public struct PackageSigners {
     public internal(set) var expectedSigner: (signingEntity: SigningEntity, fromVersion: Version)?
     public internal(set) var signers: [SigningEntity: PackageSigner]
 
-    public var isEmpty: Bool {
-        self.signers.isEmpty
-    }
-
-    init() {
-        self.expectedSigner = .none
-        self.signers = [:]
-    }
-
-    init(
-        expectedSigner: (signingEntity: SigningEntity, fromVersion: Version)?,
-        signers: [SigningEntity: PackageSigner]
+    public init(
+        expectedSigner: (signingEntity: SigningEntity, fromVersion: Version)? = .none,
+        signers: [SigningEntity: PackageSigner] = [:]
     ) {
         self.expectedSigner = expectedSigner
         self.signers = signers
+    }
+
+    public var isEmpty: Bool {
+        self.signers.isEmpty
     }
 
     public var versionSigningEntities: [Version: Set<SigningEntity>] {
