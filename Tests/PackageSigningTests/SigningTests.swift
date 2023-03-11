@@ -31,8 +31,8 @@ final class SigningTests: XCTestCase {
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
-        let signatureFormat = SignatureFormat.cms_1_0_0
 
+        let signatureFormat = SignatureFormat.cms_1_0_0
         let signature = try SignatureProvider.sign(
             content: content,
             identity: signingIdentity,
