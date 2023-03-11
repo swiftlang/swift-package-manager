@@ -461,7 +461,7 @@ public final class InitPackage {
 
                 final class \(moduleName)Tests: XCTestCase {
                     func testExample() throws {
-                        // XCTest Documenation
+                        // XCTest Documentation
                         // https://developer.apple.com/documentation/xctest
 
                         // Defining Test Cases and Test Methods
