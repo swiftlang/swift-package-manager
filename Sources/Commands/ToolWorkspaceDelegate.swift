@@ -178,7 +178,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     // registry signature handlers
 
     func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
-        self.inputHandler("\(package) @ \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
+        self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
                 completion(true) // continue
@@ -192,7 +192,7 @@ class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
-        self.inputHandler("\(package) @ \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
+        self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
                 completion(true) // continue
