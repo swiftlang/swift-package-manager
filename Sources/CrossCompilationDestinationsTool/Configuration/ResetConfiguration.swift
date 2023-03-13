@@ -17,7 +17,7 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-struct ResetConfiguration: DestinationCommand {
+struct ResetConfiguration: ConfigurationCommand {
     static let configuration = CommandConfiguration(
         commandName: "reset",
         abstract: """
@@ -55,75 +55,81 @@ struct ResetConfiguration: DestinationCommand {
     )
     var destinationID: String
 
-    @Argument(help: "The run-time triple of the destination to configure.")
+    @Argument(help: "A run-time triple of the destination specified by `destination-id` identifier string.")
     var runTimeTriple: String
 
     func run(
         buildTimeTriple: Triple,
+        runTimeTriple: Triple,
+        _ destination: Destination,
+        _ configurationStore: DestinationConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let configurationStore = try DestinationConfigurationStore(
-            buildTimeTriple: buildTimeTriple,
-            destinationsDirectoryPath: destinationsDirectory,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        )
-
-        let triple = try Triple(runTimeTriple)
-
-        guard var destination = try configurationStore.readConfiguration(
-            destinationID: destinationID,
-            runTimeTriple: triple
-        ) else {
-            throw DestinationError.destinationNotFound(
-                artifactID: destinationID,
-                builtTimeTriple: buildTimeTriple,
-                runTimeTriple: triple
-            )
-        }
-
         var configuration = destination.pathsConfiguration
         var shouldResetAll = true
+        var resetProperties = [String]()
 
         if sdkRootPath {
             configuration.sdkRootPath = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.sdkRootPath.stringValue)
         }
 
         if swiftResourcesPath {
             configuration.swiftResourcesPath = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.swiftResourcesPath.stringValue)
         }
 
         if swiftStaticResourcesPath {
             configuration.swiftResourcesPath = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.swiftStaticResourcesPath.stringValue)
         }
 
         if includeSearchPath {
             configuration.includeSearchPaths = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.includeSearchPath.stringValue)
         }
 
         if librarySearchPath {
             configuration.librarySearchPaths = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.librarySearchPath.stringValue)
         }
 
         if toolsetPath {
             configuration.toolsetPaths = nil
             shouldResetAll = false
+            resetProperties.append(CodingKeys.toolsetPath.stringValue)
         }
 
         if shouldResetAll {
-            if try !configurationStore.resetConfiguration(destinationID: destinationID, runTimeTriple: triple) {
+            if try !configurationStore.resetConfiguration(destinationID: destinationID, runTimeTriple: runTimeTriple) {
                 observabilityScope.emit(
                     warning: "No configuration for destination \(destinationID)"
                 )
+            } else {
+                observabilityScope.emit(
+                    info: """
+                    All configuration properties of destination `\(destinationID) for run-time triple \
+                    `\(runTimeTriple)` were successfully reset.
+                    """
+                )
             }
         } else {
+            var destination = destination
+            destination.pathsConfiguration = configuration
             try configurationStore.updateConfiguration(destinationID: destinationID, destination: destination)
+
+            observabilityScope.emit(
+                info: """
+                These properties of destination `\(destinationID) for run-time triple \
+                `\(runTimeTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
+                """
+            )
         }
     }
 }
