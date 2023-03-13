@@ -129,6 +129,8 @@ public final class RegistryClient: Cancellable {
             return completion(.failure(RegistryError.registryNotConfigured(scope: registryIdentity.scope)))
         }
 
+        observabilityScope.emit(debug: "registry for \(package): \(registry)")
+
         let underlying = {
             self._getPackageMetadata(
                 registry: registry,
@@ -184,9 +186,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving \(package) metadata from \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         let packageMetadata = try response.parseJSON(
@@ -358,9 +366,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving \(package) \(version) metadata from \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         let metadata = try response.parseJSON(
@@ -467,9 +481,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving available manifests for \(package) \(version) from \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         try response.validateAPIVersion()
@@ -601,9 +621,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response -> String in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         try response.validateAPIVersion(isOptional: true)
@@ -768,11 +794,17 @@ public final class RegistryClient: Cancellable {
                     destination: downloadPath
                 )
 
+                let downloadStart = DispatchTime.now()
+                observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(request.url)")
                 self.httpClient
                     .execute(request, observabilityScope: observabilityScope, progress: progressHandler) { result in
                         switch result {
                         case .success(let response):
                             do {
+                                observabilityScope
+                                    .emit(
+                                        debug: "server response for \(request.url): \(response.statusCode) in \(downloadStart.distance(to: .now()).descriptionInSeconds)"
+                                    )
                                 switch response.statusCode {
                                 case 200:
                                     try response.validateAPIVersion(isOptional: true)
@@ -784,6 +816,10 @@ public final class RegistryClient: Cancellable {
                                         let actualChecksum = checksumAlgorithm.hash(.init(archiveContent))
                                             .hexadecimalRepresentation
 
+                                        observabilityScope
+                                            .emit(
+                                                debug: "performing TOFU checks on \(package) \(version) source archive (checksum: '\(actualChecksum)'"
+                                            )
                                         signatureValidation.validate(
                                             registry: registry,
                                             package: package,
@@ -821,6 +857,11 @@ public final class RegistryClient: Cancellable {
                                                                 recursive: true
                                                             )
                                                             // extract the content
+                                                            let extractStart = DispatchTime.now()
+                                                            observabilityScope
+                                                                .emit(
+                                                                    debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
+                                                                )
                                                             let archiver = self.archiverProvider(fileSystem)
                                                             // TODO: Bail if archive contains relative paths or overlapping files
                                                             archiver
@@ -831,6 +872,10 @@ public final class RegistryClient: Cancellable {
                                                                     defer {
                                                                         try? fileSystem.removeFileTree(downloadPath)
                                                                     }
+                                                                    observabilityScope
+                                                                        .emit(
+                                                                            debug: "extracted \(package) \(version) source archive to '\(destinationPath)' in \(extractStart.distance(to: .now()).descriptionInSeconds)"
+                                                                        )
                                                                     completion(result.tryMap {
                                                                         // strip first level component
                                                                         try fileSystem
@@ -840,6 +885,10 @@ public final class RegistryClient: Cancellable {
                                                                             .appending(
                                                                                 component: RegistryReleaseMetadataStorage
                                                                                     .fileName
+                                                                            )
+                                                                        observabilityScope
+                                                                            .emit(
+                                                                                debug: "saving \(package) \(version) metadata to '\(registryMetadataPath)'"
                                                                             )
                                                                         try RegistryReleaseMetadataStorage.save(
                                                                             metadata: versionMetadata,
@@ -976,15 +1025,22 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "looking up identity for \(scmURL) from \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         let packageIdentities = try response.parseJSON(
                             Serialization.PackageIdentifiers.self,
                             decoder: self.jsonDecoder
                         )
+                        observabilityScope.emit(debug: "matched identities for \(scmURL): \(packageIdentities)")
                         return Set(packageIdentities.identifiers.map {
                             PackageIdentity.plain($0)
                         })
@@ -1016,9 +1072,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "logging-in into \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         return ()
@@ -1134,13 +1196,18 @@ public final class RegistryClient: Cancellable {
             request.headers.add(name: "X-Swift-Package-Signature-Format", value: signatureFormat.rawValue)
         }
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "publishing \(packageIdentity) \(packageVersion) to \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 201:
                         try response.validateAPIVersion()
-
                         let location = response.headers.get("Location").first.flatMap { URL(string: $0) }
                         return PublishResult.published(location)
                     case 202:
@@ -1190,9 +1257,15 @@ public final class RegistryClient: Cancellable {
             options: self.defaultRequestOptions(timeout: timeout, callbackQueue: callbackQueue)
         )
 
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "checking availability of \(registry.url) using \(request.url)")
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(
                 result.tryMap { response in
+                    observabilityScope
+                        .emit(
+                            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+                        )
                     switch response.statusCode {
                     case 200:
                         return .available

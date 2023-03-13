@@ -140,6 +140,7 @@ struct SignatureValidation {
                 completion: completion
             )
         } catch RegistryError.sourceArchiveNotSigned(let registry, let package, let version) {
+            observabilityScope.emit(info: "\(package) \(version) from \(registry) is unsigned")
             guard let onUnsigned = configuration.onUnsigned else {
                 return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
             }
@@ -209,12 +210,21 @@ struct SignatureValidation {
 
                 switch signatureStatus {
                 case .valid(let signingEntity):
+                    observabilityScope
+                        .emit(
+                            info: "\(package) \(version) from \(registry) is signed with a valid entity '\(signingEntity)'"
+                        )
                     completion(.success(signingEntity))
                 case .invalid(let reason):
                     completion(.failure(RegistryError.invalidSignature(reason: reason)))
                 case .certificateInvalid(let reason):
                     completion(.failure(RegistryError.invalidSigningCertificate(reason: reason)))
                 case .certificateNotTrusted(let signingEntity):
+                    observabilityScope
+                        .emit(
+                            info: "\(package) \(version) from \(registry) signing entity '\(signingEntity)' is untrusted"
+                        )
+
                     guard let onUntrusted = configuration.onUntrustedCertificate else {
                         return completion(.failure(
                             RegistryError.missingConfiguration(details: "security.signing.onUntrustedCertificate")

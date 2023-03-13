@@ -225,7 +225,7 @@ public class KeychainAuthorizationProvider: AuthorizationProvider, Authorization
         } catch {
             switch error {
             case AuthorizationProviderError.notFound:
-                self.observabilityScope.emit(info: "No credentials found for server \(server) in keychain")
+                self.observabilityScope.emit(debug: "No credentials found for server \(server) in keychain")
             case AuthorizationProviderError.other(let detail):
                 self.observabilityScope.emit(error: detail)
             default:
