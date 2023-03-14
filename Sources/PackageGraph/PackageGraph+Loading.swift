@@ -193,11 +193,14 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             if dependency.products.contains(where: \.isCommandPlugin) {
                 continue
             }
+            
+            // Make sure that any diagnostics we emit below are associated with the package.
+            let packageDiagnosticsScope = observabilityScope.makeChildScope(description: "Package Dependency Validation", metadata: package.underlyingPackage.diagnosticsMetadata)
 
             // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
-                observabilityScope.emit(.unusedDependency(dependency.identity.description))
+                packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
             }
         }
     }

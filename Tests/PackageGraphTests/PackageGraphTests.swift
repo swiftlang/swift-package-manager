@@ -892,7 +892,9 @@ class PackageGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning)
+            let diagnostic = result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning)
+            XCTAssertEqual(diagnostic?.metadata?.packageIdentity, "foo")
+            XCTAssertEqual(diagnostic?.metadata?.packageKind?.isRoot, true)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             result.check(diagnostic: "dependency 'biz' is not used by any target", severity: .warning)
             #endif
