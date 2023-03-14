@@ -463,18 +463,22 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSCheckCertificateRevocationStatus() async throws {
-        // FIXME: skipping test temporarily until we figure out what causes Linux build failures https://github.com/apple/swift/pull/64285
-        try XCTSkipIf(true)
-
         let ocspHandler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.post, URL(OCSPTestHelper.responderURI)):
                 guard let requestBody = request.body else {
                     throw StringError("Empty request body")
                 }
+
                 let ocspRequest = try OCSPRequest(derEncoded: Array(requestBody))
-                let nonce = try XCTUnwrap(ocspRequest.tbsRequest.requestExtensions?.ocspNonce)
-                let singleRequest = try XCTUnwrap(ocspRequest.tbsRequest.requestList.first)
+
+                guard let nonce = try? ocspRequest.tbsRequest.requestExtensions?.ocspNonce else {
+                    throw StringError("Missing nonce")
+                }
+                guard let singleRequest = ocspRequest.tbsRequest.requestList.first else {
+                    throw StringError("Missing OCSP request")
+                }
+
                 let ocspResponse = OCSPResponse.successful(.signed(responses: [OCSPSingleResponse(
                     certID: singleRequest.certID,
                     certStatus: .unknown,
