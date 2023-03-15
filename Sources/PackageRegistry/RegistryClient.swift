@@ -35,7 +35,7 @@ public final class RegistryClient: Cancellable {
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
     private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
-    private let configuration: RegistryConfiguration
+    private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: LegacyHTTPClient
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
@@ -105,6 +105,17 @@ public final class RegistryClient: Cancellable {
 
     public var explicitlyConfigured: Bool {
         self.configuration.explicitlyConfigured
+    }
+
+    // not thread safe
+    // marked public for cross module visibility
+    public var defaultRegistry: Registry? {
+        get {
+            self.configuration.defaultRegistry
+        }
+        set {
+            self.configuration.defaultRegistry = newValue
+        }
     }
 
     /// Cancel any outstanding requests

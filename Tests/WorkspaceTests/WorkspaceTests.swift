@@ -13645,6 +13645,67 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testRegistryDefaultRegistryConfiguration() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        var configuration = RegistryConfiguration()
+        configuration.security = .testDefault
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: .plain("org.foo"),
+            packageVersion: "1.0.0",    
+            configuration: configuration,
+            fileSystem: fs
+        )
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo"),
+                            ]
+                        ),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            registryClient: registryClient,
+            defaultRegistry: .init(
+                url: "http://some-registry.com",
+                supportsAvailability: false
+            )
+        )
+
+        try workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                XCTAssertNotNil(result.find(package: "org.foo"), "missing package")
+            }
+        }
+    }
+
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
@@ -13706,8 +13767,8 @@ final class WorkspaceTests: XCTestCase {
                 ],
                 metadata: .init(
                     description: "package \(identity) description",
-                    licenseURL: "\(configuration.defaultRegistry!.url)/\(identity)/license",
-                    readmeURL: "\(configuration.defaultRegistry!.url)/\(identity)/readme"
+                    licenseURL: "/\(identity)/license",
+                    readmeURL: "/\(identity)/readme"
                 )
             )
             completion(.success(
@@ -13793,18 +13854,18 @@ final class WorkspaceTests: XCTestCase {
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
             customHTTPClient: LegacyHTTPClient(configuration: .init(), handler: { request, progress, completion in
-                switch request.url {
+                switch request.url.path {
                 // request to get package releases
-                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)":
+                case "/\(identity.scope)/\(identity.name)":
                     releasesRequestHandler(request, progress, completion)
                 // request to get package version metadata
-                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion)":
+                case "/\(identity.scope)/\(identity.name)/\(packageVersion)":
                     versionMetadataRequestHandler(request, progress, completion)
                 // request to get package manifest
-                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
+                case "/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
                     manifestRequestHandler(request, progress, completion)
                 // request to get download the version source archive
-                case "\(configuration.defaultRegistry!.url)/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
+                case "/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
                     downloadArchiveRequestHandler(request, progress, completion)
                 default:
                     completion(.failure(StringError("unexpected url \(request.url)")))

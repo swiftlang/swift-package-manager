@@ -19,8 +19,8 @@ import PackageModel
 import PackageRegistry
 import TSCBasic
 
-import class TSCUtility.SimplePersistence
 import protocol TSCUtility.SimplePersistanceProtocol
+import class TSCUtility.SimplePersistence
 
 // MARK: - Location
 
@@ -115,7 +115,7 @@ extension Workspace {
         public var sharedFingerprintsDirectory: AbsolutePath? {
             self.sharedSecurityDirectory.map { $0.appending("fingerprints") }
         }
-        
+
         /// Path to the shared directory where package signing records are kept.
         public var sharedSigningEntitiesDirectory: AbsolutePath? {
             self.sharedSecurityDirectory.map { $0.appending("signing-entities") }
@@ -125,7 +125,7 @@ extension Workspace {
         public var sharedTrustedRootCertificatesDirectory: AbsolutePath? {
             self.sharedSecurityDirectory.map { $0.appending("trusted-root-certs") }
         }
-        
+
         // cache locations
 
         /// Path to the shared manifests cache.
@@ -212,7 +212,7 @@ extension Workspace {
         }
 
         public static func mirrorsConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            mirrorsConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
+            self.mirrorsConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
         }
 
         public static func mirrorsConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
@@ -220,7 +220,7 @@ extension Workspace {
         }
 
         public static func registriesConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            registriesConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
+            self.registriesConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
         }
 
         public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
@@ -232,15 +232,29 @@ extension Workspace {
         }
     }
 
-    public static func migrateMirrorsConfiguration(from legacyPath: AbsolutePath, to newPath: AbsolutePath, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+    public static func migrateMirrorsConfiguration(
+        from legacyPath: AbsolutePath,
+        to newPath: AbsolutePath,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
         if localFileSystem.isFile(legacyPath) {
             if localFileSystem.isSymlink(legacyPath) {
                 let resolvedLegacyPath = try resolveSymlinks(legacyPath)
-                return try migrateMirrorsConfiguration(from: resolvedLegacyPath, to: newPath, observabilityScope: observabilityScope)
+                return try self.migrateMirrorsConfiguration(
+                    from: resolvedLegacyPath,
+                    to: newPath,
+                    observabilityScope: observabilityScope
+                )
             } else if localFileSystem.isFile(newPath.parentDirectory) {
-                observabilityScope.emit(warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists.")
+                observabilityScope
+                    .emit(
+                        warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists."
+                    )
             } else if let content = try? localFileSystem.readFileContents(legacyPath), content.count > 0 {
-                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+                observabilityScope
+                    .emit(
+                        warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead."
+                    )
                 if !localFileSystem.exists(newPath, followSymlink: false) {
                     try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
                     try localFileSystem.copy(from: legacyPath, to: newPath)
@@ -271,7 +285,10 @@ extension Workspace.Configuration {
             self.keychain = keychain
         }
 
-        public func makeAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
+        public func makeAuthorizationProvider(
+            fileSystem: FileSystem,
+            observabilityScope: ObservabilityScope
+        ) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
 
             switch self.netrc {
@@ -285,7 +302,11 @@ extension Workspace.Configuration {
                 let userHomePath = try fileSystem.homeDirectory.appending(".netrc")
 
                 // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
-                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
+                if let userHomeProvider = self.loadOptionalNetrc(
+                    fileSystem: fileSystem,
+                    path: userHomePath,
+                    observabilityScope: observabilityScope
+                ) {
                     providers.append(userHomeProvider)
                 }
             case .disabled:
@@ -305,10 +326,16 @@ extension Workspace.Configuration {
                 break
             }
 
-            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: observabilityScope)
+            return providers.isEmpty ? .none : CompositeAuthorizationProvider(
+                providers,
+                observabilityScope: observabilityScope
+            )
         }
 
-        public func makeRegistryAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
+        public func makeRegistryAuthorizationProvider(
+            fileSystem: FileSystem,
+            observabilityScope: ObservabilityScope
+        ) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
 
             // OS-specific AuthorizationProvider has higher precedence
@@ -424,7 +451,8 @@ extension Workspace.Configuration {
             sharedMirrorsFile: AbsolutePath?
         ) throws {
             self.localMirrors = .init(path: localMirrorsFile, fileSystem: fileSystem, deleteWhenEmpty: true)
-            self.sharedMirrors = sharedMirrorsFile.map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
+            self.sharedMirrors = sharedMirrorsFile
+                .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors
             self._mirrors = DependencyMirrors()
@@ -503,7 +531,12 @@ extension Workspace.Configuration {
                 var updatedMirrors = DependencyMirrors(mirrors.mapping)
                 try handler(&updatedMirrors)
                 if updatedMirrors != mirrors {
-                    try Self.save(updatedMirrors.mapping, to: self.path, fileSystem: self.fileSystem, deleteWhenEmpty: self.deleteWhenEmpty)
+                    try Self.save(
+                        updatedMirrors.mapping,
+                        to: self.path,
+                        fileSystem: self.fileSystem,
+                        deleteWhenEmpty: self.deleteWhenEmpty
+                    )
                 }
                 return updatedMirrors
             }
@@ -516,11 +549,19 @@ extension Workspace.Configuration {
             let data: Data = try fileSystem.readFileContents(path)
             let decoder = JSONDecoder.makeWithDefaults()
             let mirrors = try decoder.decode(MirrorsStorage.self, from: data)
-            let mirrorsMap = Dictionary(mirrors.object.map { ($0.original, $0.mirror) }, uniquingKeysWith: { first, _ in first })
+            let mirrorsMap = Dictionary(
+                mirrors.object.map { ($0.original, $0.mirror) },
+                uniquingKeysWith: { first, _ in first }
+            )
             return mirrorsMap
         }
 
-        private static func save(_ mirrors: [String: String], to path: AbsolutePath, fileSystem: FileSystem, deleteWhenEmpty: Bool) throws {
+        private static func save(
+            _ mirrors: [String: String],
+            to path: AbsolutePath,
+            fileSystem: FileSystem,
+            deleteWhenEmpty: Bool
+        ) throws {
             if mirrors.isEmpty {
                 if deleteWhenEmpty && fileSystem.exists(path) {
                     // deleteWhenEmpty is a backward compatibility mode
@@ -589,14 +630,18 @@ extension Workspace.Configuration {
         }
 
         @discardableResult
-        public func updateLocal(with handler: (inout RegistryConfiguration) throws -> Void) throws -> RegistryConfiguration {
+        public func updateLocal(with handler: (inout RegistryConfiguration) throws -> Void) throws
+            -> RegistryConfiguration
+        {
             try self.localRegistries.update(with: handler)
             try self.computeRegistries()
             return self.configuration
         }
 
         @discardableResult
-        public func updateShared(with handler: (inout RegistryConfiguration) throws -> Void) throws -> RegistryConfiguration {
+        public func updateShared(with handler: (inout RegistryConfiguration) throws -> Void) throws
+            -> RegistryConfiguration
+        {
             guard let sharedRegistries = self.sharedRegistries else {
                 throw InternalError("shared registries not configured")
             }
@@ -635,11 +680,11 @@ extension Workspace.Configuration {
         }
 
         public func load() throws -> RegistryConfiguration {
-            guard fileSystem.exists(path) else {
+            guard self.fileSystem.exists(self.path) else {
                 return RegistryConfiguration()
             }
 
-            let data: Data = try fileSystem.readFileContents(path)
+            let data: Data = try fileSystem.readFileContents(self.path)
             let decoder = JSONDecoder.makeWithDefaults()
             return try decoder.decode(RegistryConfiguration.self, from: data)
         }
@@ -648,10 +693,10 @@ extension Workspace.Configuration {
             let encoder = JSONEncoder.makeWithDefaults()
             let data = try encoder.encode(configuration)
 
-            if !fileSystem.exists(path.parentDirectory) {
-                try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            if !self.fileSystem.exists(self.path.parentDirectory) {
+                try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
             }
-            try fileSystem.writeFileContents(path, bytes: ByteString(data), atomically: true)
+            try self.fileSystem.writeFileContents(self.path, bytes: ByteString(data), atomically: true)
         }
 
         @discardableResult
@@ -660,7 +705,7 @@ extension Workspace.Configuration {
             var updatedConfiguration = configuration
             try handler(&updatedConfiguration)
             if updatedConfiguration != configuration {
-                try save(updatedConfiguration)
+                try self.save(updatedConfiguration)
             }
 
             return updatedConfiguration
@@ -686,12 +731,15 @@ public struct WorkspaceConfiguration {
 
     ///  Fingerprint checking mode. Defaults to strict.
     public var fingerprintCheckingMode: CheckingMode
-    
+
     ///  Signing entity checking mode. Defaults to warn.
     public var signingEntityCheckingMode: CheckingMode
 
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+
+    /// URL of the implicitly configured, default regsitry
+    public var defaultRegistry: Registry?
 
     /// Whether to create multiple test products or one per package
     public var shouldCreateMultipleTestProducts: Bool
@@ -712,6 +760,7 @@ public struct WorkspaceConfiguration {
         fingerprintCheckingMode: CheckingMode,
         signingEntityCheckingMode: CheckingMode,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        defaultRegistry: Registry?,
         restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
@@ -723,6 +772,7 @@ public struct WorkspaceConfiguration {
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.signingEntityCheckingMode = signingEntityCheckingMode
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
+        self.defaultRegistry = defaultRegistry
         self.restrictImports = restrictImports
     }
 
@@ -738,6 +788,7 @@ public struct WorkspaceConfiguration {
             fingerprintCheckingMode: .strict,
             signingEntityCheckingMode: .warn,
             sourceControlToRegistryDependencyTransformation: .disabled,
+            defaultRegistry: .none,
             restrictImports: .none
         )
     }
@@ -758,7 +809,6 @@ public struct WorkspaceConfiguration {
 
 extension Workspace {
     /// Manages a package workspace's configuration.
-    // FIXME change into enum after deprecation grace period
-    public final class Configuration {
-    }
+    // FIXME: change into enum after deprecation grace period
+    public final class Configuration {}
 }

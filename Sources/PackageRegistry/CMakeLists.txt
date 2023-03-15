@@ -7,8 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageRegistry STATIC
-  ChecksumTOFU.swift
-  Registry.swift
+  ChecksumTOFU.swift  
   RegistryConfiguration.swift
   RegistryClient.swift
   RegistryDownloadsManager.swift
