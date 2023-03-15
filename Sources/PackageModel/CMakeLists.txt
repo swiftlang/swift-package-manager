@@ -34,6 +34,7 @@ add_library(PackageModel
   Platform.swift
   PlatformRegistry.swift
   Product.swift
+  Registry.swift
   RegistryReleaseMetadata.swift
   Resource.swift
   Sanitizers.swift

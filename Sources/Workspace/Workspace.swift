@@ -192,7 +192,7 @@ private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func onUnsigned(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void) {
         if let delegate = self.workspaceDelegate {
             delegate.onUnsignedRegistryPackage(
                 registryURL: registry.url,
@@ -207,7 +207,7 @@ private struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
         }
     }
 
-    func onUntrusted(registry: PackageRegistry.Registry, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void) {
         if let delegate = self.workspaceDelegate {
             delegate.onUntrustedRegistryPackage(
                 registryURL: registry.url,
@@ -683,6 +683,13 @@ public class Workspace {
             delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate)
         )
 
+        // record state before potential mutation
+        let registryExplicitlyConfigured = registryClient.explicitlyConfigured
+        // set default registry if not already set by configuration
+        if registryClient.defaultRegistry == nil, let defaultRegistry = configuration.defaultRegistry {
+            registryClient.defaultRegistry = defaultRegistry
+        }
+
         let registryDownloadsManager = RegistryDownloadsManager(
             fileSystem: fileSystem,
             path: location.registryDownloadDirectory,
@@ -694,8 +701,8 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
-        // FIXME: activate when the root manifest has registry based deps too
-        if registryClient.explicitlyConfigured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
+        // TODO: activate if users has given an indication they want to use the registry?
+        if registryExplicitlyConfigured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,

@@ -466,6 +466,10 @@ public final class SwiftTool {
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
+                    // TODO: should supportsAvailability be a flag as well?
+                    .init(url: $0, supportsAvailability: true)
+                },
                 restrictImports: .none
             ),
             cancellator: self.cancellator,

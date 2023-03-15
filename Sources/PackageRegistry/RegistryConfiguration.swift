@@ -27,10 +27,10 @@ public struct RegistryConfiguration: Hashable {
     public var security: Security?
 
     public init() {
-        self.defaultRegistry = nil
+        self.defaultRegistry = .none
         self.scopedRegistries = [:]
         self.registryAuthentication = [:]
-        self.security = nil
+        self.security = .none
     }
 
     public mutating func merge(_ other: RegistryConfiguration) {
@@ -375,7 +375,7 @@ extension RegistryConfiguration: Codable {
     }
 }
 
-extension PackageRegistry.Registry: Codable {
+extension PackageModel.Registry: Codable {
     private enum CodingKeys: String, CodingKey {
         case url
         case supportsAvailability
@@ -383,8 +383,10 @@ extension PackageRegistry.Registry: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.url = try container.decode(URL.self, forKey: .url)
-        self.supportsAvailability = try container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
+        self.init(
+            url: try container.decode(URL.self, forKey: .url),
+            supportsAvailability: try container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
+        )
     }
 
     public func encode(to encoder: Encoder) throws {

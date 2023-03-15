@@ -1068,18 +1068,18 @@ extension SignatureValidation {
 
 private struct RejectingSignatureValidationDelegate: SignatureValidation.Delegate {
     func onUnsigned(
-        registry: PackageRegistry.Registry,
-        package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         completion(false)
     }
 
     func onUntrusted(
-        registry: PackageRegistry.Registry,
-        package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         completion(false)
@@ -1088,18 +1088,18 @@ private struct RejectingSignatureValidationDelegate: SignatureValidation.Delegat
 
 private struct AcceptingSignatureValidationDelegate: SignatureValidation.Delegate {
     func onUnsigned(
-        registry: PackageRegistry.Registry,
-        package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         completion(true)
     }
 
     func onUntrusted(
-        registry: PackageRegistry.Registry,
-        package: PackageModel.PackageIdentity,
-        version: TSCUtility.Version,
+        registry: Registry,
+        package: PackageIdentity,
+        version: Version,
         completion: (Bool) -> Void
     ) {
         completion(true)

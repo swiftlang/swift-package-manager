@@ -23,8 +23,7 @@ import TSCBasic
 import struct TSCUtility.Version
 
 public class MockRegistry {
-    private static let mockRegistryURL = URL("http://localhost/registry/mock")
-
+    private let baseURL: URL
     private let fileSystem: FileSystem
     private let identityResolver: IdentityResolver
     private let checksumAlgorithm: HashAlgorithm
@@ -41,7 +40,8 @@ public class MockRegistry {
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
         fingerprintStorage: PackageFingerprintStorage,
-        signingEntityStorage: PackageSigningEntityStorage
+        signingEntityStorage: PackageSigningEntityStorage,
+        customBaseURL: URL? = .none
     ) {
         self.fileSystem = filesystem
         self.identityResolver = identityResolver
@@ -49,7 +49,13 @@ public class MockRegistry {
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
 
         var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = .init(url: Self.mockRegistryURL, supportsAvailability: false)
+        if let baseURL = customBaseURL {
+            self.baseURL = baseURL
+
+        } else {
+            self.baseURL = URL("http://localhost/registry/mock")
+        }
+        configuration.defaultRegistry = .init(url: self.baseURL, supportsAvailability: false)
         configuration.security = .testDefault
 
         self.registryClient = RegistryClient(
@@ -111,8 +117,8 @@ public class MockRegistry {
         completion: @escaping (Result<LegacyHTTPClient.Response, Error>) -> Void
     ) {
         do {
-            guard request.url.absoluteString.hasPrefix(Self.mockRegistryURL.absoluteString) else {
-                throw StringError("url outside mock registry \(Self.mockRegistryURL)")
+            guard request.url.absoluteString.hasPrefix(self.baseURL.absoluteString) else {
+                throw StringError("url outside mock registry \(self.baseURL)")
             }
 
             switch request.kind {
@@ -134,7 +140,7 @@ public class MockRegistry {
     }
 
     private func handleRequest(request: LegacyHTTPClient.Request) throws -> LegacyHTTPClient.Response {
-        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1)
+        let routeComponents = request.url.absoluteString.dropFirst(self.baseURL.absoluteString.count + 1)
             .split(separator: "/")
         switch routeComponents.count {
         case _ where routeComponents[0].hasPrefix("identifiers?url="):
@@ -177,7 +183,7 @@ public class MockRegistry {
                 .reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
                     partial[item] =
                         .init(
-                            url: "\(Self.mockRegistryURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)"
+                            url: "\(self.baseURL.absoluteString)/\(registryIdentity.scope)/\(registryIdentity.name)/\(item)"
                         )
                 }
         )
@@ -298,7 +304,7 @@ public class MockRegistry {
         fileSystem: FileSystem,
         destination: AbsolutePath
     ) throws -> HTTPClientResponse {
-        let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1)
+        let routeComponents = request.url.absoluteString.dropFirst(self.baseURL.absoluteString.count + 1)
             .split(separator: "/")
         guard routeComponents.count == 3, routeComponents[2].hasSuffix(".zip") else {
             throw StringError("invalid request \(request.url), expecting zip suffix")

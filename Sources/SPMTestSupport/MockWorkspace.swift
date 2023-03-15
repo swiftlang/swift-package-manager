@@ -44,6 +44,7 @@ public final class MockWorkspace {
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
+    var defaultRegistry: Registry?
 
     public init(
         sandbox: AbsolutePath,
@@ -59,7 +60,8 @@ public final class MockWorkspace {
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
-        sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled
+        sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled,
+        defaultRegistry: Registry? = .none
     ) throws {
         self.sandbox = sandbox
         self.fileSystem = fileSystem
@@ -87,6 +89,7 @@ public final class MockWorkspace {
         self.customToolsVersion = customToolsVersion
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
+        self.defaultRegistry = defaultRegistry
         self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
             httpClient: LegacyHTTPClient.mock(fileSystem: fileSystem),
             archiver: MockArchiver()
@@ -283,6 +286,7 @@ public final class MockWorkspace {
                 fingerprintCheckingMode: .strict,
                 signingEntityCheckingMode: .strict,
                 sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation,
+                defaultRegistry: self.defaultRegistry,
                 restrictImports: .none
             ),
             customFingerprints: self.fingerprints,
