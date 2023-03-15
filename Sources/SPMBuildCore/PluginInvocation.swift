@@ -1009,7 +1009,7 @@ extension ObservabilityMetadata {
     }
 }
 
-public struct FileLocation: Equatable, CustomStringConvertible {
+public struct FileLocation: Equatable, CustomStringConvertible, Sendable {
     public let file: AbsolutePath
     public let line: Int?
 

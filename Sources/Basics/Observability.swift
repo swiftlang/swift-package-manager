@@ -36,16 +36,16 @@ public class ObservabilitySystem {
     }
 
     /// Create an ObservabilitySystem with a single diagnostics handler.
-    public convenience init(_ handler: @escaping (ObservabilityScope, Diagnostic) -> Void) {
+    public convenience init(_ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
         self.init(SingleDiagnosticsHandler(handler))
     }
 
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
-        var diagnosticsHandler: DiagnosticsHandler  { self }
+        var diagnosticsHandler: DiagnosticsHandler { self }
 
-        let underlying: (ObservabilityScope, Diagnostic) -> Void
+        let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
 
-        init(_ underlying: @escaping (ObservabilityScope, Diagnostic) -> Void) {
+        init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
             self.underlying = underlying
         }
 
@@ -61,12 +61,12 @@ public protocol ObservabilityHandlerProvider {
 
 // MARK: - ObservabilityScope
 
-public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringConvertible {
+public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, CustomStringConvertible {
     public let description: String
     private let parent: ObservabilityScope?
     private let metadata: ObservabilityMetadata?
 
-    private var diagnosticsHandler: DiagnosticsHandlerWrapper
+    private let diagnosticsHandler: DiagnosticsHandlerWrapper
 
     fileprivate init(
         description: String,
@@ -150,7 +150,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
 
 // MARK: - Diagnostics
 
-public protocol DiagnosticsHandler {
+public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
@@ -252,7 +252,7 @@ public struct DiagnosticsEmitter: DiagnosticsEmitterProtocol {
     }
 }
 
-public struct Diagnostic: CustomStringConvertible {
+public struct Diagnostic: Sendable, CustomStringConvertible {
     public let severity: Severity
     public let message: String
     public internal (set) var metadata: ObservabilityMetadata?
@@ -324,7 +324,7 @@ public struct Diagnostic: CustomStringConvertible {
         Self(severity: .debug, message: message.description, metadata: metadata)
     }
 
-    public enum Severity: Comparable {
+    public enum Severity: Comparable, Sendable {
         case error
         case warning
         case info
@@ -380,10 +380,10 @@ public struct Diagnostic: CustomStringConvertible {
 // FIXME: we currently require that Value conforms to CustomStringConvertible which sucks
 // ideally Value would conform to Equatable but that has generic requirement
 // luckily, this is about to change so we can clean this up soon
-public struct ObservabilityMetadata: CustomDebugStringConvertible {
+public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
     public typealias Key = ObservabilityMetadataKey
 
-    private var _storage = [AnyKey: Any]()
+    private var _storage = [AnyKey: Sendable]()
 
     public init() {}
 
@@ -414,7 +414,7 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible {
     ///
     /// - Parameter body: The closure to be invoked for each item stored in this `ObservabilityMetadata`,
     /// passing the type-erased key and the associated value.
-    public func forEach(_ body: (AnyKey, Any) throws -> Void) rethrows {
+    public func forEach(_ body: (AnyKey, Sendable) throws -> Void) rethrows {
         try self._storage.forEach { key, value in
             try body(key, value)
         }
@@ -473,7 +473,7 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible {
     }
 
     /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
-    public struct AnyKey {
+    public struct AnyKey: Sendable {
         /// The key's type represented erased to an `Any.Type`.
         public let keyType: Any.Type
 
@@ -485,7 +485,7 @@ public struct ObservabilityMetadata: CustomDebugStringConvertible {
 
 public protocol ObservabilityMetadataKey {
     /// The type of value uniquely identified by this key.
-    associatedtype Value
+    associatedtype Value: Sendable
 }
 
 extension ObservabilityMetadata.AnyKey: Hashable {
@@ -569,11 +569,11 @@ extension ObservabilityMetadata {
         }
     }
 
-    private enum LegacyLocationKey: Key {
+    private enum LegacyLocationKey: Key, Sendable {
         typealias Value = DiagnosticLocationWrapper
     }
 
-    public struct DiagnosticLocationWrapper: CustomStringConvertible {
+    public struct DiagnosticLocationWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticLocation
 
         public init (_ underlying: DiagnosticLocation) {
@@ -597,11 +597,11 @@ extension ObservabilityMetadata {
         }
     }
 
-    private enum LegacyDataKey: Key {
+    private enum LegacyDataKey: Key, Sendable {
         typealias Value = DiagnosticDataWrapper
     }
 
-    struct DiagnosticDataWrapper: CustomStringConvertible {
+    struct DiagnosticDataWrapper: Sendable, CustomStringConvertible {
         let underlying: DiagnosticData
 
         public init (_ underlying: DiagnosticData) {

@@ -51,10 +51,12 @@ public actor HTTPClient {
     ///
     /// - Parameters:
     ///   - request: The ``HTTPClientRequest`` to perform.
+    ///   - observabilityScope: the observability scope to emit diagnostics on.
     ///   - progress: A closure to handle response download progress.
     /// - Returns: A response value returned by underlying ``HTTPClient.Implementation``.
     public func execute(
         _ request: Request,
+        observabilityScope: ObservabilityScope? = nil,
         progress: ProgressHandler? = nil
     ) async throws -> Response {
         // merge configuration
@@ -85,16 +87,18 @@ public actor HTTPClient {
             request.headers.add(name: "Authorization", value: authorization)
         }
 
-        return try await executeWithStrategies(request: request, progress: progress, requestNumber: 0)
+        return try await executeWithStrategies(request: request, requestNumber: 0, observabilityScope, progress)
     }
 
     private func executeWithStrategies(
         request: Request,
-        progress: ProgressHandler?,
-        requestNumber: Int
+        requestNumber: Int,
+        _ observabilityScope: ObservabilityScope?,
+        _ progress: ProgressHandler?
     ) async throws -> Response {
         // apply circuit breaker if necessary
         if self.shouldCircuitBreak(request: request) {
+            observabilityScope?.emit(warning: "Circuit breaker triggered for \(request.url)")
             throw HTTPClientError.circuitBreakerTriggered
         }
 
@@ -115,17 +119,19 @@ public actor HTTPClient {
         self.recordErrorIfNecessary(response: response, request: request)
 
         // handle retry strategy
-        if let retryDelayInNanoseconds = self.calculateRetry(
+        if let retryDelay = self.calculateRetry(
             response: response,
             request: request,
             requestNumber: requestNumber
-        )?.nanoseconds() {
+        ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
+            observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
             try await Task.sleep(nanoseconds: UInt64(retryDelayInNanoseconds))
 
             return try await self.executeWithStrategies(
                 request: request,
-                progress: progress,
-                requestNumber: requestNumber + 1
+                requestNumber: requestNumber + 1,
+                observabilityScope,
+                progress
             )
         }
         // check for valid response codes
