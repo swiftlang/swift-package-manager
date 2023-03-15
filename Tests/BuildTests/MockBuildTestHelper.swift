@@ -76,7 +76,7 @@ func mockBuildParameters(
     useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true
 ) -> BuildParameters {
-    return BuildParameters(
+    return try! BuildParameters(
         dataPath: buildPath,
         configuration: config,
         toolchain: toolchain,

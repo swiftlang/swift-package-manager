@@ -720,7 +720,7 @@ public final class SwiftTool {
             let dataPath = self.scratchDirectory.appending(
                 component: destinationTriple.platformBuildPathComponent(buildSystem: options.build.buildSystem)
             )
-            return BuildParameters(
+            return try BuildParameters(
                 dataPath: dataPath,
                 configuration: options.build.configuration,
                 toolchain: destinationToolchain,
@@ -757,7 +757,7 @@ public final class SwiftTool {
         do {
             let hostToolchain = try _hostToolchain.get()
             hostDestination = hostToolchain.destination
-            let hostTriple = Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+            let hostTriple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
             // Create custom toolchain if present.
             if let customDestination = options.locations.customCompileDestination {

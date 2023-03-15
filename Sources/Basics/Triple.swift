@@ -194,7 +194,7 @@ public struct Triple: Encodable, Equatable, Sendable {
     public static let macOS = try! Triple("x86_64-apple-macosx")
 
     /// Determine the versioned host triple using the Swift compiler.
-    public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) -> Triple {
+    public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
         do {
@@ -206,7 +206,7 @@ public struct Triple: Encodable, Equatable, Sendable {
             #if os(macOS)
             return .macOS
             #else
-            fatalError("Failed to get target info (\(error))")
+            throw InternalError("Failed to get target info (\(error))")
             #endif
         }
         // Parse the compiler's JSON output.
@@ -214,20 +214,20 @@ public struct Triple: Encodable, Equatable, Sendable {
         do {
             parsedTargetInfo = try JSON(string: compilerOutput)
         } catch {
-            fatalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
+            throw InternalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
         }
         // Get the triple string from the parsed JSON.
         let tripleString: String
         do {
             tripleString = try parsedTargetInfo.get("target").get("triple")
         } catch {
-            fatalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
+            throw InternalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
         }
         // Parse the triple string.
         do {
             return try Triple(tripleString)
         } catch {
-            fatalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
+            throw InternalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
         }
     }
 
