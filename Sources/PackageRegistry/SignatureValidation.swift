@@ -29,18 +29,21 @@ protocol SignatureValidationDelegate {
 struct SignatureValidation {
     typealias Delegate = SignatureValidationDelegate
 
+    private let skipSignatureValidation: Bool
     private let signingEntityTOFU: PackageSigningEntityTOFU
     private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
         .PackageVersionMetadata
     private let delegate: Delegate
 
     init(
+        skipSignatureValidation: Bool,
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
         versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
             .PackageVersionMetadata,
         delegate: Delegate
     ) {
+        self.skipSignatureValidation = skipSignatureValidation
         self.signingEntityTOFU = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode
@@ -74,6 +77,10 @@ struct SignatureValidation {
         ) { result in
             switch result {
             case .success(let signingEntity):
+                guard !self.skipSignatureValidation else {
+                    return completion(.success(.none))
+                }
+                
                 // Always do signing entity TOFU check at the end,
                 // whether the package is signed or not.
                 self.signingEntityTOFU.validate(
@@ -117,6 +124,13 @@ struct SignatureValidation {
                     version: version
                 )
             }
+
+            // Carry out user's preference on handling unsigned packages
+            // whether we are doing signature validation or not
+            guard !self.skipSignatureValidation else {
+                return completion(.success(.none))
+            }
+
             guard let signatureData = Data(base64Encoded: signatureBase64Encoded) else {
                 throw RegistryError.failedLoadingSignature
             }

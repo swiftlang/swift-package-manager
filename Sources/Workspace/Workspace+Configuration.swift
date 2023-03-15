@@ -734,6 +734,9 @@ public struct WorkspaceConfiguration {
 
     ///  Signing entity checking mode. Defaults to warn.
     public var signingEntityCheckingMode: CheckingMode
+    
+    /// Whether to skip validating signature of signed packages downloaded from registry
+    public var skipSignatureValidation: Bool
 
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
@@ -759,6 +762,7 @@ public struct WorkspaceConfiguration {
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: CheckingMode,
         signingEntityCheckingMode: CheckingMode,
+        skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
         restrictImports: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
@@ -771,6 +775,7 @@ public struct WorkspaceConfiguration {
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.signingEntityCheckingMode = signingEntityCheckingMode
+        self.skipSignatureValidation = skipSignatureValidation
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.restrictImports = restrictImports
@@ -787,6 +792,7 @@ public struct WorkspaceConfiguration {
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
             signingEntityCheckingMode: .warn,
+            skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
             restrictImports: .none

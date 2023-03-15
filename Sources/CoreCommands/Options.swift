@@ -228,6 +228,13 @@ public struct SecurityOptions: ParsableArguments {
 
     @Option(name: .customLong("resolver-signing-entity-checking"))
     public var signingEntityCheckingMode: WorkspaceConfiguration.CheckingMode = .warn
+
+    @Flag(
+        inversion: .prefixedEnableDisable,
+        exclusivity: .exclusive,
+        help: "Validate signature of a signed package release downloaded from registry"
+    )
+    public var signatureValidation: Bool = true
 }
 
 public struct ResolverOptions: ParsableArguments {

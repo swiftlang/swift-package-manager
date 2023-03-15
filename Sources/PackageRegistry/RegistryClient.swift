@@ -41,6 +41,7 @@ public final class RegistryClient: Cancellable {
     private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
+    private let skipSignatureValidation: Bool
     private let signingEntityStorage: PackageSigningEntityStorage?
     private let signingEntityCheckingMode: SigningEntityCheckingMode
     private let jsonDecoder: JSONDecoder
@@ -60,6 +61,7 @@ public final class RegistryClient: Cancellable {
         configuration: RegistryConfiguration,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
+        skipSignatureValidation: Bool,
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
         authorizationProvider: AuthorizationProvider? = .none,
@@ -97,6 +99,7 @@ public final class RegistryClient: Cancellable {
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
+        self.skipSignatureValidation = skipSignatureValidation
         self.signingEntityStorage = signingEntityStorage
         self.signingEntityCheckingMode = signingEntityCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -782,6 +785,7 @@ public final class RegistryClient: Cancellable {
 
                 // signature validation helper
                 let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: self.skipSignatureValidation,
                     signingEntityStorage: self.signingEntityStorage,
                     signingEntityCheckingMode: self.signingEntityCheckingMode,
                     versionMetadataProvider: { _, _ in versionMetadata },

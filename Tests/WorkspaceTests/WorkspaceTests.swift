@@ -13850,6 +13850,7 @@ final class WorkspaceTests: XCTestCase {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,

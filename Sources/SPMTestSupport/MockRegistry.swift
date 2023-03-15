@@ -62,6 +62,7 @@ public class MockRegistry {
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
