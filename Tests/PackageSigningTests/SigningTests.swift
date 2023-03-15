@@ -463,41 +463,51 @@ final class SigningTests: XCTestCase {
     }
 
     func testCMSCheckCertificateRevocationStatus() async throws {
+        let responderID = ResponderID
+            .byName(try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test OCSP Responder"))
+
         let ocspHandler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.post, URL(OCSPTestHelper.responderURI)):
-//                guard let requestBody = request.body else {
-//                    throw StringError("Empty request body")
-//                }
-//
-//                let ocspRequest = try OCSPRequest(derEncoded: Array(requestBody))
-//
-//                guard let nonce = try? ocspRequest.tbsRequest.requestExtensions?.ocspNonce else {
-//                    throw StringError("Missing nonce")
-//                }
-//                guard let singleRequest = ocspRequest.tbsRequest.requestList.first else {
-//                    throw StringError("Missing OCSP request")
-//                }
-//
-//                let ocspResponse = OCSPResponse.successful(.signed(responses: [OCSPSingleResponse(
-//                    certID: singleRequest.certID,
-//                    certStatus: .unknown,
-//                    thisUpdate: try .init(Date() - .days(1)),
-//                    nextUpdate: try .init(Date() + .days(1))
-//                )], responseExtensions: { nonce }))
-//                return HTTPClientResponse(statusCode: 200, body: Data(ocspResponse.derEncodedBytes))
-                return HTTPClientResponse(statusCode: 500)
+                guard let requestBody = request.body else {
+                    throw StringError("Empty request body")
+                }
+
+                let ocspRequest = try OCSPRequest(derEncoded: Array(requestBody))
+
+                guard let nonce = try? ocspRequest.tbsRequest.requestExtensions?.ocspNonce else {
+                    throw StringError("Missing nonce")
+                }
+                guard let singleRequest = ocspRequest.tbsRequest.requestList.first else {
+                    throw StringError("Missing OCSP request")
+                }
+
+                let ocspResponse = OCSPResponse.successful(.signed(
+                    responderID: responderID,
+                    producedAt: try GeneralizedTime(Date()),
+                    responses: [OCSPSingleResponse(
+                        certID: singleRequest.certID,
+                        certStatus: .unknown,
+                        thisUpdate: try .init(Date() - .days(1)),
+                        nextUpdate: try .init(Date() + .days(1))
+                    )], responseExtensions: { nonce }
+                ))
+                return HTTPClientResponse(statusCode: 200, body: try Data(ocspResponse.derEncodedBytes()))
             default:
                 throw StringError("method and url should match")
             }
         }
-        
+
         let localhostLeafName = try OCSPTestHelper.distinguishedName(commonName: "localhost")
         let intermediateName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test Intermediate CA")
         let caName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test CA")
-        
+
         let chainWithSingleCertWithOCSP = [
-            try OCSPTestHelper.certificate(subject: localhostLeafName, issuer: intermediateName, ocspServer: OCSPTestHelper.responderURI),
+            try OCSPTestHelper.certificate(
+                subject: localhostLeafName,
+                issuer: intermediateName,
+                ocspServer: OCSPTestHelper.responderURI
+            ),
             try OCSPTestHelper.certificate(subject: intermediateName, issuer: intermediateName),
         ]
 
@@ -922,9 +932,6 @@ final class SigningTests: XCTestCase {
 
 enum OCSPTestHelper {
     static let responderURI = "http://ocsp.localhost"
-//    static let responderID = ResponderID.byName(try! DistinguishedName {
-//        CommonName("SwiftPM Test OCSP Responder")
-//    })
 
     static let privateKey = P256.Signing.PrivateKey()
 
