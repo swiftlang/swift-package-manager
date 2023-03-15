@@ -64,6 +64,10 @@ struct SignatureValidation {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
+        guard !self.skipSignatureValidation else {
+            return completion(.success(.none))
+        }
+
         self.getAndValidateSignature(
             registry: registry,
             package: package,
@@ -77,10 +81,6 @@ struct SignatureValidation {
         ) { result in
             switch result {
             case .success(let signingEntity):
-                guard !self.skipSignatureValidation else {
-                    return completion(.success(.none))
-                }
-                
                 // Always do signing entity TOFU check at the end,
                 // whether the package is signed or not.
                 self.signingEntityTOFU.validate(
@@ -123,12 +123,6 @@ struct SignatureValidation {
                     package: package.underlying,
                     version: version
                 )
-            }
-
-            // Carry out user's preference on handling unsigned packages
-            // whether we are doing signature validation or not
-            guard !self.skipSignatureValidation else {
-                return completion(.success(.none))
             }
 
             guard let signatureData = Data(base64Encoded: signatureBase64Encoded) else {
