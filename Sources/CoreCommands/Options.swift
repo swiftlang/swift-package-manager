@@ -252,7 +252,7 @@ public struct ResolverOptions: ParsableArguments {
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
         .swizzle
 
-    @Option(help: "Default registry URL to use, instead of the registries.json configuraiton file")
+    @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
 
     public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
