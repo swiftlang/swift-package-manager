@@ -30,7 +30,7 @@ extension SystemLibraryTarget {
 class PkgConfigTests: XCTestCase {
     let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
     let observability = ObservabilitySystem.makeForTesting()
-    let fs = localFileSystem
+    let fs: some FileSystem = localFileSystem
 
     func testBasics() throws {
         // No pkgConfig name.
