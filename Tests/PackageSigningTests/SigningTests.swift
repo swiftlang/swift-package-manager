@@ -491,9 +491,18 @@ final class SigningTests: XCTestCase {
                 throw StringError("method and url should match")
             }
         }
+        
+        let localhostLeafName = try OCSPTestHelper.distinguishedName(commonName: "localhost")
+        let intermediateName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test Intermediate CA")
+        let caName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test CA")
+        
+        let chainWithSingleCertWithOCSP = [
+            try OCSPTestHelper.certificate(subject: localhostLeafName, issuer: intermediateName, ocspServer: OCSPTestHelper.responderURI),
+            try OCSPTestHelper.certificate(subject: intermediateName, issuer: intermediateName),
+        ]
 
         let signingIdentity = SwiftSigningIdentity(
-            certificate: OCSPTestHelper.chainWithSingleCertWithOCSP[0],
+            certificate: chainWithSingleCertWithOCSP[0],
             privateKey: Certificate.PrivateKey(OCSPTestHelper.privateKey)
         )
         let content = Array("per aspera ad astra".utf8)
@@ -512,7 +521,7 @@ final class SigningTests: XCTestCase {
         // certificateRevocation = .strict doesn't allow status 'unknown'
         do {
             let verifierConfiguration = VerifierConfiguration(
-                trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
+                trustedRoots: [try chainWithSingleCertWithOCSP[1].derEncodedBytes()],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .disabled,
                 certificateRevocation: .strict
@@ -533,7 +542,7 @@ final class SigningTests: XCTestCase {
         // certificateRevocation = .allowSoftFail allows status 'unknown'
         do {
             let verifierConfiguration = VerifierConfiguration(
-                trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
+                trustedRoots: [try chainWithSingleCertWithOCSP[1].derEncodedBytes()],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .disabled,
                 certificateRevocation: .allowSoftFail
@@ -913,9 +922,9 @@ final class SigningTests: XCTestCase {
 
 enum OCSPTestHelper {
     static let responderURI = "http://ocsp.localhost"
-    static let responderID = ResponderID.byName(try! DistinguishedName {
-        CommonName("SwiftPM Test OCSP Responder")
-    })
+//    static let responderID = ResponderID.byName(try! DistinguishedName {
+//        CommonName("SwiftPM Test OCSP Responder")
+//    })
 
     static let privateKey = P256.Signing.PrivateKey()
 
@@ -923,8 +932,8 @@ enum OCSPTestHelper {
         subject: DistinguishedName,
         issuer: DistinguishedName,
         ocspServer: String? = nil
-    ) -> Certificate {
-        try! Certificate(
+    ) throws -> Certificate {
+        try Certificate(
             version: .v3,
             serialNumber: .init(),
             publicKey: .init(self.privateKey.publicKey),
@@ -947,34 +956,23 @@ enum OCSPTestHelper {
         )
     }
 
-    static let ca1Name = try! DistinguishedName {
-        CountryName("US")
-        OrganizationName("SwiftPM Test")
-        CommonName("SwiftPM Test CA 1")
+    static func distinguishedName(
+        countryName: String = "US",
+        organizationName: String = "SwiftPM Test",
+        commonName: String
+    ) throws -> DistinguishedName {
+        try DistinguishedName {
+            CountryName(countryName)
+            OrganizationName(organizationName)
+            CommonName(commonName)
+        }
     }
-
-    static let intermediate1Name = try! DistinguishedName {
-        CountryName("US")
-        OrganizationName("SwiftPM Test")
-        CommonName("SwiftPM Test Intermediate CA 1")
-    }
-
-    static let localhostLeafName = try! DistinguishedName {
-        CountryName("US")
-        OrganizationName("SwiftPM Test")
-        CommonName("localhost")
-    }
-
-    static let chainWithSingleCertWithOCSP = [
-        certificate(subject: localhostLeafName, issuer: intermediate1Name, ocspServer: responderURI),
-        certificate(subject: intermediate1Name, issuer: intermediate1Name),
-    ]
 }
 
 extension Certificate {
-    fileprivate var derEncodedBytes: [UInt8] {
+    fileprivate func derEncodedBytes() throws -> [UInt8] {
         var serializer = DER.Serializer()
-        try! serializer.serialize(self)
+        try serializer.serialize(self)
         return serializer.serializedBytes
     }
 }
@@ -1017,8 +1015,8 @@ extension BasicOCSPResponse {
 
     static func signed(
         version: OCSPVersion = .v1,
-        responderID: ResponderID = OCSPTestHelper.responderID,
-        producedAt: GeneralizedTime = try! .init(Date()),
+        responderID: ResponderID,
+        producedAt: GeneralizedTime,
         responses: [OCSPSingleResponse],
         @ExtensionsBuilder responseExtensions: () -> Certificate.Extensions = { .init() }
     ) -> Self {
@@ -1033,9 +1031,9 @@ extension BasicOCSPResponse {
 }
 
 extension OCSPResponse {
-    fileprivate var derEncodedBytes: [UInt8] {
+    fileprivate func derEncodedBytes() throws -> [UInt8] {
         var serializer = DER.Serializer()
-        try! serializer.serialize(self)
+        try serializer.serialize(self)
         return serializer.serializedBytes
     }
 }
