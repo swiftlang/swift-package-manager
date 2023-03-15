@@ -98,7 +98,7 @@ public struct PluginCompilationResult: Equatable {
     public var diagnosticsFile: AbsolutePath
     
     /// Any output emitted by the compiler (stdout and stderr combined).
-    public var compilerOutput: String
+    public var rawCompilerOutput: String
     
     /// Whether the compilation result came from the cache (false means that the compiler did run).
     public var cached: Bool
@@ -108,21 +108,21 @@ public struct PluginCompilationResult: Equatable {
         commandLine: [String],
         executableFile: AbsolutePath,
         diagnosticsFile: AbsolutePath,
-        compilerOutput: String,
+        compilerOutput rawCompilerOutput: String,
         cached: Bool
     ) {
         self.succeeded = succeeded
         self.commandLine = commandLine
         self.executableFile = executableFile
         self.diagnosticsFile = diagnosticsFile
-        self.compilerOutput = compilerOutput
+        self.rawCompilerOutput = rawCompilerOutput
         self.cached = cached
     }
 }
 
-extension PluginCompilationResult: CustomStringConvertible {
-    public var description: String {
-        let output = compilerOutput.spm_chomp()
+extension PluginCompilationResult {
+    public var compilerOutput: String {
+        let output = self.rawCompilerOutput.spm_chomp()
         return output + (output.isEmpty || output.hasSuffix("\n") ? "" : "\n")
     }
 }

@@ -757,6 +757,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     /// Invoked when an action taken before building emits output.
+    /// when verboseOnly is set to true, the output will only be printed in verbose logging mode
     func preparationStepHadOutput(_ name: String, output: String, verboseOnly: Bool) {
         queue.async {
             self.progressAnimation.clear()

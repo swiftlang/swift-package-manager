@@ -334,16 +334,29 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
             }
             func didCompilePlugin(result: PluginCompilationResult) {
-                if !result.description.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description, verboseOnly: result.succeeded)
+                self.buildSystemDelegate?.preparationStepHadOutput(
+                    preparationStepName,
+                    output: result.commandLine.joined(separator: " "),
+                    verboseOnly: true
+                )
+                if !result.compilerOutput.isEmpty {
+                    self.buildSystemDelegate?.preparationStepHadOutput(
+                        preparationStepName,
+                        output: result.compilerOutput,
+                        verboseOnly: false
+                    )
                 }
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
             func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
                 self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
-                if !cachedResult.description.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: cachedResult.description, verboseOnly: true)
+                if !cachedResult.compilerOutput.isEmpty {
+                    self.buildSystemDelegate?.preparationStepHadOutput(
+                        preparationStepName,
+                        output: cachedResult.compilerOutput,
+                        verboseOnly: false
+                    )
                 }
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }
