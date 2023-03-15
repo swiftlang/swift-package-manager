@@ -335,7 +335,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
             func didCompilePlugin(result: PluginCompilationResult) {
                 if !result.description.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
+                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description, verboseOnly: result.succeeded)
                 }
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (result.succeeded ? .succeeded : .failed))
             }
@@ -343,7 +343,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // Historically we have emitted log info about cached plugins that are used. We should reconsider whether this is the right thing to do.
                 self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
                 if !cachedResult.description.isEmpty {
-                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: cachedResult.description)
+                    self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: cachedResult.description, verboseOnly: true)
                 }
                 self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: (cachedResult.succeeded ? .succeeded : .failed))
             }

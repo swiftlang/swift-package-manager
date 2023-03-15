@@ -757,10 +757,10 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     /// Invoked when an action taken before building emits output.
-    func preparationStepHadOutput(_ name: String, output: String) {
+    func preparationStepHadOutput(_ name: String, output: String, verboseOnly: Bool) {
         queue.async {
             self.progressAnimation.clear()
-            if self.logLevel.isVerbose {
+            if !verboseOnly || self.logLevel.isVerbose {
                 self.outputStream <<< output.spm_chomp() <<< "\n"
                 self.outputStream.flush()
             }
