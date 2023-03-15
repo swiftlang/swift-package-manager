@@ -174,7 +174,10 @@ public struct SwiftTestTool: SwiftCommand {
             throw ExitCode.failure
         }
 
-        if self.options._deprecated_shouldListTests {
+        if self.options.shouldPrintCodeCovPath {
+            let command = try PrintCodeCovPath.parse()
+            try command.run(swiftTool)
+        } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
             let command = try List.parse()
             try command.run(swiftTool)
@@ -342,10 +345,6 @@ public struct SwiftTestTool: SwiftCommand {
             let jsonPath = buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
             try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftTool: swiftTool)
         }
-
-        if self.options.shouldPrintCodeCovPath {
-            print(buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
-        }
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
@@ -436,10 +435,6 @@ public struct SwiftTestTool: SwiftCommand {
             }
         }
 
-        if options.shouldPrintCodeCovPath && !options.enableCodeCoverage {
-            throw StringError("'--show-codecov-path' option is only allowed with '--enable-code-coverage'")
-        }
-
         if options._deprecated_shouldGenerateLinuxMain {
             observabilityScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
@@ -451,6 +446,40 @@ public struct SwiftTestTool: SwiftCommand {
 
     public init() {}
 }
+
+extension SwiftTestTool {
+     struct PrintCodeCovPath: SwiftCommand {
+         static let configuration = CommandConfiguration(
+             commandName: "show-codecov-path",
+             abstract: "Print the path of the exported code coverage JSON file"
+         )
+
+         @OptionGroup(visibility: .hidden)
+         var globalOptions: GlobalOptions
+
+         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
+
+         @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")], help: .hidden)
+         var _deprecated_passthrough: Bool = false
+
+         func run(_ swiftTool: SwiftTool) throws {
+             let workspace = try swiftTool.getActiveWorkspace()
+             let root = try swiftTool.getWorkspaceRoot()
+             let rootManifests = try temp_await {
+                 workspace.loadRootManifests(
+                     packages: root.packages,
+                     observabilityScope: swiftTool.observabilityScope,
+                     completion: $0
+                 )
+             }
+             guard let rootManifest = rootManifests.values.first else {
+                 throw StringError("invalid manifests at \(root.packages)")
+             }
+             let buildParameters = try swiftTool.buildParametersForTest(enableCodeCoverage: true)
+             print(buildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
+         }
+     }
+ }
 
 extension SwiftTestTool {
     struct List: SwiftCommand {
