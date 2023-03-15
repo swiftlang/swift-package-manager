@@ -88,6 +88,19 @@ extension SwiftPackageRegistryTool {
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftTool: SwiftTool) throws {
+            // We need to be able to read/write credentials
+            // Make sure credentials store is available before proceeding
+            let authorizationProvider: AuthorizationProvider?
+            do {
+                authorizationProvider = try swiftTool.getRegistryAuthorizationProvider()
+            } catch {
+                throw ValidationError.invalidCredentialStore(error)
+            }
+
+            guard let authorizationProvider = authorizationProvider else {
+                throw ValidationError.unknownCredentialStore
+            }
+
             let configuration = try getRegistriesConfig(swiftTool)
 
             // compute and validate registry URL
@@ -99,11 +112,6 @@ extension SwiftPackageRegistryTool {
 
             guard let host = registryURL.host?.lowercased() else {
                 throw ValidationError.invalidURL(registryURL)
-            }
-
-            // We need to be able to read/write credentials
-            guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
-                throw ValidationError.unknownCredentialStore
             }
 
             let authenticationType: RegistryConfiguration.AuthenticationType
