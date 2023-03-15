@@ -2878,9 +2878,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin"))
                 XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin"))
-                #if false // sometimes this line isn't emitted; being investigated in https://bugs.swift.org/browse/SR-15831
-                    XCTAssertMatch(output, .contains("MyCommandPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
-                #endif
+                XCTAssertMatch(output, .contains("error: consecutive statements on a line must be separated by ';'"))
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
         }
