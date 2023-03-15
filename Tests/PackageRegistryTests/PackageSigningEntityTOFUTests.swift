@@ -1131,7 +1131,8 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        let existing = SigningEntity.unrecognized(
+        let existing = SigningEntity.recognized(
+            type: .adp,
             name: "xxx-\(signingEntity.name ?? "")",
             organizationalUnit: nil,
             organization: nil

@@ -23,7 +23,7 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
         let name = certificate.subject.commonName
         let organizationalUnit = certificate.subject.organizationalUnitName
         let organization = certificate.subject.organizationName
-        
+
         if let type = certificate.signingEntityType {
             return .recognized(
                 type: type,
