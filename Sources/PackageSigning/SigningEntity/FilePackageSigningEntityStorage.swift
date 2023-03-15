@@ -77,7 +77,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
                     )
                 }
 
-                self.add(
+                try self.add(
                     packageSigners: &packageSigners,
                     signingEntity: signingEntity,
                     origin: origin,
@@ -106,7 +106,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         do {
             try self.withLock {
                 var packageSigners = try self.loadFromDisk(package: package)
-                self.add(
+                try self.add(
                     packageSigners: &packageSigners,
                     signingEntity: signingEntity,
                     origin: origin,
@@ -135,7 +135,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
             try self.withLock {
                 var packageSigners = try self.loadFromDisk(package: package)
                 packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
-                self.add(
+                try self.add(
                     packageSigners: &packageSigners,
                     signingEntity: signingEntity,
                     origin: origin,
@@ -166,7 +166,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
                 packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
                 // Delete all other signers
                 packageSigners.signers = packageSigners.signers.filter { $0.key == signingEntity }
-                self.add(
+                try self.add(
                     packageSigners: &packageSigners,
                     signingEntity: signingEntity,
                     origin: origin,
@@ -185,7 +185,11 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
         version: Version
-    ) {
+    ) throws {
+        guard case .recognized = signingEntity else {
+            throw PackageSigningEntityStorageError.unrecognizedSigningEntity(signingEntity)
+        }
+
         if var existingSigner = packageSigners.signers.removeValue(forKey: signingEntity) {
             existingSigner.origins.insert(origin)
             existingSigner.versions.insert(version)

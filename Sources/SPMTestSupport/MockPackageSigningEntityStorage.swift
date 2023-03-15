@@ -66,7 +66,7 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
                     )
                 }
 
-                self.addSigner(
+                try self.addSigner(
                     package: package,
                     signingEntity: signingEntity,
                     origin: origin,
@@ -93,15 +93,21 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.lock.withLock {
-            self.addSigner(
-                package: package,
-                signingEntity: signingEntity,
-                origin: origin,
-                version: version
-            )
+        do {
+            try self.lock.withLock {
+                try self.addSigner(
+                    package: package,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
+            }
+            callback(.success(()))
+        } catch {
+            callbackQueue.async {
+                callback(.failure(error))
+            }
         }
-        callback(.success(()))
     }
 
     public func changeSigningEntityFromVersion(
@@ -113,20 +119,26 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.lock.withLock {
-            self.setExpectedSigner(
-                package: package,
-                expectedSigningEntity: signingEntity,
-                expectedFromVersion: version
-            )
-            self.addSigner(
-                package: package,
-                signingEntity: signingEntity,
-                origin: origin,
-                version: version
-            )
+        do {
+            try self.lock.withLock {
+                self.setExpectedSigner(
+                    package: package,
+                    expectedSigningEntity: signingEntity,
+                    expectedFromVersion: version
+                )
+                try self.addSigner(
+                    package: package,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
+                )
+            }
+            callback(.success(()))
+        } catch {
+            callbackQueue.async {
+                callback(.failure(error))
+            }
         }
-        callback(.success(()))
     }
 
     public func changeSigningEntityForAllVersions(
@@ -138,27 +150,33 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.lock.withLock {
-            self.setExpectedSigner(
-                package: package,
-                expectedSigningEntity: signingEntity,
-                expectedFromVersion: version
-            )
-            // Delete all other signers
-            if let existing = self.packageSigners[package] {
-                self.packageSigners[package] = PackageSigners(
-                    expectedSigner: existing.expectedSigner,
-                    signers: existing.signers.filter { $0.key == signingEntity }
+        do {
+            try self.lock.withLock {
+                self.setExpectedSigner(
+                    package: package,
+                    expectedSigningEntity: signingEntity,
+                    expectedFromVersion: version
+                )
+                // Delete all other signers
+                if let existing = self.packageSigners[package] {
+                    self.packageSigners[package] = PackageSigners(
+                        expectedSigner: existing.expectedSigner,
+                        signers: existing.signers.filter { $0.key == signingEntity }
+                    )
+                }
+                try self.addSigner(
+                    package: package,
+                    signingEntity: signingEntity,
+                    origin: origin,
+                    version: version
                 )
             }
-            self.addSigner(
-                package: package,
-                signingEntity: signingEntity,
-                origin: origin,
-                version: version
-            )
+            callback(.success(()))
+        } catch {
+            callbackQueue.async {
+                callback(.failure(error))
+            }
         }
-        callback(.success(()))
     }
 
     private func setExpectedSigner(
@@ -177,7 +195,11 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
         version: Version
-    ) {
+    ) throws {
+        guard case .recognized = signingEntity else {
+            throw PackageSigningEntityStorageError.unrecognizedSigningEntity(signingEntity)
+        }
+
         let packageSigners = self.packageSigners[package] ?? PackageSigners()
 
         let packageSigner: PackageSigner

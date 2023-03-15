@@ -157,11 +157,14 @@ public struct PackageSigners {
 
 public enum PackageSigningEntityStorageError: Error, Equatable, CustomStringConvertible {
     case conflict(package: PackageIdentity, version: Version, given: SigningEntity, existing: SigningEntity)
+    case unrecognizedSigningEntity(SigningEntity)
 
     public var description: String {
         switch self {
         case .conflict(let package, let version, let given, let existing):
             return "\(package) version \(version) was previously signed by '\(existing)', which is different from '\(given)'."
+        case .unrecognizedSigningEntity(let signingEntity):
+            return "'\(signingEntity)' is not recognized and therefore will not be saved."
         }
     }
 }

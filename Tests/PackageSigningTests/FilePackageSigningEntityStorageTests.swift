@@ -29,8 +29,18 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
 
         // Record signing entities for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
-        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -94,8 +104,18 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
         let version = Version("1.0.0")
         try storage.put(
             package: package,
@@ -123,7 +143,12 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
         let version = Version("1.0.0")
         try storage.put(
             package: package,
@@ -150,14 +175,45 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
     }
 
-    func testAddDifferentSigningEntityShouldNotConflict() throws {
+    func testPutUnrecognizedSigningEntityShouldError() throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
         let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let version = Version("1.0.0")
+
+        XCTAssertThrowsError(try storage.put(
+            package: package,
+            version: version,
+            signingEntity: appleseed,
+            origin: .registry(URL("http://bar.com")) // origin is different and should be added
+        )) { error in
+            guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
+                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+            }
+        }
+    }
+
+    func testAddDifferentSigningEntityShouldNotConflict() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/signing")
+        let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
         let version = Version("1.0.0")
         try storage.put(
             package: package,
@@ -184,14 +240,57 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         XCTAssertEqual(packageSigners.signingEntities(of: Version("1.0.0")), [appleseed, davinci])
     }
 
-    func testChangeSigningEntityFromVersion() throws {
+    func testAddUnrecognizedSigningEntityShouldError() throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
         let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let version = Version("1.0.0")
+        try storage.put(
+            package: package,
+            version: version,
+            signingEntity: davinci,
+            origin: .registry(URL("http://foo.com"))
+        )
+
+        XCTAssertThrowsError(try storage.add(
+            package: package,
+            version: version,
+            signingEntity: appleseed,
+            origin: .registry(URL("http://bar.com"))
+        )) { error in
+            guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
+                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+            }
+        }
+    }
+
+    func testChangeSigningEntityFromVersion() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/signing")
+        let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -217,14 +316,56 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         XCTAssertEqual(packageSigners.signers[davinci]?.origins, [.registry(URL("http://foo.com"))])
     }
 
-    func testChangeSigningEntityForAllVersions() throws {
+    func testChangeSigningEntityFromVersion_unrecognizedSigningEntityShouldError() throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let package = PackageIdentity.plain("mona.LinkedList")
         let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
-        let davinci = SigningEntity.unrecognized(name: "L. da Vinci", organizationalUnit: nil, organization: nil)
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        try storage.put(
+            package: package,
+            version: Version("1.0.0"),
+            signingEntity: davinci,
+            origin: .registry(URL("http://foo.com"))
+        )
+
+        XCTAssertThrowsError(try storage.changeSigningEntityFromVersion(
+            package: package,
+            version: Version("1.5.0"),
+            signingEntity: appleseed,
+            origin: .registry(URL("http://bar.com"))
+        )) { error in
+            guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
+                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+            }
+        }
+    }
+
+    func testChangeSigningEntityForAllVersions() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/signing")
+        let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let appleseed = SigningEntity.recognized(
+            type: .adp,
+            name: "J. Appleseed",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -252,6 +393,38 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.5.0"), Version("2.0.0")])
         XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://bar.com"))])
+    }
+
+    func testChangeSigningEntityForAllVersions_unrecognizedSigningEntityShouldError() throws {
+        let mockFileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/signing")
+        let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
+
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
+        let davinci = SigningEntity.recognized(
+            type: .adp,
+            name: "L. da Vinci",
+            organizationalUnit: nil,
+            organization: nil
+        )
+        try storage.put(
+            package: package,
+            version: Version("1.0.0"),
+            signingEntity: davinci,
+            origin: .registry(URL("http://foo.com"))
+        )
+
+        XCTAssertThrowsError(try storage.changeSigningEntityForAllVersions(
+            package: package,
+            version: Version("1.5.0"),
+            signingEntity: appleseed,
+            origin: .registry(URL("http://bar.com"))
+        )) { error in
+            guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
+                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+            }
+        }
     }
 }
 
