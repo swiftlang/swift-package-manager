@@ -514,6 +514,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .interoperabilityMode(let lang, let version):
+            params.append(SourceCodeFragment(enum: lang.rawValue))
+            if let version = version {
+                params.append(SourceCodeFragment(key: "version", string: version))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         case .unsafeFlags(let values):
             params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
@@ -666,6 +672,8 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedFramework"
         case .unsafeFlags:
             return "unsafeFlags"
+        case .interoperabilityMode:
+            return "interoperabilityMode"
         case .enableUpcomingFeature:
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:

@@ -675,6 +675,23 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .linkedFramework(value)
+        case "interoperabilityMode":
+            guard let rawLang = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            guard let lang = TargetBuildSettingDescription.InteroperabilityMode(rawValue: rawLang) else {
+                throw InternalError("unknown interoperability mode: \(rawLang)")
+            }
+            if values.count > 2 {
+                throw InternalError("invalid build settings value")
+            }
+            let version: String?
+            if values.count == 2 {
+                version = values[1]
+            } else {
+                version = nil
+            }
+            return .interoperabilityMode(lang, version)
         case "enableUpcomingFeature":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")

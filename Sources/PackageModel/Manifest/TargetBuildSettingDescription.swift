@@ -21,12 +21,19 @@ public enum TargetBuildSettingDescription {
         case linker
     }
 
+    public enum InteroperabilityMode: String, Codable, Equatable, Sendable {
+        case C
+        case Cxx
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Equatable, Sendable {
         case headerSearchPath(String)
         case define(String)
         case linkedLibrary(String)
         case linkedFramework(String)
+
+        case interoperabilityMode(InteroperabilityMode, String?)
 
         case enableUpcomingFeature(String)
         case enableExperimentalFeature(String)
@@ -38,7 +45,7 @@ public enum TargetBuildSettingDescription {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .enableUpcomingFeature, .enableExperimentalFeature:
+            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode, .enableUpcomingFeature, .enableExperimentalFeature:
                 return false
             }
         }
