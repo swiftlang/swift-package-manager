@@ -69,7 +69,7 @@ extension DestinationCommand {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
 
         let hostToolchain = try UserToolchain(destination: Destination.hostDestination())
-        let triple = Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+        let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil
         do {

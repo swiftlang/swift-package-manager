@@ -250,7 +250,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 component: self.destinationToolchain.triple.platformBuildPathComponent(buildSystem: buildSystem)
             )
 
-            let buildParameters = BuildParameters(
+            let buildParameters = try BuildParameters(
                 dataPath: dataPath,
                 configuration: configuration,
                 toolchain: self.destinationToolchain,

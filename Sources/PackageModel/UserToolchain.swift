@@ -453,7 +453,7 @@ public final class UserToolchain: Toolchain {
         self.architectures = destination.architectures
 
         // Use the triple from destination or compute the host triple using swiftc.
-        var triple = destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = try destination.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.

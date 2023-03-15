@@ -251,13 +251,13 @@ public struct BuildParameters: Encodable {
         linkerDeadStrip: Bool = true,
         colorizedOutput: Bool = false,
         verboseOutput: Bool = false
-    ) {
-        let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+    ) throws {
+        let triple = try destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
 
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
-        self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        self.hostTriple = try hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.triple = triple
         self.flags = flags
         self.pkgConfigDirectories = pkgConfigDirectories
@@ -305,7 +305,7 @@ public struct BuildParameters: Encodable {
             testEntryPointPath = nil
         }
 
-        return .init(
+        return try .init(
             dataPath: self.dataPath.parentDirectory.appending(components: ["plugins", "tools"]),
             configuration: self.configuration,
             toolchain: try UserToolchain(destination: Destination.hostDestination()),
