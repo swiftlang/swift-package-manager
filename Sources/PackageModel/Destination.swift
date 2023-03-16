@@ -59,7 +59,7 @@ extension DestinationError: CustomStringConvertible {
         case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
             return """
             destination with ID \(artifactID), build-time triple \(buildTimeTriple), and run-time triple \
-            \(runTimeTriple) is not currently installed.SB
+            \(runTimeTriple) is not currently installed.
             """
         }
     }

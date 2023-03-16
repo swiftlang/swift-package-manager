@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
@@ -27,8 +28,8 @@ struct RemoveDestination: DestinationCommand {
     @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
 
-    @Argument(help: "Name of the destination artifact bundle to remove from the filesystem.")
-    var bundleName: String
+    @Argument(help: "Name of the destination artifact bundle or ID of the destination to remove from the filesystem.")
+    var destinationIDOrBundleName: String
 
     func run(
         buildTimeTriple: Triple,
@@ -36,24 +37,74 @@ struct RemoveDestination: DestinationCommand {
         _ observabilityScope: ObservabilityScope
     ) throws {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
-        let artifactBundleDirectory = destinationsDirectory.appending(component: self.bundleName)
+        let artifactBundleDirectory = destinationsDirectory.appending(component: self.destinationIDOrBundleName)
 
-        guard fileSystem.exists(artifactBundleDirectory) else {
-            throw StringError(
+        if fileSystem.exists(artifactBundleDirectory) {
+            try fileSystem.removeFileTree(artifactBundleDirectory)
+
+            print(
                 """
-                Destination artifact bundle with name `\(self.bundleName)` is not currently installed, so \
-                it can't be removed.
+                Destination artifact bundle at path `\(artifactBundleDirectory)` was successfully removed from the \
+                file system.
                 """
             )
+        } else {
+            let bundles = try DestinationBundle.getAllValidBundles(
+                destinationsDirectory: destinationsDirectory,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
+
+            let matchingBundles = bundles.compactMap { bundle in
+                bundle.artifacts[destinationIDOrBundleName] != nil ? bundle : nil
+            }
+
+            guard !matchingBundles.isEmpty else {
+                throw StringError(
+                    """
+                    Neither a destination artifact bundle with name `\(self.destinationIDOrBundleName)` nor an \
+                    artifact with such ID are currently installed. Use `list` subcommand to see all available \
+                    destinations.
+                    """
+                )
+            }
+
+            guard matchingBundles.count == 1 else {
+                let namesOfBundles = matchingBundles.map { "`\($0.name)`" }.joined(separator: ", ")
+
+                throw StringError(
+                    """
+                    Multiple bundles contain destinations with ID \(self.destinationIDOrBundleName). Names of these \
+                    bundles are: \(namesOfBundles). This will lead to issues when specifying such destination for \
+                    building. Delete one of the bundles first by their full name to disambiguate.
+                    """
+                )
+            }
+
+            let matchingBundle = matchingBundles[0]
+
+            // Don't leave an empty bundle and remove the whole thing if it has only a single artifact and that's also
+            // matching.
+            if matchingBundle.artifacts.count > 1 {
+                let otherArtifactIDs = matchingBundle.artifacts.keys
+                    .filter { $0 == self.destinationIDOrBundleName }
+                    .map { "`\($0)`" }
+                    .joined(separator: ", ")
+
+                print("""
+                    WARNING: the destination bundle containing artifact with ID \(self.destinationIDOrBundleName) \
+                    also contains other artifacts: \(otherArtifactIDs).
+                    """
+                )
+
+                print("Would you like to remove the whole bundle with all of its destinations? (Yes/No): ")
+                guard readLine(strippingNewline: true)?.lowercased() == "yes" else {
+                    print("Bundle not removed. Exiting...")
+                    return
+                }
+            }
+
+            try fileSystem.removeFileTree(matchingBundle.path)
         }
-
-        try fileSystem.removeFileTree(artifactBundleDirectory)
-
-        print(
-            """
-            Destination artifact bundle at path `\(artifactBundleDirectory)` was successfully removed from the file \
-            system.
-            """
-        )
     }
 }
