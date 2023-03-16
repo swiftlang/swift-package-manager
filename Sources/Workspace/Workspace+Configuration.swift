@@ -738,7 +738,7 @@ public struct WorkspaceConfiguration {
     ///  Attempt to transform source control based dependencies to registry ones
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
 
-    /// URL of the implicitly configured, default regsitry
+    /// URL of the implicitly configured, default registry
     public var defaultRegistry: Registry?
 
     /// Whether to create multiple test products or one per package
