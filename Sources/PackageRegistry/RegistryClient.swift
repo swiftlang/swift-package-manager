@@ -1114,6 +1114,7 @@ public final class RegistryClient: Cancellable {
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
         signature: [UInt8]?,
+        metadataSignature: [UInt8]?,
         signatureFormat: SignatureFormat?,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
@@ -1189,6 +1190,33 @@ public final class RegistryClient: Cancellable {
             \r
             \(metadataContent)
             """.utf8)
+
+            if signature != nil {
+                guard metadataSignature != nil else {
+                    return completion(.failure(
+                        RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
+                    ))
+                }
+            }
+
+            if let metadataSignature = metadataSignature {
+                guard signature != nil else {
+                    return completion(.failure(
+                        RegistryError.invalidSignature(reason: "both archive and metadata must be signed")
+                    ))
+                }
+                guard signatureFormat != nil else {
+                    return completion(.failure(RegistryError.missingSignatureFormat))
+                }
+
+                body.append(contentsOf: """
+                Content-Disposition: form-data; name=\"metadata-signature\"\r
+                Content-Type: application/octet-stream\r
+                Content-Transfer-Encoding: binary\r
+                \r\n
+                """.utf8)
+                body.append(contentsOf: metadataSignature)
+            }
         }
 
         // footer

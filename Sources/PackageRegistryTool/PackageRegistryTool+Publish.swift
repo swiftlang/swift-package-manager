@@ -25,8 +25,6 @@ import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
-        static let metadataFilename = "package-metadata.json"
-
         static let configuration = CommandConfiguration(
             abstract: "Publish to a registry"
         )
@@ -51,7 +49,7 @@ extension SwiftPackageRegistryTool {
 
         @Option(
             name: .customLong("metadata-path"),
-            help: "The path to the package metadata JSON file if it will not be part of the source archive."
+            help: "The path to the package metadata JSON file."
         )
         var customMetadataPath: AbsolutePath?
 
@@ -134,17 +132,8 @@ extension SwiftPackageRegistryTool {
             )
 
             // step 1: publishing configuration
-            let metadataLocation: MetadataLocation = self.customMetadataPath
-                .flatMap { .external($0) } ??
-                .sourceTree(packageDirectory.appending(component: Self.metadataFilename))
             let signingRequired = self.signingIdentity != nil || self.privateKeyPath != nil || !self
                 .certificateChainPaths.isEmpty
-
-            guard localFileSystem.exists(metadataLocation.path) else {
-                throw StringError(
-                    "Publishing to '\(registryURL)' requires metadata file but none was found at '\(metadataLocation.path)'."
-                )
-            }
 
             // step 2: generate source archive for the package release
             swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
@@ -157,8 +146,9 @@ extension SwiftPackageRegistryTool {
                 observabilityScope: swiftTool.observabilityScope
             )
 
-            // step 3: sign the source archive if needed
+            // step 3: sign the source archive and metadata if needed
             var signature: [UInt8]? = .none
+            var metadataSignature: [UInt8]? = .none
             if signingRequired {
                 // compute signing mode
                 let signingMode: PackageArchiveSigner.SigningMode
@@ -191,17 +181,34 @@ extension SwiftPackageRegistryTool {
                     )
                 }
 
+                var contentPaths: [AbsolutePath] = []
+                var contentSignaturePaths: [AbsolutePath: AbsolutePath] = [:]
+
                 swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
-                let signaturePath = workingDirectory
+                contentPaths.append(archivePath)
+                contentSignaturePaths[archivePath] = workingDirectory
                     .appending("\(self.packageIdentity)-\(self.packageVersion).sig")
-                signature = try PackageArchiveSigner.sign(
-                    archivePath: archivePath,
-                    signaturePath: signaturePath,
+
+                if let metadataPath = self.customMetadataPath {
+                    swiftTool.observabilityScope.emit(info: "signing metadata at '\(metadataPath)'")
+                    contentPaths.append(metadataPath)
+                    contentSignaturePaths[metadataPath] = workingDirectory
+                        .appending("\(self.packageIdentity)-\(self.packageVersion)-metadata.sig")
+                }
+
+                let signatures = try PackageArchiveSigner.sign(
+                    contentPaths: contentPaths,
+                    contentSignaturePaths: contentSignaturePaths,
                     mode: signingMode,
                     signatureFormat: self.signatureFormat,
                     fileSystem: localFileSystem,
                     observabilityScope: swiftTool.observabilityScope
                 )
+                signature = signatures[archivePath]
+
+                if let metadataPath = self.customMetadataPath {
+                    metadataSignature = signatures[metadataPath]
+                }
             }
 
             // step 4: publish the package
@@ -222,6 +229,7 @@ extension SwiftPackageRegistryTool {
                     packageArchive: archivePath,
                     packageMetadata: self.customMetadataPath,
                     signature: signature,
+                    metadataSignature: metadataSignature,
                     signatureFormat: self.signatureFormat,
                     fileSystem: localFileSystem,
                     observabilityScope: swiftTool.observabilityScope,

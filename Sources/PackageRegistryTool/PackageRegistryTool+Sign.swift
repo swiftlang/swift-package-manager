@@ -117,7 +117,37 @@ public enum PackageArchiveSigner {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> [UInt8] {
-        let archiveData = try fileSystem.readFileContents(archivePath)
+        let signatures = try Self.sign(
+            contentPaths: [archivePath],
+            contentSignaturePaths: [archivePath: signaturePath],
+            mode: mode,
+            signatureFormat: signatureFormat,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        guard let signature = signatures[archivePath] else {
+            throw StringError("signing archive at \(archivePath) failed")
+        }
+        return signature
+    }
+
+    @discardableResult
+    public static func sign(
+        contentPaths: [AbsolutePath],
+        contentSignaturePaths: [AbsolutePath: AbsolutePath],
+        mode: SigningMode,
+        signatureFormat: SignatureFormat,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> [AbsolutePath: [UInt8]] {
+        let contentBytes = Dictionary(uniqueKeysWithValues: try contentPaths.map {
+            let contentBytes = try fileSystem.readFileContents($0).contents
+            guard !contentBytes.isEmpty else {
+                throw StringError("the file at \($0) is empty")
+            }
+            return ($0, contentBytes)
+        })
 
         let signingIdentity: SigningIdentity
         let intermediateCertificates: [[UInt8]]
@@ -142,19 +172,26 @@ public enum PackageArchiveSigner {
             intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
         }
 
-        let signature = try SignatureProvider.sign(
-            content: archiveData.contents,
-            identity: signingIdentity,
-            intermediateCertificates: intermediateCertificates,
-            format: signatureFormat,
-            observabilityScope: observabilityScope
-        )
+        let contentSignatures = try Dictionary(uniqueKeysWithValues: contentBytes.map { contentPath, content in
+            let signature = try SignatureProvider.sign(
+                content: content,
+                identity: signingIdentity,
+                intermediateCertificates: intermediateCertificates,
+                format: signatureFormat,
+                observabilityScope: observabilityScope
+            )
+            return (contentPath, signature)
+        })
 
-        try fileSystem.writeFileContents(signaturePath) { stream in
-            stream.write(signature)
+        try contentSignaturePaths.forEach { contentPath, signaturePath in
+            if let signature = contentSignatures[contentPath] {
+                try fileSystem.writeFileContents(signaturePath) { stream in
+                    stream.write(signature)
+                }
+            }
         }
 
-        return signature
+        return contentSignatures
     }
 
     public enum SigningMode {

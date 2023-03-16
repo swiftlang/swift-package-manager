@@ -1700,8 +1700,8 @@ final class RegistryClientTests: XCTestCase {
             skipSignatureValidation: false,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
-            customHTTPClient: httpClient
-            ,delegate: .none
+            customHTTPClient: httpClient,
+            delegate: .none
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -2170,6 +2170,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                metadataSignature: .none,
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )
@@ -2237,6 +2238,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                metadataSignature: .none,
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )
@@ -2244,7 +2246,7 @@ final class RegistryClientTests: XCTestCase {
             XCTAssertEqual(result, .processing(statusURL: expectedLocation, retryAfter: expectedRetry))
         }
     }
-    
+
     func testRegistryPublishWithSignature() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -2256,6 +2258,7 @@ final class RegistryClientTests: XCTestCase {
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
         let signature = UUID().uuidString
+        let metadataSignature = UUID().uuidString
         let signatureFormat = SignatureFormat.cms_1_0_0
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -2269,6 +2272,7 @@ final class RegistryClientTests: XCTestCase {
                 XCTAssertMatch(body, .contains(archiveContent))
                 XCTAssertMatch(body, .contains(metadataContent))
                 XCTAssertMatch(body, .contains(signature))
+                XCTAssertMatch(body, .contains(metadataSignature))
 
                 completion(.success(.init(
                     statusCode: 201,
@@ -2305,6 +2309,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: Array(signature.utf8),
+                metadataSignature: Array(metadataSignature.utf8),
                 signatureFormat: signatureFormat,
                 fileSystem: localFileSystem
             )
@@ -2312,7 +2317,7 @@ final class RegistryClientTests: XCTestCase {
             XCTAssertEqual(result, .published(expectedLocation))
         }
     }
-    
+
     func testRegistryPublishSignatureFormatIsRequiredIfSigned() throws {
         let registryURL = URL("https://packages.example.com")
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -2321,6 +2326,7 @@ final class RegistryClientTests: XCTestCase {
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
         let signature = UUID().uuidString
+        let metadataSignature = UUID().uuidString
 
         let handler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(StringError("should not be called")))
@@ -2348,10 +2354,105 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: Array(signature.utf8),
+                metadataSignature: Array(metadataSignature.utf8),
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
                 guard case RegistryError.missingSignatureFormat = error else {
+                    return XCTFail("unexpected error \(error)")
+                }
+            }
+        }
+    }
+
+    func testRegistryPublishMetadataSignatureIsRequiredIfArchiveSigned() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+
+        let archiveContent = UUID().uuidString
+        let metadataContent = UUID().uuidString
+        let signature = UUID().uuidString
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
+            completion(.failure(StringError("should not be called")))
+        }
+
+        try withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = LegacyHTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            XCTAssertThrowsError(try registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: Array(signature.utf8),
+                metadataSignature: .none,
+                signatureFormat: signatureFormat,
+                fileSystem: localFileSystem
+            )) { error in
+                guard case RegistryError.invalidSignature = error else {
+                    return XCTFail("unexpected error \(error)")
+                }
+            }
+        }
+    }
+
+    func testRegistryPublishArchiveSignatureIsRequiredIfMetadataSigned() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+
+        let archiveContent = UUID().uuidString
+        let metadataContent = UUID().uuidString
+        let metadataSignature = UUID().uuidString
+        let signatureFormat = SignatureFormat.cms_1_0_0
+
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
+            completion(.failure(StringError("should not be called")))
+        }
+
+        try withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = LegacyHTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            XCTAssertThrowsError(try registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: .none,
+                metadataSignature: Array(metadataSignature.utf8),
+                signatureFormat: signatureFormat,
+                fileSystem: localFileSystem
+            )) { error in
+                guard case RegistryError.invalidSignature = error else {
                     return XCTFail("unexpected error \(error)")
                 }
             }
@@ -2393,6 +2494,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                metadataSignature: .none,
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
@@ -2441,6 +2543,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                metadataSignature: .none,
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
@@ -2481,6 +2584,7 @@ final class RegistryClientTests: XCTestCase {
                 packageArchive: archivePath,
                 packageMetadata: metadataPath,
                 signature: .none,
+                metadataSignature: .none,
                 signatureFormat: .none,
                 fileSystem: localFileSystem
             )) { error in
@@ -2733,6 +2837,7 @@ extension RegistryClient {
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
         signature: [UInt8]?,
+        metadataSignature: [UInt8]?,
         signatureFormat: SignatureFormat?,
         fileSystem: FileSystem
     ) throws -> RegistryClient.PublishResult {
@@ -2744,6 +2849,7 @@ extension RegistryClient {
                 packageArchive: packageArchive,
                 packageMetadata: packageMetadata,
                 signature: signature,
+                metadataSignature: metadataSignature,
                 signatureFormat: signatureFormat,
                 fileSystem: fileSystem,
                 observabilityScope: ObservabilitySystem.NOOP,
