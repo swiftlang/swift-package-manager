@@ -35,7 +35,7 @@ target_link_libraries(Workspace PUBLIC
   PackageRegistry
   PackageSigning
   SourceControl)
-target_link_libraries(PackageLoading PUBLIC
+target_link_libraries(Workspace PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Workspace PROPERTIES
