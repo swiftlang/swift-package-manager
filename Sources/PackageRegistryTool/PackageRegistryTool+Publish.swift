@@ -25,6 +25,8 @@ import struct TSCUtility.Version
 
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
+        static let metadataFilename = "package-metadata.json"
+
         static let configuration = CommandConfiguration(
             abstract: "Publish to a registry"
         )
@@ -49,7 +51,7 @@ extension SwiftPackageRegistryTool {
 
         @Option(
             name: .customLong("metadata-path"),
-            help: "The path to the package metadata JSON file."
+            help: "The path to the package metadata JSON file if it's not \(Self.metadataFilename) in the package directory."
         )
         var customMetadataPath: AbsolutePath?
 
@@ -110,10 +112,15 @@ extension SwiftPackageRegistryTool {
             }
 
             // validate custom metadata path
+            let defaultMetadataPath = packageDirectory.appending(component: Self.metadataFilename)
+            var metadataLocation: MetadataLocation? = .none
             if let customMetadataPath = self.customMetadataPath {
                 guard localFileSystem.exists(customMetadataPath) else {
                     throw StringError("Metadata file not found at '\(customMetadataPath)'.")
                 }
+                metadataLocation = .external(customMetadataPath)
+            } else if localFileSystem.exists(defaultMetadataPath) {
+                metadataLocation = .sourceTree(defaultMetadataPath)
             }
 
             guard let authorizationProvider = try swiftTool.getRegistryAuthorizationProvider() else {
@@ -189,7 +196,7 @@ extension SwiftPackageRegistryTool {
                 contentSignaturePaths[archivePath] = workingDirectory
                     .appending("\(self.packageIdentity)-\(self.packageVersion).sig")
 
-                if let metadataPath = self.customMetadataPath {
+                if let metadataPath = metadataLocation?.path {
                     swiftTool.observabilityScope.emit(info: "signing metadata at '\(metadataPath)'")
                     contentPaths.append(metadataPath)
                     contentSignaturePaths[metadataPath] = workingDirectory
@@ -206,7 +213,7 @@ extension SwiftPackageRegistryTool {
                 )
                 signature = signatures[archivePath]
 
-                if let metadataPath = self.customMetadataPath {
+                if let metadataPath = metadataLocation?.path {
                     metadataSignature = signatures[metadataPath]
                 }
             }
@@ -227,7 +234,7 @@ extension SwiftPackageRegistryTool {
                     packageIdentity: self.packageIdentity,
                     packageVersion: self.packageVersion,
                     packageArchive: archivePath,
-                    packageMetadata: self.customMetadataPath,
+                    packageMetadata: metadataLocation?.path,
                     signature: signature,
                     metadataSignature: metadataSignature,
                     signatureFormat: self.signatureFormat,
