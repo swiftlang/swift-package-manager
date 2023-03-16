@@ -977,6 +977,31 @@ public final class PackageBuilder {
                     decl = .LINK_FRAMEWORKS
                 }
 
+            case .interoperabilityMode(let lang, let version):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports interoperability")
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                if lang == .Cxx {
+                    // `version` is the compatibility version of Swift/C++ interop,
+                    // which is meant to preserve source compatibility for
+                    // user projects while Swift/C++ interop is evolving.
+                    // At the moment the only supported interop version is
+                    // `swift-5.9` which is aligned with the version of
+                    // Swift itself, but this might not always be the case
+                    // in the future.
+                    guard let version else {
+                        throw InternalError("C++ interoperability requires a version (e.g. 'swift-5.9')")
+                    }
+                    values = ["-cxx-interoperability-mode=\(version)"]
+                } else {
+                    values = []
+                }
+
             case .unsafeFlags(let _values):
                 values = _values
 

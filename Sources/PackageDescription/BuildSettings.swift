@@ -352,6 +352,41 @@ public struct SwiftSetting {
         return SwiftSetting(
             name: "enableExperimentalFeature", value: [name], condition: condition)
     }
+
+    public enum InteroperabilityMode: String {
+        case C
+        case Cxx
+    }
+
+    /// Enable Swift interoperability with a given language.
+    ///
+    /// This is useful for enabling Swift/C++ interoperability for a given
+    /// target.
+    ///
+    /// Enabling C++ interoperability mode might alter the way some existing
+    /// C/Objective-C APIs are imported.
+    ///
+    /// - Since: First available in PackageDescription 5.9.
+    ///
+    /// - Parameters:
+    ///   - mode: The language mode, either C or Cxx.
+    ///   - version: If Cxx language mode is used, the version of Swift/C++
+    /// interoperability, otherwise `nil`.
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    @available(_PackageDescription, introduced: 5.9)
+    public static func interoperabilityMode(
+      _ mode: InteroperabilityMode,
+      version: String? = nil,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        var values: [String] = [mode.rawValue]
+        if let version = version {
+            values.append(version)
+        }
+        return SwiftSetting(
+          name: "interoperabilityMode", value: values, condition: condition)
+    }
 }
 
 /// A linker build setting.
