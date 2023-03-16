@@ -688,8 +688,6 @@ public class Workspace {
             delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate)
         )
 
-        // record state before potential mutation
-        let registryExplicitlyConfigured = registryClient.explicitlyConfigured
         // set default registry if not already set by configuration
         if registryClient.defaultRegistry == nil, let defaultRegistry = configuration.defaultRegistry {
             registryClient.defaultRegistry = defaultRegistry
@@ -706,8 +704,7 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
-        // TODO: activate if users has given an indication they want to use the registry?
-        if registryExplicitlyConfigured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
+        if let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,
