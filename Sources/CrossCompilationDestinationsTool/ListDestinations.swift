@@ -42,7 +42,7 @@ struct ListDestinations: DestinationCommand {
         )
 
         guard !validBundles.isEmpty else {
-            observabilityScope.emit(info: "No cross-compilation destinations are currently installed.")
+            print("No cross-compilation destinations are currently installed.")
             return
         }
 
