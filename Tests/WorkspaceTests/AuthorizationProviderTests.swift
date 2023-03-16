@@ -106,7 +106,7 @@ final class AuthorizationProviderTests: XCTestCase {
             // delete it
             try fileSystem.removeFileTree(customPath)
             XCTAssertThrowsError(try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope), "error expected") { error in
-                XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
+                XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
             }
         }
 

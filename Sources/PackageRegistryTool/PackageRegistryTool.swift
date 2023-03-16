@@ -27,7 +27,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands:[
+        subcommands: [
             Set.self,
             Unset.self,
             Login.self,
@@ -137,6 +137,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         case invalidPackageIdentity(PackageIdentity)
         case unknownRegistry
         case unknownCredentialStore
+        case invalidCredentialStore(Error)
     }
 
     static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
@@ -172,13 +173,15 @@ extension SwiftPackageRegistryTool.ValidationError: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidURL(let url):
-            return "Invalid URL: \(url)"
+            return "invalid URL: \(url)"
         case .invalidPackageIdentity(let identity):
-            return "Invalid package identifier '\(identity)'"
+            return "invalid package identifier '\(identity)'"
         case .unknownRegistry:
-            return "Unknown registry, is one configured?"
+            return "unknown registry, is one configured?"
         case .unknownCredentialStore:
-            return "No credential store available"
+            return "no credential store available"
+        case .invalidCredentialStore(let error):
+            return "credential store is invalid: \(error)"
         }
     }
 }

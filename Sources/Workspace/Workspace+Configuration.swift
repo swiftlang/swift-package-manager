@@ -354,7 +354,7 @@ extension Workspace.Configuration {
             switch self.netrc {
             case .custom(let path):
                 guard fileSystem.exists(path) else {
-                    throw StringError("Did not find netrc file at \(path).")
+                    throw StringError("did not find netrc file at \(path)")
                 }
                 providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
             case .user:
