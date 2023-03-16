@@ -30,7 +30,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(String, [String])
 
     /// The referenced target could not be found.
-    case moduleNotFound(String, TargetDescription.TargetType)
+    case moduleNotFound(String, TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool)
 
     /// The artifact for the binary target could not be found.
     case artifactNotFound(targetName: String, expectedArtifactName: String)
@@ -87,9 +87,14 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let name, let packages):
             let packages = packages.joined(separator: "', '")
             return "multiple targets named '\(name)' in: '\(packages)'; consider using the `moduleAliases` parameter in manifest to provide unique names"
-        case .moduleNotFound(let target, let type):
+        case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
-            return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
+            var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]
+            if shouldSuggestRelaxedSourceDir {
+                clauses.append("'\(folderName)'")
+            }
+            clauses.append("or a custom sources path can be set with the 'path' property in Package.swift")
+            return clauses.joined(separator: ", ")
         case .artifactNotFound(let targetName, let expectedArtifactName):
             return "binary target '\(targetName)' could not be mapped to an artifact with expected name '\(expectedArtifactName)'"
         case .invalidModuleAlias(let originalName, let newName):
@@ -526,12 +531,23 @@ public final class PackageBuilder {
                 return path
             }
 
+            let commonTargetsOfSimilarType = self.manifest.targetsWithCommonSourceRoot(type: target.type).count
+            // If there is only one target defined, it may be allowed to occupy the
+            // entire predefined target directory.
+            if self.manifest.toolsVersion >= .v5_9 {
+                if commonTargetsOfSimilarType == 1 {
+                    return predefinedDir.path
+                }
+            }
+
             // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
             if fileSystem.isDirectory(path) {
                 self.observabilityScope.emit(.targetNameHasIncorrectCase(target: target.name))
                 return path
             }
-            throw ModuleError.moduleNotFound(target.name, target.type)
+            throw ModuleError.moduleNotFound(target.name,
+                                             target.type,
+                                             shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: target.type))
         }
 
         // Create potential targets.
@@ -568,7 +584,10 @@ public final class PackageBuilder {
         let missingModuleNames = allVisibleModuleNames.subtracting(potentialModulesName)
         if let missingModuleName = missingModuleNames.first {
             let type = potentialModules.first(where: { $0.name == missingModuleName })?.type ?? .regular
-            throw ModuleError.moduleNotFound(missingModuleName, type)
+            throw ModuleError.moduleNotFound(missingModuleName,
+              type,
+              shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type)
+            )
         }
 
         let products = Dictionary(manifest.products.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
@@ -707,7 +726,9 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                self.observabilityScope.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
+                self.observabilityScope.emit(.targetHasNoSources(name: potentialModule.name,
+                                                                 type: potentialModule.type,
+                                                                 shouldSuggestRelaxedSourceDir: manifest.shouldSuggestRelaxedSourceDir(type: potentialModule.type)))
             }
         }
 
@@ -1390,6 +1411,19 @@ public final class PackageBuilder {
             return false
         }
         return true
+    }
+
+    /// Returns the first suggested predefined source directory for a given target type.
+    public static func suggestedPredefinedSourceDirectory(type: TargetDescription.TargetType) -> String {
+        // These are static constants, safe to access by index; the first choice is preferred.
+        switch type {
+        case .test:
+            return predefinedTestDirectories[0]
+        case .plugin:
+            return predefinedPluginDirectories[0]
+        default:
+            return predefinedSourceDirectories[0]
+        }
     }
 }
 

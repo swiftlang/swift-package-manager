@@ -998,23 +998,640 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testManifestTargetDeclErrors() throws {
+    /// Starting with tools version 5.9, packages are permitted to place
+    /// sources anywhere in ./Sources when a package has a single target.
+    func testRelaxedSourceLocationSingleTargetRegular() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .regular)
         do {
-            // Reference a target which doesn't exist.
+            // Single target: Sources are expected in ./Sources.
             let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift")
-
+                "/\(predefinedSourceDir)/Foo.swift"
+            )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random"),
+                ]
+            )
+            
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    XCTAssertEqual("/\(predefinedSourceDir)", result.target.path)
+                }
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Sources, so the target Random has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
                 targets: [
                     try TargetDescription(name: "Random"),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target Random should be located under 'Sources/Random'"), severity: .error)
+                diagnostics.check(diagnostic: "Source files for target Random should be located under '\(predefinedSourceDir)/Random', '\(predefinedSourceDir)', or a custom sources path can be set with the 'path' property in Package.swift", severity: .warning)
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random"),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Sources/<target>.
+            // If that directory exists, stray sources inside ./Sources will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/Random/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random"),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources(paths: "Random.swift")
+                }
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA"),
+                    try TargetDescription(name: "TargetB"),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testRelaxedSourceLocationSingleTargetTest() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .test)
+        do {
+            // Single target: Sources are expected in ./Sources.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "MyTests", type: .test),
+                ]
+            )
+            
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("MyTests") { result in
+                    XCTAssertEqual("/\(predefinedSourceDir)", result.target.path)
+                }
+                package.checkProduct("pkgPackageTests")
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Tests.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Tests, so the target RandomTests has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "RandomTests", type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target RandomTests should be located under '\(predefinedSourceDir)/RandomTests', '\(predefinedSourceDir)', or a custom sources path can be set with the 'path' property in Package.swift", severity: .warning)
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Tests. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/RandomTests.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "RandomTests", type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("RandomTests")
+                package.checkProduct("pkgPackageTests")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Tests/<target>.
+            // If that directory exists, stray sources inside ./Tests will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/RandomTests/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "RandomTests", type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("RandomTests") { result in
+                    result.checkSources(paths: "Random.swift")
+                }
+                package.checkProduct("pkgPackageTests")
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA", type: .test),
+                    try TargetDescription(name: "TargetB", type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testRelaxedSourceLocationSingleTargetPlugin() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .plugin)
+        do {
+            // Single target: Sources are expected in ./Sources.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
+                ]
+            )
+            
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("MyPlugin") { result in
+                    result.checkSources(root: result.target.path.appending(component: predefinedSourceDir).pathString, paths: "Foo.swift")
+                }
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Plugins.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Plugins, so the target Random has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target Random should be located under '\(predefinedSourceDir)/Random', '\(predefinedSourceDir)', or a custom sources path can be set with the 'path' property in Package.swift", severity: .warning)
             }
         }
 
+        do {
+            // Single target: Sources are expected in ./Plugins. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Plugins/<target>.
+            // If that directory exists, stray sources inside ./Plugins will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/Random/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources(paths: "Random.swift")
+                }
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA", type: .plugin, pluginCapability: .buildTool),
+                    try TargetDescription(name: "TargetB", type: .plugin, pluginCapability: .buildTool),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testRelaxedSourceLocationSingleTargetExecutable() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .executable)
+        do {
+            // Single target: Sources are expected in ./Sources.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "MyExe", type: .executable),
+                ]
+            )
+
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("MyExe") { result in
+                    XCTAssertEqual("/\(predefinedSourceDir)", result.target.path)
+                }
+                package.checkProduct("MyExe")
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Sources, so the target Random has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .executable),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target Random should be located under '\(predefinedSourceDir)/Random', '\(predefinedSourceDir)', or a custom sources path can be set with the 'path' property in Package.swift", severity: .warning)
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .executable)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random")
+                package.checkProduct("Random")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Sources/<target>.
+            // If that directory exists, stray sources inside ./Sources will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/Random/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .executable)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources(paths: "Random.swift")
+                }
+                package.checkProduct("Random")
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA", type: .executable),
+                    try TargetDescription(name: "TargetB", type: .executable)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testRelaxedSourceLocationSingleTargetSystem() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .system)
+        do {
+            // Single target: Sources are expected in ./Sources.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/module.modulemap"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Foo", type: .system),
+                ]
+            )
+
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Foo") { result in
+                    XCTAssertEqual("/\(predefinedSourceDir)", result.target.path)
+                }
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Sources, so the target Random has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .system),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '/\(predefinedSourceDir)/module.modulemap'", severity: .error)
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/module.modulemap"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .system)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Sources/<target>.
+            // If that directory exists, stray sources inside ./Sources will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/module.modulemap"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .system)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources()
+                }
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift")
+
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA", type: .system),
+                    try TargetDescription(name: "TargetB", type: .system)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testRelaxedSourceLocationSingleTargetMacro() throws {
+        let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .macro)
+        do {
+            // Single target: Sources are expected in ./Sources.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Foo.swift"
+            )
+
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Foo", type: .macro),
+                ]
+            )
+
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Foo") { result in
+                    XCTAssertEqual("/\(predefinedSourceDir)", result.target.path)
+                }
+                package.checkProduct("Foo")
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources.
+            // In this case, there is a stray source file at the top-level, and no sources
+            // under ./Sources, so the target Random has no sources.
+            // This results in a *warning* that there are no sources for the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift")
+
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .macro),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target Random should be located under '\(predefinedSourceDir)/Random', '\(predefinedSourceDir)', or a custom sources path can be set with the 'path' property in Package.swift", severity: .warning)
+            }
+        }
+        do {
+            // Single target: Sources are expected in ./Sources. In this case,
+            // there is a stray source file at the top-level which is ignored.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Stray.swift",
+                "/\(predefinedSourceDir)/Random.swift")
+
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .macro)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources(root: "/\(predefinedSourceDir)", paths: "Random.swift")
+                }
+                package.checkProduct("Random")
+            }
+        }
+        do {
+            // Single target: Sources can be expected in ./Sources/<target>.
+            // If that directory exists, stray sources inside ./Sources will
+            // not be included in the target.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/\(predefinedSourceDir)/Stray.swift",
+                "/\(predefinedSourceDir)/Random/Random.swift"
+            )
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "Random", type: .macro)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                package.checkModule("Random") { result in
+                    result.checkSources(root: "/\(predefinedSourceDir)/Random", paths: "Random.swift")
+                }
+                package.checkProduct("Random")
+            }
+        }
+        do {
+            // Multiple targets: Sources are expected in their respective subdirectories
+            // under Sources
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Foo.swift")
+
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                toolsVersion: .v5_9,
+                targets: [
+                    try TargetDescription(name: "TargetA", type: .macro),
+                    try TargetDescription(name: "TargetB", type: .macro)
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target TargetA should be located under '\(predefinedSourceDir)/TargetA', or a custom sources path can be set with the 'path' property in Package.swift", severity: .error)
+            }
+        }
+    }
+
+    func testStrictSourceLocationPre5_9() throws {
+        do {
+            for fs in [
+                InMemoryFileSystem(emptyFiles:
+                                    "/Sources/Foo.swift"),
+                InMemoryFileSystem(emptyFiles:
+                                    "/Stray.swift"),
+                InMemoryFileSystem(emptyFiles:
+                                    "/Stray.swift",
+                                   "/Sources/Random.swift"),
+            ] {
+                let manifest = Manifest.createRootManifest(
+                    displayName: "pkg",
+                    targets: [
+                        try TargetDescription(name: "Random"),
+                    ]
+                )
+                PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                    diagnostics.check(diagnostic: .contains("Source files for target Random should be located under 'Sources/Random'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testManifestTargetDeclErrors() throws {
         do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/src/pkg/Foo.swift")
@@ -1057,21 +1674,6 @@ class PackageBuilderTests: XCTestCase {
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", severity: .error)
-            }
-        }
-
-        do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Source/pkg/Foo.swift")
-            // Reference invalid target.
-            let manifest = Manifest.createRootManifest(
-                displayName: "pkg",
-                targets: [
-                    try TargetDescription(name: "foo"),
-                ]
-            )
-            PackageBuilderTester(manifest, in: fs) { _, diagnotics in
-                diagnotics.check(diagnostic: .contains("Source files for target foo should be located under 'Sources/foo'"), severity: .error)
             }
         }
 
@@ -1148,7 +1750,7 @@ class PackageBuilderTests: XCTestCase {
             )
             PackageBuilderTester(manifest, in: fs) { package, diagnostics in
                 diagnostics.check(
-                    diagnostic: "Source files for target pkg2 should be located under \(pkg2)",
+                    diagnostic: .contains("Source files for target pkg2 should be located under 'Sources/pkg2'"),
                     severity: .warning
                 )
                 package.checkModule("pkg1") { module in

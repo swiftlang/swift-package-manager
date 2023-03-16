@@ -20,6 +20,10 @@ Swift Next
 Swift 5.9
 -----------
 
+* [#6294]
+
+  When a package contains a single target, sources may be distributed anywhere within the `./Sources` directory. If sources are placed in a subdirectory under `./Sources/<target>`, or there is more than one target, the existing expectation for sources apply.
+
 * [#6114]
 
   Added a new `allowNetworkConnections(scope:reason:)` for giving a command plugin permissions to access the network. Permissions can be scoped to Unix domain sockets in general or specifically for Docker, as well as local or remote IP connections which can be limited by port. For non-interactive use cases, there is also a `--allow-network-connections` commandline flag to allow network connections for a particular scope.

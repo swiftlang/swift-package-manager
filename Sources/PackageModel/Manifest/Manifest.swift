@@ -454,6 +454,26 @@ public final class Manifest: Sendable {
             return false
         }
     }
+
+    /// Returns a list of target descriptions whose root source directory is the same as that for the given type.
+    public func targetsWithCommonSourceRoot(type: TargetDescription.TargetType) -> [TargetDescription] {
+        switch type {
+        case .test:
+            return targets.filter { $0.type == .test }
+        case .plugin:
+            return targets.filter { $0.type == .plugin }
+        default:
+            return targets.filter { $0.type != .test && $0.type != .plugin }
+        }
+    }
+
+    /// Returns true if the tools version is >= 5.9 and the number of targets with a common source root is 1.
+    public func shouldSuggestRelaxedSourceDir(type: TargetDescription.TargetType) -> Bool {
+        guard toolsVersion >= .v5_9 else {
+            return false
+        }
+        return targetsWithCommonSourceRoot(type: type).count == 1
+    }
 }
 
 extension Manifest: Hashable {
