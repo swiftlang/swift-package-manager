@@ -435,6 +435,7 @@ class RegistryPackageContainerTests: XCTestCase {
             configuration: configuration!,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
+            skipSignatureValidation: false,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,

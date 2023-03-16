@@ -95,6 +95,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -190,6 +191,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -290,6 +292,7 @@ final class SignatureValidationTests: XCTestCase {
         // prompt returning false
         do {
             let signatureValidation = SignatureValidation(
+                skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
                 signingEntityCheckingMode: signingEntityCheckingMode,
                 versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -316,6 +319,7 @@ final class SignatureValidationTests: XCTestCase {
         // prompt returning continue
         do {
             let signatureValidation = SignatureValidation(
+                skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
                 signingEntityCheckingMode: signingEntityCheckingMode,
                 versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -375,6 +379,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -501,6 +506,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             let signatureValidation = SignatureValidation(
+                skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
                 signingEntityCheckingMode: signingEntityCheckingMode,
                 versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -597,6 +603,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -617,6 +624,62 @@ final class SignatureValidationTests: XCTestCase {
                 return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
             }
         }
+    }
+
+    func testSignedPackage_badSignature_skipSignatureValidation() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let package = identity.registry!
+        let version = Version("1.1.1")
+
+        // Get metadata endpoint will be called to see if package version is signed
+        let handler: LegacyHTTPClient.Handler = { _, _, completion in
+            completion(.failure(StringError("unexpected request")))
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+
+        configuration.security = RegistryConfiguration.Security(
+            default: RegistryConfiguration.Security.Global(
+                signing: .init()
+            )
+        )
+
+        let signingEntityStorage = MockPackageSigningEntityStorage()
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode
+        )
+
+        let signatureValidation = SignatureValidation(
+            skipSignatureValidation: true, // intended for this test, don't change
+            signingEntityStorage: signingEntityStorage,
+            signingEntityCheckingMode: signingEntityCheckingMode,
+            versionMetadataProvider: registryClient.getPackageVersionMetadata,
+            delegate: RejectingSignatureValidationDelegate()
+        )
+
+        // Signature is bad, but we are skipping signature
+        // validation, so no error is thrown.
+        XCTAssertNoThrow(
+            try signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry)
+            )
+        )
     }
 
     func testSignedPackage_invalidSignature() async throws {
@@ -722,6 +785,7 @@ final class SignatureValidationTests: XCTestCase {
             )
 
             let signatureValidation = SignatureValidation(
+                skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
                 signingEntityCheckingMode: signingEntityCheckingMode,
                 versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -840,6 +904,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
@@ -957,6 +1022,7 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let signatureValidation = SignatureValidation(
+            skipSignatureValidation: false,
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             versionMetadataProvider: registryClient.getPackageVersionMetadata,
