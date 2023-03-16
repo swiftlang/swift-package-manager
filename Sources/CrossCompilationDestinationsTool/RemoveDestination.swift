@@ -91,7 +91,8 @@ struct RemoveDestination: DestinationCommand {
                     .map { "`\($0)`" }
                     .joined(separator: ", ")
 
-                print("""
+                print(
+                    """
                     WARNING: the destination bundle containing artifact with ID \(self.destinationIDOrBundleName) \
                     also contains other artifacts: \(otherArtifactIDs).
                     """
