@@ -18,6 +18,29 @@ import SPMTestSupport
 import X509
 
 final class SigningEntityTests: XCTestCase {
+    func testTwoADPSigningEntitiesAreEqualIfTeamIDEqual() {
+        let adp1 = SigningEntity.recognized(
+            type: .adp,
+            name: "A. Appleseed",
+            organizationalUnit: "SwiftPM Test Unit X",
+            organization: "A"
+        )
+        let adp2 = SigningEntity.recognized(
+            type: .adp,
+            name: "B. Appleseed",
+            organizationalUnit: "SwiftPM Test Unit X",
+            organization: "B"
+        )
+        let adp3 = SigningEntity.recognized(
+            type: .adp,
+            name: "C. Appleseed",
+            organizationalUnit: "SwiftPM Test Unit Y",
+            organization: "C"
+        )
+        XCTAssertEqual(adp1, adp2) // Only team ID (org unit) needs to match
+        XCTAssertNotEqual(adp1, adp3)
+    }
+
     func testFromECKeyCertificate() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(

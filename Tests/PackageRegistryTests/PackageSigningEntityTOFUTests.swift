@@ -30,8 +30,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage()
@@ -151,8 +151,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -191,14 +191,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -255,14 +255,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -322,8 +322,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -381,8 +381,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -434,14 +434,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -507,14 +507,14 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -575,8 +575,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -629,8 +629,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -697,8 +697,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -760,8 +760,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let existingSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
@@ -815,8 +815,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
         let expectedFromVersion = Version("1.5.0")
 
@@ -869,15 +869,15 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingVersion = Version("2.2.0")
         let expectedSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         let expectedFromVersion = Version("1.5.0")
 
@@ -939,15 +939,15 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let existingVersion = Version("2.2.0")
         let expectedSigningEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Smith",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         let expectedFromVersion = Version("1.5.0")
 
@@ -1023,8 +1023,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = WriteConflictSigningEntityStorage()
@@ -1057,8 +1057,8 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let signingEntity = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
 
         let signingEntityStorage = WriteConflictSigningEntityStorage()
@@ -1134,8 +1134,8 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         let existing = SigningEntity.recognized(
             type: .adp,
             name: "xxx-\(signingEntity.name ?? "")",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "xxx-\(signingEntity.organizationalUnit ?? "")",
+            organization: "xxx-\(signingEntity.organization ?? "")"
         )
         callback(.failure(PackageSigningEntityStorageError.conflict(
             package: package,
@@ -1189,6 +1189,24 @@ extension SigningEntity {
             return name
         case .unrecognized(let name, _, _):
             return name
+        }
+    }
+
+    var organizationalUnit: String? {
+        switch self {
+        case .recognized(_, _, let organizationalUnit, _):
+            return organizationalUnit
+        case .unrecognized(_, let organizationalUnit, _):
+            return organizationalUnit
+        }
+    }
+
+    var organization: String? {
+        switch self {
+        case .recognized(_, _, _, let organization):
+            return organization
+        case .unrecognized(_, _, let organization):
+            return organization
         }
     }
 }
