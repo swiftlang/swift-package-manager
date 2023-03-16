@@ -45,6 +45,10 @@ public struct RegistryConfiguration: Hashable {
         for (registry, authentication) in other.registryAuthentication {
             self.registryAuthentication[registry] = authentication
         }
+
+        if let security = other.security {
+            self.security = security
+        }
     }
 
     public func registry(for package: PackageIdentity) -> Registry? {
