@@ -219,7 +219,7 @@ final class SwiftToolTests: CommandsTestCase {
                 // delete it
                 try localFileSystem.removeFileTree(customPath)
                 XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
-                    XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)."))
+                    XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
                 }
                 #endif
             }
