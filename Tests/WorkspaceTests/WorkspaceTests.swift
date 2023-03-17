@@ -2968,7 +2968,7 @@ final class WorkspaceTests: XCTestCase {
                 initializationWarningHandler: { _ in }
             )
             externalState.dependencies.remove(fooState.packageRef.identity)
-            externalState.dependencies.add(try fooState.edited(subpath: .init("foo"), unmanagedPath: fooEditPath))
+            externalState.dependencies.add(try fooState.edited(subpath: "foo", unmanagedPath: fooEditPath))
             try externalState.save()
         }
 

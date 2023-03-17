@@ -28,8 +28,6 @@ import enum TSCUtility.Git
 
 @_exported import TSCTestSupport
 
-
-
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is
 /// given a path to that directory.  The block is permitted to modify the copy.
@@ -59,7 +57,8 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(path: #file)).appending(fixtureSubpath)
+            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(path: #file))
+                .appending(fixtureSubpath)
 
             // Check that the fixture is really there.
             guard localFileSystem.isDirectory(fixtureDir) else {
@@ -233,10 +232,14 @@ public func loadPackageGraph(
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
-    let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
-        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
-    }
+    let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
+        .reduce(
+            into: OrderedCollections
+                .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+        ) { partial, item in
+            partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
+        }
 
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
@@ -245,7 +248,8 @@ public func loadPackageGraph(
     return try PackageGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
-        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
+        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
+            .swiftpmFileTypes,
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
@@ -272,8 +276,20 @@ extension AbsolutePath: ExpressibleByStringInterpolation {
 
 extension AbsolutePath {
     public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
-       try! self.init(validating: path, relativeTo: basePath)
-   }
+        try! self.init(validating: path, relativeTo: basePath)
+    }
+}
+
+extension RelativePath: ExpressibleByStringLiteral {
+    public init(_ value: StringLiteralType) {
+        try! self.init(validating: value)
+    }
+}
+
+extension RelativePath: ExpressibleByStringInterpolation {
+    public init(stringLiteral value: String) {
+        try! self.init(validating: value)
+    }
 }
 
 extension URL: ExpressibleByStringLiteral {

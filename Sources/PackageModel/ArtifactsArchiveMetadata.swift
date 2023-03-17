@@ -47,10 +47,10 @@ public struct ArtifactsArchiveMetadata: Equatable {
     }
 
     public struct Variant: Equatable {
-        public let path: String
+        public let path: RelativePath
         public let supportedTriples: [Triple]
 
-        public init(path: String, supportedTriples: [Triple]) {
+        public init(path: RelativePath, supportedTriples: [Triple]) {
             self.path = path
             self.supportedTriples = supportedTriples
         }
@@ -77,7 +77,9 @@ extension ArtifactsArchiveMetadata {
             case (1, 1), (1, 0):
                 return decodedMetadata
             default:
-                throw StringError("invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)")
+                throw StringError(
+                    "invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)"
+                )
             }
 
         } catch {
@@ -117,6 +119,6 @@ extension ArtifactsArchiveMetadata.Variant: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map { try Triple($0) }
-        self.path = try container.decode(String.self, forKey: .path)
+        self.path = try RelativePath(validating: container.decode(String.self, forKey: .path))
     }
 }
