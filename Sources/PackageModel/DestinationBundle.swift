@@ -156,8 +156,8 @@ extension ArtifactsArchiveMetadata {
             var variants = [DestinationBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let destinationJSONPath = try bundlePath
-                    .appending(RelativePath(validating: variantMetadata.path))
+                let destinationJSONPath = bundlePath
+                    .appending(variantMetadata.path)
                     .appending("destination.json")
 
                 guard fileSystem.exists(destinationJSONPath) else {
@@ -253,7 +253,7 @@ extension Array where Element == DestinationBundle {
                                     multiple destinations match ID `\(artifactID)` and host triple \(
                                         hostTriple.tripleString
                                     ), selected one at \(
-                                        matchedByID.path.appending(component: matchedByID.variant.metadata.path)
+                                        matchedByID.path.appending(matchedByID.variant.metadata.path)
                                     )
                                     """
                                 )
@@ -270,7 +270,7 @@ extension Array where Element == DestinationBundle {
                                     multiple destinations match target triple `\(selector)` and host triple \(
                                         hostTriple.tripleString
                                     ), selected one at \(
-                                        matchedByTriple.path.appending(component: matchedByTriple.variant.metadata.path)
+                                        matchedByTriple.path.appending(matchedByTriple.variant.metadata.path)
                                     )
                                     """
                                 )
@@ -289,7 +289,7 @@ extension Array where Element == DestinationBundle {
                 """
                 multiple destinations match the query `\(selector)` and host triple \(
                     hostTriple.tripleString
-                ), selected one at \(matchedByID.path.appending(component: matchedByID.variant.metadata.path))
+                ), selected one at \(matchedByID.path.appending(matchedByID.variant.metadata.path))
                 """
             )
         }
