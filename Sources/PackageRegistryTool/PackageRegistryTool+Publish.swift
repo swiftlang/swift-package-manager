@@ -111,6 +111,8 @@ extension SwiftPackageRegistryTool {
             if localFileSystem.exists(workingDirectory) {
                 try localFileSystem.removeFileTree(workingDirectory)
             }
+            // Make sure the working directory exists
+            try localFileSystem.createDirectory(workingDirectory, recursive: true)
 
             // validate custom metadata path
             let defaultMetadataPath = packageDirectory.appending(component: Self.metadataFilename)
@@ -325,10 +327,7 @@ enum PackageArchiveSigner {
                             .utf8
                     )
                 )
-
-            try fileSystem.writeFileContents(signedManifestPath) { stream in
-                stream.write(manifest)
-            }
+            try fileSystem.writeFileContents(signedManifestPath, bytes: .init(manifest))
         }
 
         // create the archive
@@ -354,9 +353,7 @@ enum PackageArchiveSigner {
             observabilityScope: observabilityScope
         )
         let archiveSignaturePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).sig")
-        try fileSystem.writeFileContents(archiveSignaturePath) { stream in
-            stream.write(archiveSignature)
-        }
+        try fileSystem.writeFileContents(archiveSignaturePath, bytes: .init(archiveSignature))
 
         var signedMetadata: SignedItem? = .none
         if let metadataPath {
@@ -370,9 +367,7 @@ enum PackageArchiveSigner {
                 observabilityScope: observabilityScope
             )
             let metadataSignaturePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion)-metadata.sig")
-            try fileSystem.writeFileContents(metadataSignaturePath) { stream in
-                stream.write(metadataSignature)
-            }
+            try fileSystem.writeFileContents(metadataSignaturePath, bytes: .init(metadataSignature))
             signedMetadata = .init(path: metadataPath, signature: metadataSignature)
         }
 

@@ -16,23 +16,13 @@ import TSCBasic
 
 public enum ManifestSignatureParser {
     public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ManifestSignature? {
-        let manifestContents: ByteString
+        let manifestContents: String
         do {
             manifestContents = try fileSystem.readFileContents(manifestPath)
         } catch {
             throw Error.inaccessibleManifest(path: manifestPath, reason: String(describing: error))
         }
-
-        // FIXME: This is doubly inefficient. See notes in ToolsVersionParser.
-        guard let manifestContentsDecodedWithUTF8 = manifestContents.validDescription else {
-            throw Error.nonUTF8EncodedManifest(path: manifestPath)
-        }
-
-        guard !manifestContentsDecodedWithUTF8.isEmpty else {
-            throw ManifestParseError.emptyManifest(path: manifestPath)
-        }
-
-        return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
+        return try self.parse(utf8String: manifestContents)
     }
 
     public static func parse(utf8String: String) throws -> ManifestSignature? {
