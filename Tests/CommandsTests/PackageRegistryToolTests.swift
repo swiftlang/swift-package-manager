@@ -416,167 +416,6 @@ final class PackageRegistryToolTests: CommandsTestCase {
         }
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func testArchiveSigning() async throws {
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
-        // plugin APIs require).
-        try XCTSkipIf(
-            !UserToolchain.default.supportsSwiftConcurrency(),
-            "skipping because test environment doesn't support concurrency"
-        )
-
-        let observabilityScope = ObservabilitySystem.makeForTesting().topScope
-
-        let packageIdentity = "test.my-package"
-        let version = "0.1.0"
-        let signatureFormat = SignatureFormat.cms_1_0_0
-
-        try await withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending("MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-
-            let manifestPath = packageDirectory.appending("Package.swift")
-            XCTAssertFileExists(manifestPath)
-
-            let versionSpecificManifestPath = packageDirectory.appending("Package@swift-\(ToolsVersion.current).swift")
-            try localFileSystem.copy(from: manifestPath, to: versionSpecificManifestPath)
-
-            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-            try localFileSystem.createDirectory(workingDirectory)
-
-            let outputDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-            try localFileSystem.createDirectory(outputDirectory)
-
-            let certificatePath = temporaryDirectory.appending(component: "certificate.cer")
-            let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
-            let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
-
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-                try localFileSystem.copy(
-                    from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
-                    to: certificatePath
-                )
-                try localFileSystem.copy(
-                    from: fixturePath.appending(components: "Certificates", "Test_ec_key.p8"),
-                    to: privateKeyPath
-                )
-                try localFileSystem.copy(
-                    from: fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer"),
-                    to: intermediateCertificatePath
-                )
-            }
-
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
-                [
-                    "archive-sign",
-                    packageIdentity,
-                    version,
-                    outputDirectory.pathString,
-                    "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
-                    "--private-key-path=\(privateKeyPath.pathString)",
-                    "--cert-chain-paths=\(certificatePath.pathString)",
-                    "\(intermediateCertificatePath.pathString)",
-                ]
-            )
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 0),
-                try! result.utf8Output() + result.utf8stderrOutput()
-            )
-
-            // Validate signatures
-            var verifierConfiguration = VerifierConfiguration()
-            verifierConfiguration.trustedRoots = try tsc_await { self.testRoots(callback: $0) }
-
-            // archive signature
-            let archivePath = outputDirectory.appending("\(packageIdentity)-\(version).zip")
-            let archive = try localFileSystem.readFileContents(archivePath).contents
-            let signaturePath = outputDirectory.appending("\(packageIdentity)-\(version).sig")
-            let signature = try localFileSystem.readFileContents(signaturePath).contents
-            try await validateSignature(
-                signature: signature,
-                content: archive,
-                format: signatureFormat,
-                verifierConfiguration: verifierConfiguration,
-                observabilityScope: observabilityScope
-            )
-
-            // manifest signatures
-            let manifest = try localFileSystem.readFileContents(manifestPath).contents
-            try await validateSignedManifest(
-                manifestFile: "Package.swift",
-                in: archivePath,
-                manifestContent: manifest,
-                format: signatureFormat,
-                verifierConfiguration: verifierConfiguration,
-                observabilityScope: observabilityScope
-            )
-
-            let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
-            try await validateSignedManifest(
-                manifestFile: "Package@swift-\(ToolsVersion.current).swift",
-                in: archivePath,
-                manifestContent: versionSpecificManifest,
-                format: signatureFormat,
-                verifierConfiguration: verifierConfiguration,
-                observabilityScope: observabilityScope
-            )
-        }
-
-        // basic validation
-        try withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending("MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
-
-            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-            try localFileSystem.createDirectory(workingDirectory)
-
-            let outputDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-            try localFileSystem.createDirectory(outputDirectory)
-
-            let result = try SwiftPMProduct.SwiftPackageRegistry.executeProcess(
-                [
-                    "archive-sign",
-                    packageIdentity,
-                    version,
-                    outputDirectory.pathString,
-                    "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
-                ]
-            )
-            let error = try result.utf8stderrOutput()
-            XCTAssertEqual(
-                result.exitStatus,
-                .terminated(code: 1),
-                try! result.utf8Output() + result.utf8stderrOutput()
-            )
-            XCTAssertMatch(
-                error,
-                .contains(
-                    "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided"
-                )
-            )
-        }
-    }
-
     func testPublishingUnsignedPackage() throws {
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
@@ -769,7 +608,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let manifestPath = packageDirectory.appending("Package.swift")
+            XCTAssertFileExists(manifestPath)
+
+            let versionSpecificManifestPath = packageDirectory.appending("Package@swift-\(ToolsVersion.current).swift")
+            try localFileSystem.copy(from: manifestPath, to: versionSpecificManifestPath)
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
@@ -846,12 +690,22 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observabilityScope
             )
 
-            // manifest signature
-            let manifest = try localFileSystem.readFileContents(packageDirectory.appending("Package.swift")).contents
+            // manifest signatures
+            let manifest = try localFileSystem.readFileContents(manifestPath).contents
             try await validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
+                format: signatureFormat,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: observabilityScope
+            )
+
+            let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
+            try await validateSignedManifest(
+                manifestFile: "Package@swift-\(ToolsVersion.current).swift",
+                in: archivePath,
+                manifestContent: versionSpecificManifest,
                 format: signatureFormat,
                 verifierConfiguration: verifierConfiguration,
                 observabilityScope: observabilityScope
@@ -870,7 +724,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let manifestPath = packageDirectory.appending("Package.swift")
+            XCTAssertFileExists(manifestPath)
+
+            let versionSpecificManifestPath = packageDirectory.appending("Package@swift-\(ToolsVersion.current).swift")
+            try localFileSystem.copy(from: manifestPath, to: versionSpecificManifestPath)
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
@@ -946,12 +805,22 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 observabilityScope: observabilityScope
             )
 
-            // manifest signature
-            let manifest = try localFileSystem.readFileContents(packageDirectory.appending("Package.swift")).contents
+            // manifest signatures
+            let manifest = try localFileSystem.readFileContents(manifestPath).contents
             try await validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
+                format: signatureFormat,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: observabilityScope
+            )
+
+            let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
+            try await validateSignedManifest(
+                manifestFile: "Package@swift-\(ToolsVersion.current).swift",
+                in: archivePath,
+                manifestContent: versionSpecificManifest,
                 format: signatureFormat,
                 verifierConfiguration: verifierConfiguration,
                 observabilityScope: observabilityScope
@@ -970,7 +839,12 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            XCTAssertFileExists(packageDirectory.appending("Package.swift"))
+
+            let manifestPath = packageDirectory.appending("Package.swift")
+            XCTAssertFileExists(manifestPath)
+
+            let versionSpecificManifestPath = packageDirectory.appending("Package@swift-\(ToolsVersion.current).swift")
+            try localFileSystem.copy(from: manifestPath, to: versionSpecificManifestPath)
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
@@ -1036,12 +910,22 @@ final class PackageRegistryToolTests: CommandsTestCase {
                     .exists(workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig"))
             )
 
-            // manifest signature
-            let manifest = try localFileSystem.readFileContents(packageDirectory.appending("Package.swift")).contents
+            // manifest signatures
+            let manifest = try localFileSystem.readFileContents(manifestPath).contents
             try await validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
+                format: signatureFormat,
+                verifierConfiguration: verifierConfiguration,
+                observabilityScope: observabilityScope
+            )
+
+            let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
+            try await validateSignedManifest(
+                manifestFile: "Package@swift-\(ToolsVersion.current).swift",
+                in: archivePath,
+                manifestContent: versionSpecificManifest,
                 format: signatureFormat,
                 verifierConfiguration: verifierConfiguration,
                 observabilityScope: observabilityScope

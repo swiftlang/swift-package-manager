@@ -12,15 +12,17 @@
 
 import ArgumentParser
 import Basics
+import Commands
 import CoreCommands
 import Foundation
 import PackageModel
 import PackageRegistry
 import PackageSigning
 import TSCBasic
+import struct TSCUtility.Version
 import Workspace
 
-import struct TSCUtility.Version
+@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
 
 extension SwiftPackageRegistryTool {
     struct Publish: SwiftCommand {
@@ -50,7 +52,7 @@ extension SwiftPackageRegistryTool {
 
         @Option(
             name: .customLong("metadata-path"),
-            help: "The path to the package metadata JSON file if it's not \(Self.metadataFilename) in the package directory."
+            help: "The path to the package metadata JSON file if it is not '\(Self.metadataFilename)' in the package directory."
         )
         var customMetadataPath: AbsolutePath?
 
@@ -183,7 +185,7 @@ extension SwiftPackageRegistryTool {
                 )
             }
 
-            // step 4: publish the package
+            // step 4: publish the package if not dry-run
             guard !self.dryRun else {
                 print(
                     "\(packageIdentity)@\(packageVersion) was successfully prepared for publishing but was not published due to dry run flag. Artifacts available at '\(workingDirectory)'."
@@ -226,6 +228,12 @@ extension SwiftPackageRegistryTool {
     }
 }
 
+extension SignatureFormat: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument.lowercased())
+    }
+}
+
 enum MetadataLocation {
     case sourceTree(AbsolutePath)
     case external(AbsolutePath)
@@ -237,5 +245,257 @@ enum MetadataLocation {
         case .external(let path):
             return path
         }
+    }
+}
+
+// MARK: - Helpers
+
+enum PackageArchiveSigner {
+    static func computeSigningMode(
+        signingIdentity: String?,
+        privateKeyPath: AbsolutePath?,
+        certificateChainPaths: [AbsolutePath]
+    ) throws -> SigningMode {
+        let signingMode: PackageArchiveSigner.SigningMode
+        switch (signingIdentity, certificateChainPaths, privateKeyPath) {
+        case (.none, let certChainPaths, .none) where !certChainPaths.isEmpty:
+            throw StringError(
+                "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
+            )
+        case (.none, let certChainPaths, .some) where certChainPaths.isEmpty:
+            throw StringError(
+                "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
+            )
+        case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
+            let certificate = certChainPaths[0]
+            let intermediateCertificates = certChainPaths.count > 1 ? Array(certChainPaths[1...]) : []
+            signingMode = .certificate(
+                certificate: certificate,
+                intermediateCertificates: intermediateCertificates,
+                privateKey: privateKeyPath
+            )
+        case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
+            signingMode = .identityStore(label: signingStoreLabel, intermediateCertificates: certChainPaths)
+        default:
+            throw StringError(
+                "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."
+            )
+        }
+        return signingMode
+    }
+
+    static func prepareArchiveAndSign(
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageDirectory: AbsolutePath,
+        metadataPath: AbsolutePath?,
+        workingDirectory: AbsolutePath,
+        mode: SigningMode,
+        signatureFormat: SignatureFormat,
+        cancellator: Cancellator?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> ArchiveAndSignResult {
+        // signing identity
+        let (signingIdentity, intermediateCertificates) = try Self.signingIdentityAndIntermediateCertificates(
+            mode: mode,
+            signatureFormat: signatureFormat,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        // sign package manifest(s)
+        let manifests = try Self.findManifests(packageDirectory: packageDirectory)
+        try manifests.forEach {
+            observabilityScope.emit(info: "signing \($0)")
+            let signedManifestPath = workingDirectory.appending($0)
+
+            var manifest = try fileSystem.readFileContents(packageDirectory.appending($0)).contents
+            let signature = try SignatureProvider.sign(
+                content: manifest,
+                identity: signingIdentity,
+                intermediateCertificates: intermediateCertificates,
+                format: signatureFormat,
+                observabilityScope: observabilityScope
+            )
+            manifest
+                .append(
+                    contentsOf: Array(
+                        "\n// signature: \(signatureFormat.rawValue);\(Data(signature).base64EncodedString())"
+                            .utf8
+                    )
+                )
+
+            try fileSystem.writeFileContents(signedManifestPath) { stream in
+                stream.write(manifest)
+            }
+        }
+
+        // create the archive
+        observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
+        let archivePath = try PackageArchiver.archive(
+            packageIdentity: packageIdentity,
+            packageVersion: packageVersion,
+            packageDirectory: packageDirectory,
+            workingDirectory: workingDirectory,
+            workingFilesToCopy: manifests,
+            cancellator: cancellator,
+            observabilityScope: observabilityScope
+        )
+        let archive = try localFileSystem.readFileContents(archivePath).contents
+
+        // sign the archive
+        observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
+        let archiveSignature = try SignatureProvider.sign(
+            content: archive,
+            identity: signingIdentity,
+            intermediateCertificates: intermediateCertificates,
+            format: signatureFormat,
+            observabilityScope: observabilityScope
+        )
+        let archiveSignaturePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).sig")
+        try fileSystem.writeFileContents(archiveSignaturePath) { stream in
+            stream.write(archiveSignature)
+        }
+
+        var signedMetadata: SignedItem? = .none
+        if let metadataPath {
+            observabilityScope.emit(info: "signing metadata at '\(metadataPath)'")
+            let metadata = try localFileSystem.readFileContents(metadataPath).contents
+            let metadataSignature = try SignatureProvider.sign(
+                content: metadata,
+                identity: signingIdentity,
+                intermediateCertificates: intermediateCertificates,
+                format: signatureFormat,
+                observabilityScope: observabilityScope
+            )
+            let metadataSignaturePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion)-metadata.sig")
+            try fileSystem.writeFileContents(metadataSignaturePath) { stream in
+                stream.write(metadataSignature)
+            }
+            signedMetadata = .init(path: metadataPath, signature: metadataSignature)
+        }
+
+        return ArchiveAndSignResult(
+            archive: .init(path: archivePath, signature: archiveSignature),
+            signedManifests: manifests,
+            metadata: signedMetadata
+        )
+    }
+
+    private static func signingIdentityAndIntermediateCertificates(
+        mode: SigningMode,
+        signatureFormat: SignatureFormat,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> (SigningIdentity, [[UInt8]]) {
+        let signingIdentity: SigningIdentity
+        let intermediateCertificates: [[UInt8]]
+        switch mode {
+        case .identityStore(let label, let intermediateCertPaths):
+            let signingIdentityStore = SigningIdentityStore(observabilityScope: observabilityScope)
+            let matches = signingIdentityStore.find(by: label)
+            guard let identity = matches.first else {
+                throw StringError("'\(label)' not found in the system identity store.")
+            }
+            // TODO: let user choose if there is more than one match?
+            signingIdentity = identity
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
+        case .certificate(let certPath, let intermediateCertPaths, let privateKeyPath):
+            let certificate = try fileSystem.readFileContents(certPath).contents
+            let privateKey = try fileSystem.readFileContents(privateKeyPath).contents
+            signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: certificate,
+                derEncodedPrivateKey: privateKey,
+                privateKeyType: signatureFormat.signingKeyType
+            )
+            intermediateCertificates = try intermediateCertPaths.map { try fileSystem.readFileContents($0).contents }
+        }
+        return (signingIdentity, intermediateCertificates)
+    }
+
+    private static func findManifests(packageDirectory: AbsolutePath) throws -> [String] {
+        let packageContents = try localFileSystem.getDirectoryContents(packageDirectory)
+
+        var manifests: [String] = []
+
+        let manifestName = "Package.swift"
+        let manifestPath = packageDirectory.appending(manifestName)
+        guard localFileSystem.exists(manifestPath) else {
+            throw StringError("No \(manifestName) found at \(packageDirectory).")
+        }
+        manifests.append(manifestName)
+
+        let regex = try RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+        let versionSpecificManifests: [String] = packageContents.filter { file in
+            let matchGroups = regex.matchGroups(in: file)
+            return !matchGroups.isEmpty
+        }
+        manifests.append(contentsOf: versionSpecificManifests)
+
+        return manifests
+    }
+
+    enum SigningMode {
+        case identityStore(label: String, intermediateCertificates: [AbsolutePath])
+        case certificate(certificate: AbsolutePath, intermediateCertificates: [AbsolutePath], privateKey: AbsolutePath)
+    }
+
+    struct ArchiveAndSignResult {
+        let archive: SignedItem
+        let signedManifests: [String]
+        let metadata: SignedItem?
+    }
+
+    struct SignedItem {
+        let path: AbsolutePath
+        let signature: [UInt8]
+    }
+}
+
+enum PackageArchiver {
+    static func archive(
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        packageDirectory: AbsolutePath,
+        workingDirectory: AbsolutePath,
+        workingFilesToCopy: [String],
+        cancellator: Cancellator?,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
+        let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
+
+        // create temp location for sources
+        let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")
+        try localFileSystem.createDirectory(sourceDirectory, recursive: true)
+
+        // TODO: filter other unnecessary files, and/or .swiftpmignore file
+        let ignoredContent = [".build", ".git", ".gitignore", ".swiftpm"]
+        let packageContent = try localFileSystem.getDirectoryContents(packageDirectory)
+        for item in (packageContent.filter { !ignoredContent.contains($0) }) {
+            try localFileSystem.copy(
+                from: packageDirectory.appending(component: item),
+                to: sourceDirectory.appending(component: item)
+            )
+        }
+
+        for item in workingFilesToCopy {
+            let replacementPath = workingDirectory.appending(item)
+            let replacement = try localFileSystem.readFileContents(replacementPath)
+
+            let toBeReplacedPath = sourceDirectory.appending(item)
+
+            observabilityScope.emit(info: "replacing '\(toBeReplacedPath)' with '\(replacementPath)'")
+            try localFileSystem.writeFileContents(toBeReplacedPath, bytes: replacement)
+        }
+
+        try SwiftPackageTool.archiveSource(
+            at: sourceDirectory,
+            to: archivePath,
+            fileSystem: localFileSystem,
+            cancellator: cancellator
+        )
+
+        return archivePath
     }
 }
