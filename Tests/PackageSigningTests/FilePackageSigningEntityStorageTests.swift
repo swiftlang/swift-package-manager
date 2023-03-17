@@ -32,14 +32,14 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         try storage.put(
             package: package,
@@ -107,14 +107,14 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
         try storage.put(
@@ -146,8 +146,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
         try storage.put(
@@ -205,14 +205,14 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
         try storage.put(
@@ -250,8 +250,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
         try storage.put(
@@ -282,14 +282,14 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         try storage.put(
             package: package,
@@ -326,8 +326,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
         try storage.put(
             package: package,
@@ -357,14 +357,14 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.recognized(
             type: .adp,
             name: "J. Appleseed",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 1",
+            organization: "SwiftPM Test"
         )
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit 2",
+            organization: "SwiftPM Test"
         )
         try storage.put(
             package: package,
@@ -405,8 +405,8 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let davinci = SigningEntity.recognized(
             type: .adp,
             name: "L. da Vinci",
-            organizationalUnit: nil,
-            organization: nil
+            organizationalUnit: "SwiftPM Test Unit",
+            organization: "SwiftPM Test"
         )
         try storage.put(
             package: package,

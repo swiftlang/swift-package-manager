@@ -40,6 +40,27 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
         }
     }
 
+    public static func == (lhs: SigningEntity, rhs: SigningEntity) -> Bool {
+        switch (lhs, rhs) {
+        case (
+            .recognized(let lhsType, let lhsName, let lhsOrgUnit, let lhsOrg),
+            .recognized(let rhsType, let rhsName, let rhsOrgUnit, let rhsOrg)
+        ):
+            // For ADP type, only team ID (org unit) needs to match
+            if lhsType == .adp, rhsType == .adp {
+                return lhsOrgUnit == rhsOrgUnit
+            }
+            return lhsType == rhsType && lhsName == rhsName && lhsOrgUnit == rhsOrgUnit && lhsOrg == rhsOrg
+        case (
+            .unrecognized(let lhsName, let lhsOrgUnit, let lhsOrg),
+            .unrecognized(let rhsName, let rhsOrgUnit, let rhsOrg)
+        ):
+            return lhsName == rhsName && lhsOrgUnit == rhsOrgUnit && lhsOrg == rhsOrg
+        default:
+            return false
+        }
+    }
+
     public var description: String {
         switch self {
         case .recognized(let type, let name, let organizationalUnit, let organization):
