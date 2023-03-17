@@ -20,10 +20,14 @@ public struct DestinationBundle {
         let destinations: [Destination]
     }
 
-    let path: AbsolutePath
+    // Path to the bundle root directory.
+    public let path: AbsolutePath
 
     /// Mapping of artifact IDs to variants available for a corresponding artifact.
     public fileprivate(set) var artifacts = [String: [Variant]]()
+
+    /// Name of the destination bundle that can be used to distinguish it from other bundles.
+    public var name: String { path.basename }
 
     /// Lists all valid cross-compilation destination bundles in a given directory.
     /// - Parameters:
