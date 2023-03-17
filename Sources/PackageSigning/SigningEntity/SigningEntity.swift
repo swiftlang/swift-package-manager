@@ -16,7 +16,7 @@
 // MARK: - SigningEntity is the entity that generated the signature
 
 public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
-    case recognized(type: SigningEntityType, name: String?, organizationalUnit: String?, organization: String?)
+    case recognized(type: SigningEntityType, name: String, organizationalUnit: String, organization: String)
     case unrecognized(name: String?, organizationalUnit: String?, organization: String?)
 
     static func from(certificate: Certificate) -> SigningEntity {
@@ -24,7 +24,10 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
         let organizationalUnit = certificate.subject.organizationalUnitName
         let organization = certificate.subject.organizationName
 
-        if let type = certificate.signingEntityType {
+        if let type = certificate.signingEntityType,
+           let name = name,
+           let organizationalUnit = organizationalUnit,
+           let organization = organization {
             return .recognized(
                 type: type,
                 name: name,
@@ -64,7 +67,7 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .recognized(let type, let name, let organizationalUnit, let organization):
-            return "SigningEntity[type=\(type), name=\(String(describing: name)), organizationalUnit=\(String(describing: organizationalUnit)), organization=\(String(describing: organization))]"
+            return "SigningEntity[type=\(type), name=\(name), organizationalUnit=\(organizationalUnit), organization=\(organization)]"
         case .unrecognized(let name, let organizationalUnit, let organization):
             return "SigningEntity[name=\(String(describing: name)), organizationalUnit=\(String(describing: organizationalUnit)), organization=\(String(describing: organization))]"
         }
