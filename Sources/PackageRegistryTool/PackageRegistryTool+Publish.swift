@@ -12,7 +12,6 @@
 
 import ArgumentParser
 import Basics
-import Commands
 import CoreCommands
 import Foundation
 import PackageModel
@@ -92,7 +91,7 @@ extension SwiftPackageRegistryTool {
 
             // compute and validate registry URL
             let registryURL = self.registryURL ?? configuration.registry(for: registryIdentity.scope)?.url
-            guard let registryURL = registryURL else {
+            guard let registryURL else {
                 throw ValidationError.unknownRegistry
             }
 
@@ -105,7 +104,7 @@ extension SwiftPackageRegistryTool {
                 }
             }
 
-            let workingDirectory = customWorkingDirectory ?? Workspace.DefaultLocations
+            let workingDirectory = self.customWorkingDirectory ?? Workspace.DefaultLocations
                 .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
             if localFileSystem.exists(workingDirectory) {
                 try localFileSystem.removeFileTree(workingDirectory)
@@ -142,80 +141,46 @@ extension SwiftPackageRegistryTool {
             let signingRequired = self.signingIdentity != nil || self.privateKeyPath != nil || !self
                 .certificateChainPaths.isEmpty
 
-            // step 2: generate source archive for the package release
-            swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
-            let archivePath = try self.archiveSource(
-                packageIdentity: self.packageIdentity,
-                packageVersion: self.packageVersion,
-                packageDirectory: packageDirectory,
-                workingDirectory: workingDirectory,
-                cancellator: swiftTool.cancellator,
-                observabilityScope: swiftTool.observabilityScope
-            )
-
-            // step 3: sign the source archive and metadata if needed
-            var signature: [UInt8]? = .none
+            let archivePath: AbsolutePath
+            var archiveSignature: [UInt8]? = .none
             var metadataSignature: [UInt8]? = .none
             if signingRequired {
-                // compute signing mode
-                let signingMode: PackageArchiveSigner.SigningMode
-                switch (
-                    self.signingIdentity,
-                    self.certificateChainPaths,
-                    self.privateKeyPath
-                ) {
-                case (.none, let certChainPaths, .none) where !certChainPaths.isEmpty:
-                    throw StringError(
-                        "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
-                    )
-                case (.none, let certChainPaths, .some) where certChainPaths.isEmpty:
-                    throw StringError(
-                        "Both 'private-key-path' and 'cert-chain-paths' are required when one of them is set."
-                    )
-                case (.none, let certChainPaths, .some(let privateKeyPath)) where !certChainPaths.isEmpty:
-                    let certificate = certChainPaths[0]
-                    let intermediateCertificates = certChainPaths.count > 1 ? Array(certChainPaths[1...]) : []
-                    signingMode = .certificate(
-                        certificate: certificate,
-                        intermediateCertificates: intermediateCertificates,
-                        privateKey: privateKeyPath
-                    )
-                case (.some(let signingStoreLabel), let certChainPaths, .none) where certChainPaths.isEmpty:
-                    signingMode = .identityStore(label: signingStoreLabel, intermediateCertificates: certChainPaths)
-                default:
-                    throw StringError(
-                        "Either 'signing-identity' or 'private-key-path' (together with 'cert-chain-paths') must be provided."
-                    )
-                }
+                // step 2: generate source archive (includes signed manifests) for the package release
+                // step 3: sign source archive and metadata
+                let signingMode = try PackageArchiveSigner.computeSigningMode(
+                    signingIdentity: self.signingIdentity,
+                    privateKeyPath: self.privateKeyPath,
+                    certificateChainPaths: self.certificateChainPaths
+                )
 
-                var contentPaths: [AbsolutePath] = []
-                var contentSignaturePaths: [AbsolutePath: AbsolutePath] = [:]
-
-                swiftTool.observabilityScope.emit(info: "signing the archive at '\(archivePath)'")
-                contentPaths.append(archivePath)
-                contentSignaturePaths[archivePath] = workingDirectory
-                    .appending("\(self.packageIdentity)-\(self.packageVersion).sig")
-
-                if let metadataPath = metadataLocation?.path {
-                    swiftTool.observabilityScope.emit(info: "signing metadata at '\(metadataPath)'")
-                    contentPaths.append(metadataPath)
-                    contentSignaturePaths[metadataPath] = workingDirectory
-                        .appending("\(self.packageIdentity)-\(self.packageVersion)-metadata.sig")
-                }
-
-                let signatures = try PackageArchiveSigner.sign(
-                    contentPaths: contentPaths,
-                    contentSignaturePaths: contentSignaturePaths,
+                let result = try PackageArchiveSigner.prepareArchiveAndSign(
+                    packageIdentity: packageIdentity,
+                    packageVersion: packageVersion,
+                    packageDirectory: packageDirectory,
+                    metadataPath: metadataLocation?.path,
+                    workingDirectory: workingDirectory,
                     mode: signingMode,
                     signatureFormat: self.signatureFormat,
+                    cancellator: swiftTool.cancellator,
                     fileSystem: localFileSystem,
                     observabilityScope: swiftTool.observabilityScope
                 )
-                signature = signatures[archivePath]
-
-                if let metadataPath = metadataLocation?.path {
-                    metadataSignature = signatures[metadataPath]
-                }
+                archivePath = result.archive.path
+                archiveSignature = result.archive.signature
+                metadataSignature = result.metadata?.signature
+            } else {
+                // step 2: generate source archive for the package release
+                // step 3: signing not required
+                swiftTool.observabilityScope.emit(info: "archiving the source at '\(packageDirectory)'")
+                archivePath = try PackageArchiver.archive(
+                    packageIdentity: self.packageIdentity,
+                    packageVersion: self.packageVersion,
+                    packageDirectory: packageDirectory,
+                    workingDirectory: workingDirectory,
+                    workingFilesToCopy: [],
+                    cancellator: swiftTool.cancellator,
+                    observabilityScope: swiftTool.observabilityScope
+                )
             }
 
             // step 4: publish the package
@@ -235,7 +200,7 @@ extension SwiftPackageRegistryTool {
                     packageVersion: self.packageVersion,
                     packageArchive: archivePath,
                     packageMetadata: metadataLocation?.path,
-                    signature: signature,
+                    signature: archiveSignature,
                     metadataSignature: metadataSignature,
                     signatureFormat: self.signatureFormat,
                     fileSystem: localFileSystem,
@@ -257,40 +222,6 @@ extension SwiftPackageRegistryTool {
                     "\(packageIdentity) version \(packageVersion) was successfully submitted to \(registryURL) and is being processed. Publishing status is available at '\(statusURL)'."
                 )
             }
-        }
-
-        func archiveSource(
-            packageIdentity: PackageIdentity,
-            packageVersion: Version,
-            packageDirectory: AbsolutePath,
-            workingDirectory: AbsolutePath,
-            cancellator: Cancellator?,
-            observabilityScope: ObservabilityScope
-        ) throws -> AbsolutePath {
-            let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
-
-            // create temp location for sources
-            let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")
-            try localFileSystem.createDirectory(sourceDirectory, recursive: true)
-
-            // TODO: filter other unnecessary files, and/or .swiftpmignore file
-            let ignoredContent = [".build", ".git", ".gitignore", ".swiftpm"]
-            let packageContent = try localFileSystem.getDirectoryContents(packageDirectory)
-            for item in (packageContent.filter { !ignoredContent.contains($0) }) {
-                try localFileSystem.copy(
-                    from: packageDirectory.appending(component: item),
-                    to: sourceDirectory.appending(component: item)
-                )
-            }
-
-            try SwiftPackageTool.archiveSource(
-                at: sourceDirectory,
-                to: archivePath,
-                fileSystem: localFileSystem,
-                cancellator: cancellator
-            )
-
-            return archivePath
         }
     }
 }
