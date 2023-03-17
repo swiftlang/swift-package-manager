@@ -375,7 +375,7 @@ struct SignatureValidation {
                         ))
                     }
 
-                    let signerNotTrustedError = RegistryError.signerNotTrusted(signingEntity)
+                    let signerNotTrustedError = RegistryError.signerNotTrusted(package.underlying, signingEntity)
 
                     switch onUntrusted {
                     case .prompt:

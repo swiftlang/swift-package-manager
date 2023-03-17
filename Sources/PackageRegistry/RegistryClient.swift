@@ -126,6 +126,26 @@ public final class RegistryClient: Cancellable {
         try self.httpClient.cancel(deadline: deadline)
     }
 
+    public func changeSigningEntityFromVersion(
+        package: PackageIdentity,
+        version: Version,
+        signingEntity: SigningEntity,
+        origin: SigningEntity.Origin,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.signingEntityStorage?.changeSigningEntityFromVersion(
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            origin: origin,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: completion
+        )
+    }
+
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,
@@ -1586,7 +1606,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case unknownSignatureFormat(String)
     case invalidSignature(reason: String)
     case invalidSigningCertificate(reason: String)
-    case signerNotTrusted(SigningEntity)
+    case signerNotTrusted(PackageIdentity, SigningEntity)
     case failedToValidateSignature(Error)
     case signingEntityForReleaseChanged(
         registry: Registry,
@@ -1694,7 +1714,7 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "signature is invalid: \(reason)"
         case .invalidSigningCertificate(let reason):
             return "the signing certificate is invalid: \(reason)"
-        case .signerNotTrusted(let signingEntity):
+        case .signerNotTrusted(_, let signingEntity):
             return "the signer \(signingEntity) is not trusted"
         case .failedToValidateSignature(let error):
             return "failed to validate signature: \(error)"
