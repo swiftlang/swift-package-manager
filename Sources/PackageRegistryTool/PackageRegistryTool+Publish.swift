@@ -414,12 +414,11 @@ enum PackageArchiveSigner {
 
         var manifests: [String] = []
 
-        let manifestName = "Package.swift"
-        let manifestPath = packageDirectory.appending(manifestName)
+        let manifestPath = packageDirectory.appending(Manifest.filename)
         guard localFileSystem.exists(manifestPath) else {
-            throw StringError("No \(manifestName) found at \(packageDirectory).")
+            throw StringError("No \(Manifest.filename) found at \(packageDirectory).")
         }
-        manifests.append(manifestName)
+        manifests.append(Manifest.filename)
 
         let regex = try RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
         let versionSpecificManifests: [String] = packageContents.filter { file in

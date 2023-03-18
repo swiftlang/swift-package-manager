@@ -15,6 +15,7 @@ import Dispatch
 import struct Foundation.Data
 
 import Basics
+import PackageLoading
 import PackageModel
 import PackageSigning
 
@@ -139,9 +140,9 @@ struct SignatureValidation {
                 registry: registry,
                 package: package,
                 version: version,
-                signature: signatureData,
+                signature: Array(signatureData),
                 signatureFormat: signatureFormat,
-                content: content,
+                content: Array(content),
                 configuration: configuration,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
@@ -194,13 +195,148 @@ struct SignatureValidation {
         }
     }
 
+    func validate(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        toolsVersion: ToolsVersion?,
+        manifestContent: String,
+        configuration: RegistryConfiguration.Security.Signing,
+        timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+    ) {
+        guard !self.skipSignatureValidation else {
+            return completion(.success(.none))
+        }
+
+        self.getAndValidateSignature(
+            registry: registry,
+            package: package,
+            version: version,
+            toolsVersion: toolsVersion,
+            manifestContent: manifestContent,
+            configuration: configuration,
+            timeout: timeout,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            completion: completion
+        )
+        // FIXME: do publisher TOFU like we do for source archive?
+    }
+
+    private func getAndValidateSignature(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        toolsVersion: ToolsVersion?,
+        manifestContent: String,
+        configuration: RegistryConfiguration.Security.Signing,
+        timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+    ) {
+        do {
+            let versionMetadata = try self.versionMetadataProvider(package, version)
+
+            guard let sourceArchiveResource = versionMetadata.sourceArchive else {
+                throw RegistryError.missingSourceArchive
+            }
+            guard sourceArchiveResource.signing?.signatureBase64Encoded != nil else {
+                throw RegistryError.sourceArchiveNotSigned(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version
+                )
+            }
+
+            // source archive is signed, so the manifest must also be signed
+            guard let manifestSignature = try ManifestSignatureParser.parse(utf8String: manifestContent) else {
+                return completion(.failure(RegistryError.manifestNotSigned(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version,
+                    toolsVersion: toolsVersion
+                )))
+            }
+
+            guard let signatureFormat = SignatureFormat(rawValue: manifestSignature.signatureFormat) else {
+                return completion(.failure(RegistryError.unknownSignatureFormat(manifestSignature.signatureFormat)))
+            }
+
+            self.validateSignature(
+                registry: registry,
+                package: package,
+                version: version,
+                signature: manifestSignature.signature,
+                signatureFormat: signatureFormat,
+                content: manifestSignature.contents,
+                configuration: configuration,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                completion: completion
+            )
+        } catch ManifestSignatureParser.Error.malformedManifestSignature {
+            completion(.failure(RegistryError.invalidSignature(reason: "manifest signature is malformed")))
+        } catch RegistryError.sourceArchiveNotSigned(let registry, let package, let version) {
+            observabilityScope.emit(info: "\(package) \(version) from \(registry) is unsigned")
+            guard let onUnsigned = configuration.onUnsigned else {
+                return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
+            }
+
+            let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
+                registry: registry,
+                package: package,
+                version: version
+            )
+
+            switch onUnsigned {
+            case .prompt:
+                self.delegate.onUnsigned(registry: registry, package: package, version: version) { `continue` in
+                    if `continue` {
+                        completion(.success(.none))
+                    } else {
+                        completion(.failure(sourceArchiveNotSignedError))
+                    }
+                }
+            case .error:
+                completion(.failure(sourceArchiveNotSignedError))
+            case .warn:
+                observabilityScope.emit(warning: "\(sourceArchiveNotSignedError)")
+                completion(.success(.none))
+            case .silentAllow:
+                // Continue without logging
+                completion(.success(.none))
+            }
+        } catch RegistryError.failedRetrievingReleaseInfo(_, _, _, let error) {
+            completion(.failure(RegistryError.failedRetrievingSourceArchiveSignature(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )))
+        } catch {
+            completion(.failure(RegistryError.failedRetrievingSourceArchiveSignature(
+                registry: registry,
+                package: package.underlying,
+                version: version,
+                error: error
+            )))
+        }
+    }
+
     private func validateSignature(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
-        signature: Data,
+        signature: [UInt8],
         signatureFormat: SignatureFormat,
-        content: Data,
+        content: [UInt8],
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -209,8 +345,8 @@ struct SignatureValidation {
         Task {
             do {
                 let signatureStatus = try await SignatureProvider.status(
-                    signature: Array(signature),
-                    content: Array(content),
+                    signature: signature,
+                    content: content,
                     format: signatureFormat,
                     verifierConfiguration: try VerifierConfiguration.from(configuration, fileSystem: fileSystem),
                     observabilityScope: observabilityScope
