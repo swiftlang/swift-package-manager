@@ -313,7 +313,7 @@ extension VerifierConfiguration {
             if let certificateExpiration = validationChecks.certificateExpiration {
                 switch certificateExpiration {
                 case .enabled:
-                    verifierConfiguration.certificateExpiration = .enabled(validationTime: nil)
+                    verifierConfiguration.certificateExpiration = .enabled(validationTime: .none)
                 case .disabled:
                     verifierConfiguration.certificateExpiration = .disabled
                 }
@@ -322,9 +322,9 @@ extension VerifierConfiguration {
             if let certificateRevocation = validationChecks.certificateRevocation {
                 switch certificateRevocation {
                 case .strict:
-                    verifierConfiguration.certificateRevocation = .strict
+                    verifierConfiguration.certificateRevocation = .strict(validationTime: .none)
                 case .allowSoftFail:
-                    verifierConfiguration.certificateRevocation = .allowSoftFail
+                    verifierConfiguration.certificateRevocation = .allowSoftFail(validationTime: .none)
                 case .disabled:
                     verifierConfiguration.certificateRevocation = .disabled
                 }

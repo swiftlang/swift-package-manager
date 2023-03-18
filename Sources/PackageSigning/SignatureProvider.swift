@@ -89,8 +89,8 @@ public struct VerifierConfiguration {
     }
 
     public enum CertificateRevocation {
-        case strict
-        case allowSoftFail
+        case strict(validationTime: Date?)
+        case allowSoftFail(validationTime: Date?)
         case disabled
     }
 }
@@ -190,7 +190,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
 
             var privateKey: SecKey?
             let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &privateKey)
-            guard keyStatus == errSecSuccess, let privateKey = privateKey else {
+            guard keyStatus == errSecSuccess, let privateKey else {
                 throw SigningError.signingFailed("unable to get private key from SecIdentity: status \(keyStatus)")
             }
 
@@ -271,8 +271,11 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                     let signingEntity = SigningEntity.from(certificate: failure.signer)
                     return .certificateNotTrusted(signingEntity)
                 } else {
-                    observabilityScope.emit(info: "cannot validate certificate chain. Validation failures: \(failure.validationFailures)")
-                    return .certificateInvalid("failures: \(failure.validationFailures.map { $0.policyFailureReason })")
+                    observabilityScope
+                        .emit(
+                            info: "cannot validate certificate chain. Validation failures: \(failure.validationFailures)"
+                        )
+                    return .certificateInvalid("failures: \(failure.validationFailures.map(\.policyFailureReason))")
                 }
             case .failure(CMS.VerificationError.invalidCMSBlock(let error)):
                 return .invalid(error.reason)
