@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import struct Foundation.URL
@@ -26,10 +27,15 @@ extension SignatureProviderProtocol {
         }
 
         switch configuration.certificateRevocation {
-        case .strict:
-            policies.append(_OCSPVerifierPolicy(httpClient: httpClient, mode: .strict))
-        case .allowSoftFail:
-            policies.append(_OCSPVerifierPolicy(httpClient: httpClient, mode: .allowSoftFail))
+        case .strict(let validationTime):
+            policies.append(_OCSPVerifierPolicy(httpClient: httpClient, mode: .strict, validationTime: validationTime))
+        case .allowSoftFail(let validationTime):
+            policies
+                .append(_OCSPVerifierPolicy(
+                    httpClient: httpClient,
+                    mode: .allowSoftFail,
+                    validationTime: validationTime
+                ))
         case .disabled:
             ()
         }
@@ -39,31 +45,65 @@ extension SignatureProviderProtocol {
 }
 
 struct _OCSPVerifierPolicy: VerifierPolicy {
+    private static let cacheTTL: DispatchTimeInterval = .seconds(5 * 60)
+    private let cache = ThreadSafeKeyValueStore<
+        UnverifiedCertificateChain,
+        (result: PolicyEvaluationResult, expires: DispatchTime)
+    >()
+
     private let underlying: OCSPVerifierPolicy<_OCSPRequester>
     private let mode: Mode
+    private let validationTime: Date
 
-    init(httpClient: HTTPClient, mode: Mode) {
+    init(httpClient: HTTPClient, mode: Mode, validationTime: Date?) {
         self.underlying = OCSPVerifierPolicy(requester: _OCSPRequester(httpClient: httpClient))
         self.mode = mode
+        self.validationTime = validationTime ?? Date()
     }
 
     func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
+        // Check for expiration of the leaf before revocation
+        let leaf = chain.leaf
+        if leaf.notValidBefore > leaf.notValidAfter {
+            return .failsToMeetPolicy(
+                reason: "OCSPVerifierPolicy: leaf certificate \(leaf) has invalid expiry, notValidAfter is earlier than notValidBefore"
+            )
+        }
+        if self.validationTime < leaf.notValidBefore {
+            return .failsToMeetPolicy(reason: "OCSPVerifierPolicy: leaf certificate \(leaf) is not yet valid")
+        }
+        if self.validationTime > leaf.notValidAfter {
+            return .failsToMeetPolicy(reason: "OCSPVerifierPolicy: leaf certificate \(leaf) has expired")
+        }
+
+        // Look for cached result
+        if let cached = self.cache[chain], cached.expires < .now() {
+            return cached.result
+        }
+
+        // This makes HTTP requests
         let result = await self.underlying.chainMeetsPolicyRequirements(chain: chain)
+        let actualResult: PolicyEvaluationResult
         switch result {
         case .meetsPolicy:
-            return result
+            actualResult = result
         case .failsToMeetPolicy(let reason):
             switch self.mode {
             case .strict:
-                return result
+                actualResult = result
             case .allowSoftFail:
                 // Allow 'unknown' status and failed OCSP request in this mode
-                guard !reason.lowercased().contains("revoked through ocsp") else {
-                    return result
+                if reason.lowercased().contains("revoked through ocsp") {
+                    actualResult = result
+                } else {
+                    actualResult = .meetsPolicy
                 }
-                return .meetsPolicy
             }
         }
+
+        // Save result to cache
+        self.cache[chain] = (result: actualResult, expires: .now() + Self.cacheTTL)
+        return actualResult
     }
 
     enum Mode {

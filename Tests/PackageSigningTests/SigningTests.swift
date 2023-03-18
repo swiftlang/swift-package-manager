@@ -418,8 +418,7 @@ final class SigningTests: XCTestCase {
                 trustedRoots: [keyAndCertChain.rootCertificate],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .enabled(
-                    validationTime: signingIdentity.certificate.notValidBefore
-                        .addingTimeInterval(-60 * 60 * 24 * 3)
+                    validationTime: signingIdentity.certificate.notValidBefore - .days(3)
                 ),
                 certificateRevocation: .disabled
             )
@@ -442,8 +441,7 @@ final class SigningTests: XCTestCase {
                 trustedRoots: [keyAndCertChain.rootCertificate],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .enabled(
-                    validationTime: signingIdentity.certificate.notValidAfter
-                        .addingTimeInterval(60 * 60 * 24 * 3)
+                    validationTime: signingIdentity.certificate.notValidAfter + .days(3)
                 ),
                 certificateRevocation: .disabled
             )
@@ -510,7 +508,9 @@ final class SigningTests: XCTestCase {
                 trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .disabled,
-                certificateRevocation: .strict
+                certificateRevocation: .strict(
+                    validationTime: signingIdentity.certificate.notValidAfter - .days(3)
+                )
             )
 
             let status = try await cmsProvider.status(
@@ -531,7 +531,9 @@ final class SigningTests: XCTestCase {
                 trustedRoots: [OCSPTestHelper.chainWithSingleCertWithOCSP[1].derEncodedBytes],
                 includeDefaultTrustStore: false,
                 certificateExpiration: .disabled,
-                certificateRevocation: .allowSoftFail
+                certificateRevocation: .allowSoftFail(
+                    validationTime: signingIdentity.certificate.notValidAfter - .days(3)
+                )
             )
 
             let status = try await cmsProvider.status(
@@ -572,7 +574,7 @@ final class SigningTests: XCTestCase {
             trustedRoots: [keyAndCertChain.rootCertificate],
             includeDefaultTrustStore: true,
             certificateExpiration: .enabled(validationTime: nil),
-            certificateRevocation: .strict
+            certificateRevocation: .strict(validationTime: nil)
         )
 
         let status = try await cmsProvider.status(
@@ -640,7 +642,7 @@ final class SigningTests: XCTestCase {
             trustedRoots: [],
             includeDefaultTrustStore: true, // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
-            certificateRevocation: .strict
+            certificateRevocation: .strict(validationTime: nil)
         )
 
         let status = try await SignatureProvider.status(
@@ -697,7 +699,7 @@ final class SigningTests: XCTestCase {
             trustedRoots: [],
             includeDefaultTrustStore: true, // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
-            certificateRevocation: .strict
+            certificateRevocation: .strict(validationTime: nil)
         )
 
         let status = try await cmsProvider.status(
@@ -753,7 +755,7 @@ final class SigningTests: XCTestCase {
             trustedRoots: [],
             includeDefaultTrustStore: true, // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
-            certificateRevocation: .strict
+            certificateRevocation: .strict(validationTime: nil)
         )
 
         let status = try await cmsProvider.status(
