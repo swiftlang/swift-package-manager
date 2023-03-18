@@ -1171,6 +1171,8 @@ public final class RegistryClient: Cancellable {
             }
 
             body.append(contentsOf: """
+            \r
+            --\(boundary)\r
             Content-Disposition: form-data; name=\"source-archive-signature\"\r
             Content-Type: application/octet-stream\r
             Content-Transfer-Encoding: binary\r
@@ -1210,6 +1212,8 @@ public final class RegistryClient: Cancellable {
                 }
 
                 body.append(contentsOf: """
+                \r
+                --\(boundary)\r
                 Content-Disposition: form-data; name=\"metadata-signature\"\r
                 Content-Type: application/octet-stream\r
                 Content-Transfer-Encoding: binary\r
