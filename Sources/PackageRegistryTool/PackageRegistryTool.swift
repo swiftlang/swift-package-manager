@@ -33,7 +33,6 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             Login.self,
             Logout.self,
             Publish.self,
-            Sign.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
