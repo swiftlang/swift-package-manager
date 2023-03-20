@@ -24,6 +24,13 @@ public final class ThreadSafeBox<Value> {
         self.underlying = seed
     }
 
+    public func mutate(body: (Value?) throws -> Value?) rethrows {
+        try self.lock.withLock {
+            let value = try body(self.underlying)
+            self.underlying = value
+        }
+    }
+
     @discardableResult
     public func memoize(body: () throws -> Value) rethrows -> Value {
         if let value = self.get() {
@@ -95,6 +102,18 @@ extension ThreadSafeBox where Value == Int {
         self.lock.withLock {
             if let value = self.underlying {
                 self.underlying = value - 1
+            }
+        }
+    }
+}
+
+extension ThreadSafeBox where Value == String {
+    public func append(_ value: String) {
+        self.mutate { existingValue in
+            if let existingValue {
+              return existingValue + value
+            } else {
+              return value
             }
         }
     }
