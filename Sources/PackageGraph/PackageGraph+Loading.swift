@@ -425,7 +425,22 @@ private func createResolvedPackages(
                 let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
-        let productDependencyMap = lookupByProductIDs ? productDependencies.spm_createDictionary({ ($0.product.identity, $0) }) : productDependencies.spm_createDictionary({ ($0.product.name, $0) })
+
+        let productDependencyMap: [String: ResolvedProductBuilder]
+        if lookupByProductIDs {
+            productDependencyMap = productDependencies.spm_createDictionary { ($0.product.identity, $0) }
+        } else {
+            productDependencyMap = try Dictionary(
+                productDependencies.map { ($0.product.name, $0) },
+                uniquingKeysWith: { lhs, _ in
+                    let duplicates = productDependencies.filter { $0.product.name == lhs.product.name }
+                    throw PackageGraphError.duplicateProduct(
+                        product: lhs.product.name,
+                        packages: duplicates.map(\.packageBuilder.package.identity.description)
+                    )
+                }
+            )
+        }
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
