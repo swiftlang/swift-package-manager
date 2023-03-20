@@ -337,14 +337,34 @@ public struct BuildOptions: ParsableArguments {
     public var xcbuildFlags: [String] = []
 
     @Option(
-        name: .customLong("Xmanifest", withSingleDash: true),
+        name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
         parsing: .unconditionalSingleValue,
         help: ArgumentHelp(
-            "Pass flag to the manifest build invocation",
+            "Pass flag to Swift compiler invocations for build-time executables (manifest and plugins)",
             visibility: .hidden
         )
     )
-    var manifestFlags: [String] = []
+    public var _buildToolsSwiftCFlags: [String] = []
+
+    @Option(
+        name: .customLong("Xmanifest", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: ArgumentHelp(
+            "Pass flag to the manifest build invocation. Deprecated: use '-Xbuild-tools-swiftc' instead",
+            visibility: .hidden
+        )
+    )
+    public var _deprecated_manifestFlags: [String] = []
+
+    var manifestFlags: [String] {
+        self._deprecated_manifestFlags.isEmpty ?
+            self._buildToolsSwiftCFlags :
+            self._deprecated_manifestFlags
+    }
+
+    var pluginSwiftCFlags: [String] {
+        self._buildToolsSwiftCFlags
+    }
 
     public var buildFlags: BuildFlags {
         BuildFlags(

@@ -423,6 +423,10 @@ public final class SwiftTool {
         if let _ = options.security.netrcFilePath, options.security.netrc == false {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
         }
+
+        if !options.build._deprecated_manifestFlags.isEmpty {
+            observabilityScope.emit(warning: "'-Xmanifest' option is deprecated; use '-Xbuild-tools-swiftc' instead")
+        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -625,6 +629,7 @@ public final class SwiftTool {
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain(),
+            extraPluginSwiftCFlags: self.options.build.pluginSwiftCFlags,
             enableSandbox: !self.shouldDisableSandbox,
             verboseOutput: self.logLevel <= .info
         )

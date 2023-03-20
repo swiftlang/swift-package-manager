@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
+* [#5966]
+
+  Plugin compilation can be influenced by using `-Xbuild-tools-swiftc` arguments in the SwiftPM command line. This is similar to the existing mechanism for influencing the manifest compilation using `-Xmanifest` arguments. Manifest compilation will also be influenced by `-Xbuild-tools-swiftc`, but only if no other `-Xmanifest` arguments are provided. Using `-Xmanifest` will show a deprecation message. `-Xmanifest` will be removed in the future.
+
 * [#5728]
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
@@ -318,6 +322,7 @@ Swift 3.0
 [#5874]: https://github.com/apple/swift-package-manager/pull/5874
 [#5949]: https://github.com/apple/swift-package-manager/pull/5949
 [#5892]: https://github.com/apple/swift-package-manager/pull/5892
+[#5966]: https://github.com/apple/swift-package-manager/pull/5966
 [#6060]: https://github.com/apple/swift-package-manager/pull/6060
 [#6067]: https://github.com/apple/swift-package-manager/pull/6067
 [#6114]: https://github.com/apple/swift-package-manager/pull/6114
