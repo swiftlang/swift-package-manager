@@ -670,7 +670,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archive = try localFileSystem.readFileContents(archivePath).contents
             let signaturePath = workingDirectory.appending("\(packageIdentity)-\(version).sig")
             let signature = try localFileSystem.readFileContents(signaturePath).contents
-            try await validateSignature(
+            try await self.validateSignature(
                 signature: signature,
                 content: archive,
                 format: signatureFormat,
@@ -682,7 +682,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let metadata = try localFileSystem.readFileContents(metadataPath).contents
             let metadataSignaturePath = workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig")
             let metadataSignature = try localFileSystem.readFileContents(metadataSignaturePath).contents
-            try await validateSignature(
+            try await self.validateSignature(
                 signature: metadataSignature,
                 content: metadata,
                 format: signatureFormat,
@@ -692,7 +692,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // manifest signatures
             let manifest = try localFileSystem.readFileContents(manifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
@@ -702,7 +702,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             )
 
             let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package@swift-\(ToolsVersion.current).swift",
                 in: archivePath,
                 manifestContent: versionSpecificManifest,
@@ -785,7 +785,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archive = try localFileSystem.readFileContents(archivePath).contents
             let signaturePath = workingDirectory.appending("\(packageIdentity)-\(version).sig")
             let signature = try localFileSystem.readFileContents(signaturePath).contents
-            try await validateSignature(
+            try await self.validateSignature(
                 signature: signature,
                 content: archive,
                 format: signatureFormat,
@@ -797,7 +797,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let metadata = try localFileSystem.readFileContents(metadataPath).contents
             let metadataSignaturePath = workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig")
             let metadataSignature = try localFileSystem.readFileContents(metadataSignaturePath).contents
-            try await validateSignature(
+            try await self.validateSignature(
                 signature: metadataSignature,
                 content: metadata,
                 format: signatureFormat,
@@ -807,7 +807,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // manifest signatures
             let manifest = try localFileSystem.readFileContents(manifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
@@ -817,7 +817,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             )
 
             let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package@swift-\(ToolsVersion.current).swift",
                 in: archivePath,
                 manifestContent: versionSpecificManifest,
@@ -897,7 +897,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             let archive = try localFileSystem.readFileContents(archivePath).contents
             let signaturePath = workingDirectory.appending("\(packageIdentity)-\(version).sig")
             let signature = try localFileSystem.readFileContents(signaturePath).contents
-            try await validateSignature(
+            try await self.validateSignature(
                 signature: signature,
                 content: archive,
                 verifierConfiguration: verifierConfiguration,
@@ -912,7 +912,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
 
             // manifest signatures
             let manifest = try localFileSystem.readFileContents(manifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package.swift",
                 in: archivePath,
                 manifestContent: manifest,
@@ -922,7 +922,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
             )
 
             let versionSpecificManifest = try localFileSystem.readFileContents(versionSpecificManifestPath).contents
-            try await validateSignedManifest(
+            try await self.validateSignedManifest(
                 manifestFile: "Package@swift-\(ToolsVersion.current).swift",
                 in: archivePath,
                 manifestContent: versionSpecificManifest,
