@@ -1745,7 +1745,7 @@ extension RegistryClient {
         public let alternateLocations: [URL]?
     }
 
-    public struct PackageVersionMetadata {
+    public struct PackageVersionMetadata: Sendable {
         public let registry: Registry
         public let licenseURL: URL?
         public let readmeURL: URL?
@@ -1758,7 +1758,7 @@ extension RegistryClient {
             self.resources.first(where: { $0.name == "source-archive" })
         }
 
-        public struct Resource {
+        public struct Resource: Sendable {
             public let name: String
             public let type: String
             public let checksum: String?
@@ -1772,12 +1772,12 @@ extension RegistryClient {
             }
         }
 
-        public struct Signing {
+        public struct Signing: Sendable {
             public let signatureBase64Encoded: String
             public let signatureFormat: String
         }
 
-        public struct Author {
+        public struct Author: Sendable {
             public let name: String
             public let email: String?
             public let description: String?
@@ -1785,7 +1785,7 @@ extension RegistryClient {
             public let url: URL?
         }
 
-        public struct Organization {
+        public struct Organization: Sendable {
             public let name: String
             public let email: String?
             public let description: String?
