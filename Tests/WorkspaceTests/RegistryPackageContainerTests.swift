@@ -468,7 +468,8 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             }),
             customArchiverProvider: { _ in archiver },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: MockHashAlgorithm()
         )
     }
 

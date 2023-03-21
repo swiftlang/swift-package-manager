@@ -376,7 +376,7 @@ final class RegistryClientTests: XCTestCase {
         let manifestURL =
             URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let defaultManifest = """
@@ -468,11 +468,436 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
         configuration.security = .testDefault
 
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            checksumAlgorithm: checksumAlgorithm
+        )
         let availableManifests = try registryClient.getAvailableManifests(
             package: identity,
             version: version
         )
+
+        XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
+        XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.toolsVersion, .v4)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.toolsVersion, .v4_2)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.toolsVersion, .v5_3)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
+    }
+
+    func testAvailableManifests_matchingChecksumInStorage() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let defaultManifest = """
+        // swift-tools-version:5.5
+        import PackageDescription
+
+        let package = Package(
+            name: "LinkedList",
+            products: [
+                .library(name: "LinkedList", targets: ["LinkedList"])
+            ],
+            targets: [
+                .target(name: "LinkedList"),
+                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+            ],
+            swiftLanguageVersions: [.v4, .v5]
+        )
+        """
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let defaultManifestData = defaultManifest.data(using: .utf8)!
+
+                let links = """
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                """
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Link", value: links),
+                    ]),
+                    body: defaultManifestData
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let contentType = Fingerprint.ContentType.manifest(.none)
+        let manifestChecksum = checksumAlgorithm.hash(.init(defaultManifest.data(using: .utf8)!))
+            .hexadecimalRepresentation
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        contentType: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: manifestChecksum,
+                            contentType: contentType
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict,
+            checksumAlgorithm: checksumAlgorithm
+        )
+        let availableManifests = try registryClient.getAvailableManifests(
+            package: identity,
+            version: version
+        )
+
+        XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
+        XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.toolsVersion, .v4)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.toolsVersion, .v4_2)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.toolsVersion, .v5_3)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
+    }
+
+    func testAvailableManifests_nonMatchingChecksumInStorage_strict() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let defaultManifest = """
+        // swift-tools-version:5.5
+        import PackageDescription
+
+        let package = Package(
+            name: "LinkedList",
+            products: [
+                .library(name: "LinkedList", targets: ["LinkedList"])
+            ],
+            targets: [
+                .target(name: "LinkedList"),
+                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+            ],
+            swiftLanguageVersions: [.v4, .v5]
+        )
+        """
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let defaultManifestData = defaultManifest.data(using: .utf8)!
+
+                let links = """
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                """
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Link", value: links),
+                    ]),
+                    body: defaultManifestData
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let contentType = Fingerprint.ContentType.manifest(.none)
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        contentType: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: contentType
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict, // intended for this test; don't change
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        XCTAssertThrowsError(
+            try registryClient.getAvailableManifests(
+                package: identity,
+                version: version
+            )
+        ) { error in
+            guard case RegistryError.invalidChecksum = error else {
+                return XCTFail("Expected RegistryError.invalidChecksum, got \(error)")
+            }
+        }
+    }
+
+    func testAvailableManifests_nonMatchingChecksumInStorage_warn() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let defaultManifest = """
+        // swift-tools-version:5.5
+        import PackageDescription
+
+        let package = Package(
+            name: "LinkedList",
+            products: [
+                .library(name: "LinkedList", targets: ["LinkedList"])
+            ],
+            targets: [
+                .target(name: "LinkedList"),
+                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+            ],
+            swiftLanguageVersions: [.v4, .v5]
+        )
+        """
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let defaultManifestData = defaultManifest.data(using: .utf8)!
+
+                let links = """
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                """
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Link", value: links),
+                    ]),
+                    body: defaultManifestData
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let contentType = Fingerprint.ContentType.manifest(.none)
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        contentType: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: contentType
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .warn, // intended for this test; don't change
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        // The checksum differs from that in storage, but error is not thrown
+        // because fingerprintCheckingMode=.warn
+        let availableManifests = try registryClient.getAvailableManifests(
+            package: identity,
+            version: version,
+            observabilityScope: observability.topScope
+        )
+
+        // But there should be a warning
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+        }
 
         XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
         XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
@@ -643,7 +1068,7 @@ final class RegistryClientTests: XCTestCase {
         let manifestURL =
             URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -723,7 +1148,11 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
         configuration.security = .testDefault
 
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            checksumAlgorithm: checksumAlgorithm
+        )
 
         do {
             let manifest = try registryClient.getManifestContent(
@@ -764,7 +1193,7 @@ final class RegistryClientTests: XCTestCase {
         let manifestURL =
             URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -844,7 +1273,11 @@ final class RegistryClientTests: XCTestCase {
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
         configuration.security = .testDefault
 
-        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            checksumAlgorithm: checksumAlgorithm
+        )
 
         do {
             let manifest = try registryClient.getManifestContent(
@@ -862,6 +1295,424 @@ final class RegistryClientTests: XCTestCase {
                 version: version,
                 customToolsVersion: .v5_3
             )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v5_3)
+        }
+    }
+
+    func testGetManifestContent_matchingChecksumInStorage() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+                .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
+            // remove query
+            components.query = nil
+            let urlWithoutQuery = components.url
+            switch (request.method, urlWithoutQuery) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let defaultManifestChecksum = checksumAlgorithm
+            .hash(.init(manifestContent(toolsVersion: .none).data(using: .utf8)!)).hexadecimalRepresentation
+        let versionManifestChecksum = checksumAlgorithm
+            .hash(.init(manifestContent(toolsVersion: .v5_3).data(using: .utf8)!)).hexadecimalRepresentation
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        Fingerprint.ContentType.manifest(.none): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: defaultManifestChecksum,
+                            contentType: Fingerprint.ContentType.manifest(.none)
+                        ),
+                        Fingerprint.ContentType.manifest(.v5_3): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: versionManifestChecksum,
+                            contentType: Fingerprint.ContentType.manifest(.v5_3)
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict,
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        do {
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: nil
+            )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .current)
+        }
+
+        do {
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v5_3
+            )
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v5_3)
+        }
+    }
+
+    func testGetManifestContent_nonMatchingChecksumInStorage_strict() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+                .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
+            // remove query
+            components.query = nil
+            let urlWithoutQuery = components.url
+            switch (request.method, urlWithoutQuery) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        Fingerprint.ContentType.manifest(.none): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: Fingerprint.ContentType.manifest(.none)
+                        ),
+                        Fingerprint.ContentType.manifest(.v5_3): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: Fingerprint.ContentType.manifest(.v5_3)
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict, // intended for this test; don't change
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        XCTAssertThrowsError(
+            try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: nil
+            )
+        ) { error in
+            guard case RegistryError.invalidChecksum = error else {
+                return XCTFail("Expected RegistryError.invalidChecksum, got \(error)")
+            }
+        }
+
+        XCTAssertThrowsError(
+            try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v5_3
+            )
+        ) { error in
+            guard case RegistryError.invalidChecksum = error else {
+                return XCTFail("Expected RegistryError.invalidChecksum, got \(error)")
+            }
+        }
+    }
+
+    func testGetManifestContent_matchingChecksumInStorage_warn() throws {
+        let registryURL = URL("https://packages.example.com")
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let version = Version("1.1.1")
+        let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let manifestURL =
+            URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)/Package.swift")
+
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let handler: LegacyHTTPClient.Handler = { request, _, completion in
+            var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
+            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+                .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
+            // remove query
+            components.query = nil
+            let urlWithoutQuery = components.url
+            switch (request.method, urlWithoutQuery) {
+            case (.get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+
+                let data = manifestContent(toolsVersion: toolsVersion).data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        let httpClient = LegacyHTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [
+                    .registry: [
+                        Fingerprint.ContentType.manifest(.none): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: Fingerprint.ContentType.manifest(.none)
+                        ),
+                        Fingerprint.ContentType.manifest(.v5_3): Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: Fingerprint.ContentType.manifest(.v5_3)
+                        ),
+                    ],
+                ],
+            ],
+        ])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .warn, // intended for this test; don't change
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+            // The checksum differs from that in storage, but error is not thrown
+            // because fingerprintCheckingMode=.warn
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: nil,
+                observabilityScope: observability.topScope
+            )
+
+            // But there should be a warning
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            }
+
+            let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .current)
+        }
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+            // The checksum differs from that in storage, but error is not thrown
+            // because fingerprintCheckingMode=.warn
+            let manifest = try registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v5_3,
+                observabilityScope: observability.topScope
+            )
+
+            // But there should be a warning
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
+            }
+
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
             XCTAssertEqual(parsedToolsVersion, .v5_3)
         }
@@ -1035,7 +1886,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(identity.scope)/\(identity.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.scope)/\(identity.name)/\(version).zip")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let author = UUID().uuidString
@@ -1136,7 +1987,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1146,8 +1998,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity.underlying,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: checksumAlgorithm
+            destinationPath: path
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
@@ -1171,7 +2022,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -1247,7 +2098,15 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(origin: .registry(registryURL), value: checksum)],
+                version: [
+                    .registry: [
+                        .sourceCode: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: checksum,
+                            contentType: .sourceCode
+                        ),
+                    ],
+                ],
             ],
         ])
         let registryClient = RegistryClient(
@@ -1269,7 +2128,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1279,8 +2139,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: checksumAlgorithm
+            destinationPath: path
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
@@ -1294,7 +2153,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -1370,10 +2229,15 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(
-                    origin: .registry(registryURL),
-                    value: "non-matching checksum"
-                )],
+                version: [
+                    .registry: [
+                        .sourceCode: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: .sourceCode
+                        ),
+                    ],
+                ],
             ],
         ])
         let registryClient = RegistryClient(
@@ -1395,7 +2259,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1406,8 +2271,7 @@ final class RegistryClientTests: XCTestCase {
                 package: identity,
                 version: version,
                 fileSystem: fileSystem,
-                destinationPath: path,
-                checksumAlgorithm: checksumAlgorithm
+                destinationPath: path
             )
         ) { error in
             guard case RegistryError.invalidChecksum = error else {
@@ -1426,7 +2290,7 @@ final class RegistryClientTests: XCTestCase {
         let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -1502,10 +2366,15 @@ final class RegistryClientTests: XCTestCase {
 
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
-                version: [.registry: Fingerprint(
-                    origin: .registry(registryURL),
-                    value: "non-matching checksum"
-                )],
+                version: [
+                    .registry: [
+                        .sourceCode: Fingerprint(
+                            origin: .registry(registryURL),
+                            value: "non-matching checksum",
+                            contentType: .sourceCode
+                        ),
+                    ],
+                ],
             ],
         ])
         let registryClient = RegistryClient(
@@ -1527,7 +2396,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1541,7 +2411,6 @@ final class RegistryClientTests: XCTestCase {
             version: version,
             fileSystem: fileSystem,
             destinationPath: path,
-            checksumAlgorithm: checksumAlgorithm,
             observabilityScope: observability.topScope
         )
 
@@ -1561,7 +2430,7 @@ final class RegistryClientTests: XCTestCase {
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
         let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -1649,7 +2518,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1659,8 +2529,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: checksumAlgorithm
+            destinationPath: path
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
@@ -1672,6 +2541,7 @@ final class RegistryClientTests: XCTestCase {
                 package: identity,
                 version: version,
                 kind: .registry,
+                contentType: .sourceCode,
                 observabilityScope: ObservabilitySystem
                     .NOOP,
                 callbackQueue: .sharedConcurrent,
@@ -1689,7 +2559,7 @@ final class RegistryClientTests: XCTestCase {
         let downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version).zip")
         let metadataURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
-        let checksumAlgorithm: HashAlgorithm = SHA256()
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -1777,7 +2647,8 @@ final class RegistryClientTests: XCTestCase {
                     callback(.success(()))
                 })
             },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1787,8 +2658,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: checksumAlgorithm
+            destinationPath: path
         )
 
         let contents = try fileSystem.getDirectoryContents(path)
@@ -1851,7 +2721,8 @@ final class RegistryClientTests: XCTestCase {
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: MockHashAlgorithm()
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1861,8 +2732,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: SHA256()
+            destinationPath: path
         )) { error in
             guard case RegistryError
                 .failedDownloadingSourceArchive(
@@ -1932,7 +2802,8 @@ final class RegistryClientTests: XCTestCase {
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: MockHashAlgorithm()
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1942,8 +2813,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: SHA256()
+            destinationPath: path
         )) { error in
             guard case RegistryError
                 .failedDownloadingSourceArchive(
@@ -1982,7 +2852,8 @@ final class RegistryClientTests: XCTestCase {
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             customHTTPClient: httpClient,
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: MockHashAlgorithm()
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -1992,8 +2863,7 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version,
             fileSystem: fileSystem,
-            destinationPath: path,
-            checksumAlgorithm: SHA256()
+            destinationPath: path
         )) { error in
             guard case RegistryError
                 .registryNotAvailable(registry) = error
@@ -2986,13 +3856,14 @@ extension RegistryClient {
 
     fileprivate func getAvailableManifests(
         package: PackageIdentity,
-        version: Version
+        version: Version,
+        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         try tsc_await {
             self.getAvailableManifests(
                 package: package,
                 version: version,
-                observabilityScope: ObservabilitySystem.NOOP,
+                observabilityScope: observabilityScope,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
             )
@@ -3002,14 +3873,15 @@ extension RegistryClient {
     fileprivate func getManifestContent(
         package: PackageIdentity,
         version: Version,
-        customToolsVersion: ToolsVersion?
+        customToolsVersion: ToolsVersion?,
+        observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws -> String {
         try tsc_await {
             self.getManifestContent(
                 package: package,
                 version: version,
                 customToolsVersion: customToolsVersion,
-                observabilityScope: ObservabilitySystem.NOOP,
+                observabilityScope: observabilityScope,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
             )
@@ -3021,7 +3893,6 @@ extension RegistryClient {
         version: Version,
         fileSystem: FileSystem,
         destinationPath: AbsolutePath,
-        checksumAlgorithm: HashAlgorithm,
         observabilityScope: ObservabilityScope = ObservabilitySystem.NOOP
     ) throws {
         try tsc_await {
@@ -3029,7 +3900,6 @@ extension RegistryClient {
                 package: package,
                 version: version,
                 destinationPath: destinationPath,
-                checksumAlgorithm: checksumAlgorithm,
                 progressHandler: .none,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
@@ -3110,7 +3980,8 @@ func makeRegistryClient(
     fingerprintCheckingMode: FingerprintCheckingMode = .strict,
     skipSignatureValidation: Bool = false,
     signingEntityStorage: PackageSigningEntityStorage = MockPackageSigningEntityStorage(),
-    signingEntityCheckingMode: SigningEntityCheckingMode = .strict
+    signingEntityCheckingMode: SigningEntityCheckingMode = .strict,
+    checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
 ) -> RegistryClient {
     RegistryClient(
         configuration: configuration,
@@ -3122,7 +3993,8 @@ func makeRegistryClient(
         authorizationProvider: authorizationProvider,
         customHTTPClient: httpClient,
         customArchiverProvider: { _ in MockArchiver() },
-        delegate: .none
+        delegate: .none,
+        checksumAlgorithm: checksumAlgorithm
     )
 }
 
@@ -3208,4 +4080,14 @@ struct UnavailableServerErrorHandler {
             )
         }
     }
+}
+
+private func manifestContent(toolsVersion: ToolsVersion?) -> String {
+    """
+    // swift-tools-version:\(toolsVersion ?? ToolsVersion.current)
+
+    import PackageDescription
+
+    let package = Package()
+    """
 }

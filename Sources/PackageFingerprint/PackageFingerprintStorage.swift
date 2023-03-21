@@ -22,7 +22,7 @@ public protocol PackageFingerprintStorage {
         version: Version,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
     )
 
     func put(
@@ -39,7 +39,7 @@ public protocol PackageFingerprintStorage {
         version: Version,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
     )
 
     func put(
@@ -57,6 +57,7 @@ extension PackageFingerprintStorage {
         package: PackageIdentity,
         version: Version,
         kind: Fingerprint.Kind,
+        contentType: Fingerprint.ContentType,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Fingerprint, Error>) -> Void
@@ -67,7 +68,7 @@ extension PackageFingerprintStorage {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            self.get(kind: kind, result, callback: callback)
+            self.get(kind: kind, contentType: contentType, result, callback: callback)
         }
     }
 
@@ -75,6 +76,7 @@ extension PackageFingerprintStorage {
         package: PackageReference,
         version: Version,
         kind: Fingerprint.Kind,
+        contentType: Fingerprint.ContentType,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         callback: @escaping (Result<Fingerprint, Error>) -> Void
@@ -85,17 +87,20 @@ extension PackageFingerprintStorage {
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
-            self.get(kind: kind, result, callback: callback)
+            self.get(kind: kind, contentType: contentType, result, callback: callback)
         }
     }
 
     private func get(
         kind: Fingerprint.Kind,
-        _ fingerprintsResult: Result<[Fingerprint.Kind: Fingerprint], Error>,
+        contentType: Fingerprint.ContentType,
+        _ fingerprintsByKindResult: Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>,
         callback: @escaping (Result<Fingerprint, Error>) -> Void
     ) {
-        callback(fingerprintsResult.tryMap { fingerprints in
-            guard let fingerprint = fingerprints[kind] else {
+        callback(fingerprintsByKindResult.tryMap { fingerprintsByKind in
+            guard let fingerprintsByContentType = fingerprintsByKind[kind],
+                  let fingerprint = fingerprintsByContentType[contentType]
+            else {
                 throw PackageFingerprintStorageError.notFound
             }
             return fingerprint
@@ -110,9 +115,9 @@ public enum PackageFingerprintStorageError: Error, Equatable, CustomStringConver
     public var description: String {
         switch self {
         case .conflict(let given, let existing):
-            return "Fingerprint \(given) is different from previously recorded value \(existing)"
+            return "fingerprint \(given) is different from previously recorded value \(existing)"
         case .notFound:
-            return "Not found"
+            return "not found"
         }
     }
 }

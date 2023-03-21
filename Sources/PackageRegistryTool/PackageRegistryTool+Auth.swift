@@ -198,7 +198,8 @@ extension SwiftPackageRegistryTool {
                 signingEntityStorage: .none,
                 signingEntityCheckingMode: .strict,
                 authorizationProvider: authorizationProvider,
-                delegate: .none
+                delegate: .none,
+                checksumAlgorithm: SHA256()
             )
 
             // Try logging in
