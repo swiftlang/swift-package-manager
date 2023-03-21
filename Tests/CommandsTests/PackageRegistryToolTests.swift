@@ -417,6 +417,13 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testPublishingUnsignedPackage() throws {
+        #if os(Linux)
+        // needed for archiving
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
         let registryURL = "https://packages.example.com"
@@ -588,6 +595,13 @@ final class PackageRegistryToolTests: CommandsTestCase {
             !UserToolchain.default.supportsSwiftConcurrency(),
             "skipping because test environment doesn't support concurrency"
         )
+
+        #if os(Linux)
+        // needed for archiving
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
 
         let observabilityScope = ObservabilitySystem.makeForTesting().topScope
 
