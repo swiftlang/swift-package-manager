@@ -516,7 +516,7 @@ class PackageGraphTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: "Source files for target Bar should be located under \(Bar.appending(components: "Sources", "Bar"))",
+                diagnostic: .contains("Source files for target Bar should be located under 'Sources/Bar'"),
                 severity: .warning
             )
             result.check(

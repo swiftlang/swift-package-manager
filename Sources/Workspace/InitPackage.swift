@@ -257,8 +257,7 @@ public final class InitPackage {
                 if packageType == .executable {
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)",
-                                path: "Sources"),
+                                name: "\(pkgname)")
                         ]
                     """
                 } else if packageType == .tool {
@@ -267,8 +266,7 @@ public final class InitPackage {
                                 name: "\(pkgname)",
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                                ],
-                                path: "Sources"),
+                                ]),
                         ]
                     """
                 } else if packageType == .macro {
@@ -364,9 +362,13 @@ public final class InitPackage {
         progressReporter?("Creating \(sources.relative(to: destinationPath))/")
         try makeDirectories(sources)
 
-        let moduleDir = packageType == .executable || packageType == .tool
-          ? sources
-          : sources.appending("\(pkgname)")
+        let moduleDir: AbsolutePath
+        switch packageType {
+        case .executable, .tool:
+            moduleDir = sources
+        default:
+            moduleDir = sources.appending("\(pkgname)")
+        }
         try makeDirectories(moduleDir)
 
         let sourceFileName: String

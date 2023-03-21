@@ -15,8 +15,14 @@ import PackageModel
 import TSCBasic
 
 extension Basics.Diagnostic {
-    static func targetHasNoSources(targetPath: String, target: String) -> Self {
-        .warning("Source files for target \(target) should be located under \(targetPath)")
+    static func targetHasNoSources(name: String, type: TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool) -> Self {
+        let folderName = PackageBuilder.suggestedPredefinedSourceDirectory(type: type)
+        var clauses = ["Source files for target \(name) should be located under '\(folderName)/\(name)'"]
+        if shouldSuggestRelaxedSourceDir {
+            clauses.append("'\(folderName)'")
+        }
+        clauses.append("or a custom sources path can be set with the 'path' property in Package.swift")
+        return .warning(clauses.joined(separator: ", "))
     }
 
     static func targetNameHasIncorrectCase(target: String) -> Self {
