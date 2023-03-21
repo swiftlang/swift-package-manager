@@ -387,6 +387,11 @@ public struct SwiftSetting {
         return SwiftSetting(
           name: "interoperabilityMode", value: values, condition: condition)
     }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static var _enableBuiltinModule: SwiftSetting {
+        SwiftSetting(name: "_enableBuiltinModule", value: [], condition: nil)
+    }
 }
 
 /// A linker build setting.

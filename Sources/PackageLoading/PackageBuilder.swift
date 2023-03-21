@@ -1038,6 +1038,18 @@ public final class PackageBuilder {
                 }
 
                 values = ["-enable-experimental-feature", value]
+
+            case ._enableBuiltinModule:
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError(
+                        "only Swift supports enabling the builtin module")
+
+                case .swift:
+                    decl = .OTHER_SWIFT_FLAGS
+                }
+
+                values = ["-Xfrontend", "-enable-builtin-module"]
             }
 
             // Create an assignment for this setting.
