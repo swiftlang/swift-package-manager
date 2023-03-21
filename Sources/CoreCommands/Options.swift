@@ -257,7 +257,7 @@ public struct ResolverOptions: ParsableArguments {
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
-        .swizzle
+        .disabled
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file")
     public var defaultRegistryURL: URL?
