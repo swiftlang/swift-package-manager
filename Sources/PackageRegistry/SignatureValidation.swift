@@ -148,21 +148,24 @@ struct SignatureValidation {
                 observabilityScope: observabilityScope,
                 completion: completion
             )
-        } catch RegistryError.sourceArchiveNotSigned(let registry, let package, let version) {
-            observabilityScope.emit(info: "\(package) \(version) from \(registry) is unsigned")
+        } catch RegistryError.sourceArchiveNotSigned {
+            observabilityScope.emit(
+                info: "\(package) \(version) from \(registry) is unsigned",
+                metadata: .registryPackageMetadata(identity: package)
+            )
             guard let onUnsigned = configuration.onUnsigned else {
                 return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
             }
 
             let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
                 registry: registry,
-                package: package,
+                package: package.underlying,
                 version: version
             )
 
             switch onUnsigned {
             case .prompt:
-                self.delegate.onUnsigned(registry: registry, package: package, version: version) { `continue` in
+                self.delegate.onUnsigned(registry: registry, package: package.underlying, version: version) { `continue` in
                     if `continue` {
                         completion(.success(.none))
                     } else {
@@ -172,7 +175,10 @@ struct SignatureValidation {
             case .error:
                 completion(.failure(sourceArchiveNotSignedError))
             case .warn:
-                observabilityScope.emit(warning: "\(sourceArchiveNotSignedError)")
+                observabilityScope.emit(
+                    warning: "\(sourceArchiveNotSignedError)",
+                    metadata: .registryPackageMetadata(identity: package)
+                )
                 completion(.success(.none))
             case .silentAllow:
                 // Continue without logging
@@ -283,21 +289,24 @@ struct SignatureValidation {
             )
         } catch ManifestSignatureParser.Error.malformedManifestSignature {
             completion(.failure(RegistryError.invalidSignature(reason: "manifest signature is malformed")))
-        } catch RegistryError.sourceArchiveNotSigned(let registry, let package, let version) {
-            observabilityScope.emit(info: "\(package) \(version) from \(registry) is unsigned")
+        } catch RegistryError.sourceArchiveNotSigned {
+            observabilityScope.emit(
+                info: "\(package) \(version) from \(registry) is unsigned",
+                metadata: .registryPackageMetadata(identity: package)
+            )
             guard let onUnsigned = configuration.onUnsigned else {
                 return completion(.failure(RegistryError.missingConfiguration(details: "security.signing.onUnsigned")))
             }
 
             let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
                 registry: registry,
-                package: package,
+                package: package.underlying,
                 version: version
             )
 
             switch onUnsigned {
             case .prompt:
-                self.delegate.onUnsigned(registry: registry, package: package, version: version) { `continue` in
+                self.delegate.onUnsigned(registry: registry, package: package.underlying, version: version) { `continue` in
                     if `continue` {
                         completion(.success(.none))
                     } else {
@@ -307,7 +316,10 @@ struct SignatureValidation {
             case .error:
                 completion(.failure(sourceArchiveNotSignedError))
             case .warn:
-                observabilityScope.emit(warning: "\(sourceArchiveNotSignedError)")
+                observabilityScope.emit(
+                    warning: "\(sourceArchiveNotSignedError)",
+                    metadata: .registryPackageMetadata(identity: package)
+                )
                 completion(.success(.none))
             case .silentAllow:
                 // Continue without logging
@@ -394,7 +406,10 @@ struct SignatureValidation {
                     case .error:
                         completion(.failure(signerNotTrustedError))
                     case .warn:
-                        observabilityScope.emit(warning: "\(signerNotTrustedError)")
+                        observabilityScope.emit(
+                            warning: "\(signerNotTrustedError)",
+                            metadata: .registryPackageMetadata(identity: package)
+                        )
                         completion(.success(.none))
                     case .silentAllow:
                         // Continue without logging
@@ -468,5 +483,14 @@ extension VerifierConfiguration {
         }
 
         return verifierConfiguration
+    }
+}
+
+extension ObservabilityMetadata {
+    public static func registryPackageMetadata(identity: PackageIdentity.RegistryIdentity) -> Self {
+        var metadata = ObservabilityMetadata()
+        metadata.packageIdentity = identity.underlying
+        metadata.packageKind = .registry(identity.underlying)
+        return metadata
     }
 }
