@@ -526,6 +526,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .enableBuiltinModule:
+            self.init(enum: setting.kind.name)
         }
     }
 }
@@ -678,6 +680,8 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .enableBuiltinModule:
+            return "enableBuiltinModule"
         }
     }
 }
