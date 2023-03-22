@@ -528,26 +528,6 @@ class ManifestSourceGenerationTests: XCTestCase {
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
     }
 
-    func testEnableBuiltinModule() throws {
-        let manifestContents = """
-            // swift-tools-version:5.9
-            import PackageDescription
-
-            let package = Package(
-                name: "EnableBuiltinModule",
-                targets: [
-                    .target(
-                        name: "MyTool",
-                        swiftSettings: [
-                            ._enableBuiltinModule
-                        ]
-                    )
-                ]
-            )
-            """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
-    }
-
     func testPluginNetworkingPermissionGeneration() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",

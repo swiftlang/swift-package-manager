@@ -389,8 +389,9 @@ public struct SwiftSetting {
     }
 
     @available(_PackageDescription, introduced: 5.9)
-    public static var _enableBuiltinModule: SwiftSetting {
-        SwiftSetting(name: "_enableBuiltinModule", value: [], condition: nil)
+    @_spi(FrontendOptions)
+    public static var enableBuiltinModule: SwiftSetting {
+        SwiftSetting(name: "enableBuiltinModule", value: [], condition: nil)
     }
 }
 
