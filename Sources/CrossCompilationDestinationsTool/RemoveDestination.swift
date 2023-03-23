@@ -39,15 +39,11 @@ struct RemoveDestination: DestinationCommand {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
         let artifactBundleDirectory = destinationsDirectory.appending(component: self.destinationIDOrBundleName)
 
+        let removedBundleDirectory: AbsolutePath
         if fileSystem.exists(artifactBundleDirectory) {
             try fileSystem.removeFileTree(artifactBundleDirectory)
 
-            print(
-                """
-                Destination artifact bundle at path `\(artifactBundleDirectory)` was successfully removed from the \
-                file system.
-                """
-            )
+            removedBundleDirectory = artifactBundleDirectory
         } else {
             let bundles = try DestinationBundle.getAllValidBundles(
                 destinationsDirectory: destinationsDirectory,
@@ -106,6 +102,14 @@ struct RemoveDestination: DestinationCommand {
             }
 
             try fileSystem.removeFileTree(matchingBundle.path)
+            removedBundleDirectory = matchingBundle.path
         }
+
+        print(
+            """
+            Destination artifact bundle at path `\(removedBundleDirectory)` was successfully removed from the \
+            file system.
+            """
+        )
     }
 }
