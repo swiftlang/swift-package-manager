@@ -387,12 +387,6 @@ public struct SwiftSetting {
         return SwiftSetting(
           name: "interoperabilityMode", value: values, condition: condition)
     }
-
-    @available(_PackageDescription, introduced: 5.9)
-    @_spi(FrontendOptions)
-    public static var enableBuiltinModule: SwiftSetting {
-        SwiftSetting(name: "enableBuiltinModule", value: [], condition: nil)
-    }
 }
 
 /// A linker build setting.

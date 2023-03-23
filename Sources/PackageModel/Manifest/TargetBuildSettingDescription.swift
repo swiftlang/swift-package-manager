@@ -40,14 +40,12 @@ public enum TargetBuildSettingDescription {
 
         case unsafeFlags([String])
 
-        case enableBuiltinModule
-
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode, .enableUpcomingFeature, .enableExperimentalFeature, .enableBuiltinModule:
+            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode, .enableUpcomingFeature, .enableExperimentalFeature:
                 return false
             }
         }

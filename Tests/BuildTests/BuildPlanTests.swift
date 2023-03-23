@@ -3245,8 +3245,7 @@ final class BuildPlanTests: XCTestCase {
                         .init(tool: .swift, kind: .interoperabilityMode(.Cxx, "swift-5.9"), condition: .init(platformNames: ["linux"])),
                         .init(tool: .swift, kind: .interoperabilityMode(.Cxx, "swift-6.0"), condition: .init(platformNames: ["macos"])),
                         .init(tool: .swift, kind: .enableUpcomingFeature("BestFeature")),
-                        .init(tool: .swift, kind: .enableUpcomingFeature("WorstFeature"), condition: .init(platformNames: ["macos"], config: "debug")),
-                        .init(tool: .swift, kind: .enableBuiltinModule)
+                        .init(tool: .swift, kind: .enableUpcomingFeature("WorstFeature"), condition: .init(platformNames: ["macos"], config: "debug"))
                     ]
                 ),
                 try TargetDescription(
@@ -3312,7 +3311,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=swift-5.9", "-enable-upcoming-feature", "BestFeature", "-enable-builtin-module", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DLINUX", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=swift-5.9", "-enable-upcoming-feature", "BestFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
@@ -3328,7 +3327,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I\(A.appending(components: "Sources", "cbar", "Sources", "headers"))", "-I\(A.appending(components: "Sources", "cbar", "Sources", "cppheaders"))", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
-            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=swift-6.0", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", "-enable-builtin-module", .end])
+            XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", "-cxx-interoperability-mode=swift-6.0", "-enable-upcoming-feature", "BestFeature", "-enable-upcoming-feature", "WorstFeature", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])

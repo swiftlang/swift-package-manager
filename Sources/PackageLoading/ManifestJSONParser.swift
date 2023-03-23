@@ -704,8 +704,6 @@ extension TargetBuildSettingDescription.Kind {
             return .enableExperimentalFeature(value)
         case "unsafeFlags":
             return .unsafeFlags(values)
-        case "enableBuiltinModule":
-            return .enableBuiltinModule
         default:
             throw InternalError("invalid build setting \(name)")
         }
