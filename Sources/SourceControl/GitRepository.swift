@@ -974,6 +974,9 @@ private class GitFileSystemView: FileSystem {
     }
 }
 
+// State of `GitFileSystemView` is protected with `ThreadSafeKeyValueStore`.
+extension GitFileSystemView: @unchecked Sendable {}
+
 // MARK: - Errors
 
 private struct GitShellError: Error {

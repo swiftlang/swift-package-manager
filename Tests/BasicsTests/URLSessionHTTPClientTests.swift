@@ -1129,7 +1129,7 @@ private class MockURLProtocol: URLProtocol {
     }
 }
 
-class FailingFileSystem: FileSystem {
+final class FailingFileSystem: FileSystem {
     var currentWorkingDirectory: AbsolutePath? {
         fatalError("unexpected call")
     }

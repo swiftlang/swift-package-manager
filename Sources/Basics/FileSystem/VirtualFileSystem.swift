@@ -178,7 +178,7 @@ public class VirtualFileSystem: FileSystem {
         return node.children.map { $0.name }
     }
 
-    public var currentWorkingDirectory: AbsolutePath? = nil
+    public let currentWorkingDirectory: AbsolutePath? = nil
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
         throw Errors.readOnlyFileSystem
@@ -246,3 +246,6 @@ public class VirtualFileSystem: FileSystem {
         return FileInfo(attrs)
     }
 }
+
+// `VirtualFileSystem` is read-only, so it can be marked as `Sendable`.
+extension VirtualFileSystem: @unchecked Sendable {}

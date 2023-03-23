@@ -12,7 +12,7 @@
 
 import _Concurrency
 import Foundation
-@preconcurrency import TSCBasic
+import TSCBasic
 
 /// Creates a temporary directory and evaluates a closure with the directory path as an argument.
 /// The temporary directory will live on disk while the closure is evaluated and will be deleted when
