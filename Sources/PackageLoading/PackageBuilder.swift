@@ -27,7 +27,7 @@ public enum ModuleError: Swift.Error {
     }
 
     /// Indicates two targets with the same name and their corresponding packages.
-    case duplicateModule(String, [String])
+    case duplicateModule(targetName: String, packages: [PackageIdentity])
 
     /// The referenced target could not be found.
     case moduleNotFound(String, TargetDescription.TargetType, shouldSuggestRelaxedSourceDir: Bool)
@@ -79,14 +79,20 @@ public enum ModuleError: Swift.Error {
 
     /// A C target has declared an embedded resource
     case embedInCodeNotSupported(target: String)
+
+    /// Indicates several targets with the same name exist in packages
+    case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, targets: [String])
+
+    /// Indicates several targets with the same name exist in a registry and scm package
+    case duplicateModulesScmAndRegistry(regsitryPackage: PackageIdentity.RegistryIdentity, scmPackage: PackageIdentity, targets: [String])
 }
 
 extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .duplicateModule(let name, let packages):
-            let packages = packages.joined(separator: "', '")
-            return "multiple targets named '\(name)' in: '\(packages)'; consider using the `moduleAliases` parameter in manifest to provide unique names"
+        case .duplicateModule(let target, let packages):
+            let packages = packages.map{ $0.description }.sorted().joined(separator: "', '")
+            return "multiple targets named '\(target)' in: '\(packages)'; consider using the `moduleAliases` parameter in manifest to provide unique names"
         case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]
@@ -134,6 +140,12 @@ extension ModuleError: CustomStringConvertible {
             return "plugin target '\(target)' doesn't have a 'capability' property"
         case .embedInCodeNotSupported(let target):
             return "embedding resources in code not supported for C-family language target \(target)"
+        case .duplicateModules(let package, let otherPackage, let targets):
+            let targets = targets.sorted().joined(separator: "', '")
+            return "multiple identical targets '\(targets)' appear in package '\(package)' and '\(otherPackage)', this may indicate that the two packages are the same and can be de-duplicated by using mirrors. if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names"
+        case .duplicateModulesScmAndRegistry(let regsitryPackage, let scmPackage, let targets):
+            let targets = targets.sorted().joined(separator: "', '")
+            return "multiple identical targets '\(targets)' appear in registry package '\(regsitryPackage)' and source control package '\(scmPackage)', this may indicate that the two packages are the same and can be de-duplicated by activating the automatic source-control to registry replacement, or by using mirrors. if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names"
         }
     }
 }
