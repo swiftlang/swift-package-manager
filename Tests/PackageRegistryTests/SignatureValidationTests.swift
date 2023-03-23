@@ -161,7 +161,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("is not signed"), severity: .warning)
+            let diagnostics = result.check(diagnostic: .contains("is not signed"), severity: .warning)
+            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
         }
     }
 
@@ -446,7 +447,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("is not signed"), severity: .warning)
+            let diagnostics = result.check(diagnostic: .contains("is not signed"), severity: .warning)
+            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
         }
     }
 
@@ -1335,7 +1337,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("not trusted"), severity: .warning)
+            let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .warning)
+            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
         }
     }
 
@@ -1897,7 +1900,8 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("not trusted"), severity: .warning)
+            let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .warning)
+            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
         }
     }
     #endif
