@@ -1293,7 +1293,7 @@ extension Workspace {
         packageGraph: PackageGraph,
         completion: @escaping(Result<[PackageIdentity: [String: [String]]], Error>) -> Void) {
         let pluginTargets = packageGraph.allTargets.filter{$0.type == .plugin}
-        let scanner = SwiftcImportScanner(swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment, swiftCompilerFlags: hostToolchain.swiftCompilerFlags, swiftCompilerPath: hostToolchain.swiftCompilerPath)
+        let scanner = SwiftcImportScanner(swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment, swiftCompilerFlags: hostToolchain.swiftCompilerFlags + ["-I", hostToolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString], swiftCompilerPath: hostToolchain.swiftCompilerPath)
         var importList = [PackageIdentity: [String: [String]]]()
 
         for pluginTarget in pluginTargets {
