@@ -1011,6 +1011,9 @@ class PluginInvocationTests: XCTestCase {
             try localFileSystem.writeFileContents(qPluginTargetDir.appending("plugin.swift"), string: """
                   import PackagePlugin
                   import XcodeProjectPlugin
+                  #if canImport(ModuleFoundViaExtraSearchPaths)
+                  import ModuleFoundViaExtraSearchPaths
+                  #endif
                   @main struct QBuildToolPlugin: BuildToolPlugin {
                       func createBuildCommands(
                           context: PluginContext,
@@ -1018,12 +1021,20 @@ class PluginInvocationTests: XCTestCase {
                       ) throws -> [Command] { }
                   }
                   """)
+            
+            // Create something that looks like another module that can be detected via `canImport()`.
+            let fakeExtraModulesDir = tmpPath.appending("ExtraModules")
+            try localFileSystem.createDirectory(fakeExtraModulesDir, recursive: true)
+            let fakeExtraModuleFile = fakeExtraModulesDir.appending("ModuleFoundViaExtraSearchPaths.swiftmodule")
+            try localFileSystem.writeFileContents(fakeExtraModuleFile, string: "")
+            
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
-                forRootPackage: packageDir,
+                location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
+                customHostToolchain: UserToolchain(destination: .hostDestination(), customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)),
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -1060,8 +1071,8 @@ class PluginInvocationTests: XCTestCase {
                         } else if pkg.description == "otherpackage" {
                             XCTAssertNotNil(dict[pkg]?["QPlugin"])
 
-                            let possibleImports1 = ["PackagePlugin", "XcodeProjectPlugin"]
-                            let possibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "_SwiftConcurrencyShims"]
+                            let possibleImports1 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths"]
+                            let possibleImports2 = ["PackagePlugin", "XcodeProjectPlugin", "ModuleFoundViaExtraSearchPaths", "_SwiftConcurrencyShims"]
                             XCTAssertTrue(entry["QPlugin"] == possibleImports1 ||
                                           entry["QPlugin"] == possibleImports2)
                             count += 1
