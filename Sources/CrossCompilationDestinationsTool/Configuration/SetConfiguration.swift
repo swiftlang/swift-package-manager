@@ -87,18 +87,18 @@ struct SetConfiguration: ConfigurationCommand {
 
         let currentWorkingDirectory = fileSystem.currentWorkingDirectory
 
-        if let sdkRootPath = sdkRootPath {
+        if let sdkRootPath {
             configuration.sdkRootPath = try AbsolutePath(validating: sdkRootPath, relativeTo: currentWorkingDirectory)
             updatedProperties.append(CodingKeys.sdkRootPath.stringValue)
         }
 
-        if let swiftResourcesPath = swiftResourcesPath {
+        if let swiftResourcesPath {
             configuration.swiftResourcesPath =
                 try AbsolutePath(validating: swiftResourcesPath, relativeTo: currentWorkingDirectory)
             updatedProperties.append(CodingKeys.swiftResourcesPath.stringValue)
         }
 
-        if let swiftStaticResourcesPath = swiftStaticResourcesPath {
+        if let swiftStaticResourcesPath {
             configuration.swiftResourcesPath =
                 try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: currentWorkingDirectory)
             updatedProperties.append(CodingKeys.swiftStaticResourcesPath.stringValue)
@@ -147,7 +147,7 @@ struct SetConfiguration: ConfigurationCommand {
 
 extension AbsolutePath {
     fileprivate init(validating string: String, relativeTo basePath: AbsolutePath?) throws {
-        if let basePath = basePath {
+        if let basePath {
             try self.init(validating: string, relativeTo: basePath)
         } else {
             try self.init(validating: string)

@@ -97,7 +97,7 @@ extension SwiftPackageRegistryTool {
                 throw ValidationError.invalidCredentialStore(error)
             }
 
-            guard let authorizationProvider = authorizationProvider else {
+            guard let authorizationProvider else {
                 throw ValidationError.unknownCredentialStore
             }
 
@@ -119,11 +119,11 @@ extension SwiftPackageRegistryTool {
             let storePassword: String
             var saveChanges = true
 
-            if let username = self.username {
+            if let username {
                 authenticationType = .basic
 
                 storeUsername = username
-                if let password = self.password {
+                if let password {
                     // User provided password
                     storePassword = password
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
@@ -141,7 +141,7 @@ extension SwiftPackageRegistryTool {
 
                 // All token auth accounts have the same placeholder value
                 storeUsername = Self.PLACEHOLDER_TOKEN_USER
-                if let token = self.token {
+                if let token {
                     // User provided token
                     storePassword = token
                 } else if let stored = authorizationProvider.authentication(for: registryURL),

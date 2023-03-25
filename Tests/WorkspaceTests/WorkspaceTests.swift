@@ -10878,7 +10878,7 @@ final class WorkspaceTests: XCTestCase {
                 callbackQueue: DispatchQueue,
                 completion: @escaping (Result<Manifest, Error>) -> Void
             ) {
-                if let error = self.error {
+                if let error {
                     callbackQueue.async {
                         completion(.failure(error))
                     }

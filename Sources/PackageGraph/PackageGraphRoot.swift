@@ -71,9 +71,9 @@ public struct PackageGraphRoot {
         // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
-        if let product = explicitProduct {
+        if let explicitProduct {
             for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
-                adjustedDependencies.append(dependency.filtered(by: .specific([product])))
+                adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
         }
 

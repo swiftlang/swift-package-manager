@@ -3069,16 +3069,16 @@ final class PackageBuilderTester {
         }
 
         func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
-            if let c99name = c99name {
+            if let c99name {
                 XCTAssertEqual(target.c99name, c99name, file: file, line: line)
             }
-            if let type = type {
+            if let type {
                 XCTAssertEqual(target.type, type, file: file, line: line)
             }
         }
 
         func checkSources(root: String? = nil, sources paths: [String], file: StaticString = #file, line: UInt = #line) {
-            if let root = root {
+            if let root {
                 XCTAssertEqual(target.sources.root, try! AbsolutePath(validating: root), file: file, line: line)
             }
             let sources = Set(self.target.sources.relativePaths.map({ $0.pathString }))

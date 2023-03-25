@@ -71,7 +71,7 @@ extension Version: LosslessStringConvertible {
         self.minor = minor
         self.patch = patch
 
-        if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
+        if let prereleaseDelimiterIndex {
             let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
             guard prereleaseIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })}) else { return nil }
@@ -80,7 +80,7 @@ extension Version: LosslessStringConvertible {
             self.prereleaseIdentifiers = []
         }
 
-        if let metadataDelimiterIndex = metadataDelimiterIndex {
+        if let metadataDelimiterIndex {
             let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
             let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
             guard buildMetadataIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })}) else { return nil }

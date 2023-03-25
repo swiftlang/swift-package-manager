@@ -84,8 +84,8 @@ extension DestinationCommand {
         // wait for all observability items to process
         observabilityHandler.wait(timeout: .now() + 5)
 
-        if let error = commandError {
-            throw error
+        if let commandError {
+            throw commandError
         }
     }
 }

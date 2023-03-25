@@ -137,7 +137,7 @@ struct PackageVersionChecksumTOFU {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<String?, Error>) -> Void
     ) {
-        guard let fingerprintStorage = self.fingerprintStorage else {
+        guard let fingerprintStorage else {
             return completion(.success(nil))
         }
 
@@ -170,7 +170,7 @@ struct PackageVersionChecksumTOFU {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let fingerprintStorage = self.fingerprintStorage else {
+        guard let fingerprintStorage else {
             return completion(.success(()))
         }
 

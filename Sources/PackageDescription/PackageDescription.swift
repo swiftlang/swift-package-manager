@@ -448,7 +448,7 @@ var errors: [String] = []
 private var dumpInfo: (package: Package, handle: Int)?
 private func dumpPackageAtExit(_ package: Package, to handle: Int) {
     let dump: @convention(c) () -> Void = {
-        guard let dumpInfo = dumpInfo else { return }
+        guard let dumpInfo else { return }
 
         let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
         // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
@@ -472,7 +472,7 @@ private func dumpPackageAtExit(_ package: Package, to handle: Int) {
 private var dumpInfo: (package: Package, fileDesc: Int32)?
 private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
     func dump() {
-        guard let dumpInfo = dumpInfo else { return }
+        guard let dumpInfo else { return }
         guard let fd = fdopen(dumpInfo.fileDesc, "w") else { return }
         fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)

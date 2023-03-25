@@ -100,7 +100,7 @@ extension SwiftPackageRegistryTool {
             try registryURL.validateRegistryURL()
 
             // validate working directory path
-            if let customWorkingDirectory = self.customWorkingDirectory {
+            if let customWorkingDirectory {
                 guard localFileSystem.isDirectory(customWorkingDirectory) else {
                     throw StringError("Directory not found at '\(customWorkingDirectory)'.")
                 }
@@ -117,7 +117,7 @@ extension SwiftPackageRegistryTool {
             // validate custom metadata path
             let defaultMetadataPath = packageDirectory.appending(component: Self.metadataFilename)
             var metadataLocation: MetadataLocation? = .none
-            if let customMetadataPath = self.customMetadataPath {
+            if let customMetadataPath {
                 guard localFileSystem.exists(customMetadataPath) else {
                     throw StringError("Metadata file not found at '\(customMetadataPath)'.")
                 }

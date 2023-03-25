@@ -25,13 +25,13 @@ public actor SendableBox<Value: Sendable> {
 
 extension SendableBox where Value == Int {
     func increment() {
-        if let value = self.value {
+        if let value {
             self.value = value + 1
         }
     }
 
     func decrement() {
-        if let value = self.value {
+        if let value {
             self.value = value - 1
         }
     }

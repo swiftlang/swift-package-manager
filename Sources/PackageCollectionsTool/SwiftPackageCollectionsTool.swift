@@ -257,7 +257,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var globalOptions: GlobalOptions
 
         private func printVersion(_ version: PackageCollectionsModel.Package.Version?) -> String? {
-            guard let version = version else {
+            guard let version else {
                 return nil
             }
             guard let defaultManifest = version.defaultManifest else {
@@ -371,7 +371,7 @@ private func indent(levels: Int = 1) -> String {
 }
 
 private func optionalRow(_ title: String, _ contents: String?, indentationLevel: Int = 1) -> String {
-    if let contents = contents, !contents.isEmpty {
+    if let contents, !contents.isEmpty {
         return "\n\(indent(levels: indentationLevel))\(title): \(contents)"
     } else {
         return ""

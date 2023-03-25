@@ -36,7 +36,7 @@ final class ResolvedFileWatcher {
         self.resolvedFile = resolvedFile
 
         let block = { [weak self] (paths: [AbsolutePath]) in
-            guard let self = self else { return }
+            guard let self else { return }
 
             // Check if resolved file is part of the received paths.
             let hasResolvedFile = paths.contains{ $0.appending(component: resolvedFile.basename) == resolvedFile }

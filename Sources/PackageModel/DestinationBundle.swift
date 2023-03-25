@@ -80,7 +80,7 @@ public struct DestinationBundle {
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) throws -> Destination {
-        guard let destinationsDirectory = destinationsDirectory else {
+        guard let destinationsDirectory else {
             throw StringError(
                 """
                 No cross-compilation destinations directory found, specify one
@@ -250,7 +250,7 @@ extension Array where Element == DestinationBundle {
 
                     for destination in variant.destinations {
                         if artifactID == selector {
-                            if let matchedByID = matchedByID {
+                            if let matchedByID {
                                 observabilityScope.emit(
                                     warning:
                                     """
@@ -267,7 +267,7 @@ extension Array where Element == DestinationBundle {
                         }
 
                         if destination.targetTriple?.tripleString == selector {
-                            if let matchedByTriple = matchedByTriple {
+                            if let matchedByTriple {
                                 observabilityScope.emit(
                                     warning:
                                     """
@@ -287,7 +287,7 @@ extension Array where Element == DestinationBundle {
             }
         }
 
-        if let matchedByID = matchedByID, let matchedByTriple = matchedByTriple, matchedByID != matchedByTriple {
+        if let matchedByID, let matchedByTriple, matchedByID != matchedByTriple {
             observabilityScope.emit(
                 warning:
                 """

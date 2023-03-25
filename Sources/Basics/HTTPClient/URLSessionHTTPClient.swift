@@ -157,7 +157,7 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         guard let task = self.tasks.removeValue(forKey: task.taskIdentifier) else {
             return
         }
-        if let error = error {
+        if let error {
             task.completionHandler(.failure(error))
         } else if let response = task.response {
             task.completionHandler(.success(response.response(body: task.buffer)))
@@ -294,7 +294,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
 
         do {
-            if let error = error {
+            if let error {
                 throw HTTPClientError.downloadError("\(error)")
             } else if let error = task.moveFileError {
                 throw error

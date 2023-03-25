@@ -2910,7 +2910,7 @@ public class MockContainer: PackageContainer {
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
-        if let manifestName = manifestName {
+        if let manifestName {
             self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package

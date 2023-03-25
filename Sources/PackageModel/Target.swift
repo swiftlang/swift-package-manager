@@ -53,8 +53,8 @@ public class Target: PolymorphicCodableProtocol {
 
         /// Fully qualified name for this product dependency: package ID + name of the product
         public var identity: String {
-            if let pkg = package {
-                return pkg.lowercased() + "_" + name
+            if let package {
+                return package.lowercased() + "_" + name
             } else {
                 // this is hit only if this product is referenced `.byName(name)`
                 // which assumes the name of this product, its package, and its target

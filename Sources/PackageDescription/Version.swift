@@ -143,7 +143,7 @@ extension Version: Comparable {
             let lhsNumericPrereleaseIdentifier = Int(lhsPrereleaseIdentifier)
             let rhsNumericPrereleaseIdentifier = Int(rhsPrereleaseIdentifier)
 
-            if let lhsNumericPrereleaseIdentifier = lhsNumericPrereleaseIdentifier,
+            if let lhsNumericPrereleaseIdentifier,
                let rhsNumericPrereleaseIdentifier = rhsNumericPrereleaseIdentifier {
                 return lhsNumericPrereleaseIdentifier < rhsNumericPrereleaseIdentifier
             } else if lhsNumericPrereleaseIdentifier != nil {

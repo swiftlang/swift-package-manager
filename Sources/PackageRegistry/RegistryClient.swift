@@ -2265,7 +2265,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
-        if let underlying = self.underlying {
+        if let underlying {
             underlying.onUnsigned(registry: registry, package: package, version: version, completion: completion)
         } else {
             // true == continue resolution
@@ -2280,7 +2280,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
-        if let underlying = self.underlying {
+        if let underlying {
             underlying.onUntrusted(registry: registry, package: package, version: version, completion: completion)
         } else {
             // true == continue resolution

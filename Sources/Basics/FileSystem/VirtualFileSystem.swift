@@ -215,7 +215,7 @@ public class VirtualFileSystem: FileSystem {
         switch node {
         case .directory(_, _, _): throw Errors.notAFile(path: path)
         case .file(_, _, _, let contents):
-            if let contents = contents {
+            if let contents {
                 return ByteString(contents)
             } else {
                 return ""

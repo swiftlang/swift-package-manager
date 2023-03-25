@@ -231,7 +231,7 @@ public final class ClangTargetBuildDescription {
         // Include the path to the resource header unless the arguments are
         // being evaluated for a C file. A C file cannot depend on the resource
         // accessor header due to it exporting a Foundation type (`NSBundle`).
-        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile, !isC {
+        if let resourceAccessorHeaderFile, !isC {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
@@ -304,7 +304,7 @@ public final class ClangTargetBuildDescription {
     /// Generate the resource bundle accessor, if appropriate.
     private func generateResourceAccessor() throws {
         // Only generate access when we have a bundle and ObjC files.
-        guard let bundlePath = self.bundlePath, clangTarget.sources.containsObjcFiles else { return }
+        guard let bundlePath, clangTarget.sources.containsObjcFiles else { return }
 
         // Compute the basename of the bundle.
         let bundleBasename = bundlePath.basename

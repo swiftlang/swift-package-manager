@@ -748,7 +748,7 @@ class PluginTests: XCTestCase {
             delegateQueue.sync {
                 pid = delegate.parsedProcessIdentifier
             }
-            guard let pid = pid else {
+            guard let pid else {
                 throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
             }
             

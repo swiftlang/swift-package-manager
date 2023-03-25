@@ -864,11 +864,11 @@ extension Workspace {
 
         // Compute the custom or extra constraint we need to impose.
         let requirement: PackageRequirement
-        if let version = version {
+        if let version {
             requirement = .versionSet(.exact(version))
-        } else if let branch = branch {
+        } else if let branch {
             requirement = .revision(branch)
-        } else if let revision = revision {
+        } else if let revision {
             requirement = .revision(revision)
         } else {
             requirement = defaultRequirement
@@ -1422,12 +1422,12 @@ extension Workspace {
             }
 
             // Emit warnings for branch and revision, if they're present.
-            if let checkoutBranch = checkoutBranch {
+            if let checkoutBranch {
                 observabilityScope.emit(.editBranchNotCheckedOut(
                     packageName: packageName,
                     branchName: checkoutBranch))
             }
-            if let revision = revision {
+            if let revision {
                 observabilityScope.emit(.editRevisionNotUsed(
                     packageName: packageName,
                     revisionIdentifier: revision.identifier))
@@ -1455,7 +1455,7 @@ extension Workspace {
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
                 throw WorkspaceDiagnostics.BranchAlreadyExists(branch: branch)
             }
-            if let revision = revision, !repo.exists(revision: revision) {
+            if let revision, !repo.exists(revision: revision) {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
@@ -1469,7 +1469,7 @@ extension Workspace {
         }
 
         // For unmanaged dependencies, create the symlink under editables dir.
-        if let path = path {
+        if let path {
             try fileSystem.createDirectory(self.location.editsDirectory)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
@@ -1558,7 +1558,7 @@ extension Workspace {
 
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
-        if let root = root {
+        if let root {
             try self.resolve(root: root, observabilityScope: observabilityScope)
         }
     }
@@ -2025,7 +2025,7 @@ extension Workspace {
             sync.enter()
             self.loadManagedManifest(for: package, observabilityScope: observabilityScope) { manifest in
                 defer { sync.leave() }
-                if let manifest = manifest {
+                if let manifest {
                     manifests[package.identity] = manifest
                 }
             }
@@ -2268,7 +2268,7 @@ extension Workspace {
                 artifactsToAdd.append(artifact)
             }
 
-            if let existingArtifact = existingArtifact, isAtArtifactsDirectory(existingArtifact) {
+            if let existingArtifact, isAtArtifactsDirectory(existingArtifact) {
                 // Remove the old extracted artifact, be it local archived or remote one.
                 artifactsToRemove.append(existingArtifact)
             }
@@ -2280,7 +2280,7 @@ extension Workspace {
                 targetName: artifact.targetName
             ]
 
-            if let existingArtifact = existingArtifact {
+            if let existingArtifact {
                 if case .remote(let existingURL, let existingChecksum) = existingArtifact.source {
                     // If we already have an artifact with the same checksum, we don't need to download it again.
                     if artifact.checksum == existingChecksum {
@@ -2921,7 +2921,7 @@ extension Workspace {
                     continue
                 }
 
-                if let currentDependency = currentDependency {
+                if let currentDependency {
                     switch currentDependency.state {
                     case .fileSystem, .edited:
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
@@ -2958,11 +2958,11 @@ extension Workspace {
                 }
 
                 // First check if we have this dependency.
-                if let currentDependency = currentDependency {
+                if let currentDependency {
                     // If current state and new state are equal, we don't need
                     // to do anything.
                     let newState: CheckoutState
-                    if let branch = branch {
+                    if let branch {
                         newState = .branch(name: branch, revision: revision)
                     } else {
                         newState = .revision(revision)
@@ -3745,7 +3745,7 @@ extension FileSystem {
         }
 
         // no acceptable extensions defined, so the single top-level directory is a good candidate
-        guard let acceptableExtensions = acceptableExtensions else {
+        guard let acceptableExtensions else {
             return true
         }
 

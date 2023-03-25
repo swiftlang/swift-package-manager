@@ -35,7 +35,7 @@ public struct SwiftVersion {
         if self.isDevelopment {
             result += "-dev"
         }
-        if let buildIdentifier = self.buildIdentifier {
+        if let buildIdentifier {
             result += " (" + buildIdentifier + ")"
         }
         return result

@@ -69,7 +69,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let set: (inout RegistryConfiguration) throws -> Void = { configuration in
-                if let scope = scope {
+                if let scope {
                     configuration.scopedRegistries[scope] = .init(url: self.registryURL, supportsAvailability: false)
                 } else {
                     configuration.defaultRegistry = .init(url: self.registryURL, supportsAvailability: false)
@@ -103,7 +103,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
 
             let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
-                if let scope = scope {
+                if let scope {
                     guard let _ = configuration.scopedRegistries[scope] else {
                         throw ConfigurationError.missingScope(scope)
                     }

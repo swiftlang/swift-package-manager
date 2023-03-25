@@ -353,7 +353,7 @@ public final class Manifest: Sendable {
         case .target:
             break
         case .product(let product, let package, _, _):
-            if let package = package { // ≥ 5.2
+            if let package { // ≥ 5.2
                 if !register(
                     product: product,
                     inPackage: packageIdentity(referencedBy: package),
@@ -412,7 +412,7 @@ public final class Manifest: Sendable {
     ) {
         switch requiredPlugIn {
         case .plugin(let name, let package):
-            if let package = package {
+            if let package {
                 if !register(
                     product: name,
                     inPackage: packageIdentity(referencedBy: package),

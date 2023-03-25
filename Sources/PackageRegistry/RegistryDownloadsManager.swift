@@ -149,7 +149,7 @@ public class RegistryDownloadsManager: Cancellable {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<FetchDetails, Error>) -> Void
     ) {
-        if let cachePath = self.cachePath {
+        if let cachePath {
             do {
                 let relativePath = try package.downloadPath(version: version)
                 let cachedPackagePath = cachePath.appending(relativePath)
@@ -258,7 +258,7 @@ public class RegistryDownloadsManager: Cancellable {
     }
 
     public func purgeCache(observabilityScope: ObservabilityScope) {
-        guard let cachePath = self.cachePath else {
+        guard let cachePath else {
             return
         }
 

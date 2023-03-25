@@ -42,7 +42,7 @@ extension Model.CollectionSource {
 
                 if absolutePath == nil {
                     appendMessage(.error("Invalid file path: \(self.url.path). It must be an absolute file system path."))
-                } else if let absolutePath = absolutePath, !fileSystem.exists(absolutePath) {
+                } else if let absolutePath, !fileSystem.exists(absolutePath) {
                     appendMessage(.error("\(self.url.path) is either a non-local path or the file does not exist."))
                 }
             }

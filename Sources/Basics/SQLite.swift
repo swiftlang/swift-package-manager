@@ -87,7 +87,7 @@ public final class SQLite {
 
         sqlite3_free(query)
 
-        if let err = err {
+        if let err {
             let errorString = String(cString: err)
             sqlite3_free(err)
             throw StringError(errorString)
@@ -286,7 +286,7 @@ public final class SQLite {
             case "database or disk is full":
                 throw Errors.databaseFull
             default:
-                if let prefix = prefix {
+                if let prefix {
                     description = "\(prefix): \(description)"
                 }
                 throw StringError(description)
@@ -309,8 +309,8 @@ private func sqlite_callback(
     _ columns: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?,
     _ columnNames: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?
 ) -> Int32 {
-    guard let ctx = ctx else { return 0 }
-    guard let columnNames = columnNames, let columns = columns else { return 0 }
+    guard let ctx else { return 0 }
+    guard let columnNames, let columns else { return 0 }
     let numColumns = Int(numColumns)
     var result: [SQLite.Column] = []
 

@@ -86,8 +86,8 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func retrieve(at version: Version, progressHandler: ((Int64, Int64?) -> Void)?, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
-        if let path = customRetrievalPath {
-            return path
+        if let customRetrievalPath {
+            return customRetrievalPath
         } else {
             throw StringError("no path configured for mock package container")
         }

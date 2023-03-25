@@ -45,7 +45,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         /// Description shown for errors of this kind.
         public var description: String {
             var desc = "\(underlyingError) in \(self.repository.location)"
-            if let suggestion = suggestion {
+            if let suggestion {
                 desc += " (\(suggestion))"
             }
             return desc
@@ -153,7 +153,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     func checkIntegrity(version: Version, revision: Revision) throws {
-        guard let fingerprintStorage = self.fingerprintStorage else {
+        guard let fingerprintStorage else {
             return
         }
 

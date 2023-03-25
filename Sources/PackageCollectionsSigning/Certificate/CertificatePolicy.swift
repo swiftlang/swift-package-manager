@@ -82,10 +82,10 @@ extension CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
         }
 
-        if let anchorCerts = anchorCerts {
+        if let anchorCerts {
             SecTrustSetAnchorCertificates(trust, anchorCerts.map { $0.underlying } as CFArray)
         }
-        if let verifyDate = verifyDate {
+        if let verifyDate {
             SecTrustSetVerifyDate(trust, verifyDate as CFDate)
         }
 
@@ -167,7 +167,7 @@ extension CertificatePolicy {
             }
 
             var ctxFlags: CInt = 0
-            if let verifyDate = verifyDate {
+            if let verifyDate {
                 CCryptoBoringSSL_X509_STORE_CTX_set_time(x509StoreCtx, 0, numericCast(Int(verifyDate.timeIntervalSince1970)))
                 ctxFlags = ctxFlags | X509_V_FLAG_USE_CHECK_TIME
             }
@@ -219,7 +219,7 @@ extension CertificatePolicy {
             return nil
         }
 
-        if let error = error {
+        if let error {
             return wrappedCallback(.failure(error))
         }
 
@@ -372,7 +372,7 @@ private struct BoringSSLOCSPClient {
             let response = d2i_OCSP_RESPONSE_bio(bio, nil)
             defer { OCSP_RESPONSE_free(response) }
 
-            guard let response = response else {
+            guard let response else {
                 results.append(.failure(OCSPError.responseConversionFailure))
                 return
             }
@@ -380,7 +380,7 @@ private struct BoringSSLOCSPClient {
             let basicResp = OCSP_response_get1_basic(response)
             defer { OCSP_BASICRESP_free(basicResp) }
 
-            guard let basicResp = basicResp else {
+            guard let basicResp else {
                 results.append(.failure(OCSPError.responseConversionFailure))
                 return
             }
@@ -628,10 +628,10 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
-        if let trustedRootCertsDir = trustedRootCertsDir {
+        if let trustedRootCertsDir {
             trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir ,observabilityScope: observabilityScope))
         }
-        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+        if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
         }
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
@@ -658,7 +658,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
 
         do {
             // Check if subject user ID matches
-            if let expectedSubjectUserID = self.expectedSubjectUserID {
+            if let expectedSubjectUserID {
                 guard try certChain[0].subject().userID == expectedSubjectUserID else {
                     return wrappedCallback(.failure(CertificatePolicyError.subjectUserIDMismatch))
                 }
@@ -720,10 +720,10 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
-        if let trustedRootCertsDir = trustedRootCertsDir {
+        if let trustedRootCertsDir {
             trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
         }
-        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+        if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
         }
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
@@ -754,7 +754,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
 
         do {
             // Check if subject user ID matches
-            if let expectedSubjectUserID = self.expectedSubjectUserID {
+            if let expectedSubjectUserID {
                 guard try certChain[0].subject().userID == expectedSubjectUserID else {
                     return wrappedCallback(.failure(CertificatePolicyError.subjectUserIDMismatch))
                 }
@@ -824,10 +824,10 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
-        if let trustedRootCertsDir = trustedRootCertsDir {
+        if let trustedRootCertsDir {
             trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
         }
-        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+        if let additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
         }
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
@@ -858,7 +858,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
 
         do {
             // Check if subject user ID matches
-            if let expectedSubjectUserID = self.expectedSubjectUserID {
+            if let expectedSubjectUserID {
                 guard try certChain[0].subject().userID == expectedSubjectUserID else {
                     return wrappedCallback(.failure(CertificatePolicyError.subjectUserIDMismatch))
                 }
@@ -907,8 +907,8 @@ extension CertificatePolicy {
             }
         }
 
-        if let error = extensionError {
-            throw error
+        if let extensionError {
+            throw extensionError
         }
         return false
     }

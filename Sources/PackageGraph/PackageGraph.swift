@@ -249,8 +249,8 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
             var trailingMsg = ""
-            if let depPkg = dependencyPackage {
-              trailingMsg = " from package '\(depPkg)'"
+            if let dependencyPackage {
+              trailingMsg = " from package '\(dependencyPackage)'"
             }
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }

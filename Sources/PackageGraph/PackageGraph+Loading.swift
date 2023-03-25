@@ -468,7 +468,7 @@ private func createResolvedPackages(
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] : productDependencyMap[productRef.name]
-                guard let product = product else {
+                guard let product else {
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
@@ -744,8 +744,8 @@ private class ResolvedBuilder<T> {
     /// Note that once the object is constructed, future calls to
     /// this method will return the same object.
     final func construct() throws -> T {
-        if let constructedObject = _constructedObject {
-            return constructedObject
+        if let _constructedObject {
+            return _constructedObject
         }
         let constructedObject = try self.constructImpl()
         _constructedObject = constructedObject

@@ -468,7 +468,7 @@ extension Workspace.Configuration {
 
         @discardableResult
         public func applyShared(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
-            guard let sharedMirrors = self.sharedMirrors else {
+            guard let sharedMirrors else {
                 throw InternalError("shared mirrors not configured")
             }
             try sharedMirrors.apply(handler: handler)
@@ -642,7 +642,7 @@ extension Workspace.Configuration {
         public func updateShared(with handler: (inout RegistryConfiguration) throws -> Void) throws
             -> RegistryConfiguration
         {
-            guard let sharedRegistries = self.sharedRegistries else {
+            guard let sharedRegistries else {
                 throw InternalError("shared registries not configured")
             }
             try sharedRegistries.update(with: handler)

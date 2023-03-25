@@ -142,7 +142,7 @@ public struct ShellTool: ToolProtocol {
         if !environment.isEmpty {
             stream["env"] = environment
         }
-        if let workingDirectory = workingDirectory {
+        if let workingDirectory {
             stream["working-directory"] = workingDirectory
         }
         if allowMissingInputs {
@@ -177,7 +177,7 @@ public struct ClangTool: ToolProtocol {
     public func write(to stream: ManifestToolStream) {
         stream["description"] = description
         stream["args"] = arguments
-        if let dependencies = dependencies {
+        if let dependencies {
             stream["deps"] = dependencies
         }
     }
@@ -279,7 +279,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public func write(to stream: ManifestToolStream) {
         stream["executable"] = executable
         stream["module-name"] = moduleName
-        if let moduleAliases = moduleAliases {
+        if let moduleAliases {
             // Format the key and value to pass to -module-alias flag
             let formatted = moduleAliases.map {$0.key + "=" + $0.value}
             stream["module-aliases"] = formatted

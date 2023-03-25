@@ -697,7 +697,7 @@ public final class PackageBuilder {
                 $0.compactMap{ usage in
                     switch usage {
                     case .plugin(let name, let package):
-                        if let package = package {
+                        if let package {
                             return .product(Target.ProductReference(name: name, package: package), conditions: [])
                         }
                         else {
@@ -747,7 +747,7 @@ public final class PackageBuilder {
 
     /// Validates module alias key and value pairs and throws an error if empty or contains invalid characters.
     private func validateModuleAliases(_ aliases: [String: String]?) throws {
-        guard let aliases = aliases else { return }
+        guard let aliases else { return }
         for (aliasKey, aliasValue) in aliases {
             if !aliasKey.isValidIdentifier ||
                 !aliasValue.isValidIdentifier ||
@@ -763,7 +763,7 @@ public final class PackageBuilder {
         manifestTarget: TargetDescription?,
         dependencies: [Target.Dependency]
     ) throws -> Target? {
-        guard let manifestTarget = manifestTarget else { return nil }
+        guard let manifestTarget else { return nil }
 
         // Create system library target.
         if potentialModule.type == .system {
@@ -941,7 +941,7 @@ public final class PackageBuilder {
     /// Creates build setting assignment table for the given target.
     func buildSettings(for target: TargetDescription?, targetRoot: AbsolutePath) throws -> BuildSettings.AssignmentTable {
         var table = BuildSettings.AssignmentTable()
-        guard let target = target else { return table }
+        guard let target else { return table }
 
         // Process each setting.
         for setting in target.settings {
@@ -1130,7 +1130,7 @@ public final class PackageBuilder {
 
     /// Find the test entry point file for the package.
     private func findTestEntryPoint(in testTargets: [Target]) throws -> AbsolutePath? {
-        if let testEntryPointPath = testEntryPointPath {
+        if let testEntryPointPath {
             return testEntryPointPath
         }
 

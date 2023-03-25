@@ -115,7 +115,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Do not generate a build parameters file if a custom one has been passed.
         if let flags = buildParameters.flags.xcbuildFlags, !flags.contains("--buildParametersFile") {
             buildParamsFile = try createBuildParametersFile()
-            if let buildParamsFile = buildParamsFile {
+            if let buildParamsFile {
                 arguments += ["--buildParametersFile", buildParamsFile.pathString]
             }
         } else {
@@ -149,7 +149,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         try process.launch()
         let result = try process.waitUntilExit()
 
-        if let buildParamsFile = buildParamsFile {
+        if let buildParamsFile {
             try? self.fileSystem.removeFileTree(buildParamsFile)
         }
 

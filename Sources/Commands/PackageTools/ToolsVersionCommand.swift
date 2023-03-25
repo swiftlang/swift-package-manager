@@ -40,7 +40,7 @@ struct ToolsVersionCommand: SwiftCommand {
 
     var toolsVersionMode: ToolsVersionMode {
         // TODO: enforce exclusivity
-        if let set = set {
+        if let set {
             return .set(set)
         } else if setCurrent {
             return .setCurrent

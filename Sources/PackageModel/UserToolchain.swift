@@ -101,7 +101,7 @@ public final class UserToolchain: Toolchain {
             }
             toolPath = path
         }
-        guard let toolPath = toolPath else {
+        guard let toolPath else {
             throw InvalidToolchainDiagnostic("could not find CLI tool `\(name)` at any of these directories: \(binDirectories)")
         }
         return toolPath
@@ -185,7 +185,7 @@ public final class UserToolchain: Toolchain {
         searchPaths: [AbsolutePath]
     ) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
-            guard let path = path else { return }
+            guard let path else { return }
             guard localFileSystem.isExecutableFile(path) else {
                 throw InvalidToolchainDiagnostic(
                     "could not find the `swiftc\(hostExecutableSuffix)` at expected path \(path)"
@@ -205,7 +205,7 @@ public final class UserToolchain: Toolchain {
         // We require there is at least one valid swift compiler, either in the
         // bin dir or SWIFT_EXEC.
         let resolvedBinDirCompiler: AbsolutePath
-        if let SWIFT_EXEC = SWIFT_EXEC {
+        if let SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDirectories: binDirectories) {
             resolvedBinDirCompiler = binDirCompiler

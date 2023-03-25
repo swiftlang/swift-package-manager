@@ -181,7 +181,7 @@ private struct InteractiveWriter {
 
     /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term = self.term {
+        if let term {
             term.write(string, inColor: color, bold: bold)
         } else {
             string.write(to: stream)
@@ -190,7 +190,7 @@ private struct InteractiveWriter {
     }
 
     func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
-        if let term = self.term {
+        if let term {
             return term.wrap(string, inColor: color, bold: bold)
         } else {
             return string
@@ -202,7 +202,7 @@ private struct InteractiveWriter {
 // we should remove this as we make use of the new scope and metadata to provide better contextual information
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
-        if let packageIdentity = self.packageIdentity {
+        if let packageIdentity {
             return "'\(packageIdentity)'"
         } else {
             return .none

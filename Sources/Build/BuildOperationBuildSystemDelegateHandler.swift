@@ -916,7 +916,7 @@ private struct CommandTaskTracker {
             let fileNameStartIndex = command.description.index(after: lastDirectorySeparatorIndex)
             let fileName = command.description[fileNameStartIndex...]
 
-            if let targetName = targetName {
+            if let targetName {
                 return "\(action) \(targetName) \(fileName)"
             } else {
                 return "\(action) \(fileName)"

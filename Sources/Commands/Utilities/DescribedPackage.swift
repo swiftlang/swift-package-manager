@@ -350,7 +350,7 @@ public struct PlainTextEncoder {
             private mutating func emit(_ key: CodingKey, _ value: String?) {
                 outputStream <<< String(repeating: "    ", count: codingPath.count)
                 outputStream <<< displayName(for: key) <<< ":"
-                if let value = value { outputStream <<< " " <<< value }
+                if let value { outputStream <<< " " <<< value }
                 outputStream <<< "\n"
             }
             mutating func encodeNil(forKey key: Key) throws { emit(key, "nil") }

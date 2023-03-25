@@ -649,7 +649,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             throw InternalError("unexpected target")
         }
 
-        if let moduleMapFileContents = moduleMapFileContents {
+        if let moduleMapFileContents {
             settings[.MODULEMAP_PATH] = moduleMapFile
             settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
         }
