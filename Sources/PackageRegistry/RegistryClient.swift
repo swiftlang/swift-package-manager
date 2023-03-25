@@ -2297,3 +2297,21 @@ extension URLComponents {
         path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
     }
 }
+
+// TODO: move to Basics when we feel this is useful across the board
+extension NSError {
+    open override var description: String {
+        var description: String
+
+        if !self.localizedDescription.isEmpty {
+            description = self.localizedDescription
+        } else {
+            description = "unknown error"
+        }
+
+        if let localizedRecoverySuggestion = self.localizedRecoverySuggestion {
+            description += ". \(localizedRecoverySuggestion)"
+        }
+        return description
+    }
+}
