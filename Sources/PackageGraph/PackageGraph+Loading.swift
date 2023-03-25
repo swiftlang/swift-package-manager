@@ -558,7 +558,11 @@ private func createResolvedPackages(
         var duplicateTargetsAddressed = [String]()
         for potentiallyDuplicatePackage in potentiallyDuplicatePackages {
             // more than three target matches, or all targets in the package match
-            if potentiallyDuplicatePackage.value.count > 3 || potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package1.targets.map({ $0.name }).sorted() {
+            if potentiallyDuplicatePackage.value.count > 3 ||
+                (potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package1.targets.map({ $0.name }).sorted()
+                &&
+                potentiallyDuplicatePackage.value.sorted() == potentiallyDuplicatePackage.key.package2.targets.map({ $0.name }).sorted())
+            {
                 switch (potentiallyDuplicatePackage.key.package1.identity.registry, potentiallyDuplicatePackage.key.package2.identity.registry) {
                 case (.some(let registryIdentity), .none):
                     observabilityScope.emit(
