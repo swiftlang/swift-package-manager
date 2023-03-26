@@ -63,7 +63,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         guard !self.skipSignatureValidation else {
             return completion(.success(.none))
@@ -110,7 +110,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         do {
             let versionMetadata = try self.versionMetadataProvider(package, version)
@@ -212,7 +212,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         guard !self.skipSignatureValidation else {
             return completion(.success(.none))
@@ -245,7 +245,7 @@ struct SignatureValidation {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         do {
             let versionMetadata = try self.versionMetadataProvider(package, version)
@@ -352,7 +352,7 @@ struct SignatureValidation {
         configuration: RegistryConfiguration.Security.Signing,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<SigningEntity?, Error>) -> Void
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
     ) {
         Task {
             do {

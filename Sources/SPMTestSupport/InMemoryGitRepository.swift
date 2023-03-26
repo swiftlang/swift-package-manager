@@ -388,6 +388,9 @@ extension InMemoryGitRepository: WorkingCheckout {
     }
 }
 
+// Public mutation of `InMemoryGitRepository` is protected with a lock.
+extension InMemoryGitRepository: @unchecked Sendable {}
+
 /// This class implement provider for in memory git repository.
 public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Contains the repository added to this provider.
