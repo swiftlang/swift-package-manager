@@ -262,7 +262,7 @@ extension LLBuildManifestBuilder {
         )
         var driver = try Driver(
             args: commandLine,
-            diagnosticsEngine: self.observabilityScope.makeDiagnosticsEngine(),
+            diagnosticsOutput: .handler(self.observabilityScope.makeDiagnosticsHandler()),
             fileSystem: self.fileSystem,
             executor: executor
         )

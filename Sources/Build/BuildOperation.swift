@@ -197,7 +197,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
-                                        diagnosticsEngine: consumeDiagnostics,
+                                        diagnosticsOutput: .engine(consumeDiagnostics),
                                         fileSystem: localFileSystem,
                                         executor: executor)
                 guard !consumeDiagnostics.hasErrors else {
