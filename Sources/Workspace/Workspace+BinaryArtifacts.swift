@@ -166,7 +166,7 @@ extension Workspace {
                             }
                         } catch {
                             errors.append(error)
-                            observabilityScope.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
+                            observabilityScope.emit(error: "failed retrieving '\(indexFile.url)': \(error.interpolationDescription)")
                         }
                     }
                 }
@@ -297,23 +297,20 @@ extension Workspace {
                                             )
                                             self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(artifactPath), duration: downloadStart.distance(to: .now()))
                                         case .failure(let error):
-                                            let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                                            observabilityScope.emit(.remoteArtifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                            observabilityScope.emit(.remoteArtifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: error.interpolationDescription))
                                             self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                                         }
 
                                         observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                                     })
                                 case .failure(let error):
-                                    let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                                    observabilityScope.emit(.artifactFailedValidation(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
+                                    observabilityScope.emit(.artifactFailedValidation(artifactURL: artifact.url, targetName: artifact.targetName, reason: error.interpolationDescription))
                                     self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                                 }
                             })
                         case .failure(let error):
-                            let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                             observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) })
-                            observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
+                            observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: error.interpolationDescription))
                             self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                         }
                     })
