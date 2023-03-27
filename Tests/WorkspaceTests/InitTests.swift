@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -149,6 +149,34 @@ class InitTests: XCTestCase {
         }
     }
         
+    func testInitPackageCommandPlugin() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("MyCommandPlugin")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            try InitPackage(
+                name: name,
+                packageType: .commandPlugin,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            ).writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .command(intent: .custom(verb")))
+
+            let source = path.appending("Plugins", "MyCommandPlugin", "plugin.swift")
+            XCTAssertFileExists(source)
+            let sourceContents: String = try localFileSystem.readFileContents(source)
+            XCTAssertMatch(sourceContents, .contains("struct MyCommandPlugin: CommandPlugin"))
+        }
+    }
+    
     // MARK: Special case testing
     
     func testInitPackageNonc99Directory() throws {
