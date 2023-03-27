@@ -117,11 +117,12 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         return task
     }
 
-    public func urlSession(_ session: URLSession,
-                           dataTask: URLSessionDataTask,
-                           didReceive response: URLResponse,
-                           completionHandler: @escaping (URLSession.ResponseDisposition) -> Void)
-    {
+    public func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
         guard let task = self.tasks[dataTask.taskIdentifier] else {
             return completionHandler(.cancel)
         }
@@ -166,12 +167,13 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         }
     }
 
-    public func urlSession(_ session: URLSession,
-                           task: URLSessionTask,
-                           willPerformHTTPRedirection response: HTTPURLResponse,
-                           newRequest request: URLRequest,
-                           completionHandler: @escaping (URLRequest?) -> Void)
-    {
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
         // Don't remove task from dictionary because we want to resume it later
         guard let task = self.tasks[task.taskIdentifier] else {
             return
@@ -198,10 +200,11 @@ private class DataTaskManager: NSObject, URLSessionDataDelegate {
         var expectedContentLength: Int64?
         var buffer: Data?
 
-        init(task: URLSessionDataTask,
-             progressHandler: LegacyHTTPClient.ProgressHandler?,
-             completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
-             authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+        init(
+            task: URLSessionDataTask,
+            progressHandler: LegacyHTTPClient.ProgressHandler?,
+            completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
+            authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         ) {
             self.task = task
             self.progressHandler = progressHandler
@@ -294,8 +297,8 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
 
         do {
-            if let error = error {
-                throw HTTPClientError.downloadError("\(error)")
+            if let error {
+                throw HTTPClientError.downloadError(error.interpolationDescription)
             } else if let error = task.moveFileError {
                 throw error
             } else if let response = downloadTask.response as? HTTPURLResponse {
@@ -359,14 +362,16 @@ extension URLRequest {
     }
 }
 
-private extension HTTPURLResponse {
-    func response(body: Data?) -> HTTPClientResponse {
+extension HTTPURLResponse {
+    fileprivate func response(body: Data?) -> HTTPClientResponse {
         let headers = HTTPClientHeaders(self.allHeaderFields.map { header in
             .init(name: "\(header.key)", value: "\(header.value)")
         })
-        return HTTPClientResponse(statusCode: self.statusCode,
-                                   statusText: Self.localizedString(forStatusCode: self.statusCode),
-                                   headers: headers,
-                                   body: body)
+        return HTTPClientResponse(
+            statusCode: self.statusCode,
+            statusText: Self.localizedString(forStatusCode: self.statusCode),
+            headers: headers,
+            body: body
+        )
     }
 }
