@@ -3,13 +3,20 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
-* [#5966]
-
-  Plugin compilation can be influenced by using `-Xbuild-tools-swiftc` arguments in the SwiftPM command line. This is similar to the existing mechanism for influencing the manifest compilation using `-Xmanifest` arguments. Manifest compilation will also be influenced by `-Xbuild-tools-swiftc`, but only if no other `-Xmanifest` arguments are provided. Using `-Xmanifest` will show a deprecation message. `-Xmanifest` will be removed in the future.
-
 * [#5728]
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
+
+* [#6185], [#6200]
+
+  Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md).
+
+Swift 5.9
+-----------
+
+* [#5966]
+
+  Plugin compilation can be influenced by using `-Xbuild-tools-swiftc` arguments in the SwiftPM command line. This is similar to the existing mechanism for influencing the manifest compilation using `-Xmanifest` arguments. Manifest compilation will also be influenced by `-Xbuild-tools-swiftc`, but only if no other `-Xmanifest` arguments are provided. Using `-Xmanifest` will show a deprecation message. `-Xmanifest` will be removed in the future.
 
 * [#6067]
 
@@ -20,9 +27,6 @@ Swift Next
   static let best_txt: [UInt8] = [104,101,108,108,111,32,119,111,114,108,100,10]
   }
   ```
-
-Swift 5.9
------------
 
 * [#6294]
 
