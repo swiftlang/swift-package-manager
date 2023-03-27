@@ -731,10 +731,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
-                case .executable, .snippet:
+                case .executable, .snippet, .macro:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
-                    } else if product.type == .test && target.underlyingTarget is SwiftTarget {
+                    } else if product.type == .test && (target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5 {
                             staticTargets.append(target)
                         }

@@ -93,7 +93,7 @@ public final class SwiftTargetBuildDescription {
     var moduleOutputPath: AbsolutePath {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || self.buildParameters.triple
-            .isLinux() || self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5 && target.type != .macro
+            .isLinux() || self.buildParameters.triple.isWindows()) && self.toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? self.tempsPath : self
             .buildParameters.buildPath
         return dirPath.appending(component: self.target.c99name + ".swiftmodule")
@@ -450,7 +450,7 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if (self.target.type == .executable || self.target.type == .snippet)
+        if (self.target.underlyingTarget as? SwiftTarget)?.supportsTestableExecutablesFeature == true
             && !self.isTestTarget && self.toolsVersion >= .v5_5
         {
             // We only do this if the linker supports it, as indicated by whether we

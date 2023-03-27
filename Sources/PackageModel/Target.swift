@@ -426,6 +426,15 @@ public final class SwiftTarget: Target {
         self.swiftVersion = try container.decode(SwiftLanguageVersion.self, forKey: .swiftVersion)
         try super.init(from: decoder)
     }
+
+    public var supportsTestableExecutablesFeature: Bool {
+        // Exclude macros from testable executables if they are built as dylibs.
+        #if BUILD_MACROS_AS_DYLIBS
+        return type == .executable || type == .snippet
+        #else
+        return type == .executable || type == .macro || type == .snippet
+        #endif
+    }
 }
 
 public final class SystemLibraryTarget: Target {
