@@ -684,9 +684,12 @@ extension Workspace.Configuration {
                 return RegistryConfiguration()
             }
 
-            let data: Data = try fileSystem.readFileContents(self.path)
-            let decoder = JSONDecoder.makeWithDefaults()
-            return try decoder.decode(RegistryConfiguration.self, from: data)
+            do {
+                let decoder = JSONDecoder.makeWithDefaults()
+                return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
+            } catch {
+                throw StringError("Failed loading registries configuration from '\(self.path)': \(error)")
+            }
         }
 
         public func save(_ configuration: RegistryConfiguration) throws {
