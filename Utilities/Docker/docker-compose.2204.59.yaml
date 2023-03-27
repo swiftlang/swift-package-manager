@@ -1,6 +1,6 @@
 # This source file is part of the Swift open source project
 #
-# Copyright (c) 2022 Apple Inc. and the Swift project authors
+# Copyright (c) 2023 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -14,7 +14,7 @@ services:
     image: swift-package-manager:22.04-5.9
     build:
       args:
-        ubuntu_version: "focal"
+        ubuntu_version: "jammy"
         swift_version: "5.9"
         base_image: "swiftlang/swift:nightly-5.9-jammy"
 
