@@ -87,7 +87,7 @@ struct DiagnosticReportBuilder {
             let conflictLine = self.lineNumbers[cause.conflict]
             let otherLine = self.lineNumbers[cause.other]
 
-            if let conflictLine = conflictLine, let otherLine = otherLine {
+            if let conflictLine, let otherLine {
                 self.record(
                     incompatibility,
                     message: "\(incompatibilityDesc) because \(try self.description(for: cause.conflict)) (\(conflictLine)) and \(try self.description(for: cause.other)) (\(otherLine).",
@@ -97,7 +97,7 @@ struct DiagnosticReportBuilder {
                 let withLine: Incompatibility
                 let withoutLine: Incompatibility
                 let line: Int
-                if let conflictLine = conflictLine {
+                if let conflictLine {
                     withLine = cause.conflict
                     withoutLine = cause.other
                     line = conflictLine
@@ -140,7 +140,7 @@ struct DiagnosticReportBuilder {
             let derived = cause.conflict.cause.isConflict ? cause.conflict : cause.other
             let ext = cause.conflict.cause.isConflict ? cause.other : cause.conflict
             let derivedLine = self.lineNumbers[derived]
-            if let derivedLine = derivedLine {
+            if let derivedLine {
                 self.record(
                     incompatibility,
                     message: "\(incompatibilityDesc) because \(try self.description(for: ext)) and \(try self.description(for: derived)) (\(derivedLine)).",

@@ -319,7 +319,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // Compiles a single plugin, emitting its output and throwing an error if it
     // fails.
     func compilePlugin(_ plugin: PluginDescription) throws {
-        guard let pluginConfiguration = self.pluginConfiguration else {
+        guard let pluginConfiguration else {
             throw InternalError("unknown plugin script runner")
         }
         // Compile the plugin, getting back a PluginCompilationResult.
@@ -408,7 +408,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
         let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        if let pluginConfiguration = self.pluginConfiguration  {
+        if let pluginConfiguration {
             let buildOperationForPluginDependencies = try BuildOperation(buildParameters: self.buildParameters.withDestination(self.buildParameters.hostTriple), cacheBuildManifest: false, packageGraphLoader: { return graph }, additionalFileRules: self.additionalFileRules, pkgConfigDirectories: self.pkgConfigDirectories, outputStream: self.outputStream, logLevel: self.logLevel, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
             buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
                 outputDir: pluginConfiguration.workDirectory.appending("outputs"),

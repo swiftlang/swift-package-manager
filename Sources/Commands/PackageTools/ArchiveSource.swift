@@ -36,7 +36,7 @@ extension SwiftPackageTool {
             let packageDirectory = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
 
             let archivePath: AbsolutePath
-            if let output = output {
+            if let output {
                 archivePath = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()

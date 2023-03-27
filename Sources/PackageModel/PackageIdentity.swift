@@ -172,7 +172,7 @@ extension PackageIdentity {
         }
 
         fileprivate init?(_ substring: String.SubSequence?) {
-            guard let substring = substring else { return nil }
+            guard let substring else { return nil }
             self.init(String(substring))
         }
 
@@ -256,7 +256,7 @@ extension PackageIdentity {
         }
 
         fileprivate init?(_ substring: String.SubSequence?) {
-            guard let substring = substring else { return nil }
+            guard let substring else { return nil }
             self.init(String(substring))
         }
 
@@ -576,7 +576,7 @@ extension String {
     ) -> Bool {
         guard let range = range(of: string) else { return false }
 
-        if let index = index, range.lowerBound >= index {
+        if let index, range.lowerBound >= index {
             return false
         }
 

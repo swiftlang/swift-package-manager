@@ -79,7 +79,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                          repository: RepositorySpecifier,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
-        if let progress = progress {
+        if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
@@ -369,7 +369,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                          environment: EnvironmentVariables = Git.environment,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
-        if let progress = progress {
+        if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
@@ -642,7 +642,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// to the syntax accepted by `git rev-parse`.
     public func resolveHash(treeish: String, type: String? = nil) throws -> Hash {
         let specifier: String
-        if let type = type {
+        if let type {
             specifier = treeish + "^{\(type)}"
         } else {
             specifier = treeish

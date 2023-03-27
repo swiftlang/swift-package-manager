@@ -93,7 +93,7 @@ public struct TargetSourcesBuilder {
         }
 
         let declaredSources = target.sources?.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
-        if let declaredSources = declaredSources {
+        if let declaredSources {
             // Diagnose duplicate entries.
             let duplicates = declaredSources.spm_findDuplicateElements()
             if !duplicates.isEmpty {
@@ -213,7 +213,7 @@ public struct TargetSourcesBuilder {
         }
 
         // Match any sources explicitly declared in the manifest file.
-        if let declaredSources = declaredSources {
+        if let declaredSources {
             for sourcePath in declaredSources {
                 if path.isDescendantOfOrEqual(to: sourcePath) {
                     if matchedRule != .none {

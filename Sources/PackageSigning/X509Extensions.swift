@@ -78,7 +78,7 @@ extension RelativeDistinguishedName.Attribute {
             asn1StringBytes = try? ASN1UTF8String(asn1Any: self.value).bytes
         }
 
-        guard let asn1StringBytes = asn1StringBytes,
+        guard let asn1StringBytes,
               let stringValue = String(bytes: asn1StringBytes, encoding: .utf8)
         else {
             return nil

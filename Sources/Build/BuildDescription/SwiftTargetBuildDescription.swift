@@ -240,7 +240,7 @@ public final class SwiftTargetBuildDescription {
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
-        if let testTargetRole = testTargetRole {
+        if let testTargetRole {
             self.testTargetRole = testTargetRole
         } else if target.type == .test {
             self.testTargetRole = .default
@@ -336,7 +336,7 @@ public final class SwiftTargetBuildDescription {
     /// Generate the resource bundle accessor, if appropriate.
     private func generateResourceAccessor() throws {
         // Do nothing if we're not generating a bundle.
-        guard let bundlePath = self.bundlePath else { return }
+        guard let bundlePath else { return }
 
         let mainPathSubstitution: String
         if self.buildParameters.triple.isWASI() {

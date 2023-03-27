@@ -565,7 +565,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                 callback(.failure(error))
             case .success(let sources):
                 var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
-                if let collections = collections {
+                if let collections {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
@@ -579,7 +579,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                         callback(.failure(error))
                     case .success(let packagesCollections):
                         let matches: [PackageCollectionsModel.Package]
-                        if let location = location {
+                        if let location {
                             // A package identity can be associated with multiple repository URLs
                             matches = packagesCollections.packages.filter { CanonicalPackageLocation($0.location) == CanonicalPackageLocation(location) }
                         }

@@ -226,7 +226,7 @@ public struct SwiftAPIDigester {
             "-module", module
         ]
         args.append(contentsOf: try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
-        if let breakageAllowlistPath = breakageAllowlistPath {
+        if let breakageAllowlistPath {
             args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
         }
 

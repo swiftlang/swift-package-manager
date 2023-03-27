@@ -122,7 +122,7 @@ class ModuleAliasTracker {
             // pkgID is not nil here so can be force unwrapped
             pkgID = childToParentID[pkgID!]
         }
-        guard let rootPkg = rootPkg else { return }
+        guard let rootPkg else { return }
 
         if let productToAllTargets = idToProductToAllTargets[rootPkg] {
             // First, propagate aliases upstream

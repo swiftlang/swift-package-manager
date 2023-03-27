@@ -46,7 +46,7 @@ internal final class PubGrubPackageContainer {
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
     func versionCount(_ requirement: VersionSetSpecifier) throws -> Int {
-        if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
+        if let pinnedVersion, requirement.contains(pinnedVersion) {
             return 1
         }
         return try self.underlying.versionsDescending().filter(requirement.contains).count
@@ -79,7 +79,7 @@ internal final class PubGrubPackageContainer {
         let versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
-        if let pinnedVersion = self.pinnedVersion {
+        if let pinnedVersion {
             if versionSet.contains(pinnedVersion) {
                 // Make sure the pinned version is still available
                 let version = try self.underlying.versionsDescending().first { pinnedVersion == $0 }

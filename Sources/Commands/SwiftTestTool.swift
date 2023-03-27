@@ -668,13 +668,13 @@ final class TestRunner {
             throw TestError.xctestNotAvailable
         }
         args = [xctestPath.pathString]
-        if let xctestArg = xctestArg {
+        if let xctestArg {
             args += ["-XCTest", xctestArg]
         }
         args += [testPath.pathString]
         #else
         args += [testPath.description]
-        if let xctestArg = xctestArg {
+        if let xctestArg {
             args += [xctestArg]
         }
         #endif

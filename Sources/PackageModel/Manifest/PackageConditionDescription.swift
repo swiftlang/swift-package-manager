@@ -33,9 +33,9 @@ struct PackageConditionWrapper: Codable {
     var config: ConfigurationCondition?
 
     var condition: PackageConditionProtocol {
-        if let platform = platform {
+        if let platform {
             return platform
-        } else if let config = config {
+        } else if let config {
             return config
         } else {
             fatalError("unreachable")

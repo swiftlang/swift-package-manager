@@ -39,7 +39,7 @@ struct PackageSigningEntityTOFU {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let signingEntityStorage = self.signingEntityStorage else {
+        guard let signingEntityStorage else {
             return completion(.success(()))
         }
 
@@ -246,7 +246,7 @@ struct PackageSigningEntityTOFU {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let signingEntityStorage = self.signingEntityStorage else {
+        guard let signingEntityStorage else {
             return completion(.success(()))
         }
 

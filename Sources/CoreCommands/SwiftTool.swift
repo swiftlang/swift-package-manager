@@ -114,8 +114,8 @@ extension SwiftCommand {
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
 
-        if let error = toolError {
-            throw error
+        if let toolError {
+            throw toolError
         }
     }
 }
@@ -150,8 +150,8 @@ extension AsyncSwiftCommand {
         // wait for all observability items to process
         swiftTool.waitForObservabilityEvents(timeout: .now() + 5)
 
-        if let error = toolError {
-            throw error
+        if let toolError {
+            throw toolError
         }
     }
 }
@@ -690,7 +690,7 @@ public final class SwiftTool {
         customLogLevel: Basics.Diagnostic.Severity? = .none,
         customObservabilityScope: ObservabilityScope? = .none
     ) throws -> BuildSystem {
-        guard let buildSystemProvider = buildSystemProvider else {
+        guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
 

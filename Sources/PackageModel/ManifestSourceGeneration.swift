@@ -326,27 +326,27 @@ fileprivate extension SourceCodeFragment {
         switch dependency {
         case .target(name: let name, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
-            if let condition = condition {
+            if let condition {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
             }
             self.init(enum: "target", subnodes: params)
             
         case .product(name: let name, package: let packageName, moduleAliases: let aliases, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
-            if let packageName = packageName {
+            if let packageName {
                 params.append(SourceCodeFragment(key: "package", string: packageName))
             }
-            if let aliases = aliases {
+            if let aliases {
                 let vals = aliases.map { SourceCodeFragment(key: $0.key.quotedForPackageManifest, string: $0.value) }
                 params.append(SourceCodeFragment(key: "moduleAliases", subnodes: vals))
             }
-            if let condition = condition {
+            if let condition {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
             }
             self.init(enum: "product", subnodes: params)
             
         case .byName(name: let name, condition: let condition):
-            if let condition = condition {
+            if let condition {
                 params.append(SourceCodeFragment(key: "name", string: name))
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
                 self.init(enum: "byName", subnodes: params)
@@ -420,7 +420,7 @@ fileprivate extension SourceCodeFragment {
         params.append(SourceCodeFragment(string: resource.path))
         switch resource.rule {
         case .process(let localization):
-            if let localization = localization {
+            if let localization {
                 params.append(SourceCodeFragment(key: "localization", enum: localization.rawValue))
             }
             self.init(enum: "process", subnodes: params)
@@ -516,7 +516,7 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: setting.kind.name, subnodes: params)
         case .interoperabilityMode(let lang, let version):
             params.append(SourceCodeFragment(enum: lang.rawValue))
-            if let version = version {
+            if let version {
                 params.append(SourceCodeFragment(key: "version", string: version))
             }
             self.init(enum: setting.kind.name, subnodes: params)
@@ -630,7 +630,7 @@ public struct SourceCodeFragment {
     
     func generateSourceCode(indent: String = "") -> String {
         var string = literal
-        if let subnodes = subnodes {
+        if let subnodes {
             switch delimiters {
             case .none: break
             case .brackets: string.append("[")

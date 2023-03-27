@@ -58,7 +58,7 @@ struct CardStack {
     }
 
     func askForLineInput(prompt: String?) -> String? {
-        if let prompt = prompt {
+        if let prompt {
             print(brightBlack { prompt }.terminalString())
         }
         terminal.write(">>> ", inColor: .green, bold: true)
@@ -99,7 +99,7 @@ struct CardStack {
                     break askForLine
                 case let .pop(error):
                     cards.removeLast()
-                    if let error = error {
+                    if let error {
                         self.swiftTool.observabilityScope.emit(error)
                         needsToClearScreen = false
                     } else {

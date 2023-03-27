@@ -151,7 +151,7 @@ public struct CSetting {
     @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
         var settingValue = name
-        if let value = value {
+        if let value {
             settingValue += "=" + value
         }
         return CSetting(name: "define", value: [settingValue], condition: condition)
@@ -220,7 +220,7 @@ public struct CXXSetting {
     @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         var settingValue = name
-        if let value = value {
+        if let value {
             settingValue += "=" + value
         }
         return CXXSetting(name: "define", value: [settingValue], condition: condition)
@@ -381,7 +381,7 @@ public struct SwiftSetting {
       _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         var values: [String] = [mode.rawValue]
-        if let version = version {
+        if let version {
             values.append(version)
         }
         return SwiftSetting(

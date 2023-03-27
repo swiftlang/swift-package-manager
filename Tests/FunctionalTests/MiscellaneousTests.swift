@@ -278,7 +278,7 @@ class MiscellaneousTestCase: XCTestCase {
             var env = ProcessInfo.processInfo.environment
             let oldPath = env["PATH"]
             env["PATH"] = fakeGit.parentDirectory.description
-            if let oldPath = oldPath {
+            if let oldPath {
                 env["PATH"] = env["PATH"]! + ":" + oldPath
             }
 

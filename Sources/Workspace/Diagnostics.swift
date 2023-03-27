@@ -165,7 +165,7 @@ extension Basics.Diagnostic {
 extension FileSystemError: CustomStringConvertible {
 
     public var description: String {
-        guard let path = path else {
+        guard let path else {
             switch self.kind {
             case .invalidAccess:
                 return "invalid access"

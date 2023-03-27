@@ -43,12 +43,12 @@ struct BuildToolOptions: ParsableArguments {
     func buildSubset(observabilityScope: ObservabilityScope) -> BuildSubset? {
         var allSubsets: [BuildSubset] = []
 
-        if let productName = product {
-            allSubsets.append(.product(productName))
+        if let product {
+            allSubsets.append(.product(product))
         }
 
-        if let targetName = target {
-            allSubsets.append(.target(targetName))
+        if let target {
+            allSubsets.append(.target(target))
         }
 
         if buildTests {

@@ -292,10 +292,10 @@ extension LLBuildManifestBuilder {
 
             // Check if an explicit pre-build dependency job has already been
             // added as a part of this build.
-            if let uniqueDependencyTracker = uniqueExplicitDependencyTracker,
+            if let uniqueExplicitDependencyTracker,
                job.isExplicitDependencyPreBuildJob
             {
-                if try !uniqueDependencyTracker.registerExplicitDependencyBuildJob(job) {
+                if try !uniqueExplicitDependencyTracker.registerExplicitDependencyBuildJob(job) {
                     // This is a duplicate of a previously-seen identical job.
                     // Skip adding it to the manifest
                     continue
@@ -619,10 +619,10 @@ extension LLBuildManifestBuilder {
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
-                let _product = try plan.graph.allProducts.first {
+                let product = try plan.graph.allProducts.first {
                     try $0.type == .executable && $0.executableTarget == target
                 }
-                if let product = _product {
+                if let product {
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -855,8 +855,8 @@ extension LLBuildManifestBuilder {
             // Add language standard flag if needed.
             if let ext = path.source.extension {
                 for (standard, validExtensions) in standards {
-                    if let languageStandard = standard, validExtensions.contains(ext) {
-                        args += ["-std=\(languageStandard)"]
+                    if let standard, validExtensions.contains(ext) {
+                        args += ["-std=\(standard)"]
                     }
                 }
             }

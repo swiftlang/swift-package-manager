@@ -228,7 +228,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
               callback: @escaping (Result<[Model.Collection], Error>) -> Void) {
         // try read to cache
         let cached = identifiers?.compactMap { self.cache[$0] }
-        if let cached = cached, cached.count > 0, cached.count == identifiers?.count {
+        if let cached, cached.count > 0, cached.count == identifiers?.count {
             return callback(.success(cached))
         }
 
@@ -236,7 +236,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         DispatchQueue.sharedConcurrent.async {
             do {
                 var blobs = [Data]()
-                if let identifiers = identifiers {
+                if let identifiers {
                     var index = 0
                     while index < identifiers.count {
                         let slice = identifiers[index ..< min(index + self.configuration.batchSize, identifiers.count)]

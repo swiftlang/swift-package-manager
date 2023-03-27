@@ -97,7 +97,7 @@ public class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWri
                 let contents = try? self.fileSystem.readFileContents(self.path).contents
                 try self.fileSystem.writeFileContents(self.path) { stream in
                     // Write existing contents
-                    if let contents = contents, !contents.isEmpty {
+                    if let contents, !contents.isEmpty {
                         stream.write(contents)
                         stream.write("\n")
                     }

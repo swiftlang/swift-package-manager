@@ -190,7 +190,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     
     private func createContext(apiHost: String?, error: Error?) -> PackageMetadataProviderContext? {
         // We can't do anything if we can't determine API host
-        guard let apiHost = apiHost else {
+        guard let apiHost else {
             return nil
         }
         
@@ -202,7 +202,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             return nil
         }
         
-        guard let error = error else {
+        guard let error else {
             // It's possible for the request to complete successfully without auth token configured, in
             // which case we will hit the API limit much more easily, so we should always communicate
             // auth token state to the caller (e.g., so it can prompt user to configure auth token).

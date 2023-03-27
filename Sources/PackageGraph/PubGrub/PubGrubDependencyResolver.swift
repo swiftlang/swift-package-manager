@@ -562,7 +562,7 @@ public struct PubGrubDependencyResolver {
 
                 if mostRecentTerm == term {
                     difference = mostRecentSatisfier?.term.difference(with: term)
-                    if let difference = difference {
+                    if let difference {
                         previousSatisfierLevel = max(previousSatisfierLevel, try state.solution.satisfier(for: difference.inverse).decisionLevel)
                     }
                 }
@@ -600,11 +600,11 @@ public struct PubGrubDependencyResolver {
             )
             createdIncompatibility = true
 
-            if let term = mostRecentTerm {
-                if let diff = difference {
-                    self.delegate?.partiallySatisfied(term: term, by: _mostRecentSatisfier, incompatibility: incompatibility, difference: diff)
+            if let mostRecentTerm {
+                if let difference {
+                    self.delegate?.partiallySatisfied(term: mostRecentTerm, by: _mostRecentSatisfier, incompatibility: incompatibility, difference: difference)
                 } else {
-                    self.delegate?.satisfied(term: term, by: _mostRecentSatisfier, incompatibility: incompatibility)
+                    self.delegate?.satisfied(term: mostRecentTerm, by: _mostRecentSatisfier, incompatibility: incompatibility)
                 }
             }
 

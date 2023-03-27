@@ -180,7 +180,7 @@ extension SystemPackageProviderDescription {
         switch self {
         case .brew(let packages):
             let brewPrefix: String
-            if let brewPrefixOverride = brewPrefixOverride {
+            if let brewPrefixOverride {
                 brewPrefix = brewPrefixOverride.pathString
             } else {
                 // Homebrew can have multiple versions of the same package. The

@@ -78,16 +78,16 @@ public struct RegistryConfiguration: Hashable {
         let packageOverrides = self.security?.packageOverrides[package]?.signing
 
         var signing = Security.Signing.default
-        if let global = global {
+        if let global {
             signing.merge(global)
         }
-        if let registryOverrides = registryOverrides {
+        if let registryOverrides {
             signing.merge(registryOverrides)
         }
-        if let scopeOverrides = scopeOverrides {
+        if let scopeOverrides {
             signing.merge(scopeOverrides)
         }
-        if let packageOverrides = packageOverrides {
+        if let packageOverrides {
             signing.merge(packageOverrides)
         }
 

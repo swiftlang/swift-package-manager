@@ -118,7 +118,7 @@ public enum PIF {
             try contents.encode(path, forKey: .path)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                guard let signature = self.signature else {
+                guard let signature else {
                     throw InternalError("Expected to have workspace signature when encoding for XCBuild")
                 }
                 try container.encode(signature, forKey: "signature")
@@ -201,7 +201,7 @@ public enum PIF {
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                guard let signature = self.signature else {
+                guard let signature else {
                     throw InternalError("Expected to have project signature when encoding for XCBuild")
                 }
                 try container.encode(signature, forKey: "signature")
@@ -509,7 +509,7 @@ public enum PIF {
             try contents.encode(impartedBuildProperties, forKey: .impartedBuildProperties)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                guard let signature = self.signature else {
+                guard let signature else {
                     throw InternalError("Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
                 }
                 try container.encode(signature, forKey: "signature")
@@ -606,7 +606,7 @@ public enum PIF {
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                guard let signature = self.signature else {
+                guard let signature else {
                     throw InternalError("Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
                 }
                 try container.encode(signature, forKey: "signature")

@@ -555,7 +555,7 @@ extension FileSystem {
         }
 
         // no acceptable extensions defined, so the single top-level directory is a good candidate
-        guard let acceptableExtensions = acceptableExtensions else {
+        guard let acceptableExtensions else {
             return true
         }
 

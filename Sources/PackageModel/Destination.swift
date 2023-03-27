@@ -195,7 +195,7 @@ public struct Destination: Equatable {
         ///   - properties: properties of the destination for the given triple.
         ///   - destinationDirectory: directory used for converting relative paths in `properties` to absolute paths.
         init(_ properties: SerializedDestinationV3.TripleProperties, destinationDirectory: AbsolutePath? = nil) throws {
-            if let destinationDirectory = destinationDirectory {
+            if let destinationDirectory {
                 self.init(
                     sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: destinationDirectory),
                     swiftResourcesPath: try properties.swiftResourcesPath.map {
