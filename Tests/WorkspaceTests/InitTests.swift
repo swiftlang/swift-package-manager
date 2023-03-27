@@ -177,6 +177,34 @@ class InitTests: XCTestCase {
         }
     }
     
+    func testInitPackageBuildToolPlugin() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("MyBuildToolPlugin")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            try InitPackage(
+                name: name,
+                packageType: .buildToolPlugin,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            ).writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
+
+            let source = path.appending("Plugins", "MyBuildToolPlugin", "plugin.swift")
+            XCTAssertFileExists(source)
+            let sourceContents: String = try localFileSystem.readFileContents(source)
+            XCTAssertMatch(sourceContents, .contains("struct MyBuildToolPlugin: BuildToolPlugin"))
+        }
+    }
+
     // MARK: Special case testing
     
     func testInitPackageNonc99Directory() throws {

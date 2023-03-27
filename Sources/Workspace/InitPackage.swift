@@ -44,6 +44,7 @@ public final class InitPackage {
         case library = "library"
         case executable = "executable"
         case tool = "tool"
+        case buildToolPlugin = "build-tool-plugin"
         case commandPlugin = "command-plugin"
         case macro = "macro"
 
@@ -271,6 +272,14 @@ public final class InitPackage {
                                 ]),
                         ]
                     """
+                } else if packageType == .buildToolPlugin {
+                    param += """
+                            .plugin(
+                                 name: "\(typeName)",
+                                 capability: .buildTool()
+                             ),
+                        ]
+                    """
                 } else if packageType == .commandPlugin {
                     param += """
                             .plugin(
@@ -362,7 +371,7 @@ public final class InitPackage {
 
     private func writePlugins() throws {
         switch packageType {
-        case .commandPlugin:
+        case .buildToolPlugin, .commandPlugin:
             let plugins = destinationPath.appending(component: "Plugins")
             guard self.fileSystem.exists(plugins) == false else {
                 return
@@ -376,16 +385,30 @@ public final class InitPackage {
             let sourceFileName = "plugin.swift"
             let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
-            let content = """
+            var content = """
                 import PackagePlugin
 
                 @main
-                struct \(typeName): CommandPlugin {
-                    func performCommand(context: PluginContext, arguments: [String]) async throws {
-                        print("Hello, World!")
+                """
+            if packageType == .buildToolPlugin {
+                content += """
+                    struct \(typeName): BuildToolPlugin {
+                        func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                            print("Hello, World!")
+                            return []
+                        }
                     }
-                }
-            """
+                """
+            }
+            else {
+                content += """
+                    struct \(typeName): CommandPlugin {
+                        func performCommand(context: PluginContext, arguments: [String]) async throws {
+                            print("Hello, World!")
+                        }
+                    }
+                """
+            }
 
             try writePackageFile(sourceFile) { stream in
                 stream.write(content)
@@ -397,7 +420,7 @@ public final class InitPackage {
     }
 
     private func writeSources() throws {
-        if packageType == .empty || packageType == .commandPlugin {
+        if packageType == .empty || packageType == .buildToolPlugin || packageType == .commandPlugin {
             return
         }
 
@@ -473,7 +496,7 @@ public final class InitPackage {
             public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
             """
 
-        case .empty, .commandPlugin:
+        case .empty, .buildToolPlugin, .commandPlugin:
             throw InternalError("invalid packageType \(packageType)")
         }
 
@@ -489,7 +512,7 @@ public final class InitPackage {
 
     private func writeTests() throws {
         switch packageType {
-        case .empty, .executable, .tool, .commandPlugin: return
+        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
             default: break
         }
         let tests = destinationPath.appending("Tests")
@@ -635,7 +658,7 @@ public final class InitPackage {
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
-        case .empty, .commandPlugin, .executable, .tool: break
+        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
