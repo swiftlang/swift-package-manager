@@ -3525,14 +3525,6 @@ fileprivate extension PackageDependency {
     }
 }
 
-fileprivate extension DiagnosticsEngine {
-    func append(contentsOf other: DiagnosticsEngine) {
-        for diagnostic in other.diagnostics {
-            self.emit(diagnostic.message, location: diagnostic.location)
-        }
-    }
-}
-
 internal extension PackageReference {
     func makeRepositorySpecifier() throws -> RepositorySpecifier {
         switch self.kind {

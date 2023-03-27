@@ -12,10 +12,13 @@
 
 import Dispatch
 import Foundation
-import TSCBasic
 
+import class TSCBasic.UnknownLocation
 import enum TSCUtility.Diagnostics
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.DiagnosticLocation
 import protocol TSCUtility.DiagnosticDataConvertible
+import struct TSCBasic.Diagnostic
 
 // this could become a struct when we remove the "errorsReported" pattern
 
@@ -527,14 +530,13 @@ extension ObservabilityMetadata {
 
 // MARK: - Compatibility with TSC Diagnostics APIs
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension ObservabilityScope {
-    public func makeDiagnosticsEngine() -> DiagnosticsEngine {
-        return .init(handlers: [{ Diagnostic($0).map{ self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: $0) } }])
+    public func makeDiagnosticsHandler() -> (TSCBasic.Diagnostic) -> Void {
+        { Diagnostic($0).map { self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: $0) } }
     }
 }
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+@available(*, deprecated, message: "temporary for transition TSCBasic.Diagnostic -> SwiftDriver.Diagnostic")
 extension Diagnostic {
     init?(_ diagnostic: TSCBasic.Diagnostic) {
         var metadata = ObservabilityMetadata()
@@ -558,7 +560,7 @@ extension Diagnostic {
     }
 }
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+@available(*, deprecated, message: "temporary for transition TSCBasic.Diagnostic -> SwiftDriver.Diagnostic")
 extension ObservabilityMetadata {
     public var legacyDiagnosticLocation: DiagnosticLocationWrapper? {
         get {
@@ -586,7 +588,7 @@ extension ObservabilityMetadata {
     }
 }
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+@available(*, deprecated, message: "temporary for transition TSCBasic.Diagnostic -> SwiftDriver.Diagnostic")
 extension ObservabilityMetadata {
     var legacyDiagnosticData: DiagnosticDataWrapper? {
         get {
