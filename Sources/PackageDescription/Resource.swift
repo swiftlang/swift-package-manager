@@ -97,7 +97,7 @@ public struct Resource {
     }
 
     /// Applies the embed rule to a resource at the given path.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     public static func embedInCode(_ path: String) -> Resource {
         return Resource(rule: "embedInCode", path: path, localization: nil)
     }
