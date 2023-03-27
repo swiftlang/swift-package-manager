@@ -168,6 +168,7 @@ class InitTests: XCTestCase {
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyCommandPlugin\"]")))
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .command(intent: .custom(verb")))
 
             let source = path.appending("Plugins", "MyCommandPlugin", "plugin.swift")
@@ -196,6 +197,7 @@ class InitTests: XCTestCase {
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyBuildToolPlugin\"]")))
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
 
             let source = path.appending("Plugins", "MyBuildToolPlugin", "plugin.swift")

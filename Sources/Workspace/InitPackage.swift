@@ -216,6 +216,15 @@ public final class InitPackage {
                             targets: ["\(pkgname)"]),
                     ]
                 """)
+            } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
+                pkgParams.append("""
+                    products: [
+                        // Products define the executables and libraries a package produces, making them visible to other packages.
+                        .plugin(
+                            name: "\(pkgname)",
+                            targets: ["\(pkgname)"]),
+                    ]
+                """)
             } else if packageType == .macro {
                 pkgParams.append("""
                     products: [
