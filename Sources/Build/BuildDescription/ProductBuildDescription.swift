@@ -234,8 +234,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableTarget
-            if executableTarget.underlyingTarget is SwiftTarget, self.toolsVersion >= .v5_5,
-               self.buildParameters.canRenameEntrypointFunctionName, executableTarget.underlyingTarget.type != .macro
+            if let target = executableTarget.underlyingTarget as? SwiftTarget, self.toolsVersion >= .v5_5,
+               self.buildParameters.canRenameEntrypointFunctionName, target.supportsTestableExecutablesFeature
             {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
