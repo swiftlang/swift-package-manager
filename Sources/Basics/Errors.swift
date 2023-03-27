@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import protocol Foundation.LocalizedError
+import class Foundation.NSError
+import var Foundation.NSLocalizedDescriptionKey
 import struct TSCBasic.StringError
 
 public typealias StringError = TSCBasic.StringError
@@ -18,6 +21,33 @@ public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {
         assertionFailure(description)
-        self.description = "Internal error. Please file a bug at https://github.com/apple/swift-package-manager/issues with this info. \(description)"
+        self
+            .description =
+            "Internal error. Please file a bug at https://github.com/apple/swift-package-manager/issues with this info. \(description)"
+    }
+}
+
+extension Error {
+    public var interpolationDescription: String {
+        switch self {
+        case let _error as LocalizedError:
+            var description = _error.localizedDescription
+            if let recoverySuggestion = _error.recoverySuggestion {
+                description += ". \(recoverySuggestion)"
+            }
+            return description
+        case let _error as NSError:
+            guard var description = _error.userInfo[NSLocalizedDescriptionKey] as? String else {
+                return "\(self)"
+            }
+
+            if let localizedRecoverySuggestion = _error.localizedRecoverySuggestion {
+                description += ". \(localizedRecoverySuggestion)"
+            }
+            return description
+
+        default:
+            return "\(self)"
+        }
     }
 }

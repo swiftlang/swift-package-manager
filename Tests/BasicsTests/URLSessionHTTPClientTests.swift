@@ -452,14 +452,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     case .success:
                         XCTFail("unexpected success")
                     case .failure(let error):
-                        #if os(macOS)
-                        // FIXME: URLSession loses the full error description when going
-                        // from Swift.Error to NSError which is then received in
-                        // urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?)
-                        XCTAssertNotNil(error as? HTTPClientError)
-                        #else
                         XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
-                        #endif
                     }
                     completionExpectation.fulfill()
                 }
@@ -909,14 +902,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 )
                 XCTFail("unexpected success")
             } catch {
-                #if os(macOS)
-                // FIXME: URLSession loses the full error description when going
-                // from Swift.Error to NSError which is then received in
-                // urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?)
-                XCTAssertNotNil(error as? HTTPClientError)
-                #else
                 XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
-                #endif
             }
         }
     }
