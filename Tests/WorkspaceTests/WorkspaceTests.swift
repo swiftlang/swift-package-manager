@@ -11786,7 +11786,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )
@@ -11970,7 +11970,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )
@@ -12129,7 +12129,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )
@@ -12275,7 +12275,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )
@@ -12442,7 +12442,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )
@@ -12604,7 +12604,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
                             """),
                             severity: .error
                         )
@@ -12795,7 +12795,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
                             """),
                             severity: .error
                         )
@@ -12941,7 +12941,7 @@ final class WorkspaceTests: XCTestCase {
                     testDiagnostics(diagnostics) { result in
                         result.check(
                             diagnostic: .contains("""
-                            multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
                             """),
                             severity: .error
                         )

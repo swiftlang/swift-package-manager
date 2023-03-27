@@ -161,6 +161,43 @@ extension Manifest {
         )
     }
 
+    public static func createRegistryManifest(
+        displayName: String,
+        identity: PackageIdentity,
+        path: AbsolutePath = .root,
+        defaultLocalization: String? = nil,
+        platforms: [PlatformDescription] = [],
+        version: TSCUtility.Version? = nil,
+        toolsVersion: ToolsVersion = .v4,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependency] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
+    ) -> Manifest {
+        Self.createManifest(
+            displayName: displayName,
+            path: path,
+            packageKind: .registry(identity),
+            packageLocation: identity.description,
+            defaultLocalization: defaultLocalization,
+            platforms: platforms,
+            version: version,
+            toolsVersion: toolsVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+
     public static func createManifest(
         displayName: String,
         path: AbsolutePath = .root,
@@ -181,7 +218,7 @@ extension Manifest {
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
-            path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename) ,
+            path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
             defaultLocalization: defaultLocalization,
