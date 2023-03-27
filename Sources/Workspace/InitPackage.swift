@@ -146,6 +146,7 @@ public final class InitPackage {
             }
 
             stream <<< """
+
                 let package = Package(
 
                 """
