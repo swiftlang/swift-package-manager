@@ -1659,23 +1659,23 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .pathAlreadyExists(let path):
             return "path already exists '\(path)'"
         case .failedRetrievingReleases(let registry, let packageIdentity, let error):
-            return "failed fetching \(packageIdentity) releases list from \(registry): \(error.customDescription)"
+            return "failed fetching \(packageIdentity) releases list from \(registry): \(error.interpolationDescription)"
         case .failedRetrievingReleaseInfo(let registry, let packageIdentity, let version, let error):
-            return "failed fetching \(packageIdentity) version \(version) release information from \(registry): \(error.customDescription)"
+            return "failed fetching \(packageIdentity) version \(version) release information from \(registry): \(error.interpolationDescription)"
         case .failedRetrievingReleaseChecksum(let registry, let packageIdentity, let version, let error):
-            return "failed fetching \(packageIdentity) version \(version) release checksum from \(registry): \(error.customDescription)"
+            return "failed fetching \(packageIdentity) version \(version) release checksum from \(registry): \(error.interpolationDescription)"
         case .failedRetrievingManifest(let registry, let packageIdentity, let version, let error):
-            return "failed retrieving \(packageIdentity) version \(version) manifest from \(registry): \(error.customDescription)"
+            return "failed retrieving \(packageIdentity) version \(version) manifest from \(registry): \(error.interpolationDescription)"
         case .failedDownloadingSourceArchive(let registry, let packageIdentity, let version, let error):
-            return "failed downloading \(packageIdentity) version \(version) source archive from \(registry): \(error.customDescription)"
+            return "failed downloading \(packageIdentity) version \(version) source archive from \(registry): \(error.interpolationDescription)"
         case .failedIdentityLookup(let registry, let scmURL, let error):
-            return "failed looking up identity for \(scmURL) on \(registry): \(error.customDescription)"
+            return "failed looking up identity for \(scmURL) on \(registry): \(error.interpolationDescription)"
         case .failedLoadingPackageArchive(let path):
             return "failed loading package archive at '\(path)' for publishing"
         case .failedLoadingPackageMetadata(let path):
             return "failed loading package metadata at '\(path)' for publishing"
         case .failedPublishing(let error):
-            return "failed publishing: \(error.customDescription)"
+            return "failed publishing: \(error.interpolationDescription)"
         case .missingPublishingLocation:
             return "response missing registry source archive"
         case .serverError(let code, let details):
@@ -1699,7 +1699,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .failedLoadingSignature:
             return "failed loading signature for validation"
         case .failedRetrievingSourceArchiveSignature(let registry, let packageIdentity, let version, let error):
-            return "failed retrieving '\(packageIdentity)' version \(version) source archive signature from '\(registry)': \(error.customDescription)"
+            return "failed retrieving '\(packageIdentity)' version \(version) source archive signature from '\(registry)': \(error.interpolationDescription)"
         case .manifestNotSigned(let registry, let packageIdentity, let version, let toolsVersion):
             return "manifest for \(packageIdentity) version \(version) tools version \(toolsVersion.map { "\($0)" } ?? "unspecified") from \(registry) is not signed"
         case .missingConfiguration(let details):
@@ -1717,7 +1717,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .signerNotTrusted(_, let signingEntity):
             return "the signer \(signingEntity) is not trusted"
         case .failedToValidateSignature(let error):
-            return "failed to validate signature: \(error.customDescription)"
+            return "failed to validate signature: \(error.interpolationDescription)"
         case .signingEntityForReleaseChanged(let registry, let package, let version, let latest, let previous):
             return "the signing entity '\(String(describing: latest))' from \(registry) for \(package) version \(version) is different from the previously recorded value '\(previous)'"
         case .signingEntityForPackageChanged(
@@ -2295,28 +2295,5 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
 extension URLComponents {
     fileprivate mutating func appendPathComponents(_ components: String...) {
         path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
-    }
-}
-
-// TODO: move to Basics when we feel this is useful across the board
-extension Error {
-    var customDescription: String {
-        self.localizedDescription
-    }
-}
-
-extension NSError {
-    var customDescription: String {
-        var description: String
-        if let value = self.userInfo[NSLocalizedDescriptionKey] as? String {
-            description = value
-        } else {
-            description = "unknown error"
-        }
-
-        if let localizedRecoverySuggestion = self.localizedRecoverySuggestion {
-            description += ". \(localizedRecoverySuggestion)"
-        }
-        return description
     }
 }
