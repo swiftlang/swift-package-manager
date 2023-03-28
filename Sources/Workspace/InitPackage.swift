@@ -388,10 +388,10 @@ public final class InitPackage {
             progressReporter?("Creating \(plugins.relative(to: destinationPath))/")
             try makeDirectories(plugins)
 
-            let moduleDir = plugins.appending(component: "\(pkgname)")
+            let moduleDir = plugins
             try makeDirectories(moduleDir)
 
-            let sourceFileName = "plugin.swift"
+            let sourceFileName = "\(pkgname).swift"
             let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
             var content = """

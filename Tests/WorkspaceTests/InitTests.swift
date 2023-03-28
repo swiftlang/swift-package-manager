@@ -171,7 +171,7 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyCommandPlugin\"]")))
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .command(intent: .custom(verb")))
 
-            let source = path.appending("Plugins", "MyCommandPlugin", "plugin.swift")
+            let source = path.appending("Plugins", "MyCommandPlugin.swift")
             XCTAssertFileExists(source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
             XCTAssertMatch(sourceContents, .contains("struct MyCommandPlugin: CommandPlugin"))
@@ -200,7 +200,7 @@ class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyBuildToolPlugin\"]")))
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
 
-            let source = path.appending("Plugins", "MyBuildToolPlugin", "plugin.swift")
+            let source = path.appending("Plugins", "MyBuildToolPlugin.swift")
             XCTAssertFileExists(source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
             XCTAssertMatch(sourceContents, .contains("struct MyBuildToolPlugin: BuildToolPlugin"))
