@@ -18,6 +18,9 @@ import struct TSCUtility.Version
 
 /// Errors related to cross-compilation destinations.
 public enum DestinationError: Swift.Error {
+    /// A passed argument is neither a valid file system path nor a URL.
+    case invalidPathOrURL(String)
+
     /// Couldn't find the Xcode installation.
     case invalidInstallation(String)
 
@@ -28,7 +31,7 @@ public enum DestinationError: Swift.Error {
     case noDestinationsDecoded(AbsolutePath)
 
     /// Path used for storing destination configuration data is not a directory.
-    case configurationPathIsNotDirectory(AbsolutePath)
+    case pathIsNotDirectory(AbsolutePath)
 
     /// A destination couldn't be serialized with the latest serialization schema, potentially because it
     /// was deserialized from an earlier incompatible schema version or initialized manually with properties
@@ -37,19 +40,28 @@ public enum DestinationError: Swift.Error {
 
     /// No configuration values are available for this destination and run-time triple.
     case destinationNotFound(artifactID: String, builtTimeTriple: Triple, runTimeTriple: Triple)
+
+    /// A destination bundle with this name is already installed, can't install a new bundle with the same name.
+    case destinationBundleAlreadyInstalled(bundleName: String)
+
+    /// A destination with this artifact ID is already installed. Can't install a new bundle with this artifact,
+    /// installed artifact IDs are expected to be unique.
+    case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
 }
 
 extension DestinationError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .invalidPathOrURL(let argument):
+            return "`\(argument)` is neither a valid filesystem path nor a URL."
         case .invalidSchemaVersion:
             return "unsupported destination file schema version"
         case .invalidInstallation(let problem):
             return problem
         case .noDestinationsDecoded(let path):
             return "no valid destinations were decoded from a destination file at path `\(path)`"
-        case .configurationPathIsNotDirectory(let path):
-            return "path used for storing configuration files is not a directory: `\(path)`"
+        case .pathIsNotDirectory(let path):
+            return "path expected to be a directory is not a directory or doesn't exist: `\(path)`"
         case .unserializableDestination:
             return """
             destination couldn't be serialized with the latest serialization schema, potentially because it \
@@ -58,8 +70,19 @@ extension DestinationError: CustomStringConvertible {
             """
         case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
             return """
-            destination with ID \(artifactID), build-time triple \(buildTimeTriple), and run-time triple \
+            destination with ID `\(artifactID)`, build-time triple \(buildTimeTriple), and run-time triple \
             \(runTimeTriple) is not currently installed.
+            """
+        case .destinationBundleAlreadyInstalled(let bundleName):
+            return """
+            destination artifact bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
+            with the same name.
+            """
+        case .destinationArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
+            return """
+            A destination with artifact ID `\(artifactID)` is already included in an installed bundle with name \
+            `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
+            are expected to be unique across all installed bundles.
             """
         }
     }
