@@ -138,7 +138,8 @@ extension SwiftPackageRegistryTool {
                 signingEntityStorage: .none,
                 signingEntityCheckingMode: .strict,
                 authorizationProvider: authorizationProvider,
-                delegate: .none
+                delegate: .none,
+                checksumAlgorithm: SHA256()
             )
 
             // step 1: publishing configuration

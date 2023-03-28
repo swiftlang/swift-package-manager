@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -33,63 +33,84 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    public func get(package: PackageIdentity,
-                    version: Version,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
-        self.get(reference: package,
-                 version: version,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func get(
+        package: PackageIdentity,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
+            -> Void
+    ) {
+        self.get(
+            reference: package,
+            version: version,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
-    public func put(package: PackageIdentity,
-                    version: Version,
-                    fingerprint: Fingerprint,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<Void, Error>) -> Void) {
-        self.put(reference: package,
-                 version: version,
-                 fingerprint: fingerprint,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func put(
+        package: PackageIdentity,
+        version: Version,
+        fingerprint: Fingerprint,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.put(
+            reference: package,
+            version: version,
+            fingerprint: fingerprint,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
-    public func get(package: PackageReference,
-                    version: Version,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
-        self.get(reference: package,
-                 version: version,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func get(
+        package: PackageReference,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
+            -> Void
+    ) {
+        self.get(
+            reference: package,
+            version: version,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
-    public func put(package: PackageReference,
-                    version: Version,
-                    fingerprint: Fingerprint,
-                    observabilityScope: ObservabilityScope,
-                    callbackQueue: DispatchQueue,
-                    callback: @escaping (Result<Void, Error>) -> Void) {
-        self.put(reference: package,
-                 version: version,
-                 fingerprint: fingerprint,
-                 observabilityScope: observabilityScope,
-                 callbackQueue: callbackQueue,
-                 callback: callback)
+    public func put(
+        package: PackageReference,
+        version: Version,
+        fingerprint: Fingerprint,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
+        self.put(
+            reference: package,
+            version: version,
+            fingerprint: fingerprint,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            callback: callback
+        )
     }
 
-    private func get(reference: FingerprintReference,
-                     version: Version,
-                     observabilityScope: ObservabilityScope,
-                     callbackQueue: DispatchQueue,
-                     callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void) {
+    private func get(
+        reference: FingerprintReference,
+        version: Version,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>)
+            -> Void
+    ) {
         let callback = self.makeAsync(callback, on: callbackQueue)
 
         do {
@@ -107,19 +128,21 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         }
     }
 
-    private func put(reference: FingerprintReference,
-                     version: Version,
-                     fingerprint: Fingerprint,
-                     observabilityScope: ObservabilityScope,
-                     callbackQueue: DispatchQueue,
-                     callback: @escaping (Result<Void, Error>) -> Void) {
+    private func put(
+        reference: FingerprintReference,
+        version: Version,
+        fingerprint: Fingerprint,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        callback: @escaping (Result<Void, Error>) -> Void
+    ) {
         let callback = self.makeAsync(callback, on: callbackQueue)
 
         do {
             try self.withLock {
                 var packageFingerprints = try self.loadFromDisk(reference: reference)
 
-                if let existing = packageFingerprints[version]?[fingerprint.origin.kind] {
+                if let existing = packageFingerprints[version]?[fingerprint.origin.kind]?[fingerprint.contentType] {
                     // Error if we try to write a different fingerprint
                     guard fingerprint == existing else {
                         throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
@@ -128,9 +151,11 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
                     return
                 }
 
-                var fingerprints = packageFingerprints.removeValue(forKey: version) ?? [:]
-                fingerprints[fingerprint.origin.kind] = fingerprint
-                packageFingerprints[version] = fingerprints
+                var fingerprintsForVersion = packageFingerprints.removeValue(forKey: version) ?? [:]
+                var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
+                fingerprintsForKind[fingerprint.contentType] = fingerprint
+                fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
+                packageFingerprints[version] = fingerprintsForVersion
 
                 try self.saveToDisk(reference: reference, fingerprints: packageFingerprints)
             }
@@ -152,8 +177,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             return .init()
         }
 
-        let container = try self.decoder.decode(StorageModel.Container.self, from: data)
-        return try container.packageFingerprints()
+        return try StorageModel.decode(data: data, decoder: self.decoder)
     }
 
     private func saveToDisk(reference: FingerprintReference, fingerprints: PackageFingerprints) throws {
@@ -161,9 +185,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
-        let container = try StorageModel.Container(fingerprints)
-        let buffer = try encoder.encode(container)
-
+        let buffer = try StorageModel.encode(packageFingerprints: fingerprints, encoder: self.encoder)
         let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
         try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
     }
@@ -175,59 +197,189 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         return try self.fileSystem.withLock(on: self.directoryPath, type: .exclusive, body)
     }
 
-    private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void, on queue: DispatchQueue) -> (Result<T, Error>) -> Void {
+    private func makeAsync<T>(
+        _ closure: @escaping (Result<T, Error>) -> Void,
+        on queue: DispatchQueue
+    ) -> (Result<T, Error>) -> Void {
         { result in queue.async { closure(result) } }
     }
 }
 
 private enum StorageModel {
-    struct Container: Codable {
-        let versionFingerprints: [String: [String: StoredFingerprint]]
+    struct SchemaVersion: Codable {
+        let version: Int?
+    }
 
-        init(_ versionFingerprints: PackageFingerprints) throws {
-            self.versionFingerprints = try Dictionary(throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprints in
-                let fingerprintByKind: [String: StoredFingerprint] = Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
-                    let origin: String
-                    switch fingerprint.origin {
-                    case .sourceControl(let url):
-                        origin = url.absoluteString
-                    case .registry(let url):
-                        origin = url.absoluteString
-                    }
-                    return (kind.rawValue, StoredFingerprint(origin: origin, fingerprint: fingerprint.value))
-                })
-                return (version.description, fingerprintByKind)
-            })
+    enum Container {
+        struct V1: Codable {
+            let version: Int?
+            // version -> fingerprint kind
+            let versionFingerprints: [String: [String: StoredFingerprint]]
+
+            struct StoredFingerprint: Codable {
+                let origin: String
+                let fingerprint: String
+            }
         }
 
-        func packageFingerprints() throws -> PackageFingerprints {
-            try Dictionary(throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprints in
-                let fingerprintByKind: [Fingerprint.Kind: Fingerprint] = try Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
-                    guard let kind = Fingerprint.Kind(rawValue: kind) else {
-                        throw SerializationError.unknownKind(kind)
-                    }
-                    guard let originURL = URL(string: fingerprint.origin) else {
-                        throw SerializationError.invalidURL(fingerprint.origin)
-                    }
+        struct V2: Codable {
+            let version: Int
+            // version -> fingerprint kind -> fingerprint content type
+            let versionFingerprints: [String: [String: [String: StoredFingerprint]]]
 
-                    let origin: Fingerprint.Origin
-                    switch kind {
-                    case .sourceControl:
-                        origin = .sourceControl(originURL)
-                    case .registry:
-                        origin = .registry(originURL)
-                    }
+            struct StoredFingerprint: Codable {
+                let origin: String
+                let fingerprint: String
+                let contentType: ContentType
 
-                    return (kind, Fingerprint(origin: origin, value: fingerprint.fingerprint))
-                })
-                return (Version(stringLiteral: version), fingerprintByKind)
-            })
+                enum ContentType: Codable {
+                    case sourceCode
+                    case manifest
+                    case versionSpecificManifest(toolsVersion: ToolsVersion)
+
+                    static func from(contentType: Fingerprint.ContentType) -> ContentType {
+                        switch contentType {
+                        case .sourceCode:
+                            return .sourceCode
+                        case .manifest(.none):
+                            return .manifest
+                        case .manifest(.some(let toolsVersion)):
+                            return .versionSpecificManifest(toolsVersion: toolsVersion)
+                        }
+                    }
+                }
+            }
+
+            init(versionFingerprints: [String: [String: [String: StoredFingerprint]]]) {
+                self.version = 2
+                self.versionFingerprints = versionFingerprints
+            }
+
+            func packageFingerprints() throws -> PackageFingerprints {
+                try Dictionary(
+                    throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprintsForVersion in
+                        let fingerprintsByKind = try Dictionary(
+                            throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
+                                guard let kind = Fingerprint.Kind(rawValue: kind) else {
+                                    throw SerializationError.unknownKind(kind)
+                                }
+
+                                let fingerprintsByContentType = try Dictionary(
+                                    throwingUniqueKeysWithValues: fingerprintsForKind.map { _, storedFingerprint in
+                                        guard let originURL = URL(string: storedFingerprint.origin) else {
+                                            throw SerializationError.invalidURL(storedFingerprint.origin)
+                                        }
+
+                                        let origin: Fingerprint.Origin
+                                        switch kind {
+                                        case .sourceControl:
+                                            origin = .sourceControl(originURL)
+                                        case .registry:
+                                            origin = .registry(originURL)
+                                        }
+
+                                        let contentType = Fingerprint.ContentType.from(storedFingerprint.contentType)
+                                        let fingerprint = Fingerprint(
+                                            origin: origin,
+                                            value: storedFingerprint.fingerprint,
+                                            contentType: contentType
+                                        )
+                                        return (contentType, fingerprint)
+                                    }
+                                )
+
+                                return (kind, fingerprintsByContentType)
+                            }
+                        )
+                        return (Version(stringLiteral: version), fingerprintsByKind)
+                    }
+                )
+            }
         }
     }
 
-    struct StoredFingerprint: Codable {
-        let origin: String
-        let fingerprint: String
+    static func decode(data: Data, decoder: JSONDecoder) throws -> PackageFingerprints {
+        let schemaVersion = try decoder.decode(SchemaVersion.self, from: data)
+        switch schemaVersion.version {
+        case .some(2):
+            let container = try decoder.decode(Container.V2.self, from: data)
+            return try container.packageFingerprints()
+        case .some(1), .none: // v1
+            let containerV1 = try decoder.decode(Container.V1.self, from: data)
+            // Convert v1 to v2
+            let containerV2 = Container.V2(versionFingerprints: try Dictionary(
+                throwingUniqueKeysWithValues: containerV1.versionFingerprints.map { version, fingerprintsForVersion in
+                    let fingerprintsByKind = try Dictionary(
+                        throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprint in
+                            // All v1 fingerprints are for source code
+                            let contentType = Container.V2.StoredFingerprint.ContentType.sourceCode
+                            let fingerprintV2 = Container.V2.StoredFingerprint(
+                                origin: fingerprint.origin,
+                                fingerprint: fingerprint.fingerprint,
+                                contentType: contentType
+                            )
+                            return (
+                                kind,
+                                [Fingerprint.ContentType.from(contentType).description: fingerprintV2]
+                            )
+                        }
+                    )
+                    return (version, fingerprintsByKind)
+                }
+            ))
+            return try containerV2.packageFingerprints()
+        default:
+            throw StringError(
+                "unknown package fingerprint storage version '\(String(describing: schemaVersion.version))'"
+            )
+        }
+    }
+
+    static func encode(packageFingerprints: PackageFingerprints, encoder: JSONEncoder) throws -> Data {
+        let container = Container.V2(versionFingerprints: try Dictionary(
+            throwingUniqueKeysWithValues: packageFingerprints.map { version, fingerprintsForVersion in
+                let fingerprintsByKind = try Dictionary(
+                    throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
+                        let fingerprintsByContentType = try Dictionary(
+                            throwingUniqueKeysWithValues: fingerprintsForKind.map { contentType, fingerprint in
+                                let origin: String
+                                switch fingerprint.origin {
+                                case .sourceControl(let url):
+                                    origin = url.absoluteString
+                                case .registry(let url):
+                                    origin = url.absoluteString
+                                }
+
+                                let storedFingerprint = Container.V2.StoredFingerprint(
+                                    origin: origin,
+                                    fingerprint: fingerprint.value,
+                                    contentType: .from(contentType: contentType)
+                                )
+                                return (contentType.description, storedFingerprint)
+                            }
+                        )
+                        return (kind.rawValue, fingerprintsByContentType)
+                    }
+                )
+                return (version.description, fingerprintsByKind)
+            }
+        ))
+        return try encoder.encode(container)
+    }
+}
+
+extension Fingerprint.ContentType {
+    fileprivate static func from(_ storage: StorageModel.Container.V2.StoredFingerprint.ContentType) -> Fingerprint
+        .ContentType
+    {
+        switch storage {
+        case .sourceCode:
+            return .sourceCode
+        case .manifest:
+            return .manifest(.none)
+        case .versionSpecificManifest(let toolsVersion):
+            return .manifest(toolsVersion)
+        }
     }
 }
 

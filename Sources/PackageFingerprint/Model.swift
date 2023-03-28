@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,25 +12,28 @@
 
 import struct Foundation.URL
 
+import PackageModel
 import struct TSCUtility.Version
 
 public struct Fingerprint: Equatable {
     public let origin: Origin
     public let value: String
+    public let contentType: ContentType
 
-    public init(origin: Origin, value: String) {
+    public init(origin: Origin, value: String, contentType: ContentType) {
         self.origin = origin
         self.value = value
+        self.contentType = contentType
     }
 }
 
-public extension Fingerprint {
-    enum Kind: String, Hashable {
+extension Fingerprint {
+    public enum Kind: String, Hashable {
         case sourceControl
         case registry
     }
 
-    enum Origin: Equatable, CustomStringConvertible {
+    public enum Origin: Equatable, CustomStringConvertible {
         case sourceControl(URL)
         case registry(URL)
 
@@ -61,9 +64,29 @@ public extension Fingerprint {
             }
         }
     }
+
+    /// Each package version has a dictionary of fingerprints identified by content type.
+    /// Fingerprints of content type `sourceCode` can come from registry (i.e., source archive checksum)
+    /// or git repo (commit hash). However, the current implementation only stores fingerprints for manifests
+    /// downloaded from registry. It doesn't not save fingerprints for manifests in git repo.
+    public enum ContentType: Hashable, CustomStringConvertible {
+        case sourceCode
+        case manifest(ToolsVersion?)
+
+        public var description: String {
+            switch self {
+            case .sourceCode:
+                return "sourceCode"
+            case .manifest(.none):
+                return Manifest.filename
+            case .manifest(.some(let toolsVersion)):
+                return "Package@swift-\(toolsVersion).swift"
+            }
+        }
+    }
 }
 
-public typealias PackageFingerprints = [Version: [Fingerprint.Kind: Fingerprint]]
+public typealias PackageFingerprints = [Version: [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]]
 
 public enum FingerprintCheckingMode: String {
     case strict

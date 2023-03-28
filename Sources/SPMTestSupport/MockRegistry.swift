@@ -68,7 +68,8 @@ public class MockRegistry {
             authorizationProvider: .none,
             customHTTPClient: LegacyHTTPClient(handler: self.httpHandler),
             customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
         )
     }
 

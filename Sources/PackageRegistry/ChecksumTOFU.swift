@@ -35,7 +35,9 @@ struct PackageVersionChecksumTOFU {
         self.versionMetadataProvider = versionMetadataProvider
     }
 
-    func validate(
+    // MARK: - source archive
+
+    func validateSourceArchive(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -62,7 +64,7 @@ struct PackageVersionChecksumTOFU {
                         case .warn:
                             observabilityScope
                                 .emit(
-                                    warning: "The checksum \(checksum) does not match previously recorded value \(expectedChecksum)"
+                                    warning: "the checksum \(checksum) for source archive of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
                                 )
                         }
                     }
@@ -84,6 +86,7 @@ struct PackageVersionChecksumTOFU {
         self.readFromStorage(
             package: package,
             version: version,
+            contentType: .sourceCode,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -113,6 +116,7 @@ struct PackageVersionChecksumTOFU {
                         package: package,
                         version: version,
                         checksum: checksum,
+                        contentType: .sourceCode,
                         observabilityScope: observabilityScope,
                         callbackQueue: callbackQueue
                     ) { writeResult in
@@ -130,9 +134,69 @@ struct PackageVersionChecksumTOFU {
         }
     }
 
+    // MARK: - manifests
+
+    func validateManifest(
+        registry: Registry,
+        package: PackageIdentity.RegistryIdentity,
+        version: Version,
+        toolsVersion: ToolsVersion?,
+        checksum: String,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let contentType = Fingerprint.ContentType.manifest(toolsVersion)
+
+        self.readFromStorage(
+            package: package,
+            version: version,
+            contentType: .manifest(toolsVersion),
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue
+        ) { result in
+            switch result {
+            case .success(.some(let expectedChecksum)):
+                // Previously recorded checksum
+                do {
+                    if checksum != expectedChecksum {
+                        switch self.fingerprintCheckingMode {
+                        case .strict:
+                            throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
+                        case .warn:
+                            observabilityScope
+                                .emit(
+                                    warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
+                                )
+                        }
+                    }
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            default:
+                self.writeToStorage(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    checksum: checksum,
+                    contentType: .manifest(toolsVersion),
+                    observabilityScope: observabilityScope,
+                    callbackQueue: callbackQueue
+                ) { writeResult in
+                    completion(writeResult.tryMap { _ in () })
+                }
+            }
+        }
+    }
+
+    // MARK: - storage helpers
+
     private func readFromStorage(
         package: PackageIdentity.RegistryIdentity,
         version: Version,
+        contentType: Fingerprint.ContentType,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<String?, Error>) -> Void
@@ -145,6 +209,7 @@ struct PackageVersionChecksumTOFU {
             package: package.underlying,
             version: version,
             kind: .registry,
+            contentType: contentType,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -155,7 +220,9 @@ struct PackageVersionChecksumTOFU {
                 completion(.success(nil))
             case .failure(let error):
                 observabilityScope
-                    .emit(error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)")
+                    .emit(
+                        error: "failed to get registry fingerprint for \(contentType) of \(package) \(version) from storage: \(error)"
+                    )
                 completion(.failure(error))
             }
         }
@@ -166,6 +233,7 @@ struct PackageVersionChecksumTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         checksum: String,
+        contentType: Fingerprint.ContentType,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -174,10 +242,11 @@ struct PackageVersionChecksumTOFU {
             return completion(.success(()))
         }
 
+        let fingerprint = Fingerprint(origin: .registry(registry.url), value: checksum, contentType: contentType)
         fingerprintStorage.put(
             package: package.underlying,
             version: version,
-            fingerprint: .init(origin: .registry(registry.url), value: checksum),
+            fingerprint: fingerprint,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -191,7 +260,7 @@ struct PackageVersionChecksumTOFU {
                 case .warn:
                     observabilityScope
                         .emit(
-                            warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
+                            warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
                         )
                     completion(.success(()))
                 }

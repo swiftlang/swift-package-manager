@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -168,13 +168,18 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                     package: self.package,
                     version: version,
                     kind: .sourceControl,
+                    contentType: .sourceCode,
                     observabilityScope: self.observabilityScope,
                     callbackQueue: .sharedConcurrent,
                     callback: $0
                 )
             }
         } catch PackageFingerprintStorageError.notFound {
-            fingerprint = Fingerprint(origin: .sourceControl(sourceControlURL), value: revision.identifier)
+            fingerprint = Fingerprint(
+                origin: .sourceControl(sourceControlURL),
+                value: revision.identifier,
+                contentType: .sourceCode
+            )
             // Write to storage if fingerprint not yet recorded
             do {
                 try temp_await {

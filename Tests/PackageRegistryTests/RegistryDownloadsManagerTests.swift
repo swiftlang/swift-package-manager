@@ -51,7 +51,6 @@ class RegistryDownloadsManagerTests: XCTestCase {
             path: downloadsPath,
             cachePath: .none, // cache disabled
             registryClient: registry.registryClient,
-            checksumAlgorithm: MockHashAlgorithm(),
             delegate: delegate
         )
 
@@ -184,7 +183,6 @@ class RegistryDownloadsManagerTests: XCTestCase {
             path: downloadsPath,
             cachePath: cachePath, // cache enabled
             registryClient: registry.registryClient,
-            checksumAlgorithm: MockHashAlgorithm(),
             delegate: delegate
         )
 
@@ -274,7 +272,6 @@ class RegistryDownloadsManagerTests: XCTestCase {
             path: downloadsPath,
             cachePath: .none, // cache disabled
             registryClient: registry.registryClient,
-            checksumAlgorithm: MockHashAlgorithm(),
             delegate: delegate
         )
 
