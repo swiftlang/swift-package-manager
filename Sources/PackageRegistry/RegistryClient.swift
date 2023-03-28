@@ -2259,14 +2259,29 @@ extension RegistryReleaseMetadata {
 private struct RegistryClientSignatureValidationDelegate: SignatureValidation.Delegate {
     let underlying: RegistryClient.Delegate?
 
+    private let onUnsignedResponseCache = ThreadSafeKeyValueStore<ResponseCacheKey, Bool>()
+    private let onUntrustedResponseCache = ThreadSafeKeyValueStore<ResponseCacheKey, Bool>()
+
     func onUnsigned(
         registry: Registry,
         package: PackageModel.PackageIdentity,
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
+        let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
+        if let cachedResponse = self.onUnsignedResponseCache[responseCacheKey] {
+            return completion(cachedResponse)
+        }
+
         if let underlying {
-            underlying.onUnsigned(registry: registry, package: package, version: version, completion: completion)
+            underlying.onUnsigned(
+                registry: registry,
+                package: package,
+                version: version
+            ) { response in
+                self.onUnsignedResponseCache[responseCacheKey] = response
+                completion(response)
+            }
         } else {
             // true == continue resolution
             // false == stop dependency resolution
@@ -2280,13 +2295,31 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
+        let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
+        if let cachedResponse = self.onUntrustedResponseCache[responseCacheKey] {
+            return completion(cachedResponse)
+        }
+
         if let underlying {
-            underlying.onUntrusted(registry: registry, package: package, version: version, completion: completion)
+            underlying.onUntrusted(
+                registry: registry,
+                package: package,
+                version: version
+            ) { response in
+                self.onUntrustedResponseCache[responseCacheKey] = response
+                completion(response)
+            }
         } else {
             // true == continue resolution
             // false == stop dependency resolution
             completion(false)
         }
+    }
+
+    private struct ResponseCacheKey: Hashable {
+        let registry: Registry
+        let package: PackageModel.PackageIdentity
+        let version: TSCUtility.Version
     }
 }
 
