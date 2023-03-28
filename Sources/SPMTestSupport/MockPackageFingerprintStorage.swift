@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,10 +19,13 @@ import PackageModel
 import struct TSCUtility.Version
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
-    private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]]
+    private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+            .Kind: [Fingerprint.ContentType: Fingerprint]]]]
     private let lock = NSLock()
 
-    public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]] = [:]) {
+    public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+            .Kind: [Fingerprint.ContentType: Fingerprint]]]] = [:])
+    {
         self.packageFingerprints = packageFingerprints
     }
 
@@ -31,7 +34,7 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         version: Version,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
     ) {
         if let fingerprints = self.lock.withLock({ self.packageFingerprints[package]?[version] }) {
             callbackQueue.async {
@@ -54,10 +57,11 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     ) {
         do {
             try self.lock.withLock {
-                var versionFingerprints = self.packageFingerprints[package] ?? [:]
-                var fingerprints = versionFingerprints[version] ?? [:]
+                var versionFingerprints = self.packageFingerprints.removeValue(forKey: package) ?? [:]
+                var fingerprintsForVersion = versionFingerprints.removeValue(forKey: version) ?? [:]
+                var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
 
-                if let existing = fingerprints[fingerprint.origin.kind] {
+                if let existing = fingerprintsForKind[fingerprint.contentType] {
                     // Error if we try to write a different fingerprint
                     guard fingerprint == existing else {
                         throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
@@ -66,8 +70,9 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
                     return
                 }
 
-                fingerprints[fingerprint.origin.kind] = fingerprint
-                versionFingerprints[version] = fingerprints
+                fingerprintsForKind[fingerprint.contentType] = fingerprint
+                fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
+                versionFingerprints[version] = fingerprintsForVersion
                 self.packageFingerprints[package] = versionFingerprints
             }
 
@@ -86,7 +91,7 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         version: Version,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: Fingerprint], Error>) -> Void
+        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
     ) {
         self.get(
             package: package.identity,

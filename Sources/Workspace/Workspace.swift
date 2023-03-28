@@ -685,7 +685,8 @@ public class Workspace {
             signingEntityStorage: signingEntities,
             signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
             authorizationProvider: registryAuthorizationProvider,
-            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate)
+            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate),
+            checksumAlgorithm: checksumAlgorithm
         )
 
         // set default registry if not already set by configuration
@@ -698,7 +699,6 @@ public class Workspace {
             path: location.registryDownloadDirectory,
             cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRegistryDownloadsCacheDirectory : .none,
             registryClient: registryClient,
-            checksumAlgorithm: checksumAlgorithm,
             delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
         )
         // register the registry dependencies downloader with the cancellation handler
