@@ -1,0 +1,37 @@
+# This source file is part of the Swift open source project
+#
+# Copyright (c) 2023 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-package-manager:22.04-5.8
+    build:
+      args:
+        ubuntu_version: "jammy"
+        swift_version: "5.8"
+        base_image: "swiftlang/swift:nightly-5.8-jammy"
+
+  build:
+    image: swift-package-manager:22.04-5.8
+
+  test:
+    image: swift-package-manager:22.04-5.8
+
+  bootstrap-clean:
+    image: swift-package-manager:22.04-5.8
+
+  bootstrap-build:
+    image: swift-package-manager:22.04-5.8
+
+  bootstrap-test:
+    image: swift-package-manager:22.04-5.8
+
+  shell:
+    image: swift-package-manager:22.04-5.8

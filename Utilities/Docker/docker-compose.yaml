@@ -8,7 +8,7 @@
 
 # this file is not designed to be run directly
 # instead, use the docker-compose.<os>.<swift> files
-# eg docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.1804.52.yaml run test
+# eg docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.2004.57.yaml run test
 version: "3"
 
 services:

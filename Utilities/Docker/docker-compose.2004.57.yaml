@@ -16,7 +16,6 @@ services:
       args:
         ubuntu_version: "focal"
         swift_version: "5.7"
-        base_image: "swiftlang/swift:nightly-5.7-focal"
 
   build:
     image: swift-package-manager:20.04-5.7
