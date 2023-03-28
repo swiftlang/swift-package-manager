@@ -121,7 +121,14 @@ public struct DestinationBundle {
 
         return selectedDestination
     }
-
+    
+    /// Installs a destination bundle from a given path or URL to a destinations installation directory.
+    /// - Parameters:
+    ///   - bundlePathOrURL: A string passed on the command line, which is either an absolute or relative to a current
+    ///   working directory path, or a URL to a destination artifact bundle.
+    ///   - destinationsDirectory: a directory where the destination artifact bundle should be installed.
+    ///   - fileSystem: file system on which all of the file operations should run.
+    ///   - observabilityScope: observability scope for reporting warnings and errors.
     public static func install(
         bundlePathOrURL: String,
         destinationsDirectory: AbsolutePath,
@@ -169,7 +176,13 @@ public struct DestinationBundle {
 
         observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
     }
-
+    
+    /// Installs an unpacked destination bundle to a destinations installation directory.
+    /// - Parameters:
+    ///   - bundlePath: absolute path to an unpacked destination bundle directory.
+    ///   - destinationsDirectory: a directory where the destination artifact bundle should be installed.
+    ///   - fileSystem: file system on which all of the file operations should run.
+    ///   - observabilityScope: observability scope for reporting warnings and errors.
     private static func installIfValid(
         bundlePath: AbsolutePath,
         destinationsDirectory: AbsolutePath,
