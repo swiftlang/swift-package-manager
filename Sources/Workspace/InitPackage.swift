@@ -219,7 +219,7 @@ public final class InitPackage {
             } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
                 pkgParams.append("""
                     products: [
-                        // Products define the executables and libraries a package produces, making them visible to other packages.
+                        // Products can be used to vend plugins, making them visible to other packages.
                         .plugin(
                             name: "\(pkgname)",
                             targets: ["\(pkgname)"]),
