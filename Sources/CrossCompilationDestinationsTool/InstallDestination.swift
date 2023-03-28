@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import Foundation
+import PackageModel
 
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
@@ -40,44 +41,11 @@ struct InstallDestination: DestinationCommand {
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        if
-            let bundleURL = URL(string: bundlePathOrURL),
-            let scheme = bundleURL.scheme,
-            scheme == "http" || scheme == "https"
-        {
-            let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
-                let client = LegacyHTTPClient()
-                client.execute(
-                    .init(method: .get, url: bundleURL),
-                    observabilityScope: observabilityScope,
-                    progress: nil,
-                    completion: completion
-                )
-            }
-
-            guard let body = response.body else {
-                throw StringError("No downloadable data available at URL `\(bundleURL)`.")
-            }
-
-            let fileName = bundleURL.lastPathComponent
-
-            try self.fileSystem.writeFileContents(destinationsDirectory.appending(component: fileName), data: body)
-        } else if
-            let cwd = self.fileSystem.currentWorkingDirectory,
-            let bundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd),
-            let bundleName = bundlePath.components.last,
-            self.fileSystem.exists(bundlePath)
-        {
-            let destinationPath = destinationsDirectory.appending(component: bundleName)
-            if fileSystem.exists(destinationPath) {
-                throw StringError("Destination artifact bundle with name `\(bundleName)` is already installed.")
-            } else {
-                try fileSystem.copy(from: bundlePath, to: destinationPath)
-            }
-        } else {
-            throw StringError("Argument `\(bundlePathOrURL)` is neither a valid filesystem path nor a URL.")
-        }
-
-        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+        try DestinationBundle.install(
+            bundlePathOrURL: bundlePathOrURL,
+            destinationsDirectory: destinationsDirectory,
+            self.fileSystem,
+            observabilityScope
+        )
     }
 }

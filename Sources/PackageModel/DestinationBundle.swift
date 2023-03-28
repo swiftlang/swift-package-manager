@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,6 +12,8 @@
 
 import Basics
 import TSCBasic
+
+import struct Foundation.URL
 
 /// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
 public struct DestinationBundle {
@@ -118,6 +120,100 @@ public struct DestinationBundle {
         selectedDestination.applyPathCLIOptions()
 
         return selectedDestination
+    }
+
+    public static func install(
+        bundlePathOrURL: String,
+        destinationsDirectory: AbsolutePath,
+        _ fileSystem: some FileSystem,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
+        let installedBundlePath: AbsolutePath
+
+        if
+            let bundleURL = URL(string: bundlePathOrURL),
+            let scheme = bundleURL.scheme,
+            scheme == "http" || scheme == "https"
+        {
+            let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
+                let client = LegacyHTTPClient()
+                client.execute(
+                    .init(method: .get, url: bundleURL),
+                    observabilityScope: observabilityScope,
+                    progress: nil,
+                    completion: completion
+                )
+            }
+
+            guard let body = response.body else {
+                throw StringError("No downloadable data available at URL `\(bundleURL)`.")
+            }
+
+            let fileName = bundleURL.lastPathComponent
+            installedBundlePath = destinationsDirectory.appending(component: fileName)
+
+            try fileSystem.writeFileContents(installedBundlePath, data: body)
+        } else if
+            let cwd = fileSystem.currentWorkingDirectory,
+            let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
+        {
+            try installIfValid(
+                bundlePath: originalBundlePath,
+                destinationsDirectory: destinationsDirectory,
+                fileSystem,
+                observabilityScope
+            )
+        } else {
+            throw DestinationError.invalidPathOrURL(bundlePathOrURL)
+        }
+
+        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+    }
+
+    private static func installIfValid(
+        bundlePath: AbsolutePath,
+        destinationsDirectory: AbsolutePath,
+        _ fileSystem: some FileSystem,
+        _ observabilityScope: ObservabilityScope
+    ) throws {
+        guard
+            fileSystem.isDirectory(bundlePath),
+            let bundleName = bundlePath.components.last
+        else {
+            throw DestinationError.pathIsNotDirectory(bundlePath)
+        }
+
+        let installedBundlePath = destinationsDirectory.appending(component: bundleName)
+        guard !fileSystem.exists(installedBundlePath) else {
+            throw DestinationError.destinationBundleAlreadyInstalled(bundleName: bundleName)
+        }
+
+        let validatedBundle = try Self.parseAndValidate(
+            bundlePath: bundlePath,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+        let newArtifactIDs = validatedBundle.artifacts.keys
+
+        let installedBundles = try Self.getAllValidBundles(
+            destinationsDirectory: destinationsDirectory,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        for installedBundle in installedBundles {
+            for artifactID in installedBundle.artifacts.keys {
+                guard !newArtifactIDs.contains(artifactID) else {
+                    throw DestinationError.destinationArtifactAlreadyInstalled(
+                        installedBundleName: installedBundle.name,
+                        newBundleName: validatedBundle.name,
+                        artifactID: artifactID
+                    )
+                }
+            }
+        }
+
+        try fileSystem.copy(from: bundlePath, to: installedBundlePath)
     }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing
