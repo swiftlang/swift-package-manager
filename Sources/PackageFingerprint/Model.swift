@@ -65,6 +65,10 @@ extension Fingerprint {
         }
     }
 
+    /// Each package version has a dictionary of fingerprints identified by content type.
+    /// Fingerprints of content type `sourceCode` can come from registry (i.e., source archive checksum)
+    /// or git repo (commit hash). However, the current implementation only stores fingerprints for manifests
+    /// downloaded from registry. It doesn't not save fingerprints for manifests in git repo.
     public enum ContentType: Hashable, CustomStringConvertible {
         case sourceCode
         case manifest(ToolsVersion?)

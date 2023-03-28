@@ -177,8 +177,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             return .init()
         }
 
-        let container = try self.decoder.decode(StorageModel.Container.self, from: data)
-        return try container.packageFingerprints()
+        return try StorageModel.decode(data: data, decoder: self.decoder)
     }
 
     private func saveToDisk(reference: FingerprintReference, fingerprints: PackageFingerprints) throws {
@@ -186,9 +185,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
-        let container = try StorageModel.Container(fingerprints)
-        let buffer = try encoder.encode(container)
-
+        let buffer = try StorageModel.encode(packageFingerprints: fingerprints, encoder: self.encoder)
         let path = try self.directoryPath.appending(component: reference.fingerprintsFilename())
         try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
     }
@@ -209,202 +206,172 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
 }
 
 private enum StorageModel {
-    struct Container: Codable {
-        // version -> fingerprint kind -> fingerprint content type
-        let versionFingerprints: [String: [String: [String: StoredFingerprint.V2]]]
-        let schemaVersion: SchemaVersion = .v2
+    struct SchemaVersion: Codable {
+        let version: Int?
+    }
 
-        init(_ versionFingerprints: PackageFingerprints) throws {
-            self.versionFingerprints = try Dictionary(
-                throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprintsForVersion in
-                    let fingerprintsByKind = try Dictionary(
-                        throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
-                            let fingerprintsByContentType = try Dictionary(
-                                throwingUniqueKeysWithValues: fingerprintsForKind.map { contentType, fingerprint in
-                                    let origin: String
-                                    switch fingerprint.origin {
-                                    case .sourceControl(let url):
-                                        origin = url.absoluteString
-                                    case .registry(let url):
-                                        origin = url.absoluteString
-                                    }
+    enum Container {
+        struct V1: Codable {
+            let version: Int?
+            // version -> fingerprint kind
+            let versionFingerprints: [String: [String: StoredFingerprint]]
 
-                                    let storedFingerprint = StoredFingerprint.V2(
-                                        origin: origin,
-                                        fingerprint: fingerprint.value,
-                                        contentType: .from(contentType: contentType)
-                                    )
-                                    return (contentType.description, storedFingerprint)
-                                }
-                            )
-                            return (kind.rawValue, fingerprintsByContentType)
+            struct StoredFingerprint: Codable {
+                let origin: String
+                let fingerprint: String
+            }
+        }
+
+        struct V2: Codable {
+            let version: Int
+            // version -> fingerprint kind -> fingerprint content type
+            let versionFingerprints: [String: [String: [String: StoredFingerprint]]]
+
+            struct StoredFingerprint: Codable {
+                let origin: String
+                let fingerprint: String
+                let contentType: ContentType
+
+                enum ContentType: Codable {
+                    case sourceCode
+                    case manifest
+                    case versionSpecificManifest(toolsVersion: ToolsVersion)
+
+                    static func from(contentType: Fingerprint.ContentType) -> ContentType {
+                        switch contentType {
+                        case .sourceCode:
+                            return .sourceCode
+                        case .manifest(.none):
+                            return .manifest
+                        case .manifest(.some(let toolsVersion)):
+                            return .versionSpecificManifest(toolsVersion: toolsVersion)
                         }
-                    )
-                    return (version.description, fingerprintsByKind)
+                    }
                 }
-            )
-        }
+            }
 
-        func packageFingerprints() throws -> PackageFingerprints {
-            try Dictionary(
-                throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprintsForVersion in
-                    let fingerprintsByKind = try Dictionary(
-                        throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
-                            guard let kind = Fingerprint.Kind(rawValue: kind) else {
-                                throw SerializationError.unknownKind(kind)
-                            }
+            init(versionFingerprints: [String: [String: [String: StoredFingerprint]]]) {
+                self.version = 2
+                self.versionFingerprints = versionFingerprints
+            }
 
-                            let fingerprintsByContentType = try Dictionary(
-                                throwingUniqueKeysWithValues: fingerprintsForKind.map { _, storedFingerprint in
-                                    guard let originURL = URL(string: storedFingerprint.origin) else {
-                                        throw SerializationError.invalidURL(storedFingerprint.origin)
-                                    }
-
-                                    let origin: Fingerprint.Origin
-                                    switch kind {
-                                    case .sourceControl:
-                                        origin = .sourceControl(originURL)
-                                    case .registry:
-                                        origin = .registry(originURL)
-                                    }
-
-                                    let contentType = Fingerprint.ContentType.from(storedFingerprint.contentType)
-                                    let fingerprint = Fingerprint(
-                                        origin: origin,
-                                        value: storedFingerprint.fingerprint,
-                                        contentType: contentType
-                                    )
-                                    return (contentType, fingerprint)
-                                }
-                            )
-
-                            return (kind, fingerprintsByContentType)
-                        }
-                    )
-                    return (Version(stringLiteral: version), fingerprintsByKind)
-                }
-            )
-        }
-
-        private enum CodingKeys: String, CodingKey {
-            case versionFingerprints
-            case schemaVersion
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let schemaVersion = try container.decodeIfPresent(SchemaVersion.self, forKey: .schemaVersion) ?? .v1
-
-            switch schemaVersion {
-            case .v2:
-                let versionFingerprints = try container.decode(
-                    [String: [String: [String: StoredFingerprint.V2]]].self,
-                    forKey: .versionFingerprints
-                )
-                self.versionFingerprints = try Dictionary(
-                    throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprintsForVersion in
+            func packageFingerprints() throws -> PackageFingerprints {
+                try Dictionary(
+                    throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprintsForVersion in
                         let fingerprintsByKind = try Dictionary(
                             throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
+                                guard let kind = Fingerprint.Kind(rawValue: kind) else {
+                                    throw SerializationError.unknownKind(kind)
+                                }
+
                                 let fingerprintsByContentType = try Dictionary(
-                                    throwingUniqueKeysWithValues: fingerprintsForKind.map { contentType, fingerprint in
-                                        (contentType, fingerprint)
+                                    throwingUniqueKeysWithValues: fingerprintsForKind.map { _, storedFingerprint in
+                                        guard let originURL = URL(string: storedFingerprint.origin) else {
+                                            throw SerializationError.invalidURL(storedFingerprint.origin)
+                                        }
+
+                                        let origin: Fingerprint.Origin
+                                        switch kind {
+                                        case .sourceControl:
+                                            origin = .sourceControl(originURL)
+                                        case .registry:
+                                            origin = .registry(originURL)
+                                        }
+
+                                        let contentType = Fingerprint.ContentType.from(storedFingerprint.contentType)
+                                        let fingerprint = Fingerprint(
+                                            origin: origin,
+                                            value: storedFingerprint.fingerprint,
+                                            contentType: contentType
+                                        )
+                                        return (contentType, fingerprint)
                                     }
                                 )
+
                                 return (kind, fingerprintsByContentType)
                             }
                         )
-                        return (version, fingerprintsByKind)
-                    }
-                )
-            case .v1:
-                let versionFingerprints = try container.decode(
-                    [String: [String: StoredFingerprint.V1]].self,
-                    forKey: .versionFingerprints
-                )
-                self.versionFingerprints = try Dictionary(
-                    throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprintsForVersion in
-                        let fingerprintsByKind = try Dictionary(
-                            throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprint in
-                                // All v1 fingerprints are for source code
-                                let contentType = StoredFingerprint.V2.ContentType.sourceCode
-                                let fingerprintV2 = StoredFingerprint.V2(
-                                    origin: fingerprint.origin,
-                                    fingerprint: fingerprint.fingerprint,
-                                    contentType: contentType
-                                )
-                                return (
-                                    kind,
-                                    [Fingerprint.ContentType.from(contentType).description: fingerprintV2]
-                                )
-                            }
-                        )
-                        return (version, fingerprintsByKind)
+                        return (Version(stringLiteral: version), fingerprintsByKind)
                     }
                 )
             }
         }
+    }
 
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-
-            let storageFingerprints = try Dictionary(
-                throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprintsForVersion in
+    static func decode(data: Data, decoder: JSONDecoder) throws -> PackageFingerprints {
+        let schemaVersion = try decoder.decode(SchemaVersion.self, from: data)
+        switch schemaVersion.version {
+        case .some(2):
+            let container = try decoder.decode(Container.V2.self, from: data)
+            return try container.packageFingerprints()
+        case .some(1), .none: // v1
+            let containerV1 = try decoder.decode(Container.V1.self, from: data)
+            // Convert v1 to v2
+            let containerV2 = Container.V2(versionFingerprints: try Dictionary(
+                throwingUniqueKeysWithValues: containerV1.versionFingerprints.map { version, fingerprintsForVersion in
                     let fingerprintsByKind = try Dictionary(
-                        throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
-                            let fingerprintsByContentType = try Dictionary(
-                                throwingUniqueKeysWithValues: fingerprintsForKind.map { contentType, fingerprint in
-                                    (contentType, fingerprint)
-                                }
+                        throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprint in
+                            // All v1 fingerprints are for source code
+                            let contentType = Container.V2.StoredFingerprint.ContentType.sourceCode
+                            let fingerprintV2 = Container.V2.StoredFingerprint(
+                                origin: fingerprint.origin,
+                                fingerprint: fingerprint.fingerprint,
+                                contentType: contentType
                             )
-                            return (kind, fingerprintsByContentType)
+                            return (
+                                kind,
+                                [Fingerprint.ContentType.from(contentType).description: fingerprintV2]
+                            )
                         }
                     )
                     return (version, fingerprintsByKind)
                 }
+            ))
+            return try containerV2.packageFingerprints()
+        default:
+            throw StringError(
+                "unknown package fingerprint storage version '\(String(describing: schemaVersion.version))'"
             )
-            try container.encode(storageFingerprints, forKey: .versionFingerprints)
-            try container.encode(self.schemaVersion, forKey: .schemaVersion)
         }
     }
 
-    enum SchemaVersion: String, Codable {
-        case v1 = "1"
-        case v2 = "2"
-    }
+    static func encode(packageFingerprints: PackageFingerprints, encoder: JSONEncoder) throws -> Data {
+        let container = Container.V2(versionFingerprints: try Dictionary(
+            throwingUniqueKeysWithValues: packageFingerprints.map { version, fingerprintsForVersion in
+                let fingerprintsByKind = try Dictionary(
+                    throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
+                        let fingerprintsByContentType = try Dictionary(
+                            throwingUniqueKeysWithValues: fingerprintsForKind.map { contentType, fingerprint in
+                                let origin: String
+                                switch fingerprint.origin {
+                                case .sourceControl(let url):
+                                    origin = url.absoluteString
+                                case .registry(let url):
+                                    origin = url.absoluteString
+                                }
 
-    struct StoredFingerprint: Codable {
-        struct V1: Codable {
-            let origin: String
-            let fingerprint: String
-        }
-
-        struct V2: Codable {
-            let origin: String
-            let fingerprint: String
-            let contentType: ContentType
-
-            enum ContentType: Codable {
-                case sourceCode
-                case manifest
-                case versionSpecificManifest(toolsVersion: ToolsVersion)
-
-                static func from(contentType: Fingerprint.ContentType) -> ContentType {
-                    switch contentType {
-                    case .sourceCode:
-                        return .sourceCode
-                    case .manifest(.none):
-                        return .manifest
-                    case .manifest(.some(let toolsVersion)):
-                        return .versionSpecificManifest(toolsVersion: toolsVersion)
+                                let storedFingerprint = Container.V2.StoredFingerprint(
+                                    origin: origin,
+                                    fingerprint: fingerprint.value,
+                                    contentType: .from(contentType: contentType)
+                                )
+                                return (contentType.description, storedFingerprint)
+                            }
+                        )
+                        return (kind.rawValue, fingerprintsByContentType)
                     }
-                }
+                )
+                return (version.description, fingerprintsByKind)
             }
-        }
+        ))
+        return try encoder.encode(container)
     }
 }
 
 extension Fingerprint.ContentType {
-    fileprivate static func from(_ storage: StorageModel.StoredFingerprint.V2.ContentType) -> Fingerprint.ContentType {
+    fileprivate static func from(_ storage: StorageModel.Container.V2.StoredFingerprint.ContentType) -> Fingerprint
+        .ContentType
+    {
         switch storage {
         case .sourceCode:
             return .sourceCode
