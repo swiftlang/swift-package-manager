@@ -284,17 +284,20 @@ public final class InitPackage {
                 } else if packageType == .buildToolPlugin {
                     param += """
                             .plugin(
-                                 name: "\(typeName)",
-                                 capability: .buildTool()
-                             ),
+                                name: "\(typeName)",
+                                capability: .buildTool()
+                            ),
                         ]
                     """
                 } else if packageType == .commandPlugin {
                     param += """
                             .plugin(
-                                 name: "\(typeName)",
-                                 capability: .command(intent: .custom(verb: "\(typeName)", description: "prints hello world"))
-                             ),
+                                name: "\(typeName)",
+                                capability: .command(intent: .custom(
+                                    verb: "\(typeName)",
+                                    description: "prints hello world"
+                                ))
+                            ),
                         ]
                     """
                 } else if packageType == .macro {
@@ -398,24 +401,27 @@ public final class InitPackage {
                 import PackagePlugin
 
                 @main
+
                 """
             if packageType == .buildToolPlugin {
                 content += """
-                    struct \(typeName): BuildToolPlugin {
-                        func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
-                            print("Hello, World!")
-                            return []
-                        }
+                struct \(typeName): BuildToolPlugin {
+                    func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                        print("Hello, World!")
+                        return []
                     }
+                }
+
                 """
             }
             else {
                 content += """
-                    struct \(typeName): CommandPlugin {
-                        func performCommand(context: PluginContext, arguments: [String]) async throws {
-                            print("Hello, World!")
-                        }
+                struct \(typeName): CommandPlugin {
+                    func performCommand(context: PluginContext, arguments: [String]) async throws {
+                        print("Hello, World!")
                     }
+                }
+
                 """
             }
 
