@@ -59,7 +59,7 @@ public final class DestinationConfigurationStore {
 
         if fileSystem.exists(configurationDirectoryPath) {
             guard fileSystem.isDirectory(configurationDirectoryPath) else {
-                throw DestinationError.configurationPathIsNotDirectory(configurationDirectoryPath)
+                throw DestinationError.pathIsNotDirectory(configurationDirectoryPath)
             }
         } else {
             try fileSystem.createDirectory(configurationDirectoryPath)
