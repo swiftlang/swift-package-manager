@@ -640,7 +640,7 @@ public class Workspace {
 
         
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(
-            locationMapper: mirrors.effectiveURL(for:),
+            locationMapper: mirrors.effective(for:),
             identityMapper: mirrors.effectiveIdentity(for:)
         )
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
@@ -1770,7 +1770,7 @@ extension Workspace {
                 // we only care about remoteSourceControl for this validation. it would otherwise trigger for
                 // a dependency is put into edit mode, which we want to deprecate anyways
                 if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effectiveURL(for: $0.1.packageLocation)
+                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
                     guard effectiveURL == $0.1.packageKind.locationString else {
                         preconditionFailure("effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)")
                     }

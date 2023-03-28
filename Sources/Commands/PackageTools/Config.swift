@@ -20,108 +20,161 @@ extension SwiftPackageTool {
     struct Config: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Manipulate configuration of the package",
-            subcommands: [SetMirror.self, UnsetMirror.self, GetMirror.self])
+            subcommands: [SetMirror.self, UnsetMirror.self, GetMirror.self]
+        )
     }
 }
 
 extension SwiftPackageTool.Config {
     struct SetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Set a mirror for a dependency")
+            abstract: "Set a mirror for a dependency"
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The package dependency url")
-        var packageURL: String?
+        @Option(name: .customLong("package-url"), help: .hidden)
+        var _deprecate_packageURL: String?
 
-        @Option(help: "The original url")
-        var originalURL: String?
+        @Option(name: .customLong("original-url"), help: .hidden)
+        var _deprecate_originalURL: String?
 
-        @Option(help: "The mirror url")
-        var mirrorURL: String
+        @Option(name: .customLong("mirror-url"), help: .hidden)
+        var _deprecate_mirrorURL: String?
+
+        @Option(help: "The original url or identity")
+        var original: String?
+
+        @Option(help: "The mirror url or identity")
+        var mirror: String?
 
         func run(_ swiftTool: SwiftTool) throws {
             let config = try getMirrorsConfig(swiftTool)
 
-            if self.packageURL != nil {
+            if self._deprecate_packageURL != nil {
                 swiftTool.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original-url' instead")
+                    warning: "'--package-url' option is deprecated; use '--original' instead"
+                )
+            }
+            if self._deprecate_originalURL != nil {
+                swiftTool.observabilityScope.emit(
+                    warning: "'--original-url' option is deprecated; use '--original' instead"
+                )
+            }
+            if self._deprecate_mirrorURL != nil {
+                swiftTool.observabilityScope.emit(
+                    warning: "'--mirror-url' option is deprecated; use '--mirror' instead"
+                )
             }
 
-            guard let originalURL = self.packageURL ?? self.originalURL else {
-                swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url"))
+            guard let original = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self.original else {
+                swiftTool.observabilityScope.emit(.missingRequiredArg("--original"))
+                throw ExitCode.failure
+            }
+
+            guard let mirror = self._deprecate_mirrorURL ?? self.mirror else {
+                swiftTool.observabilityScope.emit(.missingRequiredArg("--mirror"))
                 throw ExitCode.failure
             }
 
             try config.applyLocal { mirrors in
-                mirrors.set(mirrorURL: self.mirrorURL, forURL: originalURL)
+                mirrors.set(mirror: mirror, for: original)
             }
         }
     }
 
     struct UnsetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Remove an existing mirror")
+            abstract: "Remove an existing mirror"
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The package dependency url")
-        var packageURL: String?
+        @Option(name: .customLong("package-url"), help: .hidden)
+        var _deprecate_packageURL: String?
 
-        @Option(help: "The original url")
-        var originalURL: String?
+        @Option(name: .customLong("original-url"), help: .hidden)
+        var _deprecate_originalURL: String?
 
-        @Option(help: "The mirror url")
-        var mirrorURL: String?
+        @Option(name: .customLong("mirror-url"), help: .hidden)
+        var _deprecate_mirrorURL: String?
+
+        @Option(help: "The original url or identity")
+        var original: String?
+
+        @Option(help: "The mirror url or identity")
+        var mirror: String?
 
         func run(_ swiftTool: SwiftTool) throws {
             let config = try getMirrorsConfig(swiftTool)
 
-            if self.packageURL != nil {
+            if self._deprecate_packageURL != nil {
                 swiftTool.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original-url' instead")
+                    warning: "'--package-url' option is deprecated; use '--original' instead"
+                )
+            }
+            if self._deprecate_originalURL != nil {
+                swiftTool.observabilityScope.emit(
+                    warning: "'--original-url' option is deprecated; use '--original' instead"
+                )
+            }
+            if self._deprecate_mirrorURL != nil {
+                swiftTool.observabilityScope.emit(
+                    warning: "'--mirror-url' option is deprecated; use '--mirror' instead"
+                )
             }
 
-            guard let originalOrMirrorURL = self.packageURL ?? self.originalURL ?? self.mirrorURL else {
-                swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url or --mirror-url"))
+            guard let originalOrMirror = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self
+                .original ?? self._deprecate_mirrorURL ?? self.mirror
+            else {
+                swiftTool.observabilityScope.emit(.missingRequiredArg("--original or --mirror"))
                 throw ExitCode.failure
             }
 
             try config.applyLocal { mirrors in
-                try mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
+                try mirrors.unset(originalOrMirror: originalOrMirror)
             }
         }
     }
 
     struct GetMirror: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Print mirror configuration for the given package dependency")
+            abstract: "Print mirror configuration for the given package dependency"
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
+        @Option(name: .customLong("package-url"), help: .hidden)
+        var _deprecate_packageURL: String?
 
-        @Option(help: "The package dependency url")
-        var packageURL: String?
+        @Option(name: .customLong("original-url"), help: .hidden)
+        var _deprecate_originalURL: String?
 
-        @Option(help: "The original url")
-        var originalURL: String?
+        @Option(help: "The original url or identity")
+        var original: String?
 
         func run(_ swiftTool: SwiftTool) throws {
             let config = try getMirrorsConfig(swiftTool)
 
-            if self.packageURL != nil {
+            if self._deprecate_packageURL != nil {
                 swiftTool.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original-url' instead")
+                    warning: "'--package-url' option is deprecated; use '--original' instead"
+                )
+            }
+            if self._deprecate_originalURL != nil {
+                swiftTool.observabilityScope.emit(
+                    warning: "'--original-url' option is deprecated; use '--original' instead"
+                )
             }
 
-            guard let originalURL = self.packageURL ?? self.originalURL else {
-                swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url"))
+            guard let original = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self.original else {
+                swiftTool.observabilityScope.emit(.missingRequiredArg("--original"))
                 throw ExitCode.failure
             }
 
-            if let mirror = config.mirrors.mirrorURL(for: originalURL) {
+            if let mirror = config.mirrors.mirror(for: original) {
                 print(mirror)
             } else {
                 stderrStream <<< "not found\n"
@@ -141,8 +194,8 @@ extension SwiftPackageTool.Config {
     }
 }
 
-private extension Basics.Diagnostic {
-    static func missingRequiredArg(_ argument: String) -> Self {
+extension Basics.Diagnostic {
+    fileprivate static func missingRequiredArg(_ argument: String) -> Self {
         .error("missing required argument \(argument)")
     }
 }
