@@ -4001,12 +4001,12 @@ final class WorkspaceTests: XCTestCase {
 
         let mirrors = DependencyMirrors()
         mirrors.set(
-            mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString,
-            forURL: sandbox.appending(components: "pkgs", "Bar").pathString
+            mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
+            for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
         mirrors.set(
-            mirrorURL: sandbox.appending(components: "pkgs", "BazMirror").pathString,
-            forURL: sandbox.appending(components: "pkgs", "Baz").pathString
+            mirror: sandbox.appending(components: "pkgs", "BazMirror").pathString,
+            for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
 
         let workspace = try MockWorkspace(
@@ -4093,12 +4093,12 @@ final class WorkspaceTests: XCTestCase {
 
         let mirrors = DependencyMirrors()
         mirrors.set(
-            mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString,
-            forURL: sandbox.appending(components: "pkgs", "Bar").pathString
+            mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
+            for: sandbox.appending(components: "pkgs", "Bar").pathString
         )
         mirrors.set(
-            mirrorURL: sandbox.appending(components: "pkgs", "BarMirror").pathString,
-            forURL: sandbox.appending(components: "pkgs", "Baz").pathString
+            mirror: sandbox.appending(components: "pkgs", "BarMirror").pathString,
+            for: sandbox.appending(components: "pkgs", "Baz").pathString
         )
 
         let workspace = try MockWorkspace(
@@ -4195,8 +4195,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/bar")
-        mirrors.set(mirrorURL: "https://scm.com/org/baz-mirror", forURL: "https://scm.com/org/baz")
+        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        mirrors.set(mirror: "https://scm.com/org/baz-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4284,8 +4284,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/bar")
-        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "https://scm.com/org/baz")
+        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/bar")
+        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "https://scm.com/org/baz")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4389,7 +4389,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: "org.bar-mirror", forURL: "https://scm.com/org/bar")
+        mirrors.set(mirror: "org.bar-mirror", for: "https://scm.com/org/bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4459,7 +4459,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: "https://scm.com/org/bar-mirror", forURL: "org.bar")
+        mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
