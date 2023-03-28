@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -532,21 +532,6 @@ private func createResolvedPackages(
             }
         }
 
-        struct Pair: Hashable {
-            let package1: Package
-            let package2: Package
-
-            static func == (lhs: Pair, rhs: Pair) -> Bool {
-                return lhs.package1.identity == rhs.package1.identity &&
-                    lhs.package2.identity == rhs.package2.identity
-            }
-
-            public func hash(into hasher: inout Hasher) {
-                hasher.combine(self.package1.identity)
-                hasher.combine(self.package2.identity)
-            }
-        }
-
         var potentiallyDuplicatePackages = [Pair: [String]]()
         for entry in duplicateTargets {
             // the duplicate is across exactly two packages
@@ -603,6 +588,21 @@ private func createResolvedPackages(
     }
 
     return try packageBuilders.map{ try $0.construct() }
+}
+
+fileprivate struct Pair: Hashable {
+    let package1: Package
+    let package2: Package
+
+    static func == (lhs: Pair, rhs: Pair) -> Bool {
+        return lhs.package1.identity == rhs.package1.identity &&
+            lhs.package2.identity == rhs.package2.identity
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.package1.identity)
+        hasher.combine(self.package2.identity)
+    }
 }
 
 fileprivate extension Product {
