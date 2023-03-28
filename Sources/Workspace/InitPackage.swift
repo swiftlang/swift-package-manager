@@ -407,8 +407,26 @@ public final class InitPackage {
                 content += """
                 struct \(typeName): BuildToolPlugin {
                     func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
-                        print("Hello, World!")
-                        return []
+                        // The plugin can choose what parts of the package to process.
+                        guard let sourceFiles = target.sourceModule?.sourceFiles else { return [] }
+
+                        // Find the code generator tool to run (replace this with the actual one).
+                        let generatorTool = try context.tool(named: "my-code-generator")
+
+                        // Construct a build command for each source file with a particular suffix.
+                        return sourceFiles.map(\\.path).compactMap { inputPath in
+                            guard inputPath.extension == "my-input-suffix" else { return .none }
+                            let inputName = inputPath.lastComponent
+                            let outputName = inputPath.stem + ".swift"
+                            let outputPath = context.pluginWorkDirectory.appending(outputName)
+                            return .buildCommand(
+                                displayName: "Generating \\(outputName) from \\(inputName)",
+                                executable: generatorTool.path,
+                                arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
+                                inputFiles: [inputPath],
+                                outputFiles: [outputPath]
+                            )
+                        }
                     }
                 }
 
