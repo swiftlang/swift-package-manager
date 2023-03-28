@@ -128,8 +128,6 @@ public enum ManifestSignatureParser {
     public enum Error: Swift.Error {
         /// Package manifest file is inaccessible (missing, unreadable, etc).
         case inaccessibleManifest(path: AbsolutePath, reason: String)
-        /// Package manifest file's content can not be decoded as a UTF-8 string.
-        case nonUTF8EncodedManifest(path: AbsolutePath)
         /// Malformed manifest signature.
         case malformedManifestSignature
     }
