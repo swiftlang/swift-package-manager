@@ -300,8 +300,8 @@ final class PinsStoreTests: XCTestCase {
         let bazIdentity = PackageIdentity(url: bazURL)
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL.absoluteString)
-        mirrors.set(mirrorURL: barMirroredURL.absoluteString, forURL: barURL.absoluteString)
+        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL.absoluteString)
+        mirrors.set(mirror: barMirroredURL.absoluteString, for: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pins.txt")
@@ -350,10 +350,10 @@ final class PinsStoreTests: XCTestCase {
         let fooMirroredURL = URL("https://github.corporate.com/team/foo")
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL1.absoluteString)
-        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL2.absoluteString)
-        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL3.absoluteString)
-        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL4.absoluteString)
+        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL1.absoluteString)
+        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL2.absoluteString)
+        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL3.absoluteString)
+        mirrors.set(mirror: fooMirroredURL.absoluteString, for: fooURL4.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pins.txt")
@@ -403,9 +403,9 @@ final class PinsStoreTests: XCTestCase {
                 URL4.absoluteString: mirroredURL.absoluteString
             ])
 
-            XCTAssertEqual(mirrors.mirrorURL(for: URL2.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL2.absoluteString), mirroredURL.absoluteString)
             // reverse index is sorted by "visited", then alphabetically
-            XCTAssertEqual(mirrors.originalURL(for: mirroredURL.absoluteString), URL2.absoluteString)
+            XCTAssertEqual(mirrors.original(for: mirroredURL.absoluteString), URL2.absoluteString)
         }
 
         do {
@@ -416,9 +416,9 @@ final class PinsStoreTests: XCTestCase {
                 URL4.absoluteString: mirroredURL.absoluteString
             ])
 
-            XCTAssertEqual(mirrors.mirrorURL(for: URL3.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL3.absoluteString), mirroredURL.absoluteString)
             // reverse index is sorted by "visited", then alphabetically
-            XCTAssertEqual(mirrors.originalURL(for: mirroredURL.absoluteString), URL3.absoluteString)
+            XCTAssertEqual(mirrors.original(for: mirroredURL.absoluteString), URL3.absoluteString)
         }
 
         do {
@@ -429,10 +429,10 @@ final class PinsStoreTests: XCTestCase {
                 URL4.absoluteString: mirroredURL.absoluteString
             ])
 
-            XCTAssertEqual(mirrors.mirrorURL(for: URL2.absoluteString), mirroredURL.absoluteString)
-            XCTAssertEqual(mirrors.mirrorURL(for: URL3.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL2.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL3.absoluteString), mirroredURL.absoluteString)
             // reverse index is sorted by "visited", then alphabetically
-            XCTAssertEqual(mirrors.originalURL(for: mirroredURL.absoluteString), URL2.absoluteString)
+            XCTAssertEqual(mirrors.original(for: mirroredURL.absoluteString), URL2.absoluteString)
         }
 
         do {
@@ -443,10 +443,10 @@ final class PinsStoreTests: XCTestCase {
                 URL4.absoluteString: mirroredURL.absoluteString
             ])
 
-            XCTAssertEqual(mirrors.mirrorURL(for: URL3.absoluteString), mirroredURL.absoluteString)
-            XCTAssertEqual(mirrors.mirrorURL(for: URL2.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL3.absoluteString), mirroredURL.absoluteString)
+            XCTAssertEqual(mirrors.mirror(for: URL2.absoluteString), mirroredURL.absoluteString)
             // reverse index is sorted by "visited", then alphabetically
-            XCTAssertEqual(mirrors.originalURL(for: mirroredURL.absoluteString), URL3.absoluteString)
+            XCTAssertEqual(mirrors.original(for: mirroredURL.absoluteString), URL3.absoluteString)
         }
 
         do {
@@ -458,7 +458,7 @@ final class PinsStoreTests: XCTestCase {
             ])
 
             // reverse index is sorted by "visited", then alphabetically
-            XCTAssertEqual(mirrors.originalURL(for: mirroredURL.absoluteString), URL1.absoluteString)
+            XCTAssertEqual(mirrors.original(for: mirroredURL.absoluteString), URL1.absoluteString)
         }
     }
 

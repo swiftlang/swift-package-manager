@@ -1167,6 +1167,19 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testMirrorConfigDeprecation() throws {
+        try testWithTemporaryDirectory { fixturePath in
+            localFileSystem.createEmptyFiles(at: fixturePath, files:
+                "/Sources/Foo/Foo.swift",
+                "/Package.swift"
+            )
+
+            let (_, stderr) = try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: fixturePath)
+            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original' instead"))
+            XCTAssertMatch(stderr, .contains("warning: '--mirror-url' option is deprecated; use '--mirror' instead"))
+        }
+    }
+
     func testMirrorConfig() throws {
         try testWithTemporaryDirectory { fixturePath in
             let fs = localFileSystem
@@ -1182,22 +1195,20 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Test writing.
-            var (stdout, stderr) = try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
-            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
-            try execute(["config", "set-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--original", "https://github.com/foo/bar", "--mirror", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--original", "git@github.com:apple/swift-package-manager.git", "--mirror", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             // Test env override.
-            try execute(["config", "set-mirror", "--original-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
+            try execute(["config", "set-mirror", "--original", "https://github.com/foo/bar", "--mirror", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
             XCTAssertTrue(fs.isFile(configOverride))
             let content: String = try fs.readFileContents(configOverride)
             XCTAssertMatch(content, .contains("mygithub"))
 
             // Test reading.
-            (stdout, stderr) = try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            var (stdout, _) = try execute(["config", "get-mirror", "--original", "https://github.com/foo/bar"], packagePath: packageRoot)
             XCTAssertEqual(stdout.spm_chomp(), "https://mygithub.com/foo/bar")
-            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
-            (stdout, _) = try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+            (stdout, _) = try execute(["config", "get-mirror", "--original", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertEqual(stdout.spm_chomp(), "git@mygithub.com:foo/swift-package-manager.git")
 
             func check(stderr: String, _ block: () throws -> ()) {
@@ -1207,23 +1218,22 @@ final class PackageToolTests: CommandsTestCase {
             }
 
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--original-url", "foo"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original", "foo"], packagePath: packageRoot)
             }
 
             // Test deletion.
-            (_, stderr) = try execute(["config", "unset-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
-            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
-            try execute(["config", "unset-mirror", "--original-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            try execute(["config", "unset-mirror", "--original", "https://github.com/foo/bar"], packagePath: packageRoot)
+            try execute(["config", "unset-mirror", "--original", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
 
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--original-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original", "https://github.com/foo/bar"], packagePath: packageRoot)
             }
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
             check(stderr: "error: Mirror not found for 'foo'\n") {
-                try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
+                try execute(["config", "unset-mirror", "--original", "foo"], packagePath: packageRoot)
             }
         }
     }
@@ -1262,7 +1272,7 @@ final class PackageToolTests: CommandsTestCase {
                 """
             )
 
-            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
@@ -1307,7 +1317,7 @@ final class PackageToolTests: CommandsTestCase {
                 """
             )
 
-            try execute(["config", "set-mirror", "--original-url", "https://scm.com/org/foo", "--mirror-url", "org.bar"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "org.bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)
@@ -1352,7 +1362,7 @@ final class PackageToolTests: CommandsTestCase {
                 """
             )
 
-            try execute(["config", "set-mirror", "--original-url", "org.foo", "--mirror-url", "https://scm.com/org/bar"], packagePath: packageRoot)
+            try execute(["config", "set-mirror", "--original", "org.foo", "--mirror", "https://scm.com/org/bar"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot)

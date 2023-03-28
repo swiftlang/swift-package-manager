@@ -24,7 +24,7 @@ public final class DependencyMirrors: Equatable {
 
     public var mapping: [String: String] {
         self.lock.withLock {
-            return self.index
+            self.index
         }
     }
 
@@ -38,34 +38,34 @@ public final class DependencyMirrors: Equatable {
     }
 
     public static func == (lhs: DependencyMirrors, rhs: DependencyMirrors) -> Bool {
-        return lhs.mapping == rhs.mapping
+        lhs.mapping == rhs.mapping
     }
 
-    /// Sets a mirror URL for the given URL.
+    /// Sets a mirror for the given origin.
     /// - Parameters:
-    ///   - mirrorURL: The mirrored URL
-    ///   - forURL: The original URL
-    public func set(mirrorURL: String, forURL url: String) {
+    ///   - mirror: The mirror
+    ///   - for: The original
+    public func set(mirror: String, for key: String) {
         self.lock.withLock {
-            self.index[url] = mirrorURL
-            self.reverseIndex[mirrorURL, default: []].append(url)
+            self.index[key] = mirror
+            self.reverseIndex[mirror, default: []].append(key)
         }
     }
 
-    /// Unsets a mirror for the given URL.
+    /// Unsets a mirror for the given.
     /// - Parameters:
-    ///   - originalOrMirrorURL: The original URL or the mirrored URL
-    /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
-    public func unset(originalOrMirrorURL: String) throws {
+    ///   - originalOrMirror: The original or the mirrored
+    /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided origin or mirror.
+    public func unset(originalOrMirror: String) throws {
         try self.lock.withLock {
-            if let value = self.index[originalOrMirrorURL] {
-                self.index[originalOrMirrorURL] = nil
+            if let value = self.index[originalOrMirror] {
+                self.index[originalOrMirror] = nil
                 self.reverseIndex[value] = nil
-            } else if let mirror = self.index.first(where: { $0.value == originalOrMirrorURL }) {
+            } else if let mirror = self.index.first(where: { $0.value == originalOrMirror }) {
                 self.index[mirror.key] = nil
-                self.reverseIndex[originalOrMirrorURL] = nil
+                self.reverseIndex[originalOrMirror] = nil
             } else {
-                throw StringError("Mirror not found for '\(originalOrMirrorURL)'")
+                throw StringError("Mirror not found for '\(originalOrMirror)'")
             }
         }
     }
@@ -75,7 +75,7 @@ public final class DependencyMirrors: Equatable {
     ///   - contentsOf: The DependencyMirrors to append from.
     public func append(contentsOf mirrors: DependencyMirrors) {
         mirrors.index.forEach {
-            self.set(mirrorURL: $0.value, forURL: $0.key)
+            self.set(mirror: $0.value, for: $0.key)
         }
     }
 
@@ -101,36 +101,36 @@ public final class DependencyMirrors: Equatable {
         }
     }
 
-    /// Returns the mirrored URL for a package dependency URL.
+    /// Returns the mirrored for a package dependency.
     /// - Parameters:
-    ///   - url: The original URL
-    /// - Returns: The mirrored URL, if one exists.
-    public func mirrorURL(for url: String) -> String? {
+    ///   - for: The original
+    /// - Returns: The mirrored, if one exists.
+    public func mirror(for key: String) -> String? {
         self.lock.withLock {
-            let value = self.index[url]
+            let value = self.index[key]
             if value != nil {
                 // record visited mirrors for reverse index lookup sorting
-                self.visited.append(url)
+                self.visited.append(key)
             }
             return value
         }
     }
 
-    /// Returns the effective URL for a package dependency URL.
+    /// Returns the effective value for a package dependency.
     /// - Parameters:
-    ///   - url: The original URL
-    /// - Returns: The mirrored URL if it exists, otherwise the original URL.
-    public func effectiveURL(for url: String) -> String {
-        return self.mirrorURL(for: url) ?? url
+    ///   - for: The original
+    /// - Returns: The mirrored if it exists, otherwise the original.
+    public func effective(for key: String) -> String {
+        self.mirror(for: key) ?? key
     }
 
-    /// Returns the original URL for a mirrored package dependency URL.
+    /// Returns the original for a mirrored package dependency.
     /// - Parameters:
-    ///   - url: The mirror URL
-    /// - Returns: The original URL, if one exists.
-    public func originalURL(for url: String) -> String? {
+    ///   - for: The mirror
+    /// - Returns: The original , if one exists.
+    public func original(for key: String) -> String? {
         self.lock.withLock {
-            let alternatives = self.reverseIndex[url]
+            let alternatives = self.reverseIndex[key]
             // since there are potentially multiple mapping, we need to sort them to produce deterministic results
             let sorted = alternatives?.sorted(by: { lhs, rhs in
                 // check if it was visited (which means it used by the package)
@@ -152,9 +152,9 @@ public final class DependencyMirrors: Equatable {
 
     public func effectiveIdentity(for identity: PackageIdentity) throws -> PackageIdentity {
         // TODO: cache
-        let mirrorIndex = try self.mapping.reduce(into: [PackageIdentity: PackageIdentity](), { partial, item in
+        let mirrorIndex = try self.mapping.reduce(into: [PackageIdentity: PackageIdentity]()) { partial, item in
             try partial[parseLocation(item.key)] = parseLocation(item.value)
-        })
+        }
 
         return mirrorIndex[identity] ?? identity
     }
@@ -162,7 +162,7 @@ public final class DependencyMirrors: Equatable {
     private func parseLocation(_ location: String) throws -> PackageIdentity {
         if PackageIdentity.plain(location).isRegistry {
             return PackageIdentity.plain(location)
-        } else if let path = try? AbsolutePath(validating: location)  {
+        } else if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path)
         } else if let url = URL(string: location) {
             return PackageIdentity(url: url)

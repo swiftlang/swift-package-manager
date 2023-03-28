@@ -71,7 +71,7 @@ public final class MockWorkspace {
         self.signingEntities = customSigningEntities ?? MockPackageSigningEntityStorage()
         self.mirrors = customMirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(
-            locationMapper: self.mirrors.effectiveURL(for:),
+            locationMapper: self.mirrors.effective(for:),
             identityMapper: self.mirrors.effectiveIdentity(for:)
         )
         self.manifestLoader = MockManifestLoader(manifests: [:])
