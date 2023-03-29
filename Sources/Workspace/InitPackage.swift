@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -44,7 +44,8 @@ public final class InitPackage {
         case library = "library"
         case executable = "executable"
         case tool = "tool"
-        case `extension` = "extension"
+        case buildToolPlugin = "build-tool-plugin"
+        case commandPlugin = "command-plugin"
         case macro = "macro"
 
         public var description: String {
@@ -115,6 +116,7 @@ public final class InitPackage {
         // none of it exists, and then act.
         try writeManifestFile()
         try writeGitIgnore()
+        try writePlugins()
         try writeSources()
         try writeTests()
     }
@@ -146,6 +148,7 @@ public final class InitPackage {
             }
 
             stream <<< """
+
                 let package = Package(
 
                 """
@@ -213,6 +216,15 @@ public final class InitPackage {
                             targets: ["\(pkgname)"]),
                     ]
                 """)
+            } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
+                pkgParams.append("""
+                    products: [
+                        // Products can be used to vend plugins, making them visible to other packages.
+                        .plugin(
+                            name: "\(pkgname)",
+                            targets: ["\(pkgname)"]),
+                    ]
+                """)
             } else if packageType == .macro {
                 pkgParams.append("""
                     products: [
@@ -267,6 +279,25 @@ public final class InitPackage {
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]),
+                        ]
+                    """
+                } else if packageType == .buildToolPlugin {
+                    param += """
+                            .plugin(
+                                name: "\(typeName)",
+                                capability: .buildTool()
+                            ),
+                        ]
+                    """
+                } else if packageType == .commandPlugin {
+                    param += """
+                            .plugin(
+                                name: "\(typeName)",
+                                capability: .command(intent: .custom(
+                                    verb: "\(typeName)",
+                                    description: "prints hello world"
+                                ))
+                            ),
                         ]
                     """
                 } else if packageType == .macro {
@@ -350,8 +381,79 @@ public final class InitPackage {
         }
     }
 
+    private func writePlugins() throws {
+        switch packageType {
+        case .buildToolPlugin, .commandPlugin:
+            let plugins = destinationPath.appending(component: "Plugins")
+            guard self.fileSystem.exists(plugins) == false else {
+                return
+            }
+            progressReporter?("Creating \(plugins.relative(to: destinationPath))/")
+            try makeDirectories(plugins)
+
+            let moduleDir = plugins
+            try makeDirectories(moduleDir)
+
+            let sourceFileName = "\(pkgname).swift"
+            let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
+
+            var content = """
+                import PackagePlugin
+
+                @main
+
+                """
+            if packageType == .buildToolPlugin {
+                content += """
+                struct \(typeName): BuildToolPlugin {
+                    func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                        // The plugin can choose what parts of the package to process.
+                        guard let sourceFiles = target.sourceModule?.sourceFiles else { return [] }
+
+                        // Find the code generator tool to run (replace this with the actual one).
+                        let generatorTool = try context.tool(named: "my-code-generator")
+
+                        // Construct a build command for each source file with a particular suffix.
+                        return sourceFiles.map(\\.path).compactMap { inputPath in
+                            guard inputPath.extension == "my-input-suffix" else { return .none }
+                            let inputName = inputPath.lastComponent
+                            let outputName = inputPath.stem + ".swift"
+                            let outputPath = context.pluginWorkDirectory.appending(outputName)
+                            return .buildCommand(
+                                displayName: "Generating \\(outputName) from \\(inputName)",
+                                executable: generatorTool.path,
+                                arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
+                                inputFiles: [inputPath],
+                                outputFiles: [outputPath]
+                            )
+                        }
+                    }
+                }
+
+                """
+            }
+            else {
+                content += """
+                struct \(typeName): CommandPlugin {
+                    func performCommand(context: PluginContext, arguments: [String]) async throws {
+                        print("Hello, World!")
+                    }
+                }
+
+                """
+            }
+
+            try writePackageFile(sourceFile) { stream in
+                stream.write(content)
+            }
+
+        case .empty, .library, .executable, .tool, .macro:
+            break
+        }
+    }
+
     private func writeSources() throws {
-        if packageType == .empty {
+        if packageType == .empty || packageType == .buildToolPlugin || packageType == .commandPlugin {
             return
         }
 
@@ -427,7 +529,7 @@ public final class InitPackage {
             public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
             """
 
-        case .empty, .`extension`:
+        case .empty, .buildToolPlugin, .commandPlugin:
             throw InternalError("invalid packageType \(packageType)")
         }
 
@@ -443,7 +545,7 @@ public final class InitPackage {
 
     private func writeTests() throws {
         switch packageType {
-        case .empty, .executable, .tool, .`extension`: return
+        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
             default: break
         }
         let tests = destinationPath.appending("Tests")
@@ -589,7 +691,7 @@ public final class InitPackage {
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
-        case .empty, .`extension`, .executable, .tool: break
+        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
