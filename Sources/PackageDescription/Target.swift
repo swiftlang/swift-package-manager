@@ -41,6 +41,10 @@ public final class Target {
         case `macro`
     }
 
+    public enum TargetGroup {
+        case package
+        case excluded
+    }
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         /// A dependency on a target.
@@ -133,6 +137,9 @@ public final class Target {
 
     /// The type of the target.
     public let type: TargetType
+
+    /// The group this target belongs to
+    public let group: TargetGroup
 
     /// The name of the package configuration file, without extension, for the system library target.
     ///
@@ -231,6 +238,7 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
+        group: TargetGroup? = nil,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,
@@ -250,6 +258,7 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
+        self.group = group ?? .package
         self.dependencies = dependencies
         self.path = path
         self.url = url

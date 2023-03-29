@@ -261,6 +261,42 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testTargetGroup() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/libpkg/Sources/ExampleApp/main.swift",
+            "/libpkg/Sources/MainLib/file.swift",
+            "/libpkg/Tests/MainLibTests/file.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "libpkg",
+                    path: .init(path: "/libpkg"),
+                    products: [
+                        ProductDescription(name: "ExampleApp", type: .executable, targets: ["ExampleApp"]),
+                        ProductDescription(name: "Lib", type: .library(.automatic), targets: ["MainLib"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExampleApp", group: .excluded, dependencies: ["MainLib"], type: .executable),
+                        TargetDescription(name: "MainLib", group: .package),
+                        TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        PackageGraphTester(g) { result in
+            result.check(targets: "ExampleApp", "MainLib")
+            result.check(testModules: "MainLibTests")
+            result.checkTarget("MainLibTests") { result in result.check(dependencies: "MainLib") }
+            result.checkTarget("ExampleApp") { result in result.check(dependencies: "MainLib") }
+        }
+    }
+
     func testDuplicateModules() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",

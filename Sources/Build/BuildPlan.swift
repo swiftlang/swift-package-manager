@@ -1000,12 +1000,14 @@ private extension PackageModel.SwiftTarget {
     /// Initialize a SwiftTarget representing a test entry point.
     convenience init(
         name: String,
+        group: Group? = nil,
         type: PackageModel.Target.Kind? = nil,
         dependencies: [PackageModel.Target.Dependency],
         testEntryPointSources sources: Sources
     ) {
         self.init(
             name: name,
+            group: group,
             type: type ?? .executable,
             path: .root,
             sources: sources,

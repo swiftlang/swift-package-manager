@@ -308,6 +308,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope
     ) throws -> ManifestJSONParser.Result {
         // Throw now if we weren't able to parse the manifest.
+        print("XXXXXXXXXXXX", result.manifestJSON)
+        print("================YYYY")
         guard let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty else {
             let errors = result.errorOutput ?? result.compilerOutput ?? "Missing or empty JSON output from manifest compilation for \(packageIdentity)"
             throw ManifestParseError.invalidManifestFormat(errors, diagnosticFile: result.diagnosticFile, compilerCommandLine: result.compilerCommandLine)
@@ -691,13 +693,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
+                        print("AAAAAAA CMD:", cmd)
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
                         defer { cleanupIfError.perform() }
 
                         let compilerResult : ProcessResult
                         do {
                             compilerResult = try result.get()
+                            print("BBBBBBB RESULT:", compilerResult)
                             evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+                            print("CCCCCCCC", evaluationResult.compilerOutput)
                         } catch {
                             return completion(.failure(error))
                         }
