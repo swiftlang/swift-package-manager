@@ -464,6 +464,7 @@ public final class PackageBuilder {
             return [
                 SystemLibraryTarget(
                     name: self.manifest.displayName, // FIXME: use identity instead?
+                    group: .excluded,
                     path: self.packagePath,
                     isImplicit: true,
                     pkgConfig: self.manifest.pkgConfig,
@@ -597,7 +598,7 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, type: target.type)
+            return PotentialModule(name: target.name, group: .init(rawValue: target.group.rawValue) ?? .package, path: path, type: target.type)
         }
 
         let targets = try createModules(potentialTargets)
@@ -826,6 +827,7 @@ public final class PackageBuilder {
 
             return SystemLibraryTarget(
                 name: potentialModule.name,
+                group: .excluded,
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
@@ -922,6 +924,7 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
+                group: potentialModule.group,
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
@@ -950,11 +953,21 @@ public final class PackageBuilder {
             }
         }
 
+        var targetGroup: Target.Group
+        switch manifestTarget.group {
+        case .package:
+            targetGroup = .package
+        case .excluded:
+            targetGroup = .excluded
+        case .lmao:
+            targetGroup = .lmao
+        }
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
+                group: targetGroup,
                 type: targetType,
                 path: potentialModule.path,
                 sources: sources,
@@ -1561,6 +1574,8 @@ private struct PotentialModule: Hashable {
     /// Name of the target.
     let name: String
 
+    let group: Target.Group
+
     /// The path of the target.
     let path: AbsolutePath
 
@@ -1654,6 +1669,7 @@ extension PackageBuilder {
                 do {
                     let targetDescription = try TargetDescription(
                         name: name,
+                        group: .excluded,
                         dependencies: dependencies
                             .map {
                                 TargetDescription.Dependency.target(name: $0.name)
@@ -1670,6 +1686,7 @@ extension PackageBuilder {
 
                 return SwiftTarget(
                     name: name,
+                    group: .lmao,
                     type: .snippet,
                     path: .root,
                     sources: sources,

@@ -262,6 +262,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     )
                     targets.append(try TargetDescription(
                         name: parsedManifest.name,
+                        group: .excluded,
                         path: "",
                         type: .system,
                         pkgConfig: parsedManifest.pkgConfig,
@@ -691,6 +692,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     TSCBasic.Process.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment, queue: callbackQueue) { result in
                         dispatchPrecondition(condition: .onQueue(callbackQueue))
 
+                        print("AAAAAAA CMD:", cmd.joined(separator: " "))
                         var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
                         defer { cleanupIfError.perform() }
 

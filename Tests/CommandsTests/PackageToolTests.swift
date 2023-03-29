@@ -556,7 +556,7 @@ final class PackageToolTests: CommandsTestCase {
                 try .init(name: "exe", type: .executable, targets: ["TargetA"])
             ],
             targets: [
-                try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
+                try .init(name: "TargetA", group: .package, dependencies: ["PackageB", "PackageC"])
             ]
         )
 
@@ -572,7 +572,7 @@ final class PackageToolTests: CommandsTestCase {
                 try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
             ],
             targets: [
-                try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
+                try .init(name: "TargetB", group: .excluded, dependencies: ["PackageC", "PackageD"])
             ]
         )
 
@@ -587,7 +587,7 @@ final class PackageToolTests: CommandsTestCase {
                 try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
             ],
             targets: [
-                try .init(name: "TargetC", dependencies: ["PackageD"])
+                try .init(name: "TargetC", group: .excluded, dependencies: ["PackageD"])
             ]
         )
 
@@ -599,7 +599,7 @@ final class PackageToolTests: CommandsTestCase {
                 try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
             targets: [
-                try .init(name: "TargetD")
+                try .init(name: "TargetD", group: .excluded)
             ]
         )
 

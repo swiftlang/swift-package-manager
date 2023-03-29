@@ -41,6 +41,11 @@ public final class Target {
         case `macro`
     }
 
+    public enum TargetGroup: String {
+        case package
+        case excluded
+        case lmao
+    }
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         /// A dependency on a target.
@@ -133,6 +138,9 @@ public final class Target {
 
     /// The type of the target.
     public let type: TargetType
+
+    /// The group this target belongs to
+    public let group: TargetGroup
 
     /// The name of the package configuration file, without extension, for the system library target.
     ///
@@ -231,6 +239,7 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
+        group: TargetGroup,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,
@@ -250,6 +259,7 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
+        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -369,6 +379,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -415,6 +426,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -467,6 +479,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -505,7 +518,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -522,6 +535,41 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static func target(
+        name: String,
+        group: TargetGroup = .package,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -577,6 +625,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -616,7 +665,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -633,6 +682,41 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .executable,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static func executableTarget(
+        name: String,
+        group: TargetGroup = .package,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -674,6 +758,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -717,6 +802,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -766,6 +852,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -802,7 +889,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -818,6 +905,40 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: nil,
+            type: .test,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static func testTarget(
+        name: String,
+        group: TargetGroup = .package,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -857,6 +978,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: [],
             path: path,
             exclude: [],
@@ -885,6 +1007,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: [],
             path: nil,
             url: url,
@@ -911,6 +1034,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
             dependencies: [],
             path: path,
             exclude: [],
@@ -961,7 +1085,7 @@ public final class Target {
     ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
     ///   - sources: The source files in the plugin target.
     /// - Returns: A `Target` instance.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -972,6 +1096,29 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
+            group: .excluded,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: nil,
+            type: .plugin,
+            pluginCapability: capability)
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static func plugin(
+        name: String,
+        group: TargetGroup = .package,
+        capability: PluginCapability,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,

@@ -558,6 +558,27 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testTargetGroupToPackageNameFlag() throws {
+        let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
+        try fixture(name: "Miscellaneous/TargetGroup2") { fixturePath in
+
+            print(fixturePath)
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg2"), extraArgs: ["-v"])
+            print(fixturePath)
+            XCTAssertMatch(stdout, .contains("-module-name MainLib"))
+//            XCTAssertMatch(stdout, .contains("-module-name ExampleApp"))
+//            XCTAssertMatch(stdout, .contains("-module-name MainLibTests"))
+            if isFlagSupportedInDriver {
+                XCTAssertMatch(stdout, .contains("-package-name libpkg"))
+                // The manifest toolsversion must be >= 5.9 to pass down -package-name
+                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
+            } else {
+                XCTAssertNoMatch(stdout, .contains("-package-name"))
+            }
+            XCTAssertMatch(stdout, .contains("Build complete!"))
+        }
+    }
+
     func testBasicSwiftPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",

@@ -21,6 +21,7 @@ private extension ResolvedTarget {
         self.init(
             target: SwiftTarget(
                 name: name,
+                group: .package,
                 type: .library,
                 path: .root,
                 sources: Sources(paths: [], root: "/"),

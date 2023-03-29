@@ -21,6 +21,7 @@ extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {
         self.init(
             name: "Foo",
+            group: .excluded,
             path: "/fake",
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
             providers: providers.isEmpty ? nil : providers)

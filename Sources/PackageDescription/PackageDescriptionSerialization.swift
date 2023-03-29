@@ -158,12 +158,19 @@ enum Serialization {
 
     enum TargetType: Codable {
         case regular
-        case executable
-        case test
-        case system
-        case binary
-        case plugin
-        case `macro`
+        case executable // default
+        case test // default
+        case system // excluded
+        case binary // excluded
+        case plugin // default
+        case `macro` // default
+        // case snippet // excluded
+    }
+
+    enum TargetGroup: String, Codable {
+        case package
+        case excluded
+        case lmao
     }
 
     enum PluginCapability: Codable {
@@ -196,6 +203,7 @@ enum Serialization {
 
     struct Target: Codable {
         let name: String
+        let group: TargetGroup
         let path: String?
         let url: String?
         let sources: [String]?

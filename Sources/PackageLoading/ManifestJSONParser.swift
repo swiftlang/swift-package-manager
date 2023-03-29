@@ -33,6 +33,12 @@ enum ManifestJSONParser {
     struct VersionedInput: Codable {
         let version: Int
     }
+    
+    enum TargetGroup: Codable {
+        case package
+        case excluded
+        case lmao
+    }
 
     struct Result {
         var name: String
@@ -337,6 +343,7 @@ enum ManifestJSONParser {
 
         return try TargetDescription(
             name: target.name,
+            group: .init(rawValue: target.group.rawValue),
             dependencies: dependencies,
             path: target.path,
             url: target.url,
