@@ -337,6 +337,7 @@ enum ManifestJSONParser {
 
         return try TargetDescription(
             name: target.name,
+            group: .init(target.group),
             dependencies: dependencies,
             path: target.path,
             url: target.url,
@@ -532,6 +533,17 @@ extension TargetDescription.TargetType {
             self = .plugin
         case .macro:
             self = .macro
+        }
+    }
+}
+
+extension TargetDescription.TargetGroup {
+    init(_ group: Serialization.TargetGroup) {
+        switch group {
+        case .package:
+            self = .package
+        case .excluded:
+            self = .excluded
         }
     }
 }

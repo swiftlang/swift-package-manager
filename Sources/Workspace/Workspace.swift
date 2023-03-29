@@ -4021,6 +4021,7 @@ extension Workspace {
                     modifiedTargets.append(
                         try TargetDescription(
                             name: target.name,
+                            group: target.group,
                             dependencies: modifiedDependencies,
                             path: target.path,
                             url: target.url,
