@@ -13873,7 +13873,8 @@ final class WorkspaceTests: XCTestCase {
                 }
             }),
             customArchiverProvider: { _ in archiver },
-            delegate: .none
+            delegate: .none,
+            checksumAlgorithm: MockHashAlgorithm()
         )
     }
 }
