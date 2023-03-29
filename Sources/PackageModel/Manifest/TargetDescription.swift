@@ -63,8 +63,15 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
     }
 
+    public enum Group: String, Encodable, Equatable, Sendable {
+        case package
+        case excluded
+    }
+
     /// The name of the target.
     public let name: String
+
+    public let group: Group?
 
     /// The custom path of the target.
     public let path: String?
@@ -158,6 +165,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
 
     public init(
         name: String,
+        group: Group? = nil,
         dependencies: [Dependency] = [],
         path: String? = nil,
         url: String? = nil,
@@ -223,6 +231,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
 
         self.name = name
+        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url

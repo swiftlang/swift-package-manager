@@ -950,11 +950,21 @@ public final class PackageBuilder {
             }
         }
 
+        var targetGroup: Target.Group? = nil
+        if let inputGroup = manifestTarget.group {
+            switch inputGroup {
+            case .package:
+                targetGroup = .package
+            case .excluded:
+                targetGroup = .excluded
+            }
+        }
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
+                group: targetGroup,
                 type: targetType,
                 path: potentialModule.path,
                 sources: sources,

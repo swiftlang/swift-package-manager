@@ -261,6 +261,53 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testTargetGroup() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/libpkg/Sources/ExampleApp/main.swift",
+            "/libpkg/Sources/MainLib/file.swift",
+            "/libpkg/Tests/MainLibTests/file.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "libpkg",
+                    path: .init(path: "/libpkg"),
+                    products: [
+                        ProductDescription(name: "ExampleApp", type: .executable, targets: ["ExampleApp"]),
+                        ProductDescription(name: "Lib", type: .library(.automatic), targets: ["Lib"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "ExampleApp", group: .excluded, dependencies: ["MainLib"], type: .executable),
+                        TargetDescription(name: "MainLib", group: .package),
+                        TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        PackageGraphTester(g) { result in
+            result.check(packages: "Bar", "Foo", "Baz")
+            result.check(targets: "Bar", "Foo", "Baz", "FooDep")
+            result.check(testModules: "BazTests")
+            result.checkTarget("Foo") { result in result.check(dependencies: "FooDep") }
+            result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
+            result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
+        }
+
+        let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
+        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
+        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        XCTAssert(g.package(for: fooTarget) == fooPackage)
+        XCTAssert(g.package(for: fooDepTarget) == fooPackage)
+        let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
+        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        XCTAssert(g.package(for: barTarget) == barPackage)
+    }
+
     func testDuplicateModules() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
