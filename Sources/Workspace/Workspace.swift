@@ -1765,14 +1765,14 @@ extension Workspace {
             // FIXME: This should be an ordered set.
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
-            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
+            let availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
                 // FIXME: adding this guard to ensure refactoring is correct 9/21
                 // we only care about remoteSourceControl for this validation. it would otherwise trigger for
                 // a dependency is put into edit mode, which we want to deprecate anyways
                 if case .remoteSourceControl = $0.1.packageKind {
                     let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
                     guard effectiveURL == $0.1.packageKind.locationString else {
-                        preconditionFailure("effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)")
+                        throw InternalError("effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)")
                     }
                 }
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
