@@ -1,4 +1,4 @@
-// swift-tools-version:999.0
+// swift-tools-version:5.9
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,8 @@ let package = Package(
     ],
     targets: [
 //        .executableTarget(name: "ExampleApp", group: .excluded, dependencies: ["MainLib"]),
-        .target(name: "MainLib", group: .package),
+        .target(name: "MainLib", group: .excluded, dependencies: ["Core"]),
+        .target(name: "Core", group: .asdf, linkerSettings: [LinkerSetting.unsafeFlags(["-package-name", "mylib"])]),
         .testTarget(name: "MainLibTests", dependencies: ["MainLib"])
     ]
 )

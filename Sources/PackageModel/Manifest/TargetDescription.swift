@@ -64,6 +64,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
     }
 
     public enum TargetGroup: String, Encodable, Equatable, Sendable {
+        case asdf
         case package
         case excluded
     }
@@ -165,7 +166,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
 
     public init(
         name: String,
-        group: TargetGroup? = nil,
+        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         url: String? = nil,
@@ -231,7 +232,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         }
 
         self.name = name
-        self.group = group ?? .package
+        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url

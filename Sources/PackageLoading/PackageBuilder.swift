@@ -464,6 +464,7 @@ public final class PackageBuilder {
             return [
                 SystemLibraryTarget(
                     name: self.manifest.displayName, // FIXME: use identity instead?
+                    group: .excluded,
                     path: self.packagePath,
                     isImplicit: true,
                     pkgConfig: self.manifest.pkgConfig,
@@ -826,6 +827,7 @@ public final class PackageBuilder {
 
             return SystemLibraryTarget(
                 name: potentialModule.name,
+                group: .excluded,
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
@@ -922,6 +924,7 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
+                group: .package,
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
@@ -950,12 +953,14 @@ public final class PackageBuilder {
             }
         }
 
-        var targetGroup: Target.Group? = nil
+        var targetGroup: Target.Group
         switch manifestTarget.group {
         case .package:
             targetGroup = .package
         case .excluded:
             targetGroup = .excluded
+        case .asdf:
+            targetGroup = .asdf
         }
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
@@ -1662,6 +1667,7 @@ extension PackageBuilder {
                 do {
                     let targetDescription = try TargetDescription(
                         name: name,
+                        group: .excluded,
                         dependencies: dependencies
                             .map {
                                 TargetDescription.Dependency.target(name: $0.name)
@@ -1678,6 +1684,7 @@ extension PackageBuilder {
 
                 return SwiftTarget(
                     name: name,
+                    group: .excluded,
                     type: .snippet,
                     path: .root,
                     sources: sources,

@@ -38,6 +38,7 @@ public class Target: PolymorphicCodableProtocol {
     }
 
     public enum Group: String, Codable, Equatable {
+        case asdf
         case package
         case excluded
     }
@@ -240,7 +241,7 @@ public class Target: PolymorphicCodableProtocol {
     fileprivate init(
         name: String,
         potentialBundleName: String? = nil,
-        group: Group? = nil,
+        group: Group,
         type: Kind,
         path: AbsolutePath,
         sources: Sources,
@@ -254,7 +255,7 @@ public class Target: PolymorphicCodableProtocol {
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
-        self.group = group ?? .package
+        self.group = group
         self.type = type
         self.path = path
         self.sources = sources
@@ -341,7 +342,7 @@ public final class SwiftTarget: Target {
         [defaultTestEntryPointName, "LinuxMain.swift"]
     }
 
-    public init(name: String, group: Target.Group? = nil, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
+    public init(name: String, group: Target.Group, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
 
         super.init(
@@ -363,7 +364,7 @@ public final class SwiftTarget: Target {
     public init(
         name: String,
         potentialBundleName: String? = nil,
-        group: Target.Group? = nil,
+        group: Target.Group,
         type: Kind,
         path: AbsolutePath,
         sources: Sources,
@@ -395,7 +396,7 @@ public final class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from test entry point file.
-    public init(name: String, group: Target.Group? = nil, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
+    public init(name: String, group: Target.Group, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -464,7 +465,7 @@ public final class SystemLibraryTarget: Target {
 
     public init(
         name: String,
-        group: Target.Group? = nil,
+        group: Target.Group,
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
@@ -563,6 +564,7 @@ public final class ClangTarget: Target {
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,
+            group: .excluded,
             type: type,
             path: path,
             sources: sources,
@@ -626,6 +628,7 @@ public final class BinaryTarget: Target {
         let sources = Sources(paths: [], root: path)
         super.init(
             name: name,
+            group: .excluded,
             type: .binary,
             path: .root,
             sources: sources,
@@ -737,7 +740,7 @@ public final class PluginTarget: Target {
 
     public init(
         name: String,
-        group: Target.Group? = nil,
+        group: Target.Group,
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,

@@ -33,6 +33,12 @@ enum ManifestJSONParser {
     struct VersionedInput: Codable {
         let version: Int
     }
+    
+    enum TargetGroup: Codable {
+        case asdf
+        case package
+        case excluded
+    }
 
     struct Result {
         var name: String
@@ -538,12 +544,18 @@ extension TargetDescription.TargetType {
 }
 
 extension TargetDescription.TargetGroup {
-    init(_ group: Serialization.TargetGroup) {
-        switch group {
-        case .package:
-            self = .package
-        case .excluded:
-            self = .excluded
+    init(_ group: Serialization.TargetGroup?) {
+        if let group = group {
+            switch group {
+            case .package:
+                self = .package
+            case .excluded:
+                self = .excluded
+            case .asdf:
+                self = .asdf
+            }
+        } else {
+            self = .asdf
         }
     }
 }

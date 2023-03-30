@@ -42,6 +42,7 @@ public final class Target {
     }
 
     public enum TargetGroup {
+        case asdf
         case package
         case excluded
     }
@@ -238,7 +239,7 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
-        group: TargetGroup? = nil,
+        group: TargetGroup = .package,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,
@@ -258,7 +259,7 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
-        self.group = group ?? .package
+        self.group = group
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -514,9 +515,42 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
     public static func target(
         name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public static func target(
+        name: String,
+        group: TargetGroup,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],

@@ -222,6 +222,7 @@ extension Serialization.TargetType {
 extension Serialization.TargetGroup {
     init(_ type: PackageDescription.Target.TargetGroup) {
         switch type {
+        case .asdf: self = .asdf
         case .package: self = .package
         case .excluded: self = .excluded
         }
