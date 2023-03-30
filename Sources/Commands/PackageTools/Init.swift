@@ -31,6 +31,8 @@ extension SwiftPackageTool {
                 tool              - A package with an executable that uses
                                     Swift Argument Parser. Use this template if you
                                     plan to have a rich set of command-line arguments.
+                build-tool-plugin - A package that vends a build tool plugin.
+                command-plugin    - A package that vends a command plugin.
                 macro             - A package that vends a macro.
                 empty             - An empty package with a Package.swift manifest.
                 """))

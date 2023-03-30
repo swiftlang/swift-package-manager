@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
+* [#6111]
+
+  Package creation using `package init` now also supports the build tool plugin and command plugin types.
+
 * [#5728]
 
   In packages that specify resources using a future tools version, the generated resource bundle accessor will import `Foundation.Bundle` for its own implementation only. _Clients_ of such packages therefore no longer silently import `Foundation`, preventing inadvertent use of Foundation extensions to standard library APIs, which helps to avoid unexpected code size increases.
