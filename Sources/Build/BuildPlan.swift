@@ -282,7 +282,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
-                    group: .package,
+                    group: .brb,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
@@ -314,7 +314,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
-                    group: .package,
+                    group: .brb,
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
                     testEntryPointSources: entryPointSources
@@ -344,7 +344,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
                             name: entryPointResolvedTarget.underlyingTarget.name,
-                            group: .package,
+                            group: .brb,
                             dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
                             testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )

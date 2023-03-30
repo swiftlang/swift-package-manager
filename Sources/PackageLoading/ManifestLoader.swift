@@ -262,7 +262,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     )
                     targets.append(try TargetDescription(
                         name: parsedManifest.name,
-                        group: .package,
+                        group: .asdf,
                         path: "",
                         type: .system,
                         pkgConfig: parsedManifest.pkgConfig,

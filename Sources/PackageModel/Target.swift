@@ -39,7 +39,7 @@ public class Target: PolymorphicCodableProtocol {
 
     public enum Group: String, Codable, Equatable {
         case asdf
-        case package
+        case brb
         case excluded
     }
     /// A reference to a product from a target dependency.
@@ -477,7 +477,7 @@ public final class SystemLibraryTarget: Target {
         self.isImplicit = isImplicit
         super.init(
             name: name,
-            group: group ?? .package,
+            group: group,
             type: .systemModule,
             path: sources.root,
             sources: sources,

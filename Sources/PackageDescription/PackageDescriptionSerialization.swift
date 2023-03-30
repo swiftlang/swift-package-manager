@@ -169,7 +169,7 @@ enum Serialization {
 
     enum TargetGroup: Codable {
         case asdf
-        case package
+        case brb
         case excluded
     }
 

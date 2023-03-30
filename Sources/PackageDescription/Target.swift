@@ -43,7 +43,7 @@ public final class Target {
 
     public enum TargetGroup {
         case asdf
-        case package
+        case brb
         case excluded
     }
     /// The different types of a target's dependency on another entity.
@@ -239,7 +239,7 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
-        group: TargetGroup = .package,
+        group: TargetGroup = .asdf,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,

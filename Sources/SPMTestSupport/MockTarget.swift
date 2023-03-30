@@ -28,7 +28,7 @@ public struct MockTarget {
 
     public init(
         name: String,
-        group: Target.Group = .package,
+        group: Target.Group = .brb,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
         path: String? = nil,
@@ -50,7 +50,7 @@ public struct MockTarget {
         case .regular:
             return try TargetDescription(
                 name: self.name,
-                group: .package,
+                group: .brb,
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
@@ -62,7 +62,7 @@ public struct MockTarget {
         case .test:
             return try TargetDescription(
                 name: self.name,
-                group: .package,
+                group: .brb,
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
@@ -74,7 +74,7 @@ public struct MockTarget {
         case .binary:
             return try TargetDescription(
                 name: self.name,
-                group: .package,
+                group: .brb,
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 url: self.url,

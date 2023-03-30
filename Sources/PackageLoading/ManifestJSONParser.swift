@@ -36,7 +36,7 @@ enum ManifestJSONParser {
     
     enum TargetGroup: Codable {
         case asdf
-        case package
+        case brb
         case excluded
     }
 
@@ -547,8 +547,8 @@ extension TargetDescription.TargetGroup {
     init(_ group: Serialization.TargetGroup?) {
         if let group = group {
             switch group {
-            case .package:
-                self = .package
+            case .brb:
+                self = .brb
             case .excluded:
                 self = .excluded
             case .asdf:

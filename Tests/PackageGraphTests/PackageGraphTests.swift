@@ -281,7 +281,7 @@ class PackageGraphTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "ExampleApp", group: .excluded, dependencies: ["MainLib"], type: .executable),
-                        TargetDescription(name: "MainLib", group: .package),
+                        TargetDescription(name: "MainLib", group: .brb),
                         TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test),
                     ]),
             ],

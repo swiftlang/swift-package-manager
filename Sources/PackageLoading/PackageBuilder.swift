@@ -924,7 +924,7 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
-                group: .package,
+                group: .brb,
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
@@ -955,8 +955,8 @@ public final class PackageBuilder {
 
         var targetGroup: Target.Group
         switch manifestTarget.group {
-        case .package:
-            targetGroup = .package
+        case .brb:
+            targetGroup = .brb
         case .excluded:
             targetGroup = .excluded
         case .asdf:
