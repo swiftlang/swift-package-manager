@@ -51,3 +51,14 @@ public protocol Archiver {
         completion: @escaping (Result<Bool, Error>) -> Void
     )
 }
+
+extension Archiver {
+    public func extract(
+        from archivePath: AbsolutePath,
+        to destinationPath: AbsolutePath
+    ) async throws {
+        try await withCheckedThrowingContinuation {
+            self.extract(from: archivePath, to: destinationPath, completion: $0.resume(with:))
+        }
+    }
+}
