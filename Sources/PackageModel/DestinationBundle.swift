@@ -11,9 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import TSCBasic
 
+import func TSCBasic.tsc_await
+import protocol TSCBasic.FileSystem
 import struct Foundation.URL
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.RegEx
 
 /// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
 public struct DestinationBundle {
@@ -126,57 +129,110 @@ public struct DestinationBundle {
     /// - Parameters:
     ///   - bundlePathOrURL: A string passed on the command line, which is either an absolute or relative to a current
     ///   working directory path, or a URL to a destination artifact bundle.
-    ///   - destinationsDirectory: a directory where the destination artifact bundle should be installed.
-    ///   - fileSystem: file system on which all of the file operations should run.
-    ///   - observabilityScope: observability scope for reporting warnings and errors.
+    ///   - destinationsDirectory: A directory where the destination artifact bundle should be installed.
+    ///   - fileSystem: File system on which all of the file operations should run.
+    ///   - observabilityScope: Observability scope for reporting warnings and errors.
     public static func install(
         bundlePathOrURL: String,
         destinationsDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
+        _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) throws {
-        let installedBundlePath: AbsolutePath
+    ) async throws {
+        _ = try await withTemporaryDirectory(
+            fileSystem: fileSystem,
+            removeTreeOnDeinit: true
+        ) { temporaryDirectory in
+            let bundlePath: AbsolutePath
 
-        if
-            let bundleURL = URL(string: bundlePathOrURL),
-            let scheme = bundleURL.scheme,
-            scheme == "http" || scheme == "https"
-        {
-            let response = try tsc_await { (completion: @escaping (Result<HTTPClientResponse, Error>) -> Void) in
-                let client = LegacyHTTPClient()
-                client.execute(
-                    .init(method: .get, url: bundleURL),
-                    observabilityScope: observabilityScope,
-                    progress: nil,
-                    completion: completion
+            if
+                let bundleURL = URL(string: bundlePathOrURL),
+                let scheme = bundleURL.scheme,
+                scheme == "http" || scheme == "https"
+            {
+                let bundleName = bundleURL.lastPathComponent
+                let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
+
+                let client = HTTPClient()
+                var request = HTTPClientRequest.download(
+                    url: bundleURL,
+                    fileSystem: AsyncFileSystem { fileSystem },
+                    destination: downloadedBundlePath
                 )
+                request.options.validResponseCodes = [200]
+                _ = try await client.execute(
+                    request,
+                    observabilityScope: observabilityScope,
+                    progress: nil
+                )
+
+                bundlePath = downloadedBundlePath
+
+                print("Destination artifact bundle successfully downloaded from `\(bundleURL)`.")
+            } else if
+                let cwd = fileSystem.currentWorkingDirectory,
+                let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
+            {
+                bundlePath = originalBundlePath
+            } else {
+                throw DestinationError.invalidPathOrURL(bundlePathOrURL)
             }
 
-            guard let body = response.body else {
-                throw StringError("No downloadable data available at URL `\(bundleURL)`.")
-            }
-
-            let fileName = bundleURL.lastPathComponent
-            installedBundlePath = destinationsDirectory.appending(component: fileName)
-
-            try fileSystem.writeFileContents(installedBundlePath, data: body)
-        } else if
-            let cwd = fileSystem.currentWorkingDirectory,
-            let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
-        {
-            try installIfValid(
-                bundlePath: originalBundlePath,
+            try await installIfValid(
+                bundlePath: bundlePath,
                 destinationsDirectory: destinationsDirectory,
+                temporaryDirectory: temporaryDirectory,
                 fileSystem,
+                archiver,
                 observabilityScope
             )
-        } else {
-            throw DestinationError.invalidPathOrURL(bundlePathOrURL)
+        }.value
+
+        print("Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+    }
+
+    /// Unpacks a destination bundle if it has an archive extension in its filename.
+    /// - Parameters:
+    ///   - bundlePath: Absolute path to a destination bundle to unpack if needed.
+    ///   - temporaryDirectory: Absolute path to a temporary directory in which the bundle can be unpacked if needed.
+    ///   - fileSystem: A file system to operate on that contains the given paths.
+    ///   - archiver: Archiver to use for unpacking.
+    /// - Returns: Path to an unpacked destination bundle if unpacking is needed, value of `bundlePath` is returned
+    /// otherwise.
+    private static func unpackIfNeeded(
+        bundlePath: AbsolutePath,
+        destinationsDirectory: AbsolutePath,
+        temporaryDirectory: AbsolutePath,
+        _ fileSystem: some FileSystem,
+        _ archiver: some Archiver
+    ) async throws -> AbsolutePath {
+        let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
+
+        guard let bundleName = bundlePath.components.last else {
+            throw DestinationError.invalidPathOrURL(bundlePath.pathString)
         }
 
-        observabilityScope.emit(info: "Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
+        guard let unpackedBundleName = regex.matchGroups(in: bundleName).first?.first else {
+            throw DestinationError.invalidBundleName(bundleName)
+        }
+
+        let installedBundlePath = destinationsDirectory.appending(component: unpackedBundleName)
+        guard !fileSystem.exists(installedBundlePath) else {
+            throw DestinationError.destinationBundleAlreadyInstalled(bundleName: unpackedBundleName)
+        }
+
+        print("\(bundleName) is assumed to be an archive, unpacking...")
+
+        // If there's no archive extension on the bundle name, assuming it's not archived and returning the same path.
+        guard unpackedBundleName != bundleName else {
+            return bundlePath
+        }
+
+        try await archiver.extract(from: bundlePath, to: temporaryDirectory)
+
+        return temporaryDirectory.appending(component: unpackedBundleName)
     }
-    
+
     /// Installs an unpacked destination bundle to a destinations installation directory.
     /// - Parameters:
     ///   - bundlePath: absolute path to an unpacked destination bundle directory.
@@ -186,23 +242,30 @@ public struct DestinationBundle {
     private static func installIfValid(
         bundlePath: AbsolutePath,
         destinationsDirectory: AbsolutePath,
+        temporaryDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
+        _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
+        let unpackedBundlePath = try await unpackIfNeeded(
+            bundlePath: bundlePath,
+            destinationsDirectory: destinationsDirectory,
+            temporaryDirectory: temporaryDirectory,
+            fileSystem,
+            archiver
+        )
+
         guard
-            fileSystem.isDirectory(bundlePath),
-            let bundleName = bundlePath.components.last
+            fileSystem.isDirectory(unpackedBundlePath),
+            let bundleName = unpackedBundlePath.components.last
         else {
             throw DestinationError.pathIsNotDirectory(bundlePath)
         }
 
         let installedBundlePath = destinationsDirectory.appending(component: bundleName)
-        guard !fileSystem.exists(installedBundlePath) else {
-            throw DestinationError.destinationBundleAlreadyInstalled(bundleName: bundleName)
-        }
 
         let validatedBundle = try Self.parseAndValidate(
-            bundlePath: bundlePath,
+            bundlePath: unpackedBundlePath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -226,7 +289,7 @@ public struct DestinationBundle {
             }
         }
 
-        try fileSystem.copy(from: bundlePath, to: installedBundlePath)
+        try fileSystem.copy(from: unpackedBundlePath, to: installedBundlePath)
     }
 
     /// Parses metadata of an `.artifactbundle` and validates it as a bundle containing

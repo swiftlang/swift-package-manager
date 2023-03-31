@@ -18,7 +18,7 @@ import SPMBuildCore
 
 import struct TSCBasic.AbsolutePath
 
-struct ListDestinations: DestinationCommand {
+public struct ListDestinations: DestinationCommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
@@ -29,6 +29,8 @@ struct ListDestinations: DestinationCommand {
 
     @OptionGroup()
     var locations: LocationOptions
+
+    public init() {}
 
     func run(
         buildTimeTriple: Triple,

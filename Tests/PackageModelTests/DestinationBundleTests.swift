@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SPMTestSupport
 import XCTest
 
 import struct TSCBasic.AbsolutePath
@@ -41,7 +42,7 @@ private let infoJSON = ByteString(stringLiteral: """
 """)
 
 final class DestinationBundleTests: XCTestCase {
-    func testInstallDestination() throws {
+    func testInstallDestination() async throws {
         let system = ObservabilitySystem.makeForTesting()
 
         let bundleName1 = "test1.artifactbundle"
@@ -55,21 +56,29 @@ final class DestinationBundleTests: XCTestCase {
         ])
         try fileSystem.createDirectory(destinationsDirectory)
 
-        try DestinationBundle.install(
+        let archiver = MockArchiver()
+
+        try await DestinationBundle.install(
             bundlePathOrURL: bundlePath1,
             destinationsDirectory: destinationsDirectory,
             fileSystem,
+            archiver,
             system.topScope
         )
 
         let invalidPath = "foobar"
-        XCTAssertThrowsError(try DestinationBundle.install(
-            bundlePathOrURL: "foobar",
-            destinationsDirectory: destinationsDirectory,
-            fileSystem,
-            system.topScope
-        )) {
-            guard let error = $0 as? DestinationError else {
+        do {
+            try await DestinationBundle.install(
+                bundlePathOrURL: "foobar",
+                destinationsDirectory: destinationsDirectory,
+                fileSystem,
+                archiver,
+                system.topScope
+            )
+
+                XCTFail("Function expected to throw")
+        } catch {
+            guard let error = error as? DestinationError else {
                 XCTFail("Unexpected error type")
                 return
             }
@@ -82,13 +91,18 @@ final class DestinationBundleTests: XCTestCase {
             }
         }
 
-        XCTAssertThrowsError(try DestinationBundle.install(
-            bundlePathOrURL: bundlePath1,
-            destinationsDirectory: destinationsDirectory,
-            fileSystem,
-            system.topScope
-        )) {
-            guard let error = $0 as? DestinationError else {
+        do {
+            try await DestinationBundle.install(
+                bundlePathOrURL: bundlePath1,
+                destinationsDirectory: destinationsDirectory,
+                fileSystem,
+                archiver,
+                system.topScope
+            )
+
+            XCTFail("Function expected to throw")
+        } catch {
+            guard let error = error as? DestinationError else {
                 XCTFail("Unexpected error type")
                 return
             }
@@ -101,13 +115,18 @@ final class DestinationBundleTests: XCTestCase {
             }
         }
 
-        XCTAssertThrowsError(try DestinationBundle.install(
-            bundlePathOrURL: bundlePath2,
-            destinationsDirectory: destinationsDirectory,
-            fileSystem,
-            system.topScope
-        )) {
-            guard let error = $0 as? DestinationError else {
+        do {
+            try await DestinationBundle.install(
+                bundlePathOrURL: bundlePath2,
+                destinationsDirectory: destinationsDirectory,
+                fileSystem,
+                archiver,
+                system.topScope
+            )
+
+             XCTFail("Function expected to throw")
+         } catch {
+            guard let error = error as? DestinationError else {
                 XCTFail("Unexpected error type")
                 return
             }

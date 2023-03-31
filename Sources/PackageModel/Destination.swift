@@ -27,6 +27,9 @@ public enum DestinationError: Swift.Error {
     /// The schema version is invalid.
     case invalidSchemaVersion
 
+    /// Name of the destination bundle is not valid.
+    case invalidBundleName(String)
+
     /// No valid destinations were decoded from a destination file.
     case noDestinationsDecoded(AbsolutePath)
 
@@ -58,6 +61,10 @@ extension DestinationError: CustomStringConvertible {
             return "unsupported destination file schema version"
         case .invalidInstallation(let problem):
             return problem
+        case .invalidBundleName(let name):
+            return """
+            invalid bundle name `\(name)`, unpacked destination bundles are expected to have `.artifactbundle` extension
+            """
         case .noDestinationsDecoded(let path):
             return "no valid destinations were decoded from a destination file at path `\(path)`"
         case .pathIsNotDirectory(let path):
