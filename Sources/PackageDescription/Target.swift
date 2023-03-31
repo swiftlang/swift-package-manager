@@ -381,7 +381,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -428,7 +428,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -481,7 +481,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -520,7 +520,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -537,7 +537,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -578,7 +578,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 999.0)
     public static func target(
         name: String,
         group: TargetGroup = .package,
@@ -652,7 +652,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -692,7 +692,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -709,7 +709,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -750,7 +750,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 999.0)
     public static func executableTarget(
         name: String,
         group: TargetGroup = .package,
@@ -810,7 +810,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -854,7 +854,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -904,7 +904,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -941,7 +941,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -957,7 +957,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -996,7 +996,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 999.0)
     public static func testTarget(
         name: String,
         group: TargetGroup = .package,
@@ -1082,7 +1082,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: nil,
             url: url,
@@ -1109,7 +1109,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: path,
             exclude: [],
@@ -1160,7 +1160,7 @@ public final class Target {
     ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
     ///   - sources: The source files in the plugin target.
     /// - Returns: A `Target` instance.
-    @available(_PackageDescription, introduced: 5.5, obsoleted: 5.9)
+    @available(_PackageDescription, introduced: 5.5, obsoleted: 999.0)
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -1171,7 +1171,7 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op if < 5.9
+            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -1224,7 +1224,7 @@ public final class Target {
     ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
     ///   - sources: The source files in the plugin target.
     /// - Returns: A `Target` instance.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 999.0)
     public static func plugin(
         name: String,
         group: TargetGroup = .package,

@@ -276,6 +276,7 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "libpkg",
                     path: .init(path: "/libpkg"),
+                    toolsVersion: .vNext,
                     products: [
                         ProductDescription(name: "ExampleApp", type: .executable, targets: ["ExampleApp"]),
                         ProductDescription(name: "Lib", type: .library(.automatic), targets: ["MainLib"])

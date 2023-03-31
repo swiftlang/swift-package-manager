@@ -126,7 +126,7 @@ extension Manifest {
         return self.toolsVersion >= .v5_8
     }
     public var usePackageNameFlag: Bool {
-        return self.toolsVersion >= .v5_9
+        return self.toolsVersion >= .vNext
     }
 }
 
