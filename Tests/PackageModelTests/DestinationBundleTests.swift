@@ -54,6 +54,7 @@ final class DestinationBundleTests: XCTestCase {
             "\(bundlePath1)/info.json": infoJSON,
             "\(bundlePath2)/info.json": infoJSON,
         ])
+        try fileSystem.createDirectory(fileSystem.tempDirectory)
         try fileSystem.createDirectory(destinationsDirectory)
 
         let archiver = MockArchiver()
@@ -76,16 +77,17 @@ final class DestinationBundleTests: XCTestCase {
                 system.topScope
             )
 
-                XCTFail("Function expected to throw")
+            XCTFail("Function expected to throw")
         } catch {
             guard let error = error as? DestinationError else {
                 XCTFail("Unexpected error type")
                 return
             }
 
+            print(error)
             switch error {
-            case .pathIsNotDirectory(let path):
-                XCTAssertEqual(path.pathString, "/\(invalidPath)")
+            case .invalidBundleName(let bundleName):
+                XCTAssertEqual(bundleName, invalidPath)
             default:
                 XCTFail("Unexpected error value")
             }
