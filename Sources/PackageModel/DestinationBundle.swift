@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+import _Concurrency
 import Basics
-import func Basics.withTemporaryDirectory
 
 import func TSCBasic.tsc_await
 import protocol TSCBasic.FileSystem
