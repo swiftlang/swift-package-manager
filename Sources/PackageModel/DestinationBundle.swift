@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 
-import _Concurrency
 import Basics
 
 import func TSCBasic.tsc_await
