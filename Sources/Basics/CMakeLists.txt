@@ -26,6 +26,7 @@ add_library(Basics
   FileSystem/AsyncFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/Path+Extensions.swift
+  FileSystem/TemporaryFile.swift
   FileSystem/VFSOverlay.swift
   HTTPClient/HTTPClient.swift
   HTTPClient/HTTPClientConfiguration.swift
