@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import TSCBasic
 
 /// The `Archiver` protocol abstracts away the different operations surrounding archives.
