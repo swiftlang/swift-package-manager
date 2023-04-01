@@ -26,7 +26,7 @@ public struct ZipArchiver: Archiver, Cancellable {
     /// Creates a `ZipArchiver`.
     ///
     /// - Parameters:
-    ///   - fileSystem: The file-system to used by the `ZipArchiver`.
+    ///   - fileSystem: The file-system to be used by the `ZipArchiver`.
     ///   - cancellator: Cancellation handler
     public init(fileSystem: FileSystem, cancellator: Cancellator? = .none) {
         self.fileSystem = fileSystem
