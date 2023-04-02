@@ -20,7 +20,7 @@ import struct TSCBasic.AbsolutePath
 import struct TSCBasic.FileSystemError
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
-public struct TarArchiver: Archiver {
+public final class TarArchiver: Archiver {
     public var supportedExtensions: Set<String> { ["tar", "tar.gz"] }
 
     /// The file-system implementation used for various file-system operations and checks.
