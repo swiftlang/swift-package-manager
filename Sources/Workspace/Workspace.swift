@@ -1074,6 +1074,7 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
+        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
         // reload state in case it was modified externally (eg by another process) before reloading the graph
@@ -1104,7 +1105,7 @@ extension Workspace {
         }
 
         // Load the graph.
-        return try PackageGraph.load(
+        let packageGraph = try PackageGraph.load(
             root: manifests.root,
             identityResolver: self.identityResolver,
             additionalFileRules: self.configuration.additionalFileRules,
@@ -1119,6 +1120,57 @@ extension Workspace {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
+
+        try expectedSigningEntities.forEach { identity, expectedSigningEntity in
+            if let package = packageGraph.packages.first(where: { $0.identity == identity }) {
+                if let actualSigningEntity = package.registryMetadata?.signature?.signedBy {
+                    if actualSigningEntity != expectedSigningEntity {
+                        throw SigningError.mismatchedSigningEntity(
+                            package: identity,
+                            expected: expectedSigningEntity,
+                            actual: actualSigningEntity
+                        )
+                    }
+                } else {
+                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                }
+            } else {
+                if let mirror = self.mirrors.mirror(for: identity.description) {
+                    let mirroredIdentity = PackageIdentity.plain(mirror)
+                    if mirroredIdentity.isRegistry {
+                        if let package = packageGraph.packages.first(where: { $0.identity == mirroredIdentity }) {
+                            if let actualSigningEntity = package.registryMetadata?.signature?.signedBy {
+                                if actualSigningEntity != expectedSigningEntity {
+                                    throw SigningError.mismatchedSigningEntity(
+                                        package: identity,
+                                        expected: expectedSigningEntity,
+                                        actual: actualSigningEntity
+                                    )
+                                }
+                            } else {
+                                throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                            }
+                        } else {
+                            // Unsure if this case is reachable in practice.
+                            throw SigningError.expectedIdentityNotFound(package: identity)
+                        }
+                    } else {
+                        throw SigningError.expectedSignedMirroredToSourceControl(package: identity, expected: expectedSigningEntity)
+                    }
+                } else {
+                    throw SigningError.expectedIdentityNotFound(package: identity)
+                }
+            }
+        }
+
+        return packageGraph
+    }
+
+    public enum SigningError: Swift.Error {
+        case expectedIdentityNotFound(package: PackageIdentity)
+        case expectedSignedMirroredToSourceControl(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
+        case mismatchedSigningEntity(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity, actual: RegistryReleaseMetadata.SigningEntity)
+        case unsigned(package: PackageIdentity, expected: RegistryReleaseMetadata.SigningEntity)
     }
 
     @discardableResult
