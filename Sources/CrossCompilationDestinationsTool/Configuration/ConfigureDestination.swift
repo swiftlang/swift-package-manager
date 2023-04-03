@@ -12,8 +12,8 @@
 
 import ArgumentParser
 
-struct ConfigureDestination: ParsableCommand {
-    static let configuration = CommandConfiguration(
+public struct ConfigureDestination: ParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "configuration",
         abstract: """
         Manages configuration options for installed cross-compilation destinations.
@@ -24,4 +24,6 @@ struct ConfigureDestination: ParsableCommand {
             ShowConfiguration.self,
         ]
     )
+
+    public init() {}
 }

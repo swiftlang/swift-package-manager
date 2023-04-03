@@ -21,8 +21,8 @@ import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 import func TSCBasic.tsc_await
 
-struct InstallDestination: DestinationCommand {
-    static let configuration = CommandConfiguration(
+public struct InstallDestination: DestinationCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
         Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle \
@@ -36,15 +36,18 @@ struct InstallDestination: DestinationCommand {
     @Argument(help: "A local filesystem path or a URL of an artifact bundle to install.")
     var bundlePathOrURL: String
 
+    public init() {}
+
     func run(
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
-    ) throws {
-        try DestinationBundle.install(
+    ) async throws {
+        try await DestinationBundle.install(
             bundlePathOrURL: bundlePathOrURL,
             destinationsDirectory: destinationsDirectory,
             self.fileSystem,
+            ZipArchiver(fileSystem: self.fileSystem),
             observabilityScope
         )
     }

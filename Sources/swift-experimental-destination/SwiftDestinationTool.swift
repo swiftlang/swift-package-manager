@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,9 +12,11 @@
 
 import ArgumentParser
 import Basics
+import CrossCompilationDestinationsTool
 
-public struct SwiftDestinationTool: AsyncParsableCommand {
-    public static let configuration = CommandConfiguration(
+@main
+struct SwiftDestinationTool: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
         commandName: "experimental-destination",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift cross-compilation destinations.",
@@ -27,6 +29,4 @@ public struct SwiftDestinationTool: AsyncParsableCommand {
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
-
-    public init() {}
 }
