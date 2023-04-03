@@ -12,15 +12,16 @@
 
 import Basics
 import TSCBasic
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import TSCTestSupport
 import XCTest
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 final class TarArchiverTests: XCTestCase {
-    func testTarArchiverSuccess() throws {
+    func testSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "archive.tar.gz")
+            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+                .appending(components: "Inputs", "archive.tar.gz")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
@@ -28,7 +29,7 @@ final class TarArchiverTests: XCTestCase {
         }
     }
 
-    func testTarArchiverArchiveDoesntExist() {
+    func testArchiveDoesntExist() {
         let fileSystem = InMemoryFileSystem()
         let archiver = TarArchiver(fileSystem: fileSystem)
         let archive = AbsolutePath("/archive.tar.gz")
@@ -37,7 +38,7 @@ final class TarArchiverTests: XCTestCase {
         }
     }
 
-    func testTarArchiverDestinationDoesntExist() throws {
+    func testDestinationDoesntExist() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz")
         let archiver = TarArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
@@ -46,7 +47,7 @@ final class TarArchiverTests: XCTestCase {
         }
     }
 
-    func testTarArchiverDestinationIsFile() throws {
+    func testDestinationIsFile() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz", "/destination")
         let archiver = TarArchiver(fileSystem: fileSystem)
         let destination = AbsolutePath("/destination")
@@ -55,34 +56,38 @@ final class TarArchiverTests: XCTestCase {
         }
     }
 
-    func testTarArchiverInvalidArchive() throws {
+    func testInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
+                #if os(Linux)
+                XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
+                #else
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
+                #endif
             }
         }
     }
 
     func testValidation() throws {
         // valid
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertFalse(try archiver.validate(path: path))
         }
         // error
-        try testWithTemporaryDirectory { tmpdir in
+        try testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath.root.appending("does_not_exist.tar.gz")
             XCTAssertThrowsError(try archiver.validate(path: path)) { error in
@@ -98,57 +103,57 @@ final class TarArchiverTests: XCTestCase {
         }
         #endif
 
-         try testWithTemporaryDirectory { tmpdir in
-             let archiver = TarArchiver(fileSystem: localFileSystem)
+        try testWithTemporaryDirectory { tmpdir in
+            let archiver = TarArchiver(fileSystem: localFileSystem)
 
-             let rootDir = tmpdir.appending(component: UUID().uuidString)
-             try localFileSystem.createDirectory(rootDir)
-             try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
+            let rootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(rootDir)
+            try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
 
-             let dir1 = rootDir.appending("dir1")
-             try localFileSystem.createDirectory(dir1)
-             try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
+            let dir1 = rootDir.appending("dir1")
+            try localFileSystem.createDirectory(dir1)
+            try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
 
-             let dir2 = dir1.appending("dir2")
-             try localFileSystem.createDirectory(dir2)
-             try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
-             try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
+            let dir2 = dir1.appending("dir2")
+            try localFileSystem.createDirectory(dir2)
+            try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
+            try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
 
-             let archivePath = tmpdir.appending(component: UUID().uuidString + ".tar.gz")
-             try archiver.compress(directory: rootDir, to: archivePath)
-             XCTAssertFileExists(archivePath)
+            let archivePath = tmpdir.appending(component: UUID().uuidString + ".tar.gz")
+            try archiver.compress(directory: rootDir, to: archivePath)
+            XCTAssertFileExists(archivePath)
 
-             let extractRootDir = tmpdir.appending(component: UUID().uuidString)
-             try localFileSystem.createDirectory(extractRootDir)
-             try archiver.extract(from: archivePath, to: extractRootDir)
-             try localFileSystem.stripFirstLevel(of: extractRootDir)
+            let extractRootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(extractRootDir)
+            try archiver.extract(from: archivePath, to: extractRootDir)
+            try localFileSystem.stripFirstLevel(of: extractRootDir)
 
-             XCTAssertFileExists(extractRootDir.appending("file1.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
-                 "Hello World!"
-             )
+            XCTAssertFileExists(extractRootDir.appending("file1.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
+                "Hello World!"
+            )
 
-             let extractedDir1 = extractRootDir.appending("dir1")
-             XCTAssertDirectoryExists(extractedDir1)
-             XCTAssertFileExists(extractedDir1.appending("file2.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
-                 "Hello World 2!"
-             )
+            let extractedDir1 = extractRootDir.appending("dir1")
+            XCTAssertDirectoryExists(extractedDir1)
+            XCTAssertFileExists(extractedDir1.appending("file2.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
+                "Hello World 2!"
+            )
 
-             let extractedDir2 = extractedDir1.appending("dir2")
-             XCTAssertDirectoryExists(extractedDir2)
-             XCTAssertFileExists(extractedDir2.appending("file3.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractedDir2.appending("file3.txt")),
-                 "Hello World 3!"
-             )
-             XCTAssertFileExists(extractedDir2.appending("file4.txt"))
-             XCTAssertEqual(
-                 try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
-                 "Hello World 4!"
-             )
-         }
-     }
+            let extractedDir2 = extractedDir1.appending("dir2")
+            XCTAssertDirectoryExists(extractedDir2)
+            XCTAssertFileExists(extractedDir2.appending("file3.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir2.appending("file3.txt")),
+                "Hello World 3!"
+            )
+            XCTAssertFileExists(extractedDir2.appending("file4.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
+                "Hello World 4!"
+            )
+        }
+    }
 }

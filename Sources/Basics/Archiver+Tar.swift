@@ -13,11 +13,11 @@
 import _Concurrency
 
 import class Dispatch.DispatchQueue
-import class TSCBasic.Process
-import protocol TSCBasic.FileSystem
 import struct Dispatch.DispatchTime
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 import struct TSCBasic.FileSystemError
+import class TSCBasic.Process
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
 public final class TarArchiver: Archiver {
@@ -41,11 +41,11 @@ public final class TarArchiver: Archiver {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
-#if os(Windows)
+        #if os(Windows)
         self.tarCommand = "tar.exe"
-#else
+        #else
         self.tarCommand = "tar"
-#endif
+        #endif
     }
 
     public func extract(
@@ -62,7 +62,9 @@ public final class TarArchiver: Archiver {
                 throw FileSystemError(.notDirectory, destinationPath)
             }
 
-            let process = TSCBasic.Process(arguments: [self.tarCommand, "xzf", archivePath.pathString, "-C", destinationPath.pathString])
+            let process = TSCBasic.Process(
+                arguments: [self.tarCommand, "xzf", archivePath.pathString, "-C", destinationPath.pathString]
+            )
 
             guard let registrationKey = self.cancellator.register(process) else {
                 throw StringError("cancellation")
