@@ -14,7 +14,7 @@ import TSCBasic
 import Dispatch
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
-public struct ZipArchiver: Archiver, Cancellable {
+public final class ZipArchiver: Archiver, Cancellable {
     public var supportedExtensions: Set<String> { ["zip"] }
 
     /// The file-system implementation used for various file-system operations and checks.
