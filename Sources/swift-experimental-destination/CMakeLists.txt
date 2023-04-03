@@ -7,9 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-experimental-destination
-  main.swift)
+  SwiftDestinationTool.swift)
 target_link_libraries(swift-experimental-destination PRIVATE
   CrossCompilationDestinationsTool)
+
+target_compile_options(swift-experimental-destination PRIVATE
+  -parse-as-library)
 
 if(USE_CMAKE_INSTALL)
 install(TARGETS swift-experimental-destination

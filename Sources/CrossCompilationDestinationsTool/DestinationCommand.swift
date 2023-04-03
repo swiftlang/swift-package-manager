@@ -22,7 +22,7 @@ import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
 /// A protocol for functions and properties common to all destination subcommands.
-protocol DestinationCommand: ParsableCommand {
+protocol DestinationCommand: AsyncParsableCommand {
     /// Common locations options provided by ArgumentParser.
     var locations: LocationOptions { get }
 
@@ -35,7 +35,7 @@ protocol DestinationCommand: ParsableCommand {
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
-    ) throws
+    ) async throws
 }
 
 extension DestinationCommand {
@@ -62,7 +62,7 @@ extension DestinationCommand {
         return destinationsDirectory
     }
 
-    public func run() throws {
+    public func run() async throws {
         let observabilityHandler = SwiftToolObservabilityHandler(outputStream: stdoutStream, logLevel: .info)
         let observabilitySystem = ObservabilitySystem(observabilityHandler)
         let observabilityScope = observabilitySystem.topScope
@@ -73,7 +73,7 @@ extension DestinationCommand {
 
         var commandError: Error? = nil
         do {
-            try self.run(buildTimeTriple: triple, destinationsDirectory, observabilityScope)
+            try await self.run(buildTimeTriple: triple, destinationsDirectory, observabilityScope)
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
             }
