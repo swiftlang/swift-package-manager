@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _Concurrency
-
 import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.AbsolutePath
