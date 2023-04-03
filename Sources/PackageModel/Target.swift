@@ -37,6 +37,12 @@ public class Target: PolymorphicCodableProtocol {
         case `macro`
     }
 
+    /// A group a target belongs to that allows customizing access boundaries. A target is treated as
+    /// a client outside of the package if `excluded`, inside the package boundary if `package`.
+    public enum Group: Codable, Equatable {
+        case package
+        case excluded
+    }
     /// A reference to a product from a target dependency.
     public struct ProductReference: Codable {
 
@@ -129,6 +135,10 @@ public class Target: PolymorphicCodableProtocol {
     /// NOTE: This name is not the language-level target (i.e., the importable
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public private(set) var name: String
+
+    /// The group this target belongs to, where access to the target's group-specific
+    /// APIs is not allowed from outside.
+    public private(set) var group: Group
 
     /// Module aliases needed to build this target. The key is an original name of a
     /// dependent target and the value is a new unique name mapped to the name
@@ -235,6 +245,7 @@ public class Target: PolymorphicCodableProtocol {
     fileprivate init(
         name: String,
         potentialBundleName: String? = nil,
+        group: Group,
         type: Kind,
         path: AbsolutePath,
         sources: Sources,
@@ -248,6 +259,7 @@ public class Target: PolymorphicCodableProtocol {
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
+        self.group = group
         self.type = type
         self.path = path
         self.sources = sources
@@ -262,7 +274,7 @@ public class Target: PolymorphicCodableProtocol {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages, usesUnsafeFlags
+        case name, potentialBundleName, group, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages, usesUnsafeFlags
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -272,6 +284,7 @@ public class Target: PolymorphicCodableProtocol {
         // the actual target dependency object.
         try container.encode(name, forKey: .name)
         try container.encode(potentialBundleName, forKey: .potentialBundleName)
+        try container.encode(group, forKey: .group)
         try container.encode(type, forKey: .type)
         try container.encode(path, forKey: .path)
         try container.encode(sources, forKey: .sources)
@@ -288,6 +301,7 @@ public class Target: PolymorphicCodableProtocol {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
         self.potentialBundleName = try container.decodeIfPresent(String.self, forKey: .potentialBundleName)
+        self.group = try container.decode(Group.self, forKey: .group)
         self.type = try container.decode(Kind.self, forKey: .type)
         self.path = try container.decode(AbsolutePath.self, forKey: .path)
         self.sources = try container.decode(Sources.self, forKey: .sources)
@@ -322,6 +336,14 @@ extension Target: CustomStringConvertible {
     }
 }
 
+extension Target.Group {
+    public init(_ group: TargetDescription.TargetGroup) {
+        switch group {
+        case .package: self = .package
+        case .excluded: self = .excluded
+        }
+    }
+}
 public final class SwiftTarget: Target {
 
     /// The default name for the test entry point file located in a package.
@@ -332,11 +354,12 @@ public final class SwiftTarget: Target {
         [defaultTestEntryPointName, "LinuxMain.swift"]
     }
 
-    public init(name: String, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
+    public init(name: String, group: Target.Group, dependencies: [Target.Dependency], testDiscoverySrc: Sources) {
         self.swiftVersion = .v5
 
         super.init(
             name: name,
+            group: group,
             type: .library,
             path: .root,
             sources: testDiscoverySrc,
@@ -353,6 +376,7 @@ public final class SwiftTarget: Target {
     public init(
         name: String,
         potentialBundleName: String? = nil,
+        group: Target.Group,
         type: Kind,
         path: AbsolutePath,
         sources: Sources,
@@ -369,6 +393,7 @@ public final class SwiftTarget: Target {
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,
+            group: group,
             type: type,
             path: path,
             sources: sources,
@@ -383,7 +408,7 @@ public final class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from test entry point file.
-    public init(name: String, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
+    public init(name: String, group: Target.Group, dependencies: [Target.Dependency], testEntryPointPath: AbsolutePath) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -401,6 +426,7 @@ public final class SwiftTarget: Target {
 
         super.init(
             name: name,
+            group: group,
             type: .executable,
             path: .root,
             sources: sources,
@@ -462,6 +488,7 @@ public final class SystemLibraryTarget: Target {
         self.isImplicit = isImplicit
         super.init(
             name: name,
+            group: .excluded, // access to only public APIs is allowed for system libs
             type: .systemModule,
             path: sources.root,
             sources: sources,
@@ -548,6 +575,7 @@ public final class ClangTarget: Target {
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,
+            group: .excluded, // group is no-op for non-Swift modules
             type: type,
             path: path,
             sources: sources,
@@ -611,6 +639,7 @@ public final class BinaryTarget: Target {
         let sources = Sources(paths: [], root: path)
         super.init(
             name: name,
+            group: .excluded, // access to only public APIs is allowed for binary targets
             type: .binary,
             path: .root,
             sources: sources,
@@ -722,6 +751,7 @@ public final class PluginTarget: Target {
 
     public init(
         name: String,
+        group: Target.Group,
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
@@ -731,6 +761,7 @@ public final class PluginTarget: Target {
         self.apiVersion = apiVersion
         super.init(
             name: name,
+            group: group,
             type: .plugin,
             path: .root,
             sources: sources,
