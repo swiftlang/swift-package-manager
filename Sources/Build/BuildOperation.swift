@@ -237,7 +237,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Get the build description
         let buildDescription = try getBuildDescription()
 
-        // Verify dependency imports on the described targers
+        // Verify dependency imports on the described targets
         try verifyTargetImports(in: buildDescription)
 
         // Create the build system.
