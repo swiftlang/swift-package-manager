@@ -11,9 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 
-/// An `Archiver` that handles multiple formats by delegating to other archivers it was initialized with.
-public final class MultiFormatArchiver: Archiver {
+/// An `Archiver` that handles multiple formats by delegating to other existing archivers each dedicated to its own
+/// format.
+public final class UniversalArchiver: Archiver {
     public var supportedExtensions: Set<String>
 
     enum Error: Swift.Error {
@@ -32,11 +34,14 @@ public final class MultiFormatArchiver: Archiver {
 
     private let formatMapping: [String: any Archiver]
 
-    public init(_ archivers: [any Archiver]) {
+    public init(_ fileSystem: any FileSystem, _ cancellator: Cancellator? = nil) {
         var formatMapping = [String: any Archiver]()
         var supportedExtensions = Set<String>()
 
-        for archiver in archivers {
+        for archiver in [
+            ZipArchiver(fileSystem: fileSystem, cancellator: cancellator),
+            TarArchiver(fileSystem: fileSystem, cancellator: cancellator),
+        ] as [any Archiver] {
             supportedExtensions.formUnion(archiver.supportedExtensions)
             for ext in archiver.supportedExtensions {
                 formatMapping[ext] = archiver
@@ -48,21 +53,9 @@ public final class MultiFormatArchiver: Archiver {
     }
 
     private func archiver(for archivePath: AbsolutePath) throws -> any Archiver {
-        let filename = archivePath.basename
-
-        // Calculating extension manually, since ``AbsolutePath//extension`` doesn't support multiple extensions,
-        // like `.tar.gz`. It returns just `gz` for `.tar.gz` archives.
-        guard let firstDot = filename.firstIndex(of: ".") else {
+        guard let extensions = archivePath.allExtensions else {
             throw Error.noFileNameExtension(archivePath)
         }
-
-        var extensions = String(filename[firstDot ..< filename.endIndex])
-
-        guard extensions.count > 1 else {
-            throw Error.noFileNameExtension(archivePath)
-        }
-
-        extensions.removeFirst()
 
         guard let archiver = self.formatMapping[extensions] else {
             throw Error.unknownFormat(extensions, archivePath)

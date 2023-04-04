@@ -16,12 +16,10 @@ import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import TSCTestSupport
 import XCTest
 
-final class MultiFormatArchiverTests: XCTestCase {
+final class UniversalArchiverTests: XCTestCase {
     func testSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
             let inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             let tarDestination = tmpdir.appending("tar")
@@ -42,9 +40,7 @@ final class MultiFormatArchiverTests: XCTestCase {
 
     func testArchiveDoesntExist() {
         let fileSystem = InMemoryFileSystem()
-        let archiver = MultiFormatArchiver(
-            [TarArchiver(fileSystem: fileSystem), ZipArchiver(fileSystem: fileSystem)]
-        )
+        let archiver = UniversalArchiver(fileSystem)
         let archive = AbsolutePath("/archive.tar.gz")
         XCTAssertThrowsError(try archiver.extract(from: archive, to: "/")) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, archive))
@@ -53,9 +49,7 @@ final class MultiFormatArchiverTests: XCTestCase {
 
     func testDestinationDoesntExist() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz")
-        let archiver = MultiFormatArchiver(
-            [TarArchiver(fileSystem: fileSystem), ZipArchiver(fileSystem: fileSystem)]
-        )
+        let archiver = UniversalArchiver(fileSystem)
         let destination = AbsolutePath("/destination")
         XCTAssertThrowsError(try archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
@@ -64,9 +58,7 @@ final class MultiFormatArchiverTests: XCTestCase {
 
     func testDestinationIsFile() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/archive.tar.gz", "/destination")
-        let archiver = MultiFormatArchiver(
-            [TarArchiver(fileSystem: fileSystem), ZipArchiver(fileSystem: fileSystem)]
-        )
+        let archiver = UniversalArchiver(fileSystem)
         let destination = AbsolutePath("/destination")
         XCTAssertThrowsError(try archiver.extract(from: "/archive.tar.gz", to: destination)) { error in
             XCTAssertEqual(error as? FileSystemError, FileSystemError(.notDirectory, destination))
@@ -75,9 +67,7 @@ final class MultiFormatArchiverTests: XCTestCase {
 
     func testInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
             var inputArchivePath = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
@@ -103,27 +93,21 @@ final class MultiFormatArchiverTests: XCTestCase {
     func testValidation() throws {
         // valid
         try testWithTemporaryDirectory { _ in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { _ in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
             let path = AbsolutePath(path: #file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertFalse(try archiver.validate(path: path))
         }
         // error
         try testWithTemporaryDirectory { _ in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
             let path = AbsolutePath.root.appending("does_not_exist.tar.gz")
             XCTAssertThrowsError(try archiver.validate(path: path)) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
@@ -139,9 +123,7 @@ final class MultiFormatArchiverTests: XCTestCase {
         #endif
 
         try testWithTemporaryDirectory { tmpdir in
-            let archiver = MultiFormatArchiver(
-                [TarArchiver(fileSystem: localFileSystem), ZipArchiver(fileSystem: localFileSystem)]
-            )
+            let archiver = UniversalArchiver(localFileSystem)
 
             let rootDir = tmpdir.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(rootDir)
