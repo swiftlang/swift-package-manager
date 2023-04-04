@@ -220,7 +220,7 @@ the archive.
 #### Publisher TOFU
 
 Some certificates allow SwiftPM to extract additional information 
-on the signing identity. For packages signed with these certificates, 
+about the signing identity. For packages signed with these certificates, 
 SwiftPM will perform publisher TOFU to ensure the signer remains the 
 same across all versions of the package. 
 
