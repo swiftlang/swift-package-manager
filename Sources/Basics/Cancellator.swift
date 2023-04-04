@@ -112,9 +112,24 @@ public protocol Cancellable {
 }
 
 public struct CancellationError: Error, CustomStringConvertible {
-    public let description = "Operation cancelled"
+    public let description: String
 
-    public init() {}
+    public init() {
+        self.init(description: "Operation cancelled")
+    }
+
+    private init(description: String) {
+        self.description = description
+    }
+
+    static func failedToRegisterProcess(_ process: TSCBasic.Process) -> Self {
+        Self(description: """
+            failed to register a cancellation handler for this process invocation `\(
+                process.arguments.joined(separator: " ")
+            )`
+            """
+        )
+    }
 }
 
 extension TSCBasic.Process {
