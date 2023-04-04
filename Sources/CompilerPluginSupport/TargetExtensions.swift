@@ -16,7 +16,7 @@ public extension Target {
     @available(_PackageDescription, introduced: 999.0)
     static func macro(
         name: String,
-        group: TargetGroup,
+        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
