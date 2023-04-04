@@ -152,8 +152,15 @@ public final class MockWorkspace {
                 } else {
                     packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
                 }
-            case .registry(let identity, _):
+            case .registry(let identity, _, let metadata):
                 packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
+
+                // Write registry release metadata if the mock package provided it.
+                if let metadata = metadata {
+                    try self.fileSystem.createDirectory(packagePath, recursive: true)
+                    let path = packagePath.appending(component: RegistryReleaseMetadataStorage.fileName)
+                    try RegistryReleaseMetadataStorage.save(metadata, to: path, fileSystem: self.fileSystem)
+                }
             }
 
             let packageLocation: String
@@ -177,7 +184,7 @@ public final class MockWorkspace {
                 packageLocation = url.absoluteString
                 packageKind = .remoteSourceControl(url)
                 sourceControlSpecifier = RepositorySpecifier(url: url)
-            case (_, .registry(let identity, let alternativeURLs)):
+            case (_, .registry(let identity, let alternativeURLs, _)):
                 packageLocation = identity.description
                 packageKind = .registry(identity)
                 registryIdentity = identity
@@ -437,6 +444,7 @@ public final class MockWorkspace {
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
+        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         _ result: (PackageGraph, [Basics.Diagnostic]) throws -> Void
     ) throws {
         let observability = ObservabilitySystem.makeForTesting()
@@ -448,6 +456,7 @@ public final class MockWorkspace {
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput,
                 forceResolvedVersions: forceResolvedVersions,
+                expectedSigningEntities: expectedSigningEntities,
                 observabilityScope: observability.topScope
             )
             try result(graph, observability.diagnostics)

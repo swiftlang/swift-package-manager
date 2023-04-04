@@ -105,7 +105,7 @@ public struct RegistryReleaseMetadata {
         }
     }
 
-    public enum SigningEntity: Codable {
+    public enum SigningEntity: Codable, Equatable {
         case recognized(type: String, commonName: String?, organization: String?, identity: String?)
         case unrecognized(commonName: String?, organization: String?)
     }
