@@ -131,12 +131,9 @@ Resolving a registry dependency involves these steps:
 2. Compute the dependency graph by [fetching manifest(s) for a package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#43-fetch-manifest-for-a-package-release).
 3. Pinpoint the package version to use.
 
-### Using registry for source control dependencies
+### Using registry for source control dependencies 
 
-Registry can be used for source control dependencies as well. SwiftPM does this
-by performing a [lookup on the source control URL](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-5)
-(e.g., `https://github.com/mona/LinkedList`) to see if it is associated with 
-any package identifier.
+Here is an example of a source control dependency:
 
 ```swift
 dependencies: [
@@ -144,8 +141,22 @@ dependencies: [
 ],
 ```
 
-One can control if/how SwiftPM should use registry in conjunction with source control 
-dependencies by setting one of these flags:
+Registry can be used for source control dependencies as well. This is 
+particularly useful when there is a "mixed" graph (i.e., a dependency 
+graph that has both source control and registry dependencies). SwiftPM
+considers packages with different origins to be different, so if a
+package is referenced as both a registry (e.g., `mona.LinkedList`) and
+source control (e.g., `https://github.com/mona/LinkedList`) dependency,
+they are considered different even though they are the same package,
+and would result in symbol clashes.
+
+SwiftPM can deduplicate packages by performing a 
+[lookup on the source control URL](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-5)
+(e.g., `https://github.com/mona/LinkedList`) to see if it is associated with 
+any package identifier (e.g., `mona.LinkedList`).
+
+One can control if/how SwiftPM should use registry in conjunction with 
+source control dependencies by setting one of these flags:
 - `--disable-scm-to-registry-transformation` (default): SwiftPM will not transform source control dependency to registry dependency. Source control dependency will be downloaded from its corresponding URL, while registry dependency will be resolved and downloaded using the configured registry (if any).
 - `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifer for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
 - `--replace-scm-with-registry`: SwiftPM will look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible. In other words, SwiftPM will attempt to download a source control dependency from the registry first, and fall back to cloning the source repository iff the dependency is not found in the registry.
@@ -158,8 +169,9 @@ of the computed package version from the registry.
 
 ### Checksum TOFU 
 
-SwiftPM performs checksum TOFU (trust-on-first-use) on
-the downloaded source archive. If the archive is downloaded
+SwiftPM performs checksum TOFU 
+([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) 
+on the downloaded source archive. If the archive is downloaded
 for the first time, SwiftPM 
 [fetches metadata of the package release](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#endpoint-2)
 to obtain the expected checksum. Otherwise, SwiftPM
@@ -302,10 +314,11 @@ This is applicable to `signing-identity` as well
 (i.e., `signing-identity` can be used in combination with 
 `cert-chain-paths` to provide the entire certificate chain).
 
-Package author is responsible for telling package users to 
-include the root certificate in their local 
+If the root of the signing certificate is not in SwiftPM's
+default trust store, package author is responsible for 
+telling package users to include the root certificate in their local 
 [trust roots](#trusted-vs-untrusted-certificate) 
-directory or else [signature validation](#validating-signed-packages) 
+directory, or else [signature validation](#validating-signed-packages) 
 may fail upon download because the signing certificate is not trusted.
 
 Refer to registry documentation for its certificate policy.
