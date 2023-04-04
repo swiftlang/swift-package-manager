@@ -30,19 +30,60 @@ public struct Package {
         case sourceControl(url: URL)
     }
 
+    public struct Resource: Sendable {
+        public let name: String
+        public let type: String
+        public let checksum: String?
+        public let signing: Signing?
+    }
+
+    public struct Signing: Sendable {
+        public let signatureBase64Encoded: String
+        public let signatureFormat: String
+    }
+
+    public struct Author: Sendable {
+        public let name: String
+        public let email: String?
+        public let description: String?
+        public let organization: Organization?
+        public let url: URL?
+    }
+
+    public struct Organization: Sendable {
+        public let name: String
+        public let email: String?
+        public let description: String?
+        public let url: URL?
+    }
+
     public let identity: PackageIdentity
     public let location: String?
     public let branches: [String]
     public let versions: [Version]
-    public let readmeURL: URL?
     public let source: Source
 
-    fileprivate init(identity: PackageIdentity, location: String? = nil, branches: [String] = [], versions: [Version], readmeURL: URL? = nil, source: Source) {
+    // Per version metadata based on the latest version that we include here for convenience.
+    public let licenseURL: URL?
+    public let readmeURL: URL?
+    public let repositoryURLs: [URL]?
+    public let resources: [Resource]
+    public let author: Author?
+    public let description: String?
+    public let latestVersion: Version?
+
+    fileprivate init(identity: PackageIdentity, location: String? = nil, branches: [String] = [], versions: [Version], licenseURL: URL? = nil, readmeURL: URL? = nil, repositoryURLs: [URL]?, resources: [Resource], author: Author?, description: String?, latestVersion: Version? = nil, source: Source) {
         self.identity = identity
         self.location = location
         self.branches = branches
         self.versions = versions
+        self.licenseURL = licenseURL
         self.readmeURL = readmeURL
+        self.repositoryURLs = repositoryURLs
+        self.resources = resources
+        self.author = author
+        self.description = description
+        self.latestVersion = latestVersion
         self.source = source
     }
 }
@@ -78,11 +119,20 @@ public struct PackageSearchClient {
         }
         return nil
     }
-    
-    private func getReadMeURL(
+
+    private struct Metadata {
+        public let licenseURL: URL?
+        public let readmeURL: URL?
+        public let repositoryURLs: [URL]?
+        public let resources: [Package.Resource]
+        public let author: Package.Author?
+        public let description: String?
+    }
+
+    private func getVersionMetadata(
         package: PackageIdentity,
         version: Version,
-        callback: @escaping (Result<URL?, Error>) -> Void
+        callback: @escaping (Result<Metadata, Error>) -> Void
     ) {
         self.registryClient.getPackageVersionMetadata(
             package: package,
@@ -90,7 +140,16 @@ public struct PackageSearchClient {
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent
         ) { result in
-            callback(result.tryMap { metadata in metadata.readmeURL })
+            callback(result.tryMap { metadata in
+                Metadata(
+                    licenseURL: metadata.licenseURL,
+                    readmeURL: metadata.readmeURL,
+                    repositoryURLs: metadata.repositoryURLs,
+                    resources: metadata.resources.map { .init($0) },
+                    author: metadata.author.map { .init($0) },
+                    description: metadata.description
+                )
+            })
         }
     }
 
@@ -108,7 +167,13 @@ public struct PackageSearchClient {
                         Package(identity: $0.package.identity,
                                 location: $0.package.location,
                                 versions: $0.package.versions.map { $0.version },
+                                licenseURL: nil,
                                 readmeURL: $0.package.readmeURL,
+                                repositoryURLs: nil,
+                                resources: [],
+                                author: nil,
+                                description: nil,
+                                latestVersion: nil, // this only makes sense in connection with providing versioned metadata
                                 source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
                         )
                     }
@@ -146,7 +211,13 @@ public struct PackageSearchClient {
                                                   location: url.absoluteString,
                                                   branches: branches,
                                                   versions: versions,
+                                                  licenseURL: nil,
                                                   readmeURL: self.guessReadMeURL(baseURL: url, defaultBranch: try repository.getDefaultBranch()),
+                                                  repositoryURLs: nil,
+                                                  resources: [],
+                                                  author: nil,
+                                                  description: nil,
+                                                  latestVersion: nil, // this only makes sense in connection with providing versioned metadata
                                                   source: .sourceControl(url: url))
                             return callback(.success([package]))
                         }
@@ -171,17 +242,38 @@ public struct PackageSearchClient {
 
                     // See if the latest package version has readmeURL set
                     if let version = versions.first {
-                        self.getReadMeURL(package: identity, version: version) { result in
+                        self.getVersionMetadata(package: identity, version: version) { result in
+                            let licenseURL: URL?
                             let readmeURL: URL?
-                            if case .success(.some(let readmeURLForVersion)) = result {
-                                readmeURL = readmeURLForVersion
+                            let repositoryURLs: [URL]?
+                            let resources: [Package.Resource]
+                            let author: Package.Author?
+                            let description: String?
+                            if case .success(let metadata) = result {
+                                licenseURL = metadata.licenseURL
+                                readmeURL = metadata.readmeURL
+                                repositoryURLs = metadata.repositoryURLs
+                                resources = metadata.resources
+                                author = metadata.author
+                                description = metadata.description
                             } else {
+                                licenseURL = nil
                                 readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
+                                repositoryURLs = nil
+                                resources = []
+                                author = nil
+                                description = nil
                             }
-                            
+
                             return callback(.success([Package(identity: identity,
                                                               versions: metadata.versions,
+                                                              licenseURL: licenseURL,
                                                               readmeURL: readmeURL,
+                                                              repositoryURLs: repositoryURLs,
+                                                              resources: resources,
+                                                              author: author,
+                                                              description: description,
+                                                              latestVersion: version,
                                                               source: .registry(url: metadata.registry.url)
                                                              )]))
                         }
@@ -189,7 +281,13 @@ public struct PackageSearchClient {
                         let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
                         return callback(.success([Package(identity: identity,
                                                           versions: metadata.versions,
+                                                          licenseURL: nil,
                                                           readmeURL: readmeURL,
+                                                          repositoryURLs: nil,
+                                                          resources: [],
+                                                          author: nil,
+                                                          description: nil,
+                                                          latestVersion: nil, // this only makes sense in connection with providing versioned metadata
                                                           source: .registry(url: metadata.registry.url)
                                                          )]))
                     }
@@ -238,5 +336,47 @@ public struct PackageSearchClient {
                     return completion(.failure(error))
                 }
             }
+    }
+}
+
+fileprivate extension Package.Signing {
+    init(_ signing: RegistryClient.PackageVersionMetadata.Signing) {
+        self.init(
+            signatureBase64Encoded: signing.signatureBase64Encoded,
+            signatureFormat: signing.signatureFormat
+        )
+    }
+}
+
+fileprivate extension Package.Resource {
+    init(_ resource: RegistryClient.PackageVersionMetadata.Resource) {
+        self.init(
+            name: resource.name,
+            type: resource.type,
+            checksum: resource.checksum,
+            signing: resource.signing.map { .init($0) })
+    }
+}
+
+fileprivate extension Package.Author {
+    init(_ author: RegistryClient.PackageVersionMetadata.Author) {
+        self.init(
+            name: author.name,
+            email: author.email,
+            description: author.description,
+            organization: author.organization.map { .init($0) },
+            url: author.url
+        )
+    }
+}
+
+fileprivate extension Package.Organization {
+    init(_ organization: RegistryClient.PackageVersionMetadata.Organization) {
+        self.init(
+            name: organization.name,
+            email: organization.email,
+            description: organization.description,
+            url: organization.url
+        )
     }
 }
