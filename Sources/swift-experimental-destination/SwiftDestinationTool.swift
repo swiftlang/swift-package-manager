@@ -15,7 +15,7 @@ import Basics
 import CrossCompilationDestinationsTool
 
 @main
-struct SwiftDestinationTool: AsyncParsableCommand {
+struct SwiftDestinationTool: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "experimental-destination",
         _superCommandName: "swift",
