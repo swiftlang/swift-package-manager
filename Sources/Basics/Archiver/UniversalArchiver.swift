@@ -33,7 +33,7 @@ public struct UniversalArchiver: Archiver {
         }
     }
 
-    /// A dictionary from a file extension string to an archiver instance that supports this extension.
+    /// A dictionary that maps file extension strings to archiver instances that supports these extensions.
     private let formatMapping: [String: any Archiver]
 
     public init(_ fileSystem: any FileSystem, _ cancellator: Cancellator? = nil) {
