@@ -385,12 +385,19 @@ public final class SwiftTargetBuildDescription {
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
-    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage) -> [String] {
+    private func packageNameArgumentIfSupported(with pkg: ResolvedPackage, group: Target.Group) -> [String] {
+        let flag = "-package-name"
         if pkg.manifest.usePackageNameFlag,
-           driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
-              return ["-package-name", pkg.identity.description.spm_mangledToC99ExtendedIdentifier()]
-          }
-          return []
+           driverSupport.checkToolchainDriverFlags(flags: [flag], toolchain:  self.buildParameters.toolchain, fileSystem: self.fileSystem) {
+            switch group {
+            case .package:
+                let pkgID = pkg.identity.description.spm_mangledToC99ExtendedIdentifier()
+                return [flag, pkgID]
+            case .excluded:
+                return []
+            }
+        }
+        return []
     }
 
     private func macroArguments() throws -> [String] {
@@ -513,7 +520,7 @@ public final class SwiftTargetBuildDescription {
             }
         }
 
-        args += self.packageNameArgumentIfSupported(with: self.package)
+        args += self.packageNameArgumentIfSupported(with: self.package, group: self.target.group)
         args += try self.macroArguments()
 
         return args
@@ -527,7 +534,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
         if !scanInvocation {
             result.append("-emit-dependencies")
 
@@ -573,7 +580,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-emit-module")
         result.append("-emit-module-path")
         result.append(self.moduleOutputPath.pathString)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
         result += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
 
         result.append("-Xfrontend")
@@ -619,7 +626,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(self.target.c99name)
-        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package))
+        result.append(contentsOf: packageNameArgumentIfSupported(with: self.package, group: self.target.group))
         result.append("-incremental")
         result.append("-emit-dependencies")
 

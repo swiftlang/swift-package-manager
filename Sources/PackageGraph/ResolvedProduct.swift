@@ -63,7 +63,10 @@ public final class ResolvedProduct {
         self.testEntryPointTarget = underlyingProduct.testEntryPointPath.map { testEntryPointPath in
             // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(name: product.name, dependencies: dependencies, testEntryPointPath: testEntryPointPath)
+            let swiftTarget = SwiftTarget(name: product.name,
+                                          group: .package, // entry point target so treated as a part of the package
+                                          dependencies: dependencies,
+                                          testEntryPointPath: testEntryPointPath)
             return ResolvedTarget(
                 target: swiftTarget,
                 dependencies: targets.map { .target($0, conditions: []) },

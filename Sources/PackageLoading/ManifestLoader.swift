@@ -262,6 +262,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     )
                     targets.append(try TargetDescription(
                         name: parsedManifest.name,
+                        group: .excluded, // access to only public APIs is allowed for system libs
                         path: "",
                         type: .system,
                         pkgConfig: parsedManifest.pkgConfig,

@@ -219,6 +219,15 @@ extension Serialization.TargetType {
     }
 }
 
+extension Serialization.TargetGroup {
+    init(_ type: PackageDescription.Target.TargetGroup) {
+        switch type {
+        case .package: self = .package
+        case .excluded: self = .excluded
+        }
+    }
+}
+
 extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
@@ -270,6 +279,7 @@ extension Serialization.PluginUsage {
 extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
+        self.group = .init(target.group)
         self.path = target.path
         self.url = target.url
         self.sources = target.sources
