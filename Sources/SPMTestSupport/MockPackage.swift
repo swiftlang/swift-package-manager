@@ -76,6 +76,7 @@ public struct MockPackage {
         platforms: [PlatformDescription] = [],
         identity: String,
         alternativeURLs: [String]? = .none,
+        metadata: RegistryReleaseMetadata? = .none,
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
@@ -85,7 +86,11 @@ public struct MockPackage {
     ) {
         self.name = name
         self.platforms = platforms
-        self.location = .registry(identity: .plain(identity), alternativeURLs: alternativeURLs?.compactMap{ URL(string: $0) })
+        self.location = .registry(
+            identity: .plain(identity),
+            alternativeURLs: alternativeURLs?.compactMap{ URL(string: $0) },
+            metadata: metadata
+        )
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
@@ -110,6 +115,6 @@ public struct MockPackage {
     public enum Location {
         case fileSystem(path: RelativePath)
         case sourceControl(url: URL)
-        case registry(identity: PackageIdentity, alternativeURLs: [URL]?)
+        case registry(identity: PackageIdentity, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)
     }
 }

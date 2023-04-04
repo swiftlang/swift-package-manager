@@ -16,12 +16,14 @@ public extension Target {
     @available(_PackageDescription, introduced: 999.0)
     static func macro(
         name: String,
+        group: TargetGroup,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil
     ) -> Target {
         return Target(name: name,
+                      group: group,
                       dependencies: dependencies,
                       path: path,
                       exclude: exclude,

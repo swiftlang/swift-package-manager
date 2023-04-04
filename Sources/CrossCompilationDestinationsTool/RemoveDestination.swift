@@ -17,8 +17,8 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-struct RemoveDestination: DestinationCommand {
-    static let configuration = CommandConfiguration(
+public struct RemoveDestination: DestinationCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "remove",
         abstract: """
         Removes a previously installed destination artifact bundle from the filesystem.
@@ -30,6 +30,8 @@ struct RemoveDestination: DestinationCommand {
 
     @Argument(help: "Name of the destination artifact bundle or ID of the destination to remove from the filesystem.")
     var destinationIDOrBundleName: String
+
+    public init() {}
 
     func run(
         buildTimeTriple: Triple,

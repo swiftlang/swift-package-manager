@@ -40,4 +40,20 @@ public struct BuildFlags: Equatable, Encodable {
         self.linkerFlags = linkerFlags
         self.xcbuildFlags = xcbuildFlags
     }
+    
+    /// Appends corresponding properties of a different `BuildFlags` value into `self`.
+    /// - Parameter buildFlags: a `BuildFlags` value to merge flags from.
+    public mutating func append(_ buildFlags: BuildFlags) {
+        cCompilerFlags += buildFlags.cCompilerFlags
+        cxxCompilerFlags += buildFlags.cxxCompilerFlags
+        swiftCompilerFlags += buildFlags.swiftCompilerFlags
+        linkerFlags += buildFlags.linkerFlags
+
+        if var xcbuildFlags, let newXcbuildFlags = buildFlags.xcbuildFlags {
+            xcbuildFlags += newXcbuildFlags
+            self.xcbuildFlags = xcbuildFlags
+        } else if let xcbuildFlags = buildFlags.xcbuildFlags {
+            self.xcbuildFlags = xcbuildFlags
+        }
+    }
 }
