@@ -18,6 +18,7 @@ import protocol TSCBasic.FileSystem
 public final class UniversalArchiver: Archiver {
     public var supportedExtensions: Set<String>
 
+    /// Errors specific to the implementation of ``UniversalArchiver``.
     enum Error: Swift.Error {
         case unknownFormat(String, AbsolutePath)
         case noFileNameExtension(AbsolutePath)
@@ -32,6 +33,7 @@ public final class UniversalArchiver: Archiver {
         }
     }
 
+    /// A dictionary from a file extension string to an archiver instance that supports this extension.
     private let formatMapping: [String: any Archiver]
 
     public init(_ fileSystem: any FileSystem, _ cancellator: Cancellator? = nil) {
