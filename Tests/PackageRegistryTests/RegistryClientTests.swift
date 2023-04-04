@@ -3837,6 +3837,7 @@ extension RegistryClient {
             self.getPackageVersionMetadata(
                 package: package,
                 version: version,
+                fileSystem: InMemoryFileSystem(),
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
