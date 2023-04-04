@@ -53,7 +53,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             let process = TSCBasic.Process(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString])
 #endif
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("cancellation")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {
@@ -95,7 +95,7 @@ public struct ZipArchiver: Archiver, Cancellable {
 #endif
 
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("Failed to register cancellation for Archiver")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {
@@ -125,7 +125,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             let process = TSCBasic.Process(arguments: ["unzip", "-t", path.pathString])
 #endif
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("cancellation")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {

@@ -65,7 +65,7 @@ public final class TarArchiver: Archiver {
             )
 
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("cancellation")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {
@@ -99,7 +99,7 @@ public final class TarArchiver: Archiver {
             )
 
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("Failed to register cancellation for Archiver")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {
@@ -125,7 +125,7 @@ public final class TarArchiver: Archiver {
 
             let process = TSCBasic.Process(arguments: [self.tarCommand, "tf", path.pathString])
             guard let registrationKey = self.cancellator.register(process) else {
-                throw StringError("cancellation")
+                throw CancellationError.failedToRegisterProcess(process)
             }
 
             DispatchQueue.sharedConcurrent.async {
