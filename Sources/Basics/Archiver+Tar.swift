@@ -61,7 +61,7 @@ public final class TarArchiver: Archiver {
             }
 
             let process = TSCBasic.Process(
-                arguments: [self.tarCommand, "xzf", archivePath.pathString, "-C", destinationPath.pathString]
+                arguments: [self.tarCommand, "zxf", archivePath.pathString, "-C", destinationPath.pathString]
             )
 
             guard let registrationKey = self.cancellator.register(process) else {
