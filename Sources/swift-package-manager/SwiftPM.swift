@@ -22,7 +22,7 @@ let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
 
 @main
 struct SwiftPM {
-    static func main() async {
+    static func main() {
         switch execName {
         case "swift-package":
             SwiftPackageTool.main()
