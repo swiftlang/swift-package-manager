@@ -266,6 +266,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity,
         version: Version,
         timeout: DispatchTimeInterval? = .none,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
@@ -286,6 +287,7 @@ public final class RegistryClient: Cancellable {
                 package: registryIdentity,
                 version: version,
                 timeout: timeout,
+                fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 callbackQueue: callbackQueue,
                 completion: completion
@@ -314,6 +316,7 @@ public final class RegistryClient: Cancellable {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
@@ -343,6 +346,22 @@ public final class RegistryClient: Cancellable {
                                         signatureBase64Encoded: $0.signatureBase64Encoded,
                                         signatureFormat: $0.signatureFormat
                                     )
+                                },
+                                signingEntity: $0.signing.flatMap {
+                                    guard let signatureData = Data(base64Encoded: $0.signatureBase64Encoded) else {
+                                        return nil
+                                    }
+                                    guard let signatureFormat = SignatureFormat(rawValue: $0.signatureFormat) else {
+                                        return nil
+                                    }
+                                    let configuration = self.configuration.signing(for: package, registry: registry)
+                                    return try? tsc_await { SignatureValidation.extractSigningEntity(
+                                        signature: [UInt8](signatureData),
+                                        signatureFormat: signatureFormat,
+                                        configuration: configuration,
+                                        fileSystem: fileSystem,
+                                        completion: $0
+                                    ) }
                                 }
                             )
                         },
@@ -501,6 +520,7 @@ public final class RegistryClient: Cancellable {
             package: package,
             version: version,
             timeout: timeout,
+            fileSystem: localFileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -733,6 +753,7 @@ public final class RegistryClient: Cancellable {
             package: package,
             version: version,
             timeout: timeout,
+            fileSystem: localFileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -950,6 +971,7 @@ public final class RegistryClient: Cancellable {
             package: package,
             version: version,
             timeout: timeout,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue
         ) { result in
@@ -1839,12 +1861,14 @@ extension RegistryClient {
             public let type: String
             public let checksum: String?
             public let signing: Signing?
+            public let signingEntity: SigningEntity?
 
-            public init(name: String, type: String, checksum: String?, signing: Signing?) {
+            public init(name: String, type: String, checksum: String?, signing: Signing?, signingEntity: SigningEntity?) {
                 self.name = name
                 self.type = type
                 self.checksum = checksum
                 self.signing = signing
+                self.signingEntity = signingEntity
             }
         }
 

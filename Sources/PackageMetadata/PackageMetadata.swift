@@ -48,6 +48,7 @@ public struct Package {
 }
 
 public struct PackageSearchClient {
+    private let fileSystem: FileSystem
     private let registryClient: RegistryClient
     private let indexAndCollections: PackageIndexAndCollections
     private let observabilityScope: ObservabilityScope
@@ -59,6 +60,7 @@ public struct PackageSearchClient {
     ) {
         self.registryClient = registryClient
         self.indexAndCollections = PackageIndexAndCollections(fileSystem: fileSystem, observabilityScope: observabilityScope)
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
 
@@ -87,6 +89,7 @@ public struct PackageSearchClient {
         self.registryClient.getPackageVersionMetadata(
             package: package,
             version: version,
+            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent
         ) { result in

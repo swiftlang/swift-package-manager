@@ -513,6 +513,30 @@ struct SignatureValidation {
             }
         }
     }
+
+    // MARK: - signing entity
+
+    static func extractSigningEntity(
+        signature: [UInt8],
+        signatureFormat: SignatureFormat,
+        configuration: RegistryConfiguration.Security.Signing,
+        fileSystem: FileSystem,
+        completion: @Sendable @escaping (Result<SigningEntity?, Error>) -> Void
+    ) {
+        Task {
+            do {
+                let verifierConfiguration = try VerifierConfiguration.from(configuration, fileSystem: fileSystem)
+                let signingEntity = try await SignatureProvider.extractSigningEntity(
+                    signature: signature,
+                    format: signatureFormat,
+                    verifierConfiguration: verifierConfiguration
+                )
+                return completion(.success(signingEntity))
+            } catch {
+                return completion(.failure(error))
+            }
+        }
+    }
 }
 
 extension VerifierConfiguration {
