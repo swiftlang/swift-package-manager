@@ -29,7 +29,7 @@ struct SwiftPM {
         case "swift-build":
             SwiftBuildTool.main()
         case "swift-experimental-destination":
-            await SwiftDestinationTool.main()
+            SwiftDestinationTool.main()
         case "swift-test":
             SwiftTestTool.main()
         case "swift-run":

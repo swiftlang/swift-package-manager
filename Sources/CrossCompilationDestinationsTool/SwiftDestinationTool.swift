@@ -13,7 +13,7 @@
 import ArgumentParser
 import Basics
 
-public struct SwiftDestinationTool: AsyncParsableCommand {
+public struct SwiftDestinationTool: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "experimental-destination",
         _superCommandName: "swift",
