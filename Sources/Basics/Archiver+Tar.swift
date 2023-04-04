@@ -18,8 +18,8 @@ import struct TSCBasic.FileSystemError
 import class TSCBasic.Process
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
-public final class TarArchiver: Archiver {
-    public var supportedExtensions: Set<String> { ["tar", "tar.gz"] }
+public struct TarArchiver: Archiver {
+    public let supportedExtensions: Set<String> = ["tar", "tar.gz"]
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
