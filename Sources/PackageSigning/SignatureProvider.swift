@@ -55,6 +55,18 @@ public enum SignatureProvider {
             observabilityScope: observabilityScope
         )
     }
+
+    public static func extractSigningEntity(
+        signature: [UInt8],
+        format: SignatureFormat,
+        verifierConfiguration: VerifierConfiguration
+    ) async throws -> SigningEntity {
+        let provider = format.provider
+        return try await provider.extractSigningEntity(
+            signature: signature,
+            verifierConfiguration: verifierConfiguration
+        )
+    }
 }
 
 public struct VerifierConfiguration {
@@ -162,6 +174,11 @@ protocol SignatureProviderProtocol {
         verifierConfiguration: VerifierConfiguration,
         observabilityScope: ObservabilityScope
     ) async throws -> SignatureStatus
+
+    func extractSigningEntity(
+        signature: [UInt8],
+        verifierConfiguration: VerifierConfiguration
+    ) async throws -> SigningEntity
 }
 
 // MARK: - CMS signature provider
@@ -230,6 +247,13 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         } catch {
             throw SigningError.signingFailed("\(error)")
         }
+    }
+
+    func extractSigningEntity(
+        signature: [UInt8],
+        verifierConfiguration: VerifierConfiguration
+    ) async throws -> SigningEntity {
+        throw StringError("not implemented")
     }
 
     func status(
