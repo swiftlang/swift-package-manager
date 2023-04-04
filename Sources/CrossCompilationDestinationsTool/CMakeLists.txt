@@ -27,6 +27,9 @@ target_link_libraries(CrossCompilationDestinationsTool PUBLIC
 set_target_properties(CrossCompilationDestinationsTool PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
+target_compile_options(CrossCompilationDestinationsTool PRIVATE
+  -Xfrontend -validate-tbd-against-ir=none)
+
 if(USE_CMAKE_INSTALL)
 install(TARGETS CrossCompilationDestinationsTool
   ARCHIVE DESTINATION lib
