@@ -254,17 +254,17 @@ class ArchiverTests: XCTestCase {
 }
 
 extension Archiver {
-    fileprivate func extract(from: AbsolutePath, to: AbsolutePath) throws {
+    func extract(from: AbsolutePath, to: AbsolutePath) throws {
         try tsc_await {
             self.extract(from: from, to: to, completion: $0)
         }
     }
-    fileprivate func compress(directory: AbsolutePath, to: AbsolutePath) throws {
+    func compress(directory: AbsolutePath, to: AbsolutePath) throws {
         try tsc_await {
             self.compress(directory: directory, to: to, completion: $0)
         }
     }
-    fileprivate func validate(path: AbsolutePath) throws -> Bool {
+    func validate(path: AbsolutePath) throws -> Bool {
         try tsc_await {
             self.validate(path: path, completion: $0)
         }
