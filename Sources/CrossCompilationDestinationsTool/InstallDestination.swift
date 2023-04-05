@@ -47,7 +47,7 @@ public struct InstallDestination: DestinationCommand {
             bundlePathOrURL: bundlePathOrURL,
             destinationsDirectory: destinationsDirectory,
             self.fileSystem,
-            ZipArchiver(fileSystem: self.fileSystem),
+            UniversalArchiver(self.fileSystem, Cancellator(observabilityScope: observabilityScope)),
             observabilityScope
         )
     }
