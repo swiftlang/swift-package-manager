@@ -76,7 +76,7 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible, Sendable 
 
 // MARK: - SigningEntity types that SwiftPM recognizes
 
-public enum SigningEntityType: String, Hashable, Codable {
+public enum SigningEntityType: String, Hashable, Codable, Sendable {
     case adp // Apple Developer Program
 }
 
