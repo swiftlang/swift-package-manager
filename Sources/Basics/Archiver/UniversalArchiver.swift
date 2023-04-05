@@ -20,7 +20,7 @@ public struct UniversalArchiver: Archiver {
 
     /// Errors specific to the implementation of ``UniversalArchiver``.
     enum Error: Swift.Error {
-        case unknownFormat([Substring], AbsolutePath)
+        case unknownFormat([String], AbsolutePath)
         case noFileNameExtension(AbsolutePath)
 
         var description: String {
@@ -66,7 +66,7 @@ public struct UniversalArchiver: Archiver {
 
         if let archiver = self.formatMapping[extensions.joined(separator: ".")] {
             return archiver
-        } else if let lastExtension = extensions.last, let archiver = self.formatMapping[String(lastExtension)] {
+        } else if let lastExtension = extensions.last, let archiver = self.formatMapping[lastExtension] {
             return archiver
         } else {
             throw Error.unknownFormat(extensions, archivePath)
