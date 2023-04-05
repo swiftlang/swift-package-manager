@@ -565,45 +565,8 @@ let package = Package(
             dependencies: ["Build", "SPMTestSupport"]
         ),
         .testTarget(
-            name: "CommandsTests",
-            dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "swift-run",
-                "Basics",
-                "Build",
-                "Commands",
-                "PackageModel",
-                "PackageRegistryTool",
-                "SourceControl",
-                "SPMTestSupport",
-                "Workspace",
-            ]
-        ),
-        .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]
-        ),
-        // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
-        /*.testTarget(
-            name: "FunctionalTests",
-            dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "PackageModel",
-                "SPMTestSupport"
-            ]
-        ),*/
-        .testTarget(
-            name: "FunctionalPerformanceTests",
-            dependencies: [
-                "swift-build",
-                "swift-package",
-                "swift-test",
-                "SPMTestSupport"
-            ]
         ),
         .testTarget(
             name: "PackageDescriptionTests",
@@ -687,6 +650,52 @@ let package = Package(
     ],
     swiftLanguageVersions: [.v5]
 )
+
+// Workaround SPM's attempt to link in executables which does not work on all
+// platforms.
+#if !os(Windows)
+package.targets.append(contentsOf: [
+    .testTarget(
+        name: "CommandsTests",
+        dependencies: [
+            "swift-build",
+            "swift-package",
+            "swift-test",
+            "swift-run",
+            "Basics",
+            "Build",
+            "Commands",
+            "PackageModel",
+            "PackageRegistryTool",
+            "SourceControl",
+            "SPMTestSupport",
+            "Workspace",
+        ]
+    ),
+
+    // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+    /*.testTarget(
+        name: "FunctionalTests",
+        dependencies: [
+            "swift-build",
+            "swift-package",
+            "swift-test",
+            "PackageModel",
+            "SPMTestSupport"
+        ]
+    ),*/
+
+    .testTarget(
+        name: "FunctionalPerformanceTests",
+        dependencies: [
+            "swift-build",
+            "swift-package",
+            "swift-test",
+            "SPMTestSupport"
+        ]
+    ),
+])
+#endif
 
 // Add package dependency on llbuild when not bootstrapping.
 //
