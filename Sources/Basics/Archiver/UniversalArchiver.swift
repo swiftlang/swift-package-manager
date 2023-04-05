@@ -55,7 +55,7 @@ public struct UniversalArchiver: Archiver {
     }
 
     private func archiver(for archivePath: AbsolutePath) throws -> any Archiver {
-        guard var extensions = archivePath.allExtensions, extensions.count > 1 else {
+        guard var extensions = archivePath.allExtensions, extensions.count > 0 else {
             throw Error.noFileNameExtension(archivePath)
         }
 
