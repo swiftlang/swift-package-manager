@@ -2317,6 +2317,43 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssertEqual(observability.diagnostics.count, 0, "unexpected diagnostics: \(observability.diagnostics.map { $0.description })")
     }
+
+    func testCustomNameInPackageDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar2/Sources/Bar/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Foo",
+                    path: .init(path: "/Foo"),
+                    toolsVersion: .v5_8,
+                    dependencies: [
+                        .fileSystem(deprecatedName: "Bar", path: AbsolutePath(path: "/Bar2")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "BAR")]),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "Bar",
+                    path: .init(path: "/Bar2"),
+                    toolsVersion: .v5_8,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0, "unexpected diagnostics: \(observability.diagnostics.map { $0.description })")
+    }
 }
 
 

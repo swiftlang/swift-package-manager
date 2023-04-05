@@ -262,6 +262,7 @@ private func createResolvedPackages(
         
         var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
+        var dependencyNamesForTargetDependencyResolutionOnly = [PackageIdentity: String]()
 
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
@@ -329,12 +330,14 @@ private func createResolvedPackages(
 
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
                 dependenciesByNameForTargetDependencyResolution[nameForTargetDependencyResolution] = resolvedPackage
+                dependencyNamesForTargetDependencyResolutionOnly[resolvedPackage.package.identity] = nameForTargetDependencyResolution
 
                 dependencies[resolvedPackage.package.identity] = resolvedPackage
             }
         }
 
         packageBuilder.dependencies = Array(dependencies.values)
+        packageBuilder.dependencyNamesForTargetDependencyResolutionOnly = dependencyNamesForTargetDependencyResolutionOnly
 
         packageBuilder.defaultLocalization = package.manifest.defaultLocalization
 
@@ -425,7 +428,19 @@ private func createResolvedPackages(
                 let explicitIdsOrNames = Set(explicitProducts.lazy.map({ lookupByProductIDs ? $0.identity : $0.name }))
                 return dependency.products.filter({ lookupByProductIDs ? explicitIdsOrNames.contains($0.product.identity) : explicitIdsOrNames.contains($0.product.name) })
             })
-        let productDependencyMap = lookupByProductIDs ? productDependencies.spm_createDictionary({ ($0.product.identity, $0) }) : productDependencies.spm_createDictionary({ ($0.product.name, $0) })
+
+        let productDependencyMap: [String: ResolvedProductBuilder]
+        if lookupByProductIDs {
+            productDependencyMap = try Dictionary(uniqueKeysWithValues: productDependencies.map {
+                guard let packageName = packageBuilder.dependencyNamesForTargetDependencyResolutionOnly[$0.packageBuilder.package.identity] else {
+                    throw InternalError("could not determine name for dependency on package '\($0.packageBuilder.package.identity)' from package '\(packageBuilder.package.identity)'")
+                }
+                let key = "\(packageName.lowercased())_\($0.product.name)"
+                return (key, $0)
+            })
+        } else {
+            productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
+        }
 
         // Establish dependencies in each target.
         for targetBuilder in packageBuilder.targets {
@@ -865,6 +880,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
+
+    /// Map from package identity to the local name for target dependency resolution that has been given to that package through the dependency declaration.
+    var dependencyNamesForTargetDependencyResolutionOnly: [PackageIdentity: String] = [:]
 
     /// The defaultLocalization for this package.
     var defaultLocalization: String? = nil
