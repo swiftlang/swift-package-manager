@@ -42,8 +42,8 @@ public struct InstallDestination: DestinationCommand {
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
-    ) async throws {
-        try await DestinationBundle.install(
+    ) throws {
+        try DestinationBundle.install(
             bundlePathOrURL: bundlePathOrURL,
             destinationsDirectory: destinationsDirectory,
             self.fileSystem,

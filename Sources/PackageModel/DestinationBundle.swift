@@ -14,6 +14,7 @@
 import Basics
 
 import func TSCBasic.tsc_await
+import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
@@ -139,9 +140,8 @@ public struct DestinationBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) async throws {
-        _ = try await withTemporaryDirectory(
-            fileSystem: fileSystem,
+    ) throws {
+        _ = try withTemporaryDirectory(
             removeTreeOnDeinit: true
         ) { temporaryDirectory in
             let bundlePath: AbsolutePath
@@ -154,18 +154,21 @@ public struct DestinationBundle {
                 let bundleName = bundleURL.lastPathComponent
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
 
-                let client = HTTPClient()
-                var request = HTTPClientRequest.download(
+                let client = LegacyHTTPClient()
+                var request = LegacyHTTPClientRequest.download(
                     url: bundleURL,
-                    fileSystem: AsyncFileSystem { fileSystem },
+                    fileSystem: fileSystem,
                     destination: downloadedBundlePath
                 )
                 request.options.validResponseCodes = [200]
-                _ = try await client.execute(
-                    request,
-                    observabilityScope: observabilityScope,
-                    progress: nil
-                )
+                _ = try tsc_await {
+                    client.execute(
+                        request,
+                        observabilityScope: observabilityScope,
+                        progress: nil,
+                        completion: $0
+                    )
+                }
 
                 bundlePath = downloadedBundlePath
 
@@ -179,7 +182,7 @@ public struct DestinationBundle {
                 throw DestinationError.invalidPathOrURL(bundlePathOrURL)
             }
 
-            try await installIfValid(
+            try installIfValid(
                 bundlePath: bundlePath,
                 destinationsDirectory: destinationsDirectory,
                 temporaryDirectory: temporaryDirectory,
@@ -187,7 +190,7 @@ public struct DestinationBundle {
                 archiver,
                 observabilityScope
             )
-        }.value
+        }
 
         print("Destination artifact bundle at `\(bundlePathOrURL)` successfully installed.")
     }
@@ -206,7 +209,7 @@ public struct DestinationBundle {
         temporaryDirectory: AbsolutePath,
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver
-    ) async throws -> AbsolutePath {
+    ) throws -> AbsolutePath {
         let regex = try RegEx(pattern: "(.+\\.artifactbundle).*")
 
         guard let bundleName = bundlePath.components.last else {
@@ -229,7 +232,7 @@ public struct DestinationBundle {
             return bundlePath
         }
 
-        try await archiver.extract(from: bundlePath, to: temporaryDirectory)
+        try tsc_await { archiver.extract(from: bundlePath, to: temporaryDirectory, completion: $0) }
 
         return temporaryDirectory.appending(component: unpackedBundleName)
     }
@@ -247,8 +250,8 @@ public struct DestinationBundle {
         _ fileSystem: some FileSystem,
         _ archiver: some Archiver,
         _ observabilityScope: ObservabilityScope
-    ) async throws {
-        let unpackedBundlePath = try await unpackIfNeeded(
+    ) throws {
+        let unpackedBundlePath = try unpackIfNeeded(
             bundlePath: bundlePath,
             destinationsDirectory: destinationsDirectory,
             temporaryDirectory: temporaryDirectory,
