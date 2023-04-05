@@ -267,6 +267,7 @@ private func createResolvedPackages(
         
         var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
+        var dependencyNamesForTargetDependencyResolutionOnly = [PackageIdentity: String]()
 
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
@@ -334,12 +335,14 @@ private func createResolvedPackages(
 
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
                 dependenciesByNameForTargetDependencyResolution[nameForTargetDependencyResolution] = resolvedPackage
+                dependencyNamesForTargetDependencyResolutionOnly[resolvedPackage.package.identity] = nameForTargetDependencyResolution
 
                 dependencies[resolvedPackage.package.identity] = resolvedPackage
             }
         }
 
         packageBuilder.dependencies = Array(dependencies.values)
+        packageBuilder.dependencyNamesForTargetDependencyResolutionOnly = dependencyNamesForTargetDependencyResolutionOnly
 
         packageBuilder.defaultLocalization = package.manifest.defaultLocalization
 
@@ -441,7 +444,13 @@ private func createResolvedPackages(
 
         let productDependencyMap: [String: ResolvedProductBuilder]
         if lookupByProductIDs {
-            productDependencyMap = productDependencies.spm_createDictionary { ($0.product.identity, $0) }
+            productDependencyMap = try Dictionary(uniqueKeysWithValues: productDependencies.map {
+                guard let packageName = packageBuilder.dependencyNamesForTargetDependencyResolutionOnly[$0.packageBuilder.package.identity] else {
+                    throw InternalError("could not determine name for dependency on package '\($0.packageBuilder.package.identity)' from package '\(packageBuilder.package.identity)'")
+                }
+                let key = "\(packageName.lowercased())_\($0.product.name)"
+                return (key, $0)
+            })
         } else {
             productDependencyMap = try Dictionary(
                 productDependencies.map { ($0.product.name, $0) },
@@ -961,6 +970,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
+
+    /// Map from package identity to the local name for target dependency resolution that has been given to that package through the dependency declaration.
+    var dependencyNamesForTargetDependencyResolutionOnly: [PackageIdentity: String] = [:]
 
     /// The defaultLocalization for this package.
     var defaultLocalization: String? = nil
