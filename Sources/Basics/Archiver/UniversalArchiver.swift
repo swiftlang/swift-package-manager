@@ -16,7 +16,7 @@ import protocol TSCBasic.FileSystem
 /// An `Archiver` that handles multiple formats by delegating to other existing archivers each dedicated to its own
 /// format.
 public struct UniversalArchiver: Archiver {
-    public var supportedExtensions: Set<String>
+    public let supportedExtensions: Set<String>
 
     /// Errors specific to the implementation of ``UniversalArchiver``.
     enum Error: Swift.Error {
