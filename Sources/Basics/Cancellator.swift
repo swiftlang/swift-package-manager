@@ -27,6 +27,59 @@ public class Cancellator: Cancellable {
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
     }
+    
+    /// Installs signal handlers to terminate sub-processes on cancellation.
+    public func installSignalHandlers() {
+        #if os(Windows)
+        // set shutdown handler to terminate sub-processes, etc
+        _ = SetConsoleCtrlHandler({ [weak self] _ in
+            // Terminate all processes on receiving an interrupt signal.
+            try? self?.cancel(deadline: .now() + .seconds(30))
+
+            // Reset the handler.
+            _ = SetConsoleCtrlHandler(nil, false)
+
+            // Exit as if by signal()
+            TerminateProcess(GetCurrentProcess(), 3)
+
+            return true
+        }, true)
+        #else
+        // trap SIGINT to terminate sub-processes, etc
+        signal(SIGINT, SIG_IGN)
+        let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
+        interruptSignalSource.setEventHandler { [weak self] in
+            // cancel the trap?
+            interruptSignalSource.cancel()
+
+            // Terminate all processes on receiving an interrupt signal.
+            try? self?.cancel(deadline: .now() + .seconds(30))
+
+            #if os(macOS) || os(OpenBSD)
+            // Install the default signal handler.
+            var action = sigaction()
+            action.__sigaction_u.__sa_handler = SIG_DFL
+            sigaction(SIGINT, &action, nil)
+            kill(getpid(), SIGINT)
+            #elseif os(Android)
+            // Install the default signal handler.
+            var action = sigaction()
+            action.sa_handler = SIG_DFL
+            sigaction(SIGINT, &action, nil)
+            kill(getpid(), SIGINT)
+            #else
+            var action = sigaction()
+            action.__sigaction_handler = unsafeBitCast(
+                SIG_DFL,
+                to: sigaction.__Unnamed_union___sigaction_handler.self
+            )
+            sigaction(SIGINT, &action, nil)
+            kill(getpid(), SIGINT)
+            #endif
+        }
+        interruptSignalSource.resume()
+        #endif
+    }
 
     @discardableResult
     public func register(name: String, handler: @escaping CancellationHandler) -> RegistrationKey? {
