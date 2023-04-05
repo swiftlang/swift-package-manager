@@ -59,7 +59,7 @@ final class DestinationBundleTests: XCTestCase {
 
         let archiver = MockArchiver()
 
-        try await DestinationBundle.install(
+        try DestinationBundle.install(
             bundlePathOrURL: bundlePath1,
             destinationsDirectory: destinationsDirectory,
             fileSystem,
@@ -69,7 +69,7 @@ final class DestinationBundleTests: XCTestCase {
 
         let invalidPath = "foobar"
         do {
-            try await DestinationBundle.install(
+            try DestinationBundle.install(
                 bundlePathOrURL: "foobar",
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
@@ -94,7 +94,7 @@ final class DestinationBundleTests: XCTestCase {
         }
 
         do {
-            try await DestinationBundle.install(
+            try DestinationBundle.install(
                 bundlePathOrURL: bundlePath1,
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
@@ -118,7 +118,7 @@ final class DestinationBundleTests: XCTestCase {
         }
 
         do {
-            try await DestinationBundle.install(
+            try DestinationBundle.install(
                 bundlePathOrURL: bundlePath2,
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
