@@ -33,16 +33,24 @@ public class Cancellator: Cancellable {
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
     }
-    
+
+    #if os(Windows)
+    // unfortunately this is needed for C callback handlers used by Windows shutdown handler
+    static var shared: Cancellator?
+    #endif
+
     /// Installs signal handlers to terminate sub-processes on cancellation.
     public func installSignalHandlers() {
         precondition(!Self.isSignalHandlerInstalled)
 
         #if os(Windows)
+        // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
+        Self.shared = self
+
         // set shutdown handler to terminate sub-processes, etc
-        _ = SetConsoleCtrlHandler({ [weak self] _ in
+        _ = SetConsoleCtrlHandler({ _ in
             // Terminate all processes on receiving an interrupt signal.
-            try? self?.cancel(deadline: .now() + .seconds(30))
+            try? Self.shared?.cancel(deadline: .now() + .seconds(30))
 
             // Reset the handler.
             _ = SetConsoleCtrlHandler(nil, false)
