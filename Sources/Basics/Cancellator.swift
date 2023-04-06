@@ -14,6 +14,10 @@ import Dispatch
 import Foundation
 import TSCBasic
 
+#if canImport(WinSDK)
+import WinSDK
+#endif
+
 public typealias CancellationHandler = (DispatchTime) throws -> Void
 
 public class Cancellator: Cancellable {
@@ -24,12 +28,16 @@ public class Cancellator: Cancellable {
     private let cancelationQueue = DispatchQueue(label: "org.swift.swiftpm.cancellator", qos: .userInteractive, attributes: .concurrent)
     private let cancelling = ThreadSafeBox<Bool>(false)
 
+    private static var isSignalHandlerInstalled = false
+
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
     }
     
     /// Installs signal handlers to terminate sub-processes on cancellation.
     public func installSignalHandlers() {
+        precondition(!Self.isSignalHandlerInstalled)
+
         #if os(Windows)
         // set shutdown handler to terminate sub-processes, etc
         _ = SetConsoleCtrlHandler({ [weak self] _ in
@@ -79,6 +87,8 @@ public class Cancellator: Cancellable {
         }
         interruptSignalSource.resume()
         #endif
+
+        Self.isSignalHandlerInstalled = true
     }
 
     @discardableResult
