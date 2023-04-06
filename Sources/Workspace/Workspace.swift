@@ -4139,7 +4139,7 @@ extension Workspace {
                     completion(.failure(error))
                 case .success(let identities):
                     // FIXME: returns first result... need to consider how to address multiple ones
-                    let identity = identities.first
+                    let identity = identities.sorted().first
                     self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
                     completion(.success(identity))
                 }
