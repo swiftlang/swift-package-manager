@@ -275,6 +275,7 @@ public final class SwiftTool {
     internal init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
+        shouldInstallSignalHandlers: Bool = true,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
@@ -308,7 +309,9 @@ public final class SwiftTool {
                 try ProcessEnv.chdir(packagePath)
             }
 
-            cancellator.installSignalHandlers()
+            if shouldInstallSignalHandlers {
+                cancellator.installSignalHandlers()
+            }
             self.cancellator = cancellator
         } catch {
             self.observabilityScope.emit(error)
