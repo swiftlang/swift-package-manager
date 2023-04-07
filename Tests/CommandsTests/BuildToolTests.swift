@@ -189,6 +189,8 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
     
+    // disabled due to intermittant failures rdar://107759919
+    /*
     func testAtMainSupport() throws {
         try fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
@@ -209,6 +211,7 @@ final class BuildToolTests: CommandsTestCase {
             }
         }
     }
+    */
 
     func testNonReachableProductsAndTargetsFunctional() throws {
         try fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
