@@ -52,7 +52,7 @@ public final class Cancellator: Cancellable {
             // set shutdown handler to terminate sub-processes, etc
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
-                try? Self.shared?.cancel(deadline: .now() + .seconds(30))
+                try? Cancellator.shared?.cancel(deadline: .now() + .seconds(30))
                 
                 // Reset the handler.
                 _ = SetConsoleCtrlHandler(nil, false)
