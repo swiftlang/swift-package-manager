@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,106 +11,61 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Dispatch
-import Foundation
 @testable import PackageCollectionsSigning
 import SPMTestSupport
 import TSCBasic
+import X509
 import XCTest
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
-
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
-
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
-
-            let certChain = [certificate, intermediateCA, rootCA]
-
-            let policy = TestCertificatePolicy(anchorCerts: [rootCA])
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-        }
+        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
+        XCTAssertNoThrow(try tsc_await { callback in policy.validate(
+            certChain: certChain,
+            validationTime: TestCertificatePolicy.testCertValidDate,
+            callback: callback
+        ) })
     }
 
     func test_EC_validate_happyCase() throws {
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
-
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "Test_ec.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
-
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
-
-            let certChain = [certificate, intermediateCA, rootCA]
-
-            let policy = TestCertificatePolicy(anchorCerts: [rootCA])
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-        }
+        let certChain = try tsc_await { callback in self.readTestECCertChain(callback: callback) }
+        let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
+        XCTAssertNoThrow(try tsc_await { callback in policy.validate(
+            certChain: certChain,
+            validationTime: TestCertificatePolicy.testCertValidDate,
+            callback: callback
+        ) })
     }
 
     func test_validate_untrustedRoot() throws {
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
-
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
-
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
-
-            let certChain = [certificate, intermediateCA, rootCA]
-
-            // Self-signed root is not trusted
-            let policy = TestCertificatePolicy(anchorCerts: [])
-            XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                #if os(macOS)
-                guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
-                    return XCTFail("Expected CertificatePolicyError.invalidCertChain")
-                }
-                #elseif os(Linux) || os(Windows) || os(Android)
-                guard CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError else {
-                    return XCTFail("Expected CertificatePolicyError.noTrustedRootCertsConfigured")
-                }
-                #endif
+        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        // Test root is not trusted
+        let policy = TestCertificatePolicy(trustedRoots: nil)
+        XCTAssertThrowsError(try tsc_await { callback in policy.validate(
+            certChain: certChain,
+            validationTime: TestCertificatePolicy.testCertValidDate,
+            callback: callback
+        ) }) { error in
+            guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                return XCTFail("Expected CertificatePolicyError.invalidCertChain")
             }
         }
     }
 
     func test_validate_expiredCert() throws {
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        let certChain = try tsc_await { callback in self.readTestRSACertChain(callback: callback) }
+        // Test root is not trusted
+        let policy = TestCertificatePolicy(trustedRoots: certChain.suffix(1))
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "Test_rsa.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
-
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "TestIntermediateCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "TestRootCA.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
-
-            let certChain = [certificate, intermediateCA, rootCA]
-
-            // Use verify date outside of cert's validity period
-            let policy = TestCertificatePolicy(anchorCerts: [rootCA], verifyDate: TestCertificatePolicy.testCertInvalidDate)
-            XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
-                    return XCTFail("Expected CertificatePolicyError.invalidCertChain")
-                }
+        // Use verify date outside of cert's validity period
+        XCTAssertThrowsError(try tsc_await { callback in policy.validate(
+            certChain: certChain,
+            validationTime: TestCertificatePolicy.testCertInvalidDate,
+            callback: callback
+        ) }) { error in
+            guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                return XCTFail("Expected CertificatePolicyError.invalidCertChain")
             }
         }
     }
@@ -121,44 +76,35 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "development-revoked.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "development-revoked.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
+            // Apple root certs are in SwiftPM's default trust store
             let policy = DefaultCertificatePolicy(
-                trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                trustedRootCertsDir: nil,
+                additionalTrustedRootCerts: nil,
+                observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: callbackQueue
             )
-            XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+
+            XCTAssertThrowsError(try tsc_await { callback in
+                policy.validate(certChain: certChain, callback: callback)
+            }) { error in
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                 }
             }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                      callbackQueue: callbackQueue)
-                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
-                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
-                    }
-                }
-            }
-            #endif
         }
     }
 
@@ -168,134 +114,192 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
+                // Apple root certs are in SwiftPM's default trust store
                 let policy = DefaultCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
 
-            // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
+                // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
                 let policy = DefaultCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: [rootCA],
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Specify `trustedRootCertsDir`
-                do {
-                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                          callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
-                // Another way is to pass in `additionalTrustedRootCerts`
-                do {
-                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                          callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
+            do {
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
-                do {
-                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                          callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                try withTemporaryDirectory { tmp in
+                    try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                    let policy = DefaultCertificatePolicy(
+                        trustedRootCertsDir: tmp.asURL,
+                        additionalTrustedRootCerts: [rootCA],
+                        observabilityScope: ObservabilitySystem.NOOP,
+                        callbackQueue: callbackQueue
+                    )
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        policy.validate(certChain: certChain, callback: callback)
+                    })
                 }
             }
-            #endif
         }
     }
 
-    func test_validate_appleSwiftPackageCollectionPolicy() throws {
+    func test_validate_appleSwiftPackageCollectionPolicy_rsa() throws {
         #if ENABLE_REAL_CERT_TEST
         #else
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "swift_package_collection.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            // This must be an Apple Swift Package Collection cert
-            let certPath = fixturePath.appending(components: "Signing", "swift_package_collection.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                // Apple root certs are in SwiftPM's default trust store
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
 
-            // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: [rootCA],
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Specify `trustedRootCertsDir`
-                do {
-                    let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                              callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
-                // Another way is to pass in `additionalTrustedRootCerts`
-                do {
-                    let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                              callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
+            do {
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
-                do {
-                    let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                                              callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                try withTemporaryDirectory { tmp in
+                    try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                    let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                        trustedRootCertsDir: tmp.asURL,
+                        additionalTrustedRootCerts: [rootCA],
+                        observabilityScope: ObservabilitySystem.NOOP,
+                        callbackQueue: callbackQueue
+                    )
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        policy.validate(certChain: certChain, callback: callback)
+                    })
                 }
             }
-            #endif
+        }
+    }
+
+    func test_validate_appleSwiftPackageCollectionPolicy_ec() throws {
+        #if ENABLE_REAL_CERT_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "swift_package.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
+
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
+
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
+
+            let certChain = [certificate, intermediateCA, rootCA]
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: [rootCA],
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
+                try withTemporaryDirectory { tmp in
+                    try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                    let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                        trustedRootCertsDir: tmp.asURL,
+                        additionalTrustedRootCerts: [rootCA],
+                        observabilityScope: ObservabilitySystem.NOOP,
+                        callbackQueue: callbackQueue
+                    )
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        policy.validate(certChain: certChain, callback: callback)
+                    })
+                }
+            }
         }
     }
 
@@ -305,66 +309,62 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "distribution.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            // This must be an Apple Distribution cert
-            let certPath = fixturePath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
-                let policy = AppleDistributionCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                // Apple root certs are in SwiftPM's default trust store
+                let policy = ADPAppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
 
-            // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
-                let policy = AppleDistributionCertificatePolicy(
-                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
+                let policy = ADPAppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: [rootCA],
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Specify `trustedRootCertsDir`
-                do {
-                    let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                    callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
-                // Another way is to pass in `additionalTrustedRootCerts`
-                do {
-                    let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                    callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-
+            do {
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
-                do {
-                    let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                                    callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                try withTemporaryDirectory { tmp in
+                    try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                    let policy = ADPAppleDistributionCertificatePolicy(
+                        trustedRootCertsDir: tmp.asURL,
+                        additionalTrustedRootCerts: [rootCA],
+                        observabilityScope: ObservabilitySystem.NOOP,
+                        callbackQueue: callbackQueue
+                    )
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        policy.validate(certChain: certChain, callback: callback)
+                    })
                 }
             }
-            #endif
         }
     }
 
@@ -374,150 +374,291 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "development.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            let certPath = fixturePath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-
-            // Subject user ID matches
             do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID matches
                 let policy = DefaultCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
                     expectedSubjectUserID: expectedSubjectUserID,
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            // Subject user ID does not match
+
             do {
-                let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID does not match
                 let policy = DefaultCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
-                    expectedSubjectUserID: mismatchSubjectUserID,
+                    expectedSubjectUserID: "\(expectedSubjectUserID)-2",
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                    guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                        return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                    }
-                }
-            }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Subject user ID matches
-                do {
-                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                          callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-                // Subject user ID does not match
-                do {
-                    let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                          callbackQueue: callbackQueue)
-                    XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                        guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                            return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                        }
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                     }
                 }
             }
-            #endif
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit matches
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: expectedSubjectOrgUnit,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit does not match
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: "\(expectedSubjectOrgUnit)-2",
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
+                    }
+                }
+            }
         }
     }
 
-    func test_validate_appleSwiftPackageCollectionPolicy_user() throws {
+    func test_validate_appleSwiftPackageCollectionPolicy_rsa_user() throws {
         #if ENABLE_REAL_CERT_TEST
         #else
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "swift_package_collection.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            // This must be an Apple Swift Package Collection cert
-            let certPath = fixturePath.appending(components: "Signing", "swift_package_collection.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCA.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-
-            // Subject user ID matches
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID matches
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
                     expectedSubjectUserID: expectedSubjectUserID,
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            // Subject user ID does not match
+
             do {
-                let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID does not match
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
-                    expectedSubjectUserID: mismatchSubjectUserID,
+                    expectedSubjectUserID: "\(expectedSubjectUserID)-2",
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                    guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                        return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                    }
-                }
-            }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Subject user ID matches
-                do {
-                    let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                              expectedSubjectUserID: expectedSubjectUserID,
-                                                                              callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-                // Subject user ID does not match
-                do {
-                    let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                    let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                              expectedSubjectUserID: mismatchSubjectUserID,
-                                                                              callbackQueue: callbackQueue)
-                    XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                        guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                            return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                        }
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                     }
                 }
             }
-            #endif
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit matches
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: expectedSubjectOrgUnit,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit does not match
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: "\(expectedSubjectOrgUnit)-2",
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
+                    }
+                }
+            }
+        }
+    }
+
+    func test_validate_appleSwiftPackageCollectionPolicy_ec_user() throws {
+        #if ENABLE_REAL_CERT_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "swift_package.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
+
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG6.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
+
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleRootCAG3.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
+
+            let certChain = [certificate, intermediateCA, rootCA]
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID matches
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: expectedSubjectUserID,
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID does not match
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: "\(expectedSubjectUserID)-2",
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
+                    }
+                }
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit matches
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: expectedSubjectOrgUnit,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit does not match
+                let policy = ADPSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: "\(expectedSubjectOrgUnit)-2",
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
+                    }
+                }
+            }
         }
     }
 
@@ -527,91 +668,141 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        try PackageCollectionsSigningTests_skipIfUnsupportedPlatform()
+        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            let certPath = fixturePath.appending(components: "Certificates", "distribution.cer")
+            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
-            // This must be an Apple Distribution cert
-            let certPath = fixturePath.appending(components: "Signing", "development.cer")
-            let certificate = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath))
+            let intermediateCAPath = fixturePath.appending(components: "Certificates", "AppleWWDRCAG3.cer")
+            let intermediateCA = try Certificate(
+                derEncoded: try localFileSystem.readFileContents(intermediateCAPath).contents
+            )
 
-            let intermediateCAPath = fixturePath.appending(components: "Signing", "AppleWWDRCAG3.cer")
-            let intermediateCA = try Certificate(derEncoded: try localFileSystem.readFileContents(intermediateCAPath))
-
-            let rootCAPath = fixturePath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
+            let rootCAPath = fixturePath.appending(components: "Certificates", "AppleIncRoot.cer")
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
-            // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-
-            // Subject user ID matches
             do {
-                let policy = AppleDistributionCertificatePolicy(
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID matches
+                let policy = ADPAppleDistributionCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
                     expectedSubjectUserID: expectedSubjectUserID,
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
             }
-            // Subject user ID does not match
+
             do {
-                let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                let policy = AppleDistributionCertificatePolicy(
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject user ID does not match
+                let policy = ADPAppleDistributionCertificatePolicy(
                     trustedRootCertsDir: nil,
                     additionalTrustedRootCerts: nil,
-                    expectedSubjectUserID: mismatchSubjectUserID,
+                    expectedSubjectUserID: "\(expectedSubjectUserID)-2",
+                    expectedSubjectOrganizationalUnit: nil,
+                    observabilityScope: ObservabilitySystem.NOOP,
                     callbackQueue: callbackQueue
                 )
-                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                    guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                        return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                    }
-                }
-            }
-            #elseif os(Linux) || os(Windows) || os(Android)
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
 
-                // Subject user ID matches
-                do {
-                    let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                                    callbackQueue: callbackQueue)
-                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
-                }
-                // Subject user ID does not match
-                do {
-                    let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                    let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                                    callbackQueue: callbackQueue)
-                    XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                        guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
-                            return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
-                        }
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                     }
                 }
             }
-            #endif
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit matches
+                let policy = ADPAppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: expectedSubjectOrgUnit,
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertNoThrow(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                })
+            }
+
+            do {
+                // Apple root certs are in SwiftPM's default trust store
+                // Subject organizational unit does not match
+                let policy = ADPAppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: nil,
+                    expectedSubjectOrganizationalUnit: "\(expectedSubjectOrgUnit)-2",
+                    observabilityScope: ObservabilitySystem.NOOP,
+                    callbackQueue: callbackQueue
+                )
+
+                XCTAssertThrowsError(try tsc_await { callback in
+                    policy.validate(certChain: certChain, callback: callback)
+                }) { error in
+                    guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.invalidCertChain")
+                    }
+                }
+            }
         }
     }
-}
 
-fileprivate extension AppleSwiftPackageCollectionCertificatePolicy {
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
-        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
+    private func readTestRSACertChain(callback: (Result<[Certificate], Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let certPath = fixturePath.appending(components: "Certificates", "Test_rsa.cer")
+                let leaf = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
+
+                let intermediateCAPath = fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")
+                let intermediateCA = try Certificate(
+                    derEncoded: try localFileSystem
+                        .readFileContents(intermediateCAPath).contents
+                )
+
+                let rootCAPath = fixturePath.appending(components: "Certificates", "TestRootCA.cer")
+                let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
+
+                let certChain = [leaf, intermediateCA, rootCA]
+                callback(.success(certChain))
+            }
+        } catch {
+            callback(.failure(error))
+        }
     }
-}
 
-fileprivate extension AppleDistributionCertificatePolicy {
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
-        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
-    }
-}
+    private func readTestECCertChain(callback: (Result<[Certificate], Error>) -> Void) {
+        do {
+            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                let certPath = fixturePath.appending(components: "Certificates", "Test_ec.cer")
+                let leaf = try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)
 
-fileprivate extension DefaultCertificatePolicy {
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
-        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
+                let intermediateCAPath = fixturePath.appending(components: "Certificates", "TestIntermediateCA.cer")
+                let intermediateCA = try Certificate(
+                    derEncoded: try localFileSystem
+                        .readFileContents(intermediateCAPath).contents
+                )
+
+                let rootCAPath = fixturePath.appending(components: "Certificates", "TestRootCA.cer")
+                let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath).contents)
+
+                let certChain = [leaf, intermediateCA, rootCA]
+                callback(.success(certChain))
+            }
+        } catch {
+            callback(.failure(error))
+        }
     }
 }

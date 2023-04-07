@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -25,6 +25,10 @@
 
 import Foundation
 
+@_implementationOnly import _CryptoExtras
+@_implementationOnly import Crypto
+@_implementationOnly import X509
+
 // The logic in this source file loosely follows https://www.rfc-editor.org/rfc/rfc7515.html
 // for JSON Web Signature (JWS).
 
@@ -38,15 +42,6 @@ extension Signature {
     enum Algorithm: String, Codable {
         case RS256 // RSASSA-PKCS1-v1_5 using SHA-256
         case ES256 // ECDSA using P-256 and SHA-256
-
-        static func from(keyType: KeyType) -> Algorithm {
-            switch keyType {
-            case .RSA:
-                return .RS256
-            case .EC:
-                return .ES256
-            }
-        }
     }
 
     struct Header: Equatable, Codable {
@@ -65,10 +60,17 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTSerializer.swift
 extension Signature {
-    static func generate<Payload>(for payload: Payload,
-                                  with header: Header,
-                                  using signer: MessageSigner,
-                                  jsonEncoder: JSONEncoder) throws -> Data where Payload: Encodable {
+    static func generate(
+        payload: some Encodable,
+        certChainData: [Data],
+        jsonEncoder: JSONEncoder,
+        signatureAlgorithm: Signature.Algorithm,
+        signatureProvider: @escaping (Data) throws -> Data
+    ) throws -> Data {
+        let header = Signature.Header(
+            algorithm: signatureAlgorithm,
+            certChain: certChainData.map { $0.base64EncodedString() }
+        )
         let headerData = try jsonEncoder.encode(header)
         let encodedHeader = headerData.base64URLEncodedBytes()
 
@@ -77,7 +79,7 @@ extension Signature {
 
         // https://www.rfc-editor.org/rfc/rfc7515.html#section-5.1
         // Signing input: BASE64URL(header) + '.' + BASE64URL(payload)
-        let signatureData = try signer.sign(message: encodedHeader + .period + encodedPayload)
+        let signatureData = try signatureProvider(encodedHeader + .period + encodedPayload)
         let encodedSignature = signatureData.base64URLEncodedBytes()
 
         // Result: header.payload.signature
@@ -94,18 +96,22 @@ extension Signature {
 extension Signature {
     typealias CertChainValidate = ([Data], @escaping (Result<[Certificate], Error>) -> Void) -> Void
 
-    static func parse(_ signature: String,
-                      certChainValidate: CertChainValidate,
-                      jsonDecoder: JSONDecoder,
-                      callback: @escaping (Result<Signature, Error>) -> Void) {
+    static func parse(
+        _ signature: String,
+        certChainValidate: CertChainValidate,
+        jsonDecoder: JSONDecoder,
+        callback: @escaping (Result<Signature, Error>) -> Void
+    ) {
         let bytes = Array(signature.utf8)
         Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder, callback: callback)
     }
 
-    static func parse<SignatureData>(_ signature: SignatureData,
-                                     certChainValidate: CertChainValidate,
-                                     jsonDecoder: JSONDecoder,
-                                     callback: @escaping (Result<Signature, Error>) -> Void) where SignatureData: DataProtocol {
+    static func parse(
+        _ signature: some DataProtocol,
+        certChainValidate: CertChainValidate,
+        jsonDecoder: JSONDecoder,
+        callback: @escaping (Result<Signature, Error>) -> Void
+    ) {
         let parts = signature.copyBytes().split(separator: .period)
         guard parts.count == 3 else {
             return callback(.failure(SignatureError.malformedSignature))
@@ -116,7 +122,8 @@ extension Signature {
         let encodedSignature = parts[2]
 
         guard let headerBytes = encodedHeader.base64URLDecodedBytes(),
-            let header = try? jsonDecoder.decode(Header.self, from: headerBytes) else {
+              let header = try? jsonDecoder.decode(Header.self, from: headerBytes)
+        else {
             return callback(.failure(SignatureError.malformedSignature))
         }
 
@@ -133,23 +140,37 @@ extension Signature {
                 callback(.failure(error))
             case .success(let certChain):
                 do {
+                    guard let payloadBytes = encodedPayload.base64URLDecodedBytes(),
+                          let signatureBytes = encodedSignature.base64URLDecodedBytes()
+                    else {
+                        throw SignatureError.malformedSignature
+                    }
+
                     // Extract public key from the certificate
                     let certificate = certChain.first! // !-safe because certChain is not empty at this point
-                    let publicKey = try certificate.publicKey()
-
-                    guard let payload = encodedPayload.base64URLDecodedBytes() else {
-                        return callback(.failure(SignatureError.malformedSignature))
-                    }
-                    guard let signature = encodedSignature.base64URLDecodedBytes() else {
-                        return callback(.failure(SignatureError.malformedSignature))
-                    }
-
                     // Verify the key was used to generate the signature
-                    let message: Data = Data(encodedHeader) + .period + Data(encodedPayload)
-                    guard try publicKey.isValidSignature(signature, for: message) else {
-                        return callback(.failure(SignatureError.invalidSignature))
+                    let message: Data = .init(encodedHeader) + .period + Data(encodedPayload)
+                    let digest = SHA256.hash(data: message)
+
+                    switch header.algorithm {
+                    case .ES256:
+                        guard let publicKey = P256.Signing.PublicKey(certificate.publicKey) else {
+                            throw SignatureError.invalidPublicKey
+                        }
+                        guard try publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest)
+                        else {
+                            throw SignatureError.invalidSignature
+                        }
+                    case .RS256:
+                        guard let publicKey = _RSA.Signing.PublicKey(certificate.publicKey) else {
+                            throw SignatureError.invalidPublicKey
+                        }
+                        guard publicKey.isValidSignature(.init(rawRepresentation: signatureBytes), for: digest) else {
+                            throw SignatureError.invalidSignature
+                        }
                     }
-                    callback(.success(Signature(header: header, payload: payload, signature: signature)))
+
+                    callback(.success(Signature(header: header, payload: payloadBytes, signature: signatureBytes)))
                 } catch {
                     callback(.failure(error))
                 }
@@ -161,4 +182,5 @@ extension Signature {
 enum SignatureError: Error {
     case malformedSignature
     case invalidSignature
+    case invalidPublicKey
 }
