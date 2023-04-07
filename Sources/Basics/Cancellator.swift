@@ -20,7 +20,7 @@ import WinSDK
 
 public typealias CancellationHandler = (DispatchTime) throws -> Void
 
-public class Cancellator: Cancellable {
+public final class Cancellator: Cancellable {
     public typealias RegistrationKey = String
 
     private let observabilityScope: ObservabilityScope?
