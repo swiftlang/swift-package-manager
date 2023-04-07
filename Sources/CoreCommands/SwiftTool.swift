@@ -50,13 +50,16 @@ import var TSCUtility.verbosity
 typealias Diagnostic = Basics.Diagnostic
 
 public struct ToolWorkspaceConfiguration {
+    let shouldInstallSignalHandlers: Bool
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
 
     public init(
+        shouldInstallSignalHandlers: Bool = true,
         wantsMultipleTestProducts: Bool = false,
         wantsREPLProduct: Bool = false
     ) {
+        self.shouldInstallSignalHandlers = shouldInstallSignalHandlers
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
     }
@@ -275,7 +278,6 @@ public final class SwiftTool {
     internal init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
-        shouldInstallSignalHandlers: Bool = true,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
         workspaceDelegateProvider: @escaping WorkspaceDelegateProvider,
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider
@@ -309,7 +311,7 @@ public final class SwiftTool {
                 try ProcessEnv.chdir(packagePath)
             }
 
-            if shouldInstallSignalHandlers {
+            if toolWorkspaceConfiguration.shouldInstallSignalHandlers {
                 cancellator.installSignalHandlers()
             }
             self.cancellator = cancellator
