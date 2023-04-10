@@ -423,6 +423,58 @@ class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(newContents.contains("import Foundation\n"), "contents: \(newContents)")
     }
 
+    func testLatestPlatformVersions() throws {
+        let manifestContents = """
+            // swift-tools-version: 5.9
+            // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                platforms: [
+                    .macOS(.v13),
+                    .iOS(.v16),
+                    .tvOS(.v16),
+                    .watchOS(.v9),
+                    .macCatalyst(.v16),
+                    .driverKit(.v22)
+                ],
+                targets: [
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
+    }
+
+    func testTargetPlatformConditions() throws {
+        let manifestContents = """
+            // swift-tools-version: 5.9
+            // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                targets: [
+                    .target(
+                        name: "MyExe",
+                        dependencies: [
+                            .target(name: "MyLib", condition: .when(platforms: [
+                                .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .driverKit,
+                                .linux, .windows, .android, .wasi, .openbsd
+                            ]))
+                        ]
+                    ),
+                    .target(
+                        name: "MyLib"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
+    }
+    
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let packageDir = AbsolutePath("/tmp/MyLibrary")
