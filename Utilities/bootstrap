@@ -684,6 +684,21 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
 def call_swiftpm(args, cmd, cwd=None):
     """Calls a SwiftPM binary with the necessary environment variables and flags."""
+
+    args.build_target = get_build_target(args, cross_compile=(True if args.cross_compile_config else False))
+
+    args.platform_path = None
+    for path in args.target_info["paths"]["runtimeLibraryPaths"]:
+        args.platform_path = re.search(r"(lib/swift/([^/]+))$", path)
+        if args.platform_path:
+            break
+
+    if not args.platform_path:
+        error(
+            "the command `%s -print-target-info` didn't return a valid runtime library path"
+            % args.swiftc_path
+        )
+
     full_cmd = get_swiftpm_env_cmd(args) + cmd + get_swiftpm_flags(args)
     if cwd is None:
         cwd = args.project_root
@@ -730,6 +745,9 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+
+    if not '-macosx' in args.build_target and args.command == 'install':
+        env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
 
     if args.bootstrap:
         libs_joined = ":".join([
@@ -787,67 +805,34 @@ def get_swiftpm_flags(args):
     # On Darwin platforms, a relative rpath is necessary for experimental
     # toolchains that include libraries not part of the OS (e.g. PythonKit or
     # TensorFlow).
-    if platform.system() == "Darwin":
+    if '-macosx' in args.build_target:
         # rpaths for compatibility libraries
         for lib_path in get_swift_backdeploy_library_paths(args):
             build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", lib_path])
 
-        swift_library_rpath_prefix = "@executable_path/../"
-    elif platform.system() == 'Linux' or platform.system() == 'OpenBSD':
-        # `$ORIGIN` is an ELF construct.
-        swift_library_rpath_prefix = "$ORIGIN/../"
-    if platform.system() == 'OpenBSD':
-        build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
-
-    platform_path = None
-    for path in args.target_info["paths"]["runtimeLibraryPaths"]:
-        platform_path = re.search(r"(lib/swift/([^/]+))$", path)
-        if platform_path:
-            build_flags.extend(
-                [
-                    "-Xlinker",
-                    "-rpath",
-                    "-Xlinker",
-                    swift_library_rpath_prefix + platform_path.group(1),
-                ]
-            )
-            if platform.system() == 'Linux':
-                build_flags.extend(
-                    [
-                        "-Xlinker",
-                        "-rpath",
-                        "-Xlinker",
-                        swift_library_rpath_prefix + '../' + platform_path.group(2),
-                    ]
-                )
-            break
-
-    if not platform_path:
-        error(
-            "the command `%s -print-target-info` didn't return a valid runtime library path"
-            % args.swiftc_path
+        build_flags.extend(
+           [
+               "-Xlinker",
+               "-rpath",
+               "-Xlinker",
+               "@executable_path/../" + args.platform_path.group(1),
+           ]
         )
 
-    # Don't use GNU strerror_r on Android.
-    if 'ANDROID_DATA' in os.environ or (args.cross_compile_hosts and re.match(
-        'android-', args.cross_compile_hosts)):
-        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
-
-    if platform.system() == "OpenBSD":
+    if '-openbsd' in args.build_target:
+        build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
         build_flags.extend(["-Xcc", "-I/usr/local/include"])
         build_flags.extend(["-Xlinker", "-L/usr/local/lib"])
 
-    # On ELF platforms, remove the host toolchain's stdlib absolute rpath from
-    # installed executables and shared libraries.
-    if platform.system() != "Darwin" and args.command == 'install':
-        build_flags.extend(["-Xswiftc", "-no-toolchain-stdlib-rpath"])
+    # Don't use GNU strerror_r on Android.
+    if '-android' in args.build_target:
+        build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
 
-    build_target = get_build_target(args)
     cross_compile_hosts = args.cross_compile_hosts
     if cross_compile_hosts:
-        if re.search('-apple-macosx', build_target) and re.match('macosx-', cross_compile_hosts):
+        if '-apple-macosx' in args.build_target and cross_compile_hosts.startswith('macosx-'):
             build_flags += ["--arch", "x86_64", "--arch", "arm64"]
-        elif re.match('android-', cross_compile_hosts):
+        elif cross_compile_hosts.startswith('android-'):
             build_flags.extend(["--destination", args.cross_compile_config])
         else:
             error("cannot cross-compile for %s" % cross_compile_hosts)

@@ -15,6 +15,17 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
+// When building the toolchain on the CI for ELF platforms, remove the CI's
+// stdlib absolute runpath and add ELF's $ORIGIN relative paths before installing.
+let swiftpmLinkSettings : [LinkerSetting]
+let packageLibraryLinkSettings : [LinkerSetting]
+if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] {
+  swiftpmLinkSettings = [ .unsafeFlags(["-no-toolchain-stdlib-rpath", "-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../lib/swift/\(resourceDirPath)"]) ]
+  packageLibraryLinkSettings = [ .unsafeFlags(["-no-toolchain-stdlib-rpath", "-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../../\(resourceDirPath)"]) ]
+} else {
+  swiftpmLinkSettings = []
+  packageLibraryLinkSettings = []
+}
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
 This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
@@ -151,7 +162,8 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
-            ]
+            ],
+            linkerSettings: packageLibraryLinkSettings
         ),
 
         // The `PackagePlugin` target provides the API that is available to
@@ -163,7 +175,8 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
-            ]
+            ],
+            linkerSettings: packageLibraryLinkSettings
         ),
 
         // MARK: SwiftPM specific support libraries
@@ -497,7 +510,8 @@ let package = Package(
                 "CrossCompilationDestinationsTool",
                 "PackageCollectionsTool",
                 "PackageRegistryTool"
-            ]
+            ],
+            linkerSettings: swiftpmLinkSettings
         ),
         .executableTarget(
             /** Interact with package registry */
