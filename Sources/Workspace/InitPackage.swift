@@ -251,7 +251,8 @@ public final class InitPackage {
             } else if packageType == .macro {
                 pkgParams.append("""
                     dependencies: [
-                        .package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),
+                        // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-10-a"),
                     ]
                 """)
             }
