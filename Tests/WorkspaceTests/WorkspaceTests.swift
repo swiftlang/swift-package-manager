@@ -14053,7 +14053,8 @@ final class WorkspaceTests: XCTestCase {
                     description: "package \(identity) description",
                     licenseURL: "/\(identity)/license",
                     readmeURL: "/\(identity)/readme"
-                )
+                ),
+                publishedAt: nil
             )
             completion(.success(
                 HTTPClientResponse(

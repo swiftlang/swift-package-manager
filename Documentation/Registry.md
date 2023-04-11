@@ -33,6 +33,7 @@
 - [5. Normative References](#5-normative-references)
 - [6. Informative References](#6-informative-references)
 - [Appendix A - OpenAPI Document](#appendix-a---openapi-document)
+- [Appendix B - Package Release Metadata JSON Schema](#appendix-b---package-release-metadata-json-schema)
 
 ## 1. Notations
 
@@ -466,18 +467,20 @@ Link: <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version"
       }
     }
   ],
-  "metadata": { ... }
+  "metadata": { ... },
+  "publishedAt": "2023-02-16T04:00:00.000Z"
 }
 ```
 
-The response body MUST contain a JSON object containing the following fields:
+The response body SHOULD contain a JSON object containing the following fields:
 
-| Key         | Type   | Description                               |
-| ----------- | ------ | ----------------------------------------- |
-| `id`        | String | The namespaced package identifier.        |
-| `version`   | String | The package release version number.       |
-| `resources` | Array  | The resources available for the release.  |
-| `metadata`  | Object | Additional information about the release. |
+| Key           | Type   | Description                               | Required |
+| ------------- | ------ | ----------------------------------------- | :------: |
+| `id`          | String | The namespaced package identifier.        | ✓ |
+| `version`     | String | The package release version number.       | ✓ |
+| `resources`   | Array  | The resources available for the release.  | ✓ |
+| `metadata`    | Object | Additional information about the release. | ✓ |
+| `publishedAt` | String | The [ISO 8601]-formatted datetime string of when the package release was published, as recorded by the registry. See related [`originalPublicationTime`](#appendix-b---package-release-metadata-json-schema) in `metadata`. | |
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
@@ -520,7 +523,8 @@ with a given combination of `name` and `type` values.
 
 #### 4.2.2. Package release metadata standards
 
-SE-391 defines the [JSON schema] for package release metadata that
+[Appendix B](#appendix-b---package-release-metadata-json-schema) 
+defines the JSON schema for package release metadata that
 gets submitted as part of the ["create a package release"](#endpoint-6)
 request. A server MAY allow and/or populate additional metadata by 
 expanding the schema. The `metadata` key in the 
@@ -1035,7 +1039,7 @@ A client MAY include a multipart section named `metadata`
 containing additional information about the release.
 A client SHOULD set a `Content-Type` header with the value `application/json`
 and a `Content-Length` header with the size of the JSON document in bytes.
-The package release metadata MUST be based on the [JSON schema],
+The package release metadata MUST be based on the [JSON schema](#appendix-b---package-release-metadata-json-schema),
 as discussed in [4.2.2](#422-package-release-metadata-standards).
 
 ```http
@@ -1058,8 +1062,8 @@ Content-Transfer-Encoding: quoted-printable
 
 A server MAY allow and/or populate additional metadata for a release.
 
-A server MAY make any properties in the [JSON schema] and additional 
-metadata it defines required.
+A server MAY make any properties in the [JSON schema](#appendix-b---package-release-metadata-json-schema)
+and additional metadata it defines required.
 
 If a client provides an invalid JSON document,
 the server SHOULD respond with a status code of
@@ -1706,6 +1710,135 @@ components:
 
 ```
 
+## Appendix B - Package Release Metadata JSON Schema
+
+The `metadata` section of the [create package release request](#46-create-a-package-release) 
+must be a JSON object of type [`PackageRelease`](#packagerelease-type), as defined in the
+JSON schema below.
+
+<details>
+
+<summary>Expand to view <a href="https://json-schema.org/specification.html">JSON schema</a></summary>  
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md",
+  "title": "Package Release Metadata",
+  "description": "Metadata of a package release.",
+  "type": "object",
+  "properties": {
+    "author": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",      
+          "description": "Name of the author."
+        },  
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address of the author."
+        },              
+        "description": {
+          "type": "string",      
+          "description": "A description of the author."
+        },
+        "organization": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",      
+              "description": "Name of the organization."
+            },  
+            "email": {
+              "type": "string",
+              "format": "email",      
+              "description": "Email address of the organization."
+            },              
+            "description": {
+              "type": "string",      
+              "description": "A description of the organization."
+            },        
+            "url": {
+              "type": "string",
+              "format": "uri",      
+              "description": "URL of the organization."
+            },        
+          },
+          "required": ["name"]
+        },                
+        "url": {
+          "type": "string", 
+          "format": "uri",     
+          "description": "URL of the author."
+        },        
+      },
+      "required": ["name"]
+    },
+    "description": {
+      "type": "string",      
+      "description": "A description of the package release."
+    },
+    "licenseURL": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of the package release's license document."
+    },
+    "originalPublicationTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Original publication time of the package release in ISO 8601 format."
+    },
+    "readmeURL": {
+      "type": "string",
+      "format": "uri",      
+      "description": "URL of the README specifically for the package release or broadly for the package."
+    },
+    "repositoryURLs": {
+      "type": "array",
+      "description": "Code repository URL(s) of the package release.",
+      "items": {
+        "type": "string",
+        "description": "Code repository URL."
+      }      
+    }
+  }
+}
+```
+
+</details>
+
+##### `PackageRelease` type
+
+| Property                  | Type                | Description                                      | Required |
+| ------------------------- | :-----------------: | ------------------------------------------------ | :------: |
+| `author`                  | [Author](#author-type) | Author of the package release. | |
+| `description`             | String | A description of the package release. | |
+| `licenseURL`              | String | URL of the package release's license document. | |
+| `originalPublicationTime` | String | Original publication time of the package release in [ISO 8601] format. This can be set if the package release was previously published elsewhere.<br>A registry should record the publication time independently and include it as `publishedAt` in the [package release metadata response](#42-fetch-information-about-a-package-release). <br>In case both `originalPublicationTime` and `publishedAt` are set, `originalPublicationTime` should be used. | |
+| `readmeURL`       | String | URL of the README specifically for the package release or broadly for the package. | |
+| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md#45-lookup-package-identifiers-registered-for-a-url). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
+
+##### `Author` type
+
+| Property          | Type                | Description                                      | Required |
+| ----------------- | :-----------------: | ------------------------------------------------ | :------: |
+| `name`            | String | Name of the author. | ✓ |
+| `email`           | String | Email address of the author. | |
+| `description`     | String | A description of the author. | |
+| `organization`    | [Organization](#organization-type) | Organization that the author belongs to. | |
+| `url`             | String | URL of the author. | |
+
+##### `Organization` type
+
+| Property          | Type                | Description                                      | Required |
+| ----------------- | :-----------------: | ------------------------------------------------ | :------: |
+| `name`            | String | Name of the organization. | ✓ |
+| `email`           | String | Email address of the organization. | |
+| `description`     | String | A description of the organization. | |
+| `url`             | String | URL of the organization. | |
+
 [BCP 13]: https://tools.ietf.org/html/rfc6838 "Media Type Specifications and Registration Procedures"
 [RFC 2119]: https://tools.ietf.org/html/rfc2119 "Key words for use in RFCs to Indicate Requirement Levels"
 [RFC 3230]: https://tools.ietf.org/html/rfc5843 "Instance Digests in HTTP"
@@ -1745,4 +1878,4 @@ components:
 [XCFramework]: https://developer.apple.com/videos/play/wwdc2019/416/ "WWDC 2019 Session 416: Binary Frameworks in Swift"
 [SE-0272]: https://github.com/apple/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
 [Swift tools version]: https://github.com/apple/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"
-[JSON schema]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards "JSON schema for package release metadata"
+[ISO 8601]: https://www.iso.org/iso-8601-date-and-time-format.html "ISO 8601 Date and Time Format"
