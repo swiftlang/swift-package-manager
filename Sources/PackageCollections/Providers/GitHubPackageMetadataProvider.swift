@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -24,6 +24,7 @@ import struct TSCUtility.Version
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
+    private static let service = Model.Package.Author.Service(name: "GitHub")
 
     let configuration: Configuration
     private let observabilityScope: ObservabilityScope
@@ -152,12 +153,18 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                             guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
                                 return nil
                             }
-                            return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt)
+                            return Model.PackageBasicVersionMetadata(
+                                version: version,
+                                title: $0.name,
+                                summary: $0.body,
+                                author: $0.author.map { .init(username: $0.login, url: $0.url, service: Self.service) },
+                                createdAt: $0.createdAt
+                            )
                         },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
-                        authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
+                        authors: contributors?.map { .init(username: $0.login, url: $0.url, service: Self.service) },
                         languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] }
                     )
 
@@ -394,6 +401,7 @@ extension GitHubPackageMetadataProvider {
         let body: String?
         let createdAt: Date
         let publishedAt: Date?
+        let author: Author?
 
         private enum CodingKeys: String, CodingKey {
             case name
@@ -401,6 +409,12 @@ extension GitHubPackageMetadataProvider {
             case body
             case createdAt = "created_at"
             case publishedAt = "published_at"
+            case author
+        }
+        
+        fileprivate struct Author: Codable {
+            let login: String
+            let url: URL?
         }
     }
 

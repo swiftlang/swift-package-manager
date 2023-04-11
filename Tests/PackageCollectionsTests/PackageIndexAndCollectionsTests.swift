@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -132,6 +132,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -269,6 +270,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -485,6 +487,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
@@ -586,6 +589,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
