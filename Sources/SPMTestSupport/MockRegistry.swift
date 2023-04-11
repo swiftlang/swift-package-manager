@@ -239,7 +239,8 @@ public class MockRegistry {
             metadata: .init(
                 description: "\(packageIdentity) description",
                 readmeURL: "http://\(packageIdentity)/readme"
-            )
+            ),
+            publishedAt: Date()
         )
 
         var headers = HTTPClientHeaders()
