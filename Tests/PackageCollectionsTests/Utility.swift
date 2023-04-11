@@ -102,6 +102,7 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
                                                        defaultToolsVersion: toolsVersion,
                                                        verifiedCompatibility: verifiedCompatibility,
                                                        license: license,
+                                                       author: nil,
                                                        createdAt: Date())
     }
 
@@ -120,7 +121,13 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
     return .init(summary: UUID().uuidString,
                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(version: TSCUtility.Version($0, 0, 0), title: "title \($0)", summary: "description \($0)", createdAt: Date()) },
+                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(
+                    version: TSCUtility.Version($0, 0, 0),
+                    title: "title \($0)",
+                    summary: "description \($0)",
+                    author: nil,
+                    createdAt: Date()
+                 )},
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: "https://package-readme",
                  license: PackageCollectionsModel.License(type: .Apache2_0, url: "https://package-license"),

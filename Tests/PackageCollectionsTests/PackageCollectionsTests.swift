@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -690,6 +690,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
@@ -857,6 +858,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -1298,6 +1300,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                         .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                     ],
                                                     license: PackageCollectionsModel.License(type: .Apache2_0, url: "http://apache.license"),
+                                                    author: .init(username: "\($0)", url: nil, service: nil),
                                                     createdAt: Date())
         }
 
@@ -1315,7 +1318,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
-                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", createdAt: Date()) },
+                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", author: .init(username: "\(($0.author?.username ?? "") + "2")", url: nil, service: nil), createdAt: Date()) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
                                                                         readmeURL: "\(mockPackage.readmeURL!.absoluteString)-2",
                                                                         license: PackageCollectionsModel.License(type: .Apache2_0, url: "\(mockPackage.license!.url.absoluteString)-2"),
@@ -1345,6 +1348,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
             XCTAssertEqual(mockMetadataVersion?.summary, metadataVersion?.summary, "summary should match")
+            XCTAssertEqual(mockMetadataVersion?.author, metadataVersion?.author, "author should match")
             XCTAssertEqual(mockMetadataVersion?.createdAt, metadataVersion?.createdAt, "createdAt should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
@@ -1532,6 +1536,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
+                                                                  author: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
