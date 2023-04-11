@@ -17,6 +17,7 @@ import PackageModel
 import PackageRegistry
 import SourceControl
 
+import struct Foundation.Date
 import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.FileSystem
@@ -70,9 +71,24 @@ public struct Package {
     public let resources: [Resource]
     public let author: Author?
     public let description: String?
+    public let publishedAt: Date?
     public let latestVersion: Version?
 
-    fileprivate init(identity: PackageIdentity, location: String? = nil, branches: [String] = [], versions: [Version], licenseURL: URL? = nil, readmeURL: URL? = nil, repositoryURLs: [URL]?, resources: [Resource], author: Author?, description: String?, latestVersion: Version? = nil, source: Source) {
+    fileprivate init(
+        identity: PackageIdentity,
+        location: String? = nil,
+        branches: [String] = [],
+        versions: [Version],
+        licenseURL: URL? = nil,
+        readmeURL: URL? = nil,
+        repositoryURLs: [URL]?,
+        resources: [Resource],
+        author: Author?,
+        description: String?,
+        publishedAt: Date?,
+        latestVersion: Version? = nil,
+        source: Source
+    ) {
         self.identity = identity
         self.location = location
         self.branches = branches
@@ -83,6 +99,7 @@ public struct Package {
         self.resources = resources
         self.author = author
         self.description = description
+        self.publishedAt = publishedAt
         self.latestVersion = latestVersion
         self.source = source
     }
@@ -100,20 +117,23 @@ public struct PackageSearchClient {
         observabilityScope: ObservabilityScope
     ) {
         self.registryClient = registryClient
-        self.indexAndCollections = PackageIndexAndCollections(fileSystem: fileSystem, observabilityScope: observabilityScope)
+        self.indexAndCollections = PackageIndexAndCollections(
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
 
     var repositoryProvider: RepositoryProvider {
-        return GitRepositoryProvider()
+        GitRepositoryProvider()
     }
 
     // FIXME: This matches the current implementation, but we may want be smarter about it?
     private func guessReadMeURL(baseURL: URL, defaultBranch: String) -> URL {
-        return baseURL.appendingPathComponent("raw").appendingPathComponent(defaultBranch).appendingPathComponent("README.md")
+        baseURL.appendingPathComponent("raw").appendingPathComponent(defaultBranch).appendingPathComponent("README.md")
     }
-    
+
     private func guessReadMeURL(alternateLocations: [URL]?) -> URL? {
         if let alternateURL = alternateLocations?.first {
             // FIXME: This is pretty crude, we should let the registry metadata provide the value instead.
@@ -129,6 +149,7 @@ public struct PackageSearchClient {
         public let resources: [Package.Resource]
         public let author: Package.Author?
         public let description: String?
+        public let publishedAt: Date?
     }
 
     private func getVersionMetadata(
@@ -150,7 +171,8 @@ public struct PackageSearchClient {
                     repositoryURLs: metadata.repositoryURLs,
                     resources: metadata.resources.map { .init($0) },
                     author: metadata.author.map { .init($0) },
-                    description: metadata.description
+                    description: metadata.description,
+                    publishedAt: metadata.publishedAt
                 )
             })
         }
@@ -163,24 +185,27 @@ public struct PackageSearchClient {
         let identity = PackageIdentity.plain(query)
 
         // Search the package index and collections for a search term.
-        let search = { (error: Error?) -> Void in
+        let search = { (error: Error?) in
             self.indexAndCollections.findPackages(query) { result in
                 do {
                     let packages = try result.get().items.map {
-                        Package(identity: $0.package.identity,
-                                location: $0.package.location,
-                                versions: $0.package.versions.map { $0.version },
-                                licenseURL: nil,
-                                readmeURL: $0.package.readmeURL,
-                                repositoryURLs: nil,
-                                resources: [],
-                                author: nil,
-                                description: nil,
-                                latestVersion: nil, // this only makes sense in connection with providing versioned metadata
-                                source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
+                        Package(
+                            identity: $0.package.identity,
+                            location: $0.package.location,
+                            versions: $0.package.versions.map(\.version),
+                            licenseURL: nil,
+                            readmeURL: $0.package.readmeURL,
+                            repositoryURLs: nil,
+                            resources: [],
+                            author: nil,
+                            description: nil,
+                            publishedAt: nil,
+                            latestVersion: nil,
+                            // this only makes sense in connection with providing versioned metadata
+                            source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
                         )
                     }
-                    if packages.isEmpty, let error = error {
+                    if packages.isEmpty, let error {
                         // If the search result is empty and we had a previous error, emit it now.
                         return callback(.failure(error))
                     } else {
@@ -196,32 +221,48 @@ public struct PackageSearchClient {
         // determine the available version tags and branches. If the search term cannot be interpreted
         // as a URL or there are any errors during the process, we fall back to searching the configured
         // index or package collections.
-        let fetchStandalonePackageByURL = { (error: Error?) -> Void in
+        let fetchStandalonePackageByURL = { (error: Error?) in
             guard let url = URL(string: query) else {
                 return search(error)
             }
 
             do {
-                try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) -> Void in
+                try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
                     let tempPath = tempDir.appending(component: url.lastPathComponent)
                     do {
                         let repositorySpecifier = RepositorySpecifier(url: url)
-                        try self.repositoryProvider.fetch(repository: repositorySpecifier, to: tempPath, progressHandler: nil)
-                        if self.repositoryProvider.isValidDirectory(tempPath), let repository = try self.repositoryProvider.open(repository: repositorySpecifier, at: tempPath) as? GitRepository {
+                        try self.repositoryProvider.fetch(
+                            repository: repositorySpecifier,
+                            to: tempPath,
+                            progressHandler: nil
+                        )
+                        if self.repositoryProvider.isValidDirectory(tempPath),
+                           let repository = try self.repositoryProvider.open(
+                               repository: repositorySpecifier,
+                               at: tempPath
+                           ) as? GitRepository
+                        {
                             let branches = try repository.getBranches()
                             let versions = try repository.getTags().compactMap { Version($0) }
-                            let package = Package(identity: .init(url: url),
-                                                  location: url.absoluteString,
-                                                  branches: branches,
-                                                  versions: versions,
-                                                  licenseURL: nil,
-                                                  readmeURL: self.guessReadMeURL(baseURL: url, defaultBranch: try repository.getDefaultBranch()),
-                                                  repositoryURLs: nil,
-                                                  resources: [],
-                                                  author: nil,
-                                                  description: nil,
-                                                  latestVersion: nil, // this only makes sense in connection with providing versioned metadata
-                                                  source: .sourceControl(url: url))
+                            let package = Package(
+                                identity: .init(url: url),
+                                location: url.absoluteString,
+                                branches: branches,
+                                versions: versions,
+                                licenseURL: nil,
+                                readmeURL: self.guessReadMeURL(
+                                    baseURL: url,
+                                    defaultBranch: try repository.getDefaultBranch()
+                                ),
+                                repositoryURLs: nil,
+                                resources: [],
+                                author: nil,
+                                description: nil,
+                                publishedAt: nil,
+                                latestVersion: nil,
+                                // this only makes sense in connection with providing versioned metadata
+                                source: .sourceControl(url: url)
+                            )
                             return callback(.success([package]))
                         }
                     } catch {
@@ -238,7 +279,11 @@ public struct PackageSearchClient {
         // or the search term does not work as a registry identity, we will fall back on
         // `fetchStandalonePackageByURL`.
         if identity.isRegistry {
-            return self.registryClient.getPackageMetadata(package: identity, observabilityScope: observabilityScope, callbackQueue: DispatchQueue.sharedConcurrent) { result in
+            return self.registryClient.getPackageMetadata(
+                package: identity,
+                observabilityScope: observabilityScope,
+                callbackQueue: DispatchQueue.sharedConcurrent
+            ) { result in
                 do {
                     let metadata = try result.get()
                     let versions = metadata.versions.sorted(by: >)
@@ -252,6 +297,7 @@ public struct PackageSearchClient {
                             let resources: [Package.Resource]
                             let author: Package.Author?
                             let description: String?
+                            let publishedAt: Date?
                             if case .success(let metadata) = result {
                                 licenseURL = metadata.licenseURL
                                 readmeURL = metadata.readmeURL
@@ -259,6 +305,7 @@ public struct PackageSearchClient {
                                 resources = metadata.resources
                                 author = metadata.author
                                 description = metadata.description
+                                publishedAt = metadata.publishedAt
                             } else {
                                 licenseURL = nil
                                 readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
@@ -266,33 +313,39 @@ public struct PackageSearchClient {
                                 resources = []
                                 author = nil
                                 description = nil
+                                publishedAt = nil
                             }
 
-                            return callback(.success([Package(identity: identity,
-                                                              versions: metadata.versions,
-                                                              licenseURL: licenseURL,
-                                                              readmeURL: readmeURL,
-                                                              repositoryURLs: repositoryURLs,
-                                                              resources: resources,
-                                                              author: author,
-                                                              description: description,
-                                                              latestVersion: version,
-                                                              source: .registry(url: metadata.registry.url)
-                                                             )]))
+                            return callback(.success([Package(
+                                identity: identity,
+                                versions: metadata.versions,
+                                licenseURL: licenseURL,
+                                readmeURL: readmeURL,
+                                repositoryURLs: repositoryURLs,
+                                resources: resources,
+                                author: author,
+                                description: description,
+                                publishedAt: publishedAt,
+                                latestVersion: version,
+                                source: .registry(url: metadata.registry.url)
+                            )]))
                         }
                     } else {
                         let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
-                        return callback(.success([Package(identity: identity,
-                                                          versions: metadata.versions,
-                                                          licenseURL: nil,
-                                                          readmeURL: readmeURL,
-                                                          repositoryURLs: nil,
-                                                          resources: [],
-                                                          author: nil,
-                                                          description: nil,
-                                                          latestVersion: nil, // this only makes sense in connection with providing versioned metadata
-                                                          source: .registry(url: metadata.registry.url)
-                                                         )]))
+                        return callback(.success([Package(
+                            identity: identity,
+                            versions: metadata.versions,
+                            licenseURL: nil,
+                            readmeURL: readmeURL,
+                            repositoryURLs: nil,
+                            resources: [],
+                            author: nil,
+                            description: nil,
+                            publishedAt: nil,
+                            latestVersion: nil,
+                            // this only makes sense in connection with providing versioned metadata
+                            source: .registry(url: metadata.registry.url)
+                        )]))
                     }
                 } catch {
                     return fetchStandalonePackageByURL(error)
@@ -310,7 +363,7 @@ public struct PackageSearchClient {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
     ) {
-        return registryClient.lookupIdentities(
+        registryClient.lookupIdentities(
             scmURL: scmURL,
             timeout: timeout,
             observabilityScope: observabilityScope,
@@ -326,24 +379,25 @@ public struct PackageSearchClient {
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<Set<URL>, Error>) -> Void
     ) {
-        return registryClient.getPackageMetadata(
+        registryClient.getPackageMetadata(
             package: package,
             timeout: timeout,
             observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue) { result in
-                do {
-                    let metadata = try result.get()
-                    let alternateLocations = metadata.alternateLocations ?? []
-                    return completion(.success(Set(alternateLocations)))
-                } catch {
-                    return completion(.failure(error))
-                }
+            callbackQueue: callbackQueue
+        ) { result in
+            do {
+                let metadata = try result.get()
+                let alternateLocations = metadata.alternateLocations ?? []
+                return completion(.success(Set(alternateLocations)))
+            } catch {
+                return completion(.failure(error))
             }
+        }
     }
 }
 
-fileprivate extension Package.Signing {
-    init(_ signing: RegistryClient.PackageVersionMetadata.Signing) {
+extension Package.Signing {
+    fileprivate init(_ signing: RegistryClient.PackageVersionMetadata.Signing) {
         self.init(
             signatureBase64Encoded: signing.signatureBase64Encoded,
             signatureFormat: signing.signatureFormat
@@ -351,18 +405,19 @@ fileprivate extension Package.Signing {
     }
 }
 
-fileprivate extension Package.Resource {
-    init(_ resource: RegistryClient.PackageVersionMetadata.Resource) {
+extension Package.Resource {
+    fileprivate init(_ resource: RegistryClient.PackageVersionMetadata.Resource) {
         self.init(
             name: resource.name,
             type: resource.type,
             checksum: resource.checksum,
-            signing: resource.signing.map { .init($0) })
+            signing: resource.signing.map { .init($0) }
+        )
     }
 }
 
-fileprivate extension Package.Author {
-    init(_ author: RegistryClient.PackageVersionMetadata.Author) {
+extension Package.Author {
+    fileprivate init(_ author: RegistryClient.PackageVersionMetadata.Author) {
         self.init(
             name: author.name,
             email: author.email,
@@ -373,8 +428,8 @@ fileprivate extension Package.Author {
     }
 }
 
-fileprivate extension Package.Organization {
-    init(_ organization: RegistryClient.PackageVersionMetadata.Organization) {
+extension Package.Organization {
+    fileprivate init(_ organization: RegistryClient.PackageVersionMetadata.Organization) {
         self.init(
             name: organization.name,
             email: organization.email,
