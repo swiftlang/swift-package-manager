@@ -40,7 +40,7 @@ extension AbsolutePath {
     }
 
     /// Unlike ``AbsolutePath//extension``, this property returns all characters after the first `.` character in a
-    /// `````. If no dot character is present in the filename or first dot is the last character, `nil` is returned.
+    /// filename. If no dot character is present in the filename or first dot is the last character, `nil` is returned.
     var allExtensions: [String]? {
         guard let firstDot = basename.firstIndex(of: ".") else {
             return nil
