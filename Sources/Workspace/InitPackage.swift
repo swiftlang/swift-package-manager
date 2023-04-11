@@ -251,7 +251,8 @@ public final class InitPackage {
             } else if packageType == .macro {
                 pkgParams.append("""
                     dependencies: [
-                        .package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),
+                        // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-10-a"),
                     ]
                 """)
             }
@@ -591,32 +592,34 @@ public final class InitPackage {
                 ]
 
                 final class \##(moduleName)Tests: XCTestCase {
-                  func testMacro() {
-                    // XCTest Documentation
-                    // https://developer.apple.com/documentation/xctest
+                    func testMacro() {
+                        // XCTest Documentation
+                        // https://developer.apple.com/documentation/xctest
 
-                    // Test input is a source file containing uses of the macro.
-                    let sf: SourceFileSyntax =
-                      #"""
-                      let a = #stringify(x + y)
-                      let b = #stringify("Hello, \(name)")
-                      """#
-                    let context = BasicMacroExpansionContext.init(
-                      sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
-                    )
+                        // Test input is a source file containing uses of the macro.
+                        let sf: SourceFileSyntax =
+                            #"""
+                            let a = #stringify(x + y)
+                            let b = #stringify("Hello, \(name)")
+                            """#
 
-                    // Expand the macro to produce a new source file with the
-                    // result of the expansion, and ensure that it has the
-                    // expected source code.
-                    let transformedSF = sf.expand(macros: testMacros, in: context)
-                    XCTAssertEqual(
-                      transformedSF.description,
-                      #"""
-                      let a = (x + y, "x + y")
-                      let b = ("Hello, \(name)", #""Hello, \(name)""#)
-                      """#
-                    )
-                  }
+                        let context = BasicMacroExpansionContext(
+                            sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
+                        )
+
+                        // Expand the macro to produce a new source file with the
+                        // result of the expansion, and ensure that it has the
+                        // expected source code.
+                        let transformedSF = sf.expand(macros: testMacros, in: context)
+
+                        XCTAssertEqual(
+                            transformedSF.description,
+                            #"""
+                            let a = (x + y, "x + y")
+                            let b = ("Hello, \(name)", #""Hello, \(name)""#)
+                            """#
+                        )
+                    }
                 }
 
                 """##
@@ -643,23 +646,23 @@ public final class InitPackage {
                 ///
                 ///     (x + y, "x + y")
                 public struct StringifyMacro: ExpressionMacro {
-                  public static func expansion(
-                    of node: some FreestandingMacroExpansionSyntax,
-                    in context: some MacroExpansionContext
-                  ) -> ExprSyntax {
-                    guard let argument = node.argumentList.first?.expression else {
-                      fatalError("compiler bug: the macro does not have any arguments")
-                    }
+                    public static func expansion(
+                        of node: some FreestandingMacroExpansionSyntax,
+                        in context: some MacroExpansionContext
+                    ) -> ExprSyntax {
+                        guard let argument = node.argumentList.first?.expression else {
+                            fatalError("compiler bug: the macro does not have any arguments")
+                        }
 
-                    return "(\(argument), \(literal: argument.description))"
-                  }
+                        return "(\(argument), \(literal: argument.description))"
+                    }
                 }
 
                 @main
                 struct \##(moduleName)Plugin: CompilerPlugin {
-                  let providingMacros: [Macro.Type] = [
-                    StringifyMacro.self,
-                  ]
+                    let providingMacros: [Macro.Type] = [
+                        StringifyMacro.self,
+                    ]
                 }
 
                 """##
