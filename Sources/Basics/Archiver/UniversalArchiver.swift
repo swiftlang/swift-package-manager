@@ -20,13 +20,13 @@ public struct UniversalArchiver: Archiver {
 
     /// Errors specific to the implementation of ``UniversalArchiver``.
     enum Error: Swift.Error {
-        case unknownFormat(String, AbsolutePath)
+        case unknownFormat([String], AbsolutePath)
         case noFileNameExtension(AbsolutePath)
 
         var description: String {
             switch self {
             case .unknownFormat(let ext, let path):
-                return "unknown format with extension \(ext) at path `\(path)`"
+                return "unknown format with extension \(ext.joined(separator: ".")) at path `\(path)`"
             case .noFileNameExtension(let path):
                 return "file at path `\(path)` has no extension to detect archival format from"
             }
@@ -55,15 +55,22 @@ public struct UniversalArchiver: Archiver {
     }
 
     private func archiver(for archivePath: AbsolutePath) throws -> any Archiver {
-        guard let extensions = archivePath.allExtensions else {
+        guard var extensions = archivePath.allExtensions, extensions.count > 0 else {
             throw Error.noFileNameExtension(archivePath)
         }
 
-        guard let archiver = self.formatMapping[extensions] else {
-            throw Error.unknownFormat(extensions, archivePath)
+        // None of the archivers support extensions with more than 2 extension components
+        if extensions.count > 2 {
+            extensions = extensions.suffix(2)
         }
 
-        return archiver
+        if let archiver = self.formatMapping[extensions.joined(separator: ".")] {
+            return archiver
+        } else if let lastExtension = extensions.last, let archiver = self.formatMapping[lastExtension] {
+            return archiver
+        } else {
+            throw Error.unknownFormat(extensions, archivePath)
+        }
     }
 
     public func extract(
