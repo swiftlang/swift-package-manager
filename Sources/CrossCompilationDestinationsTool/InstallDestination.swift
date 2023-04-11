@@ -43,11 +43,13 @@ public struct InstallDestination: DestinationCommand {
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        let cancellator = Cancellator(observabilityScope: observabilityScope)
+        cancellator.installSignalHandlers()
         try DestinationBundle.install(
             bundlePathOrURL: bundlePathOrURL,
             destinationsDirectory: destinationsDirectory,
             self.fileSystem,
-            ZipArchiver(fileSystem: self.fileSystem),
+            UniversalArchiver(self.fileSystem, cancellator),
             observabilityScope
         )
     }

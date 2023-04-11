@@ -554,8 +554,10 @@ let package = Package(
             name: "BasicsTests",
             dependencies: ["Basics", "SPMTestSupport", "tsan_utils"],
             exclude: [
-                "Inputs/archive.zip",
-                "Inputs/invalid_archive.zip",
+                "Archiver/Inputs/archive.tar.gz",
+                "Archiver/Inputs/archive.zip",
+                "Archiver/Inputs/invalid_archive.tar.gz",
+                "Archiver/Inputs/invalid_archive.zip",
             ]
         ),
         .testTarget(

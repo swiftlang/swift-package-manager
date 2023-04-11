@@ -7,8 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Basics
-  Archiver.swift
-  Archiver+Zip.swift
+  Archiver/Archiver.swift
+  Archiver/TarArchiver.swift
+  Archiver/ZipArchiver.swift
+  Archiver/UniversalArchiver.swift
   AuthorizationProvider.swift
   ByteString+Extensions.swift
   Cancellator.swift

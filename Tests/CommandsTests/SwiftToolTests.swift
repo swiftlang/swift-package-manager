@@ -237,7 +237,7 @@ extension SwiftTool {
         return try SwiftTool(
             outputStream: outputStream,
             options: options,
-            toolWorkspaceConfiguration: .init(),
+            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
             workspaceDelegateProvider: {
                 ToolWorkspaceDelegate(
                     observabilityScope: $0,

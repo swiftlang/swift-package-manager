@@ -14,9 +14,13 @@ import Dispatch
 import Foundation
 import TSCBasic
 
+#if canImport(WinSDK)
+import WinSDK
+#endif
+
 public typealias CancellationHandler = (DispatchTime) throws -> Void
 
-public class Cancellator: Cancellable {
+public final class Cancellator: Cancellable {
     public typealias RegistrationKey = String
 
     private let observabilityScope: ObservabilityScope?
@@ -24,8 +28,78 @@ public class Cancellator: Cancellable {
     private let cancelationQueue = DispatchQueue(label: "org.swift.swiftpm.cancellator", qos: .userInteractive, attributes: .concurrent)
     private let cancelling = ThreadSafeBox<Bool>(false)
 
+    private static let signalHandlerLock = NSLock()
+    private static var isSignalHandlerInstalled = false
+
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
+    }
+
+    #if os(Windows)
+    // unfortunately this is needed for C callback handlers used by Windows shutdown handler
+    static var shared: Cancellator?
+    #endif
+
+    /// Installs signal handlers to terminate sub-processes on cancellation.
+    public func installSignalHandlers() {
+        Self.signalHandlerLock.withLock {
+            precondition(!Self.isSignalHandlerInstalled)
+            
+#if os(Windows)
+            // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
+            Self.shared = self
+            
+            // set shutdown handler to terminate sub-processes, etc
+            _ = SetConsoleCtrlHandler({ _ in
+                // Terminate all processes on receiving an interrupt signal.
+                try? Cancellator.shared?.cancel(deadline: .now() + .seconds(30))
+                
+                // Reset the handler.
+                _ = SetConsoleCtrlHandler(nil, false)
+                
+                // Exit as if by signal()
+                TerminateProcess(GetCurrentProcess(), 3)
+                
+                return true
+            }, true)
+#else
+            // trap SIGINT to terminate sub-processes, etc
+            signal(SIGINT, SIG_IGN)
+            let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
+            interruptSignalSource.setEventHandler { [weak self] in
+                // cancel the trap?
+                interruptSignalSource.cancel()
+                
+                // Terminate all processes on receiving an interrupt signal.
+                try? self?.cancel(deadline: .now() + .seconds(30))
+                
+#if os(macOS) || os(OpenBSD)
+                // Install the default signal handler.
+                var action = sigaction()
+                action.__sigaction_u.__sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
+#elseif os(Android)
+                // Install the default signal handler.
+                var action = sigaction()
+                action.sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
+#else
+                var action = sigaction()
+                action.__sigaction_handler = unsafeBitCast(
+                    SIG_DFL,
+                    to: sigaction.__Unnamed_union___sigaction_handler.self
+                )
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
+#endif
+            }
+            interruptSignalSource.resume()
+#endif
+            
+            Self.isSignalHandlerInstalled = true
+        }
     }
 
     @discardableResult
@@ -112,9 +186,24 @@ public protocol Cancellable {
 }
 
 public struct CancellationError: Error, CustomStringConvertible {
-    public let description = "Operation cancelled"
+    public let description: String
 
-    public init() {}
+    public init() {
+        self.init(description: "Operation cancelled")
+    }
+
+    private init(description: String) {
+        self.description = description
+    }
+
+    static func failedToRegisterProcess(_ process: TSCBasic.Process) -> Self {
+        Self(description: """
+            failed to register a cancellation handler for this process invocation `\(
+                process.arguments.joined(separator: " ")
+            )`
+            """
+        )
+    }
 }
 
 extension TSCBasic.Process {

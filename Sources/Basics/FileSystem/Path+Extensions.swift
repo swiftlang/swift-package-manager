@@ -38,4 +38,22 @@ extension AbsolutePath {
     public func escapedPathString() -> String {
         return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
     }
+
+    /// Unlike ``AbsolutePath//extension``, this property returns all characters after the first `.` character in a
+    /// filename. If no dot character is present in the filename or first dot is the last character, `nil` is returned.
+    var allExtensions: [String]? {
+        guard let firstDot = basename.firstIndex(of: ".") else {
+            return nil
+        }
+
+        var extensions = String(basename[firstDot ..< basename.endIndex])
+
+        guard extensions.count > 1 else {
+            return nil
+        }
+
+        extensions.removeFirst()
+
+        return extensions.split(separator: ".").map(String.init)
+    }
 }
