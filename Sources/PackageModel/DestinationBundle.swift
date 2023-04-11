@@ -225,12 +225,12 @@ public struct DestinationBundle {
             throw DestinationError.destinationBundleAlreadyInstalled(bundleName: unpackedBundleName)
         }
 
-        print("\(bundleName) is assumed to be an archive, unpacking...")
-
         // If there's no archive extension on the bundle name, assuming it's not archived and returning the same path.
         guard unpackedBundleName != bundleName else {
             return bundlePath
         }
+
+        print("\(bundleName) is assumed to be an archive, unpacking...")
 
         try tsc_await { archiver.extract(from: bundlePath, to: temporaryDirectory, completion: $0) }
 
