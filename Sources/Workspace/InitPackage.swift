@@ -497,6 +497,7 @@ public final class InitPackage {
                             let a = #stringify(x + y)
                             let b = #stringify("Hello, \(name)")
                             """#
+
                         let context = BasicMacroExpansionContext(
                             sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
                         )
@@ -505,6 +506,7 @@ public final class InitPackage {
                         // result of the expansion, and ensure that it has the
                         // expected source code.
                         let transformedSF = sf.expand(macros: testMacros, in: context)
+
                         XCTAssertEqual(
                             transformedSF.description,
                             #"""
