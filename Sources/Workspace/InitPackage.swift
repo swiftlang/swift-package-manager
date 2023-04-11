@@ -497,7 +497,7 @@ public final class InitPackage {
                             let a = #stringify(x + y)
                             let b = #stringify("Hello, \(name)")
                             """#
-                        let context = BasicMacroExpansionContext.init(
+                        let context = BasicMacroExpansionContext(
                             sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
                         )
 
