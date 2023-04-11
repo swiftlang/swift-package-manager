@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -26,11 +26,11 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
@@ -45,8 +45,8 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
         ]
 
         XCTAssertNil(versions.latestRelease)
@@ -61,9 +61,9 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, createdAt: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
