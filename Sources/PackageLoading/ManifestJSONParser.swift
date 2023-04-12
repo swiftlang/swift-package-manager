@@ -337,7 +337,7 @@ enum ManifestJSONParser {
 
         return try TargetDescription(
             name: target.name,
-            group: .init(target.group),
+            group: target.group.map { .init($0) } ?? .package,
             dependencies: dependencies,
             path: target.path,
             url: target.url,

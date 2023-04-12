@@ -688,18 +688,6 @@ package.targets.append(contentsOf: [
         ]
     ),
 
-    // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
-    /*.testTarget(
-        name: "FunctionalTests",
-        dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
-            "PackageModel",
-            "SPMTestSupport"
-        ]
-    ),*/
-
     .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
@@ -710,6 +698,22 @@ package.targets.append(contentsOf: [
         ]
     ),
 ])
+
+// rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {
+    package.targets.append(contentsOf: [
+        .testTarget(
+            name: "FunctionalTests",
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "PackageModel",
+                "SPMTestSupport"
+            ]
+        ),
+    ])
+}
 #endif
 
 // Add package dependency on llbuild when not bootstrapping.
