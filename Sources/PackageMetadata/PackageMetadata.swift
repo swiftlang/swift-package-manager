@@ -15,6 +15,7 @@ import Dispatch
 import PackageCollections
 import PackageModel
 import PackageRegistry
+import PackageSigning
 import SourceControl
 
 import struct Foundation.Date
@@ -72,6 +73,7 @@ public struct Package {
     public let author: Author?
     public let description: String?
     public let publishedAt: Date?
+    public let signingEntity: SigningEntity?
     public let latestVersion: Version?
 
     fileprivate init(
@@ -86,6 +88,7 @@ public struct Package {
         author: Author?,
         description: String?,
         publishedAt: Date?,
+        signingEntity: SigningEntity?,
         latestVersion: Version? = nil,
         source: Source
     ) {
@@ -100,6 +103,7 @@ public struct Package {
         self.author = author
         self.description = description
         self.publishedAt = publishedAt
+        self.signingEntity = signingEntity
         self.latestVersion = latestVersion
         self.source = source
     }
@@ -150,6 +154,7 @@ public struct PackageSearchClient {
         public let author: Package.Author?
         public let description: String?
         public let publishedAt: Date?
+        public let signingEntity: SigningEntity?
     }
 
     private func getVersionMetadata(
@@ -172,7 +177,8 @@ public struct PackageSearchClient {
                     resources: metadata.resources.map { .init($0) },
                     author: metadata.author.map { .init($0) },
                     description: metadata.description,
-                    publishedAt: metadata.publishedAt
+                    publishedAt: metadata.publishedAt,
+                    signingEntity: metadata.sourceArchive?.signingEntity
                 )
             })
         }
@@ -189,18 +195,22 @@ public struct PackageSearchClient {
             self.indexAndCollections.findPackages(query) { result in
                 do {
                     let packages = try result.get().items.map {
-                        Package(
+                        let versions = $0.package.versions.sorted(by: >)
+                        let latestVersion = versions.first
+                        
+                        return Package(
                             identity: $0.package.identity,
                             location: $0.package.location,
                             versions: $0.package.versions.map(\.version),
-                            licenseURL: nil,
+                            licenseURL: $0.package.license?.url,
                             readmeURL: $0.package.readmeURL,
                             repositoryURLs: nil,
                             resources: [],
-                            author: nil,
-                            description: nil,
-                            publishedAt: nil,
-                            latestVersion: nil,
+                            author: latestVersion?.author.map { .init($0) },
+                            description: latestVersion?.summary,
+                            publishedAt: latestVersion?.createdAt,
+                            signingEntity: latestVersion?.signer.map { SigningEntity(signer: $0) },
+                            latestVersion: latestVersion?.version,
                             // this only makes sense in connection with providing versioned metadata
                             source: .indexAndCollections(collections: $0.collections, indexes: $0.indexes)
                         )
@@ -259,6 +269,7 @@ public struct PackageSearchClient {
                                 author: nil,
                                 description: nil,
                                 publishedAt: nil,
+                                signingEntity: nil,
                                 latestVersion: nil,
                                 // this only makes sense in connection with providing versioned metadata
                                 source: .sourceControl(url: url)
@@ -298,6 +309,7 @@ public struct PackageSearchClient {
                             let author: Package.Author?
                             let description: String?
                             let publishedAt: Date?
+                            let signingEntity: SigningEntity?
                             if case .success(let metadata) = result {
                                 licenseURL = metadata.licenseURL
                                 readmeURL = metadata.readmeURL
@@ -306,6 +318,7 @@ public struct PackageSearchClient {
                                 author = metadata.author
                                 description = metadata.description
                                 publishedAt = metadata.publishedAt
+                                signingEntity = metadata.signingEntity
                             } else {
                                 licenseURL = nil
                                 readmeURL = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
@@ -314,6 +327,7 @@ public struct PackageSearchClient {
                                 author = nil
                                 description = nil
                                 publishedAt = nil
+                                signingEntity = nil
                             }
 
                             return callback(.success([Package(
@@ -326,6 +340,7 @@ public struct PackageSearchClient {
                                 author: author,
                                 description: description,
                                 publishedAt: publishedAt,
+                                signingEntity: signingEntity,
                                 latestVersion: version,
                                 source: .registry(url: metadata.registry.url)
                             )]))
@@ -342,6 +357,7 @@ public struct PackageSearchClient {
                             author: nil,
                             description: nil,
                             publishedAt: nil,
+                            signingEntity: nil,
                             latestVersion: nil,
                             // this only makes sense in connection with providing versioned metadata
                             source: .registry(url: metadata.registry.url)
@@ -426,6 +442,16 @@ extension Package.Author {
             url: author.url
         )
     }
+    
+    fileprivate init(_ author: PackageCollectionsModel.Package.Author) {
+        self.init(
+            name: author.username,
+            email: nil,
+            description: nil,
+            organization: nil,
+            url: author.url
+        )
+    }
 }
 
 extension Package.Organization {
@@ -436,5 +462,26 @@ extension Package.Organization {
             description: organization.description,
             url: organization.url
         )
+    }
+}
+
+extension SigningEntity {
+    fileprivate init(signer: PackageCollectionsModel.Signer) {
+        // All package collection signers are "recognized"
+        self = .recognized(
+            type: .init(signer.type),
+            name: signer.commonName,
+            organizationalUnit: signer.organizationalUnitName,
+            organization: signer.organizationName
+        )
+    }
+}
+
+extension SigningEntityType {
+    fileprivate init(_ type: PackageCollectionsModel.SignerType) {
+        switch type {
+        case .adp:
+            self = .adp
+        }
     }
 }

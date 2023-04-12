@@ -141,6 +141,12 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// The package version's license.
         public let license: PackageCollectionModel.V1.License?
 
+        /// The author of the package version.
+        public let author: Author?
+
+        /// The signer of the package version.
+        public let signer: PackageCollectionModel.V1.Signer?
+
         /// When the package version was created.
         public let createdAt: Date?
 
@@ -152,6 +158,8 @@ extension PackageCollectionModel.V1.Collection.Package {
             defaultToolsVersion: String,
             verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?,
             license: PackageCollectionModel.V1.License?,
+            author: Author?,
+            signer: PackageCollectionModel.V1.Signer?,
             createdAt: Date?
         ) {
             self.version = version
@@ -160,6 +168,8 @@ extension PackageCollectionModel.V1.Collection.Package {
             self.defaultToolsVersion = defaultToolsVersion
             self.verifiedCompatibility = verifiedCompatibility
             self.license = license
+            self.author = author
+            self.signer = signer
             self.createdAt = createdAt
         }
 
@@ -192,6 +202,16 @@ extension PackageCollectionModel.V1.Collection.Package {
                 self.targets = targets
                 self.products = products
                 self.minimumPlatformVersions = minimumPlatformVersions
+            }
+        }
+
+        public struct Author: Equatable, Codable {
+            /// The author name.
+            public let name: String
+
+            /// Creates an `Author`
+            public init(name: String) {
+                self.name = name
             }
         }
     }
@@ -284,6 +304,32 @@ extension PackageCollectionModel.V1 {
         public init(name: String?, url: URL) {
             self.name = name
             self.url = url
+        }
+    }
+
+    public struct Signer: Equatable, Codable {
+        /// The signer type. (e.g., ADP)
+        public let type: String
+
+        /// The common name of the signing certificate's subject.
+        public let commonName: String
+
+        /// The organizational unit name of the signing certificate's subject.
+        public let organizationalUnitName: String
+
+        /// The organization name of the signing certificate's subject.
+        public let organizationName: String
+
+        public init(
+            type: String,
+            commonName: String,
+            organizationalUnitName: String,
+            organizationName: String
+        ) {
+            self.type = type
+            self.commonName = commonName
+            self.organizationalUnitName = organizationalUnitName
+            self.organizationName = organizationName
         }
     }
 }

@@ -103,6 +103,7 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
                                                        verifiedCompatibility: verifiedCompatibility,
                                                        license: license,
                                                        author: nil,
+                                                       signer: nil,
                                                        createdAt: Date())
     }
 

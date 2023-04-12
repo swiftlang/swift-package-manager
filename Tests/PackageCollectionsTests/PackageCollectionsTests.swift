@@ -691,6 +691,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
@@ -859,6 +860,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -1301,6 +1303,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                     ],
                                                     license: PackageCollectionsModel.License(type: .Apache2_0, url: "http://apache.license"),
                                                     author: .init(username: "\($0)", url: nil, service: nil),
+                                                    signer: .init(type: .adp, commonName: "\($0)", organizationalUnitName: "\($0) org unit", organizationName: "\($0) org"),
                                                     createdAt: Date())
         }
 
@@ -1349,6 +1352,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
             XCTAssertEqual(mockMetadataVersion?.summary, metadataVersion?.summary, "summary should match")
             XCTAssertEqual(mockMetadataVersion?.author, metadataVersion?.author, "author should match")
+            XCTAssertEqual(version.signer, metadataVersion?.signer, "signer should match")
             XCTAssertEqual(mockMetadataVersion?.createdAt, metadataVersion?.createdAt, "createdAt should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
@@ -1537,6 +1541,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
