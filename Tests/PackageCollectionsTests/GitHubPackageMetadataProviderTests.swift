@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -109,9 +109,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version(tag: "v2.0.0"))
                 XCTAssertEqual(metadata.versions[0].title, "2.0.0")
                 XCTAssertEqual(metadata.versions[0].summary, "Description of the release")
+                XCTAssertEqual(metadata.versions[0].author?.username, "octocat")
                 XCTAssertEqual(metadata.versions[1].version, TSCUtility.Version("1.0.0"))
                 XCTAssertEqual(metadata.versions[1].title, "1.0.0")
                 XCTAssertEqual(metadata.versions[1].summary, "Description of the release")
+                XCTAssertEqual(metadata.versions[1].author?.username, "octocat")
                 XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                          url: "https://api.github.com/users/octocat",
                                                                                          service: .init(name: "GitHub"))])

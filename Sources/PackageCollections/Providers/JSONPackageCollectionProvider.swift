@@ -258,6 +258,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  defaultToolsVersion: defaultToolsVersion,
                                  verifiedCompatibility: verifiedCompatibility,
                                  license: license,
+                                 author: nil,
                                  createdAt: version.createdAt)
                 }
                 if versions.count != package.versions.count {
