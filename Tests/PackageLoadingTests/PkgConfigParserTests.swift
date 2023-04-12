@@ -22,7 +22,7 @@ final class PkgConfigParserTests: XCTestCase {
 
         _ = try PkgConfig(
             name: "harfbuzz",
-            additionalSearchPaths: [AbsolutePath(path: #file).parentDirectory.appending(components: "pkgconfigInputs")],
+            additionalSearchPaths: [AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs")],
             fileSystem: localFileSystem,
             observabilityScope: observability.topScope
         )
@@ -137,19 +137,19 @@ final class PkgConfigParserTests: XCTestCase {
             "/usr/local/opt/foo/lib/pkgconfig/foo.pc",
             "/custom/foo.pc")
         XCTAssertEqual(
-            AbsolutePath(path: "/custom/foo.pc"),
-            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [AbsolutePath(path: "/custom")], fileSystem: fs, observabilityScope: observability.topScope)
+            "/custom/foo.pc",
+            try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: ["/custom"], fileSystem: fs, observabilityScope: observability.topScope)
         )
         XCTAssertEqual(
-            AbsolutePath(path: "/custom/foo.pc"),
-            try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath(path: "/custom")], fileSystem: fs, observabilityScope: observability.topScope).pcFile
+            "/custom/foo.pc",
+            try PkgConfig(name: "foo", additionalSearchPaths: ["/custom"], fileSystem: fs, observabilityScope: observability.topScope).pcFile
         )
         XCTAssertEqual(
-            AbsolutePath(path: "/usr/lib/pkgconfig/foo.pc"),
+            "/usr/lib/pkgconfig/foo.pc",
             try PCFileFinder().locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs, observabilityScope: observability.topScope)
         )
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig"]) {
-            XCTAssertEqual(AbsolutePath(path: "/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
+            XCTAssertEqual("/usr/local/opt/foo/lib/pkgconfig/foo.pc", try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
 #if os(Windows)
         let separator = ";"
@@ -157,7 +157,7 @@ final class PkgConfigParserTests: XCTestCase {
         let separator = ":"
 #endif
         try withCustomEnv(["PKG_CONFIG_PATH": "/usr/local/opt/foo/lib/pkgconfig\(separator)/usr/lib/pkgconfig"]) {
-            XCTAssertEqual(AbsolutePath(path: "/usr/local/opt/foo/lib/pkgconfig/foo.pc"), try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
+            XCTAssertEqual("/usr/local/opt/foo/lib/pkgconfig/foo.pc", try PkgConfig(name: "foo", fileSystem: fs, observabilityScope: observability.topScope).pcFile)
         }
     }
 
@@ -195,7 +195,7 @@ final class PkgConfigParserTests: XCTestCase {
 #endif
         }
 
-        XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath(path: "/Volumes/BestDrive/pkgconfig")])
+        XCTAssertEqual(PCFileFinder.pkgConfigPaths, ["/Volumes/BestDrive/pkgconfig"])
     }
 
     func testAbsolutePathDependency() throws {
@@ -224,7 +224,7 @@ final class PkgConfigParserTests: XCTestCase {
         XCTAssertNoThrow(
             try PkgConfig(
                 name: "gobject-2.0",
-                additionalSearchPaths: [AbsolutePath(path: "/usr/local/opt/glib/lib/pkgconfig")],
+                additionalSearchPaths: ["/usr/local/opt/glib/lib/pkgconfig"],
                 brewPrefix: "/usr/local",
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -242,7 +242,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     private func pcFilePath(_ inputName: String) -> AbsolutePath {
-        return AbsolutePath(path: #file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
+        return AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
     }
 
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {

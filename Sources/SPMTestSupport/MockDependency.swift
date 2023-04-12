@@ -122,11 +122,11 @@ public struct MockDependency {
     }
 
     public static func fileSystem(path: String, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .fileSystem(path: RelativePath(path)), products: products)
+        try! MockDependency(location: .fileSystem(path: RelativePath(validating: path)), products: products)
     }
 
     public static func sourceControl(path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
-        .sourceControl(path: RelativePath(path), requirement: requirement, products: products)
+        try! .sourceControl(path: RelativePath(validating: path), requirement: requirement, products: products)
     }
 
     public static func sourceControl(path: RelativePath, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
@@ -134,7 +134,7 @@ public struct MockDependency {
     }
 
     public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(path), requirement: requirement), products: products)
+        try! MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(validating: path), requirement: requirement), products: products)
     }
 
     public static func sourceControl(url: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {

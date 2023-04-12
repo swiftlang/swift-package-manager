@@ -452,7 +452,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: try RelativePath(validating: dependency.subpath)
         )
     }
 }
@@ -771,7 +771,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: RelativePath(validating: dependency.subpath)
         )
     }
 }
@@ -1011,7 +1011,7 @@ extension Workspace.ManagedDependency {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath)
+            subpath: RelativePath(validating: dependency.subpath)
         )
     }
 }

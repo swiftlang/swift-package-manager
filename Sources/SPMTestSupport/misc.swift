@@ -43,7 +43,7 @@ public func fixture(
 ) throws {
     do {
         // Make a suitable test directory name from the fixture subpath.
-        let fixtureSubpath = RelativePath(name)
+        let fixtureSubpath = try RelativePath(validating: name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
@@ -57,7 +57,7 @@ public func fixture(
 
             // Construct the expected path of the fixture.
             // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: AbsolutePath(path: #file))
+            let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
                 .appending(fixtureSubpath)
 
             // Check that the fixture is really there.
@@ -269,36 +269,6 @@ public func loadPackageGraph(
 }
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
-
-extension AbsolutePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
-        try! self.init(validating: value)
-    }
-}
-
-extension AbsolutePath: ExpressibleByStringInterpolation {
-    public init(stringLiteral value: String) {
-        try! self.init(validating: value)
-    }
-}
-
-extension AbsolutePath {
-    public init(_ path: StringLiteralType, relativeTo basePath: AbsolutePath) {
-        try! self.init(validating: path, relativeTo: basePath)
-    }
-}
-
-extension RelativePath: ExpressibleByStringLiteral {
-    public init(_ value: StringLiteralType) {
-        try! self.init(validating: value)
-    }
-}
-
-extension RelativePath: ExpressibleByStringInterpolation {
-    public init(stringLiteral value: String) {
-        try! self.init(validating: value)
-    }
-}
 
 extension URL: ExpressibleByStringLiteral {
     public init(_ value: StringLiteralType) {

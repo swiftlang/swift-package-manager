@@ -20,7 +20,7 @@ final class TarArchiverTests: XCTestCase {
     func testSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
@@ -59,7 +59,7 @@ final class TarArchiverTests: XCTestCase {
     func testInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = TarArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
                 #if os(Linux)
@@ -75,14 +75,14 @@ final class TarArchiverTests: XCTestCase {
         // valid
         try testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertFalse(try archiver.validate(path: path))
         }

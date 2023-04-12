@@ -41,8 +41,8 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(validationDiagnostics)
 
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init(path: "/foo5"), requirement: .branch("main")))
-        XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init(path: "/foo7"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .branch("main")))
+        XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
     }
 
     func testPlatforms() throws {

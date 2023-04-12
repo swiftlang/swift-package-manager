@@ -348,7 +348,7 @@ public struct TargetSourcesBuilder {
 
     private func diagnoseInfoPlistConflicts(in resources: [Resource]) {
         for resource in resources {
-            if resource.destination == RelativePath("Info.plist") {
+            if try! resource.destination == RelativePath(validating: "Info.plist") /* try! safe */ {
                 self.observabilityScope.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))

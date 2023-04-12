@@ -481,7 +481,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         let manifest = Manifest.createManifest(
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
-            packageKind: .root(AbsolutePath(path: "/tmp/MyLibrary")),
+            packageKind: .root("/tmp/MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -517,11 +517,11 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testModuleAliasGeneration() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
-            path: .init(path: "/thisPkg"),
+            path: "/thisPkg",
             toolsVersion: .v5_7,
             dependencies: [
-                .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
                 try TargetDescription(name: "exe",
@@ -583,7 +583,7 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testPluginNetworkingPermissionGeneration() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
-            path: .init(path: "/thisPkg"),
+            path: "/thisPkg",
             toolsVersion: .v5_9,
             dependencies: [],
             targets: [

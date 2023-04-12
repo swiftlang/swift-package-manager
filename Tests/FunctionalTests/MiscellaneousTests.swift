@@ -71,7 +71,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoArgumentsExitsWithOne() throws {
-        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath(path: "/"))) { error in
+        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild("/")) { error in
             // if our code crashes we'll get an exit code of 256
             guard error.result.exitStatus == .terminated(code: 1) else {
                 return XCTFail("failed in an unexpected manner: \(error)")
@@ -363,7 +363,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // ••••• Set up dependency.
             let dependencyName = "UnicodeDependency‐\(complicatedString)"
-            let dependencyOrigin = AbsolutePath(path: #file).parentDirectory.parentDirectory.parentDirectory
+            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
                 .appending("Fixtures")
                 .appending("Miscellaneous")
                 .appending(component: dependencyName)

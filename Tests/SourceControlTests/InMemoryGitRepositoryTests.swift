@@ -22,7 +22,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let repo = InMemoryGitRepository(path: .root, fs: fs)
 
-        try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
+        try repo.createDirectory("/new-dir/subdir", recursive: true)
         XCTAssertTrue(!repo.hasUncommittedChanges())
         let filePath = AbsolutePath("/new-dir/subdir").appending("new-file.txt")
 
@@ -78,8 +78,8 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let v2 = "2.0.0"
         let repo = InMemoryGitRepository(path: .root, fs: InMemoryFileSystem())
 
-        let specifier = RepositorySpecifier(path: .init(path: "/foo"))
-        try repo.createDirectory(AbsolutePath(path: "/new-dir/subdir"), recursive: true)
+        let specifier = RepositorySpecifier(path: "/Foo")
+        try repo.createDirectory("/new-dir/subdir", recursive: true)
         let filePath = AbsolutePath("/new-dir/subdir").appending("new-file.txt")
         try repo.writeFileContents(filePath, bytes: "one")
         try repo.commit()

@@ -26,9 +26,9 @@ public struct Resource: Codable, Equatable {
     public var destination: RelativePath {
         switch self.rule {
         case .process(.some(let localization)):
-            return RelativePath("\(localization).\(Self.localizationDirectoryExtension)/\(path.basename)")
+            return try! RelativePath(validating: "\(localization).\(Self.localizationDirectoryExtension)/\(path.basename)") // try! safe
         default:
-            return RelativePath(path.basename)
+            return try! RelativePath(validating: path.basename) // try! safe
         }
     }
 

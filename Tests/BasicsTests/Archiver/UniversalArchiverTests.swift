@@ -20,7 +20,7 @@ final class UniversalArchiverTests: XCTestCase {
     func testSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = UniversalArchiver(localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             let tarDestination = tmpdir.appending("tar")
             try localFileSystem.createDirectory(tarDestination)
@@ -68,7 +68,7 @@ final class UniversalArchiverTests: XCTestCase {
     func testInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = UniversalArchiver(localFileSystem)
-            var inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            var inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
                 #if os(Linux)
@@ -78,7 +78,7 @@ final class UniversalArchiverTests: XCTestCase {
                 #endif
             }
 
-            inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
 #if os(Windows)
@@ -94,14 +94,14 @@ final class UniversalArchiverTests: XCTestCase {
         // valid
         try testWithTemporaryDirectory { _ in
             let archiver = UniversalArchiver(localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.tar.gz")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { _ in
             let archiver = UniversalArchiver(localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             XCTAssertFalse(try archiver.validate(path: path))
         }

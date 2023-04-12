@@ -192,7 +192,7 @@ public class RepositoryManager: Cancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws -> RepositoryHandle {
-        let relativePath = repository.storagePath()
+        let relativePath = try repository.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         let handle = RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
 
@@ -303,7 +303,7 @@ public class RepositoryManager: Cancellable {
         let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
         if let cachePath, !(handle.repository.isLocal && !shouldCacheLocalPackages) {
-            let cachedRepositoryPath = cachePath.appending(handle.repository.storagePath())
+            let cachedRepositoryPath = try cachePath.appending(handle.repository.storagePath())
             do {
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
                 try self.fileSystem.withLock(on: cachePath, type: .shared) {
@@ -385,7 +385,7 @@ public class RepositoryManager: Cancellable {
 
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
-        let relativePath = repository.storagePath()
+        let relativePath = try repository.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         try self.fileSystem.removeFileTree(repositoryPath)
     }
@@ -524,8 +524,8 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
 
 extension RepositorySpecifier {
     // relative path where the repository should be stored
-    internal func storagePath() -> RelativePath {
-        return RelativePath(self.fileSystemIdentifier)
+    internal func storagePath() throws -> RelativePath {
+        return try RelativePath(validating: self.fileSystemIdentifier)
     }
 
     /// A unique identifier for this specifier.

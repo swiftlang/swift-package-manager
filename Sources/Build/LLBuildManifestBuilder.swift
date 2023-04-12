@@ -176,7 +176,7 @@ extension LLBuildManifestBuilder {
 
         var outputs: [Node] = []
 
-        let infoPlistDestination = RelativePath("Info.plist")
+        let infoPlistDestination = try! RelativePath(validating: "Info.plist") // try! safe
 
         // Create a copy command for each resource file.
         for resource in target.resources {
@@ -626,7 +626,7 @@ extension LLBuildManifestBuilder {
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
-                    inputs.append(file: planProduct.binaryPath)
+                    try inputs.append(file: planProduct.binaryPath)
                 }
                 return
             }
@@ -655,7 +655,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    inputs.append(file: planProduct.binaryPath)
+                    try inputs.append(file: planProduct.binaryPath)
 
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
@@ -820,7 +820,7 @@ extension LLBuildManifestBuilder {
                         throw InternalError("unknown product \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    let binary = planProduct.binaryPath
+                    let binary = try planProduct.binaryPath
                     inputs.append(file: binary)
 
                 case .library(.automatic), .library(.static), .plugin:
@@ -973,7 +973,7 @@ extension LLBuildManifestBuilder {
 
         switch buildProduct.product.type {
         case .library(.static):
-            self.manifest.addShellCmd(
+            try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: buildProduct.objects.map(Node.file),
@@ -982,9 +982,9 @@ extension LLBuildManifestBuilder {
             )
 
         default:
-            let inputs = buildProduct.objects + buildProduct.dylibs.map(\.binaryPath)
+            let inputs = try buildProduct.objects + buildProduct.dylibs.map{ try $0.binaryPath }
 
-            self.manifest.addShellCmd(
+            try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Linking \(buildProduct.binaryPath.prettyPath())",
                 inputs: inputs.map(Node.file),
@@ -998,7 +998,7 @@ extension LLBuildManifestBuilder {
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
-        self.manifest.addPhonyCmd(
+        try self.manifest.addPhonyCmd(
             name: output.name,
             inputs: [.file(buildProduct.binaryPath)],
             outputs: [output]

@@ -38,7 +38,7 @@ class PluginInvocationTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     products: [
                         ProductDescription(
                             name: "Foo",
@@ -125,7 +125,7 @@ class PluginInvocationTests: XCTestCase {
                 completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
-                XCTAssertEqual(sourceFiles, [AbsolutePath(path: "/Foo/Plugins/FooPlugin/source.swift")])
+                XCTAssertEqual(sourceFiles, ["/Foo/Plugins/FooPlugin/source.swift"])
 
                 do {
                     // Pretend the plugin emitted some output.
@@ -223,7 +223,7 @@ class PluginInvocationTests: XCTestCase {
         let evalFirstDiagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)
         XCTAssertEqual(evalFirstDiagnostic.severity, .warning)
         XCTAssertEqual(evalFirstDiagnostic.message, "A warning")
-        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init(path: "/Foo/Sources/Foo/SomeFile.abc"), line: 42))
+        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation("/Foo/Sources/Foo/SomeFile.abc", line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }

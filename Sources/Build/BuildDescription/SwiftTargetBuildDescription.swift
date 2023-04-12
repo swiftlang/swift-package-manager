@@ -327,7 +327,7 @@ public final class SwiftTargetBuildDescription {
         }
         """
 
-        let subpath = RelativePath("embedded_resources.swift")
+        let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
         let path = self.derivedSources.root.appending(subpath)
         try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
@@ -374,7 +374,7 @@ public final class SwiftTargetBuildDescription {
         }
         """
 
-        let subpath = RelativePath("resource_bundle_accessor.swift")
+        let subpath = try RelativePath(validating: "resource_bundle_accessor.swift")
 
         // Add the file to the derived sources.
         self.derivedSources.relativePaths.append(subpath)
@@ -410,7 +410,7 @@ public final class SwiftTargetBuildDescription {
         #else
         try self.requiredMacroProducts.forEach { macro in
             if let macroTarget = macro.targets.first {
-                let executablePath = self.buildParameters.binaryPath(for: macro).pathString
+                let executablePath = try self.buildParameters.binaryPath(for: macro).pathString
                 args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macroTarget.c99name)"]
             } else {
                 throw InternalError("macro product \(macro.name) has no targets") // earlier validation should normally catch this

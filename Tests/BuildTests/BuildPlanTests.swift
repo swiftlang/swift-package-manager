@@ -25,7 +25,7 @@ import enum TSCUtility.Diagnostics
 @_implementationOnly import DriverSupport
 
 final class BuildPlanTests: XCTestCase {
-    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     private let driverSupport = DriverSupport()
 
     /// The j argument.
@@ -45,7 +45,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["FooLogging"]),
                     ],
@@ -54,7 +54,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.static), targets: ["BarLogging"]),
                     ],
@@ -63,11 +63,11 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -104,7 +104,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["FooLogging"]),
                     ],
@@ -113,7 +113,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -122,11 +122,11 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -170,7 +170,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "bazPkg",
-                    path: .init(path: "/bazPkg"),
+                    path: "/bazPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BazLogging"]),
                     ],
@@ -179,7 +179,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -188,11 +188,11 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bazPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
@@ -209,7 +209,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "xPkg",
-                    path: .init(path: "/xPkg"),
+                    path: "/xPkg",
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["XUtils"]),
                     ],
@@ -218,7 +218,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "yPkg",
-                    path: .init(path: "/yPkg"),
+                    path: "/yPkg",
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["YUtils"]),
                     ],
@@ -227,12 +227,12 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/xPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/yPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -280,7 +280,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "bazPkg",
-                    path: .init(path: "/bazPkg"),
+                    path: "/bazPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BazLogging"]),
                     ],
@@ -289,7 +289,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -298,11 +298,11 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/bazPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bazPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
@@ -319,9 +319,9 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -360,10 +360,10 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
@@ -377,7 +377,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -386,9 +386,9 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -426,7 +426,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     toolsVersion: .v5_8,
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
@@ -436,7 +436,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -445,10 +445,10 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -485,7 +485,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
-                    path: .init(path: "/fooPkg"),
+                    path: "/fooPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["FooLogging"]),
                     ],
@@ -494,7 +494,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
-                    path: .init(path: "/barPkg"),
+                    path: "/barPkg",
                     products: [
                         ProductDescription(name: "Logging", type: .library(.automatic), targets: ["BarLogging"]),
                     ],
@@ -503,11 +503,11 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
-                    path: .init(path: "/thisPkg"),
+                    path: "/thisPkg",
                     toolsVersion: .v5_8,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe",
@@ -615,7 +615,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -805,8 +805,8 @@ final class BuildPlanTests: XCTestCase {
                     displayName: "Pkg",
                     path: try .init(validating: Pkg.pathString),
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/PlatformPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/PlatformPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -828,7 +828,7 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
-                    path: .init(path: "/ExtPkg"),
+                    path: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -838,7 +838,7 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "PlatformPkg",
-                    path: .init(path: "/PlatformPkg"),
+                    path: "/PlatformPkg",
                     platforms: [PlatformDescription(name: "macos", version: "50.0")],
                     products: [
                         ProductDescription(name: "PlatformLib", type: .library(.automatic), targets: ["PlatformLib"]),
@@ -921,9 +921,9 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
@@ -931,7 +931,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
-                    path: .init(path: "/B"),
+                    path: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -976,7 +976,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -1052,7 +1052,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -1286,9 +1286,9 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -1306,7 +1306,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "ExtPkg",
-                    path: .init(path: "/ExtPkg"),
+                    path: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -1562,7 +1562,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     toolsVersion: .v5,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -1608,9 +1608,9 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Dep"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["swiftlib"]),
@@ -1619,7 +1619,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "Dep",
-                    path: .init(path: "/Dep"),
+                    path: "/Dep",
                     products: [
                         ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
@@ -1664,7 +1664,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
@@ -1746,7 +1746,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     platforms: [
                         PlatformDescription(name: "macos", version: "12.0"),
                     ],
@@ -1965,7 +1965,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     toolsVersion: .v5_5,
                     targets: [
                         TargetDescription(name: "exe1", type: .executable),
@@ -2074,7 +2074,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     dependencies: [
                         .localSourceControl(path: try .init(validating: Clibgit.pathString), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -2083,7 +2083,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "Clibgit",
-                    path: .init(path: "/Clibgit")
+                    path: "/Clibgit"
                 ),
             ],
             observabilityScope: observability.topScope
@@ -2153,7 +2153,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -2192,7 +2192,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
@@ -2201,9 +2201,9 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar-Baz"]),
@@ -2324,7 +2324,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -2562,10 +2562,10 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/C"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"])
@@ -2575,7 +2575,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
-                    path: .init(path: "/B"),
+                    path: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -2586,7 +2586,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "C",
-                    path: .init(path: "/C"),
+                    path: "/C",
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
@@ -2648,10 +2648,10 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: .init(path: "/C"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"]),
@@ -2675,7 +2675,7 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "B",
-                    path: .init(path: "/B"),
+                    path: "/B",
                     products: [
                         ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
@@ -2693,7 +2693,7 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "C",
-                    path: .init(path: "/C"),
+                    path: "/C",
                     products: [
                         ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
                     ],
@@ -2765,7 +2765,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg")
+                    path: "/Pkg"
                 )
             ],
             observabilityScope: observability.topScope
@@ -2794,7 +2794,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -2839,7 +2839,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -3005,7 +3005,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let executablePathExtension = appBuildDescription.binaryPath.extension
+        let executablePathExtension = try appBuildDescription.binaryPath.extension
         XCTAssertEqual(executablePathExtension, "wasm")
 
         let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
@@ -3022,7 +3022,7 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let testPathExtension = testBuildDescription.binaryPath.extension
+        let testPathExtension = try testBuildDescription.binaryPath.extension
         XCTAssertEqual(testPathExtension, "wasm")
     }
 
@@ -3037,7 +3037,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     toolsVersion: .v5_5,
                     targets: [
                         TargetDescription(name: "exe", type: .executable),
@@ -3084,7 +3084,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -3132,20 +3132,20 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                     ],
                     toolsVersion: .v5,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
-                    path: .init(path: "/B"),
+                    path: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
                     ],
@@ -3195,21 +3195,21 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "A",
-                    path: .init(path: "/A"),
+                    path: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
                     toolsVersion: .v5,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
-                    path: .init(path: "/B"),
+                    path: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "11"),
@@ -3262,10 +3262,10 @@ final class BuildPlanTests: XCTestCase {
 
         let aManifest = Manifest.createRootManifest(
             displayName: "A",
-            path: .init(path: "/A"),
+            path: "/A",
             toolsVersion: .v5,
             dependencies: [
-                .localSourceControl(path: .init(path: "/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -3308,7 +3308,7 @@ final class BuildPlanTests: XCTestCase {
 
         let bManifest = Manifest.createFileSystemManifest(
             displayName: "B",
-            path: .init(path: "/B"),
+            path: "/B",
             toolsVersion: .v5,
             products: [
                 try ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
@@ -3393,7 +3393,7 @@ final class BuildPlanTests: XCTestCase {
 
         let aManifest = Manifest.createRootManifest(
             displayName: "A",
-            path: .init(path: "/A"),
+            path: "/A",
             toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "exe", dependencies: []),
@@ -3434,7 +3434,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -3508,7 +3508,7 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createRootManifest(
                     displayName: "PkgB",
-                    path: .init(path: "/PkgB"),
+                    path: "/PkgB",
                     dependencies: [
                         .localSourceControl(path: try .init(validating: PkgA.pathString), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -3628,14 +3628,14 @@ final class BuildPlanTests: XCTestCase {
                     displayName: "PkgA",
                     path: try .init(validating: PkgA.pathString),
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "PkgB",
-                    path: .init(path: "/PkgB"),
+                    path: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -3702,14 +3702,14 @@ final class BuildPlanTests: XCTestCase {
                     displayName: "PkgA",
                     path: try .init(validating: PkgA.pathString),
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
                 Manifest.createFileSystemManifest(
                     displayName: "PkgB",
-                    path: .init(path: "/PkgB"),
+                    path: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
@@ -3777,7 +3777,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -3835,7 +3835,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Package",
-                    path: .init(path: "/Package"),
+                    path: "/Package",
                     products: [
                         ProductDescription(name: "rary", type: .library(.static), targets: ["rary"]),
                     ],
@@ -3911,7 +3911,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "PkgA",
-                    path: .init(path: "/PkgA"),
+                    path: "/PkgA",
                     toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(
@@ -3977,7 +3977,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "PkgA",
-                    path: .init(path: "/PkgA"),
+                    path: "/PkgA",
                     toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(
@@ -4043,7 +4043,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     toolsVersion: .current,
                     targets: [
                         TargetDescription(
@@ -4115,7 +4115,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -4337,7 +4337,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                     ],
@@ -4414,7 +4414,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Lib",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     toolsVersion: .vNext,
                     dependencies: [],
                     products: [
@@ -4466,7 +4466,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Pkg",
-                    path: .init(path: "/Pkg"),
+                    path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
                         TargetDescription(name: "lib", dependencies: []),

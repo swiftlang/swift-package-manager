@@ -325,7 +325,7 @@ extension PackageIdentity {
         guard let registryIdentity = self.registry else {
             throw StringError("invalid package identifier \(self), expected registry scope and name")
         }
-        return RelativePath(registryIdentity.scope.description).appending(component: registryIdentity.name.description)
+        return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
     internal func downloadPath(version: Version) throws -> RelativePath {

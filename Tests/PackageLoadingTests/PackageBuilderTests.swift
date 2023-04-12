@@ -220,7 +220,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
                 module.checkSources(root: "/Sources/clib", paths: "clib.c")
-                module.check(moduleMapType: .custom(AbsolutePath(path: "/Sources/clib/include/module.modulemap")))
+                module.check(moduleMapType: .custom("/Sources/clib/include/module.modulemap"))
             }
         }
     }
@@ -808,7 +808,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'\(AbsolutePath.root)\' or \'~\'", severity: .error)
+            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'\(AbsolutePath.root)\'", severity: .error)
         }
     }
 
@@ -1688,7 +1688,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            try fs.writeFileContents(AbsolutePath(path: "/foo2.zip"), bytes: "")
+            try fs.writeFileContents("/foo2.zip", bytes: "")
 
             let binaryArtifacts = [
                 "foo": BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: "/foo.xcframework"),
@@ -1818,6 +1818,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
+        /*
         do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/pkg/Sources/Foo/Foo.c",
@@ -1832,7 +1833,7 @@ class PackageBuilderTests: XCTestCase {
             PackageBuilderTester(manifest, path: "/pkg", in: fs) { _, diagnostics in
                 diagnostics.check(diagnostic: "target path \'~/foo\' is not supported; it should be relative to package root", severity: .error)
             }
-        }
+        }*/
     }
 
     func testExecutableAsADep() throws {
@@ -2673,7 +2674,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest1, path: "/pkg", in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '\(AbsolutePath.root)' or '~'", severity: .error)
+            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '\(AbsolutePath.root)'", severity: .error)
         }
 
         let manifest2 = Manifest.createRootManifest(
@@ -2709,7 +2710,7 @@ class PackageBuilderTests: XCTestCase {
             displayName: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .localSourceControl(path: .init(path: "/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2776,7 +2777,7 @@ class PackageBuilderTests: XCTestCase {
             displayName: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .fileSystem(path: .init(path: "/Biz")),
+                .fileSystem(path: "/Biz"),
             ],
             targets: [
                 try TargetDescription(

@@ -175,7 +175,7 @@ public struct SwiftRunTool: SwiftCommand {
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
-            if let executable = options.executable, isValidSwiftFilePath(fileSystem: swiftTool.fileSystem, path: executable) {
+            if let executable = options.executable, try isValidSwiftFilePath(fileSystem: swiftTool.fileSystem, path: executable) {
                 swiftTool.observabilityScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftTool.getDestinationToolchain().swiftInterpreterPath
@@ -262,7 +262,7 @@ public struct SwiftRunTool: SwiftCommand {
     }
 
     /// Determines if a path points to a valid swift file.
-    private func isValidSwiftFilePath(fileSystem: FileSystem, path: String) -> Bool {
+    private func isValidSwiftFilePath(fileSystem: FileSystem, path: String) throws -> Bool {
         guard path.hasSuffix(".swift") else { return false }
         //FIXME: Return false when the path is not a valid path string.
         let absolutePath: AbsolutePath
@@ -276,7 +276,7 @@ public struct SwiftRunTool: SwiftCommand {
             guard let cwd = fileSystem.currentWorkingDirectory else {
                 return false
             }
-            absolutePath = AbsolutePath(cwd, path)
+            absolutePath = try AbsolutePath(cwd, validating: path)
         }
         return fileSystem.isFile(absolutePath)
     }

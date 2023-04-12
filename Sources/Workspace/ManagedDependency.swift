@@ -102,11 +102,11 @@ extension Workspace {
         ) throws -> ManagedDependency {
             switch packageRef.kind {
             case .root(let path), .fileSystem(let path), .localSourceControl(let path):
-                return ManagedDependency(
+                return try ManagedDependency(
                     packageRef: packageRef,
                     state: .fileSystem(path),
                     // FIXME: This is just a fake entry, we should fix it.
-                    subpath: RelativePath(packageRef.identity.description)
+                    subpath: RelativePath(validating: packageRef.identity.description)
                 )
             default:
                 throw InternalError("invalid package type: \(packageRef.kind)")
