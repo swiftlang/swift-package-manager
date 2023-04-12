@@ -138,7 +138,7 @@ do {
 
 #if os(Windows)
 import func ucrt.exit
-#else
+#elseif canImport(Glibc)
 import func Glibc.exit
 #endif
 print("Only macOS supported.")
