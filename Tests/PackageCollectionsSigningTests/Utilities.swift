@@ -62,10 +62,12 @@ struct TestCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
                         callbackQueue: callbackQueue, callback: callback)
-            #else
+            #elseif os(Linux) || os(Windows) || os(Android)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
                         observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue, callback: callback)
+            #else
+            throw InternalError("not implemented")
             #endif
         } catch {
             return callbackQueue.async { callback(.failure(error)) }
