@@ -381,7 +381,8 @@ public final class RegistryClient: Cancellable {
                                 url: $0.url.flatMap { URL(string: $0) }
                             )
                         },
-                        description: versionMetadata.metadata?.description
+                        description: versionMetadata.metadata?.description,
+                        publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
                     )
                 }
             )
@@ -1851,6 +1852,7 @@ extension RegistryClient {
         public let resources: [Resource]
         public let author: Author?
         public let description: String?
+        public let publishedAt: Date?
 
         public var sourceArchive: Resource? {
             self.resources.first(where: { $0.name == "source-archive" })
@@ -2179,6 +2181,7 @@ extension RegistryClient {
             public let version: String
             public let resources: [Resource]
             public let metadata: AdditionalMetadata?
+            public let publishedAt: Date?
 
             var sourceArchive: Resource? {
                 self.resources.first(where: { $0.name == "source-archive" })
@@ -2188,12 +2191,14 @@ extension RegistryClient {
                 id: String,
                 version: String,
                 resources: [Resource],
-                metadata: AdditionalMetadata?
+                metadata: AdditionalMetadata?,
+                publishedAt: Date?
             ) {
                 self.id = id
                 self.version = version
                 self.resources = resources
                 self.metadata = metadata
+                self.publishedAt = publishedAt
             }
 
             public struct Resource: Codable {
@@ -2221,19 +2226,22 @@ extension RegistryClient {
                 public let licenseURL: String?
                 public let readmeURL: String?
                 public let repositoryURLs: [String]?
+                public let originalPublicationTime: Date?
 
                 public init(
                     author: Author? = nil,
                     description: String,
                     licenseURL: String? = nil,
                     readmeURL: String? = nil,
-                    repositoryURLs: [String]? = nil
+                    repositoryURLs: [String]? = nil,
+                    originalPublicationTime: Date? = nil
                 ) {
                     self.author = author
                     self.description = description
                     self.licenseURL = licenseURL
                     self.readmeURL = readmeURL
                     self.repositoryURLs = repositoryURLs
+                    self.originalPublicationTime = originalPublicationTime
                 }
             }
 
