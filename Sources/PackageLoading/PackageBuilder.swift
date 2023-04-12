@@ -1089,14 +1089,7 @@ public final class PackageBuilder {
                     // `version` is the compatibility version of Swift/C++ interop,
                     // which is meant to preserve source compatibility for
                     // user projects while Swift/C++ interop is evolving.
-                    // At the moment the only supported interop version is
-                    // `swift-5.9` which is aligned with the version of
-                    // Swift itself, but this might not always be the case
-                    // in the future.
-                    guard let version else {
-                        throw InternalError("C++ interoperability requires a version (e.g. 'swift-5.9')")
-                    }
-                    values = ["-cxx-interoperability-mode=\(version)"]
+                    values = ["-cxx-interoperability-mode=\(version ?? "default")"]
                 } else {
                     values = []
                 }
