@@ -76,6 +76,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
             
@@ -122,6 +124,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
+            XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
             
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
@@ -426,6 +431,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
@@ -496,6 +503,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
@@ -633,6 +642,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
+            XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertTrue(signature.isVerified)
@@ -704,6 +716,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
@@ -781,6 +795,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: "https://www.example.com/repos/RepoOne/LICENSE"))
+            XCTAssertEqual(version.author?.username, "J. Appleseed")
+            XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!

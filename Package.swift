@@ -370,6 +370,7 @@ let package = Package(
                 "PackageCollections",
                 "PackageModel",
                 "PackageRegistry",
+                "PackageSigning",
             ]
         ),
 
