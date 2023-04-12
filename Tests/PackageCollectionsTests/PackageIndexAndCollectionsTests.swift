@@ -133,6 +133,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -271,6 +272,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
@@ -488,6 +490,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
@@ -590,6 +593,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                                                                   verifiedCompatibility: nil,
                                                                   license: nil,
                                                                   author: nil,
+                                                                  signer: nil,
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"

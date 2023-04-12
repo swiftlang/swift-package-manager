@@ -657,7 +657,8 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                          defaultToolsVersion: packageVersion.defaultToolsVersion,
                          verifiedCompatibility: packageVersion.verifiedCompatibility,
                          license: packageVersion.license,
-                         author: versionMetadata?.author,
+                         author: versionMetadata?.author ?? packageVersion.author,
+                         signer: packageVersion.signer,
                          createdAt: versionMetadata?.createdAt ?? packageVersion.createdAt)
         }
         versions.sort(by: >)

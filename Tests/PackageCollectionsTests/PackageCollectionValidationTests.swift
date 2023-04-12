@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -42,6 +42,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                     Model.Collection.Package.Version(
@@ -59,6 +61,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -125,6 +129,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -151,6 +157,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -233,6 +241,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                     Model.Collection.Package.Version(
@@ -250,6 +260,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -310,6 +322,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -360,6 +374,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                     Model.Collection.Package.Version(
@@ -377,6 +393,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -403,6 +421,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                     Model.Collection.Package.Version(
@@ -420,6 +440,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -467,6 +489,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -517,6 +541,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -567,6 +593,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
@@ -617,6 +645,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
                         license: nil,
+                        author: nil,
+                        signer: nil,
                         createdAt: nil
                     ),
                 ],
