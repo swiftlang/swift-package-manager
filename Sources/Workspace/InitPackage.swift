@@ -319,12 +319,7 @@ public final class InitPackage {
                             .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
 
                             // A test target used to develop the macro implementation.
-                            .testTarget(
-                                name: "\(pkgname)Tests",
-                                dependencies: [
-                                   "\(pkgname)Macros",
-                                ]
-                            ),
+                            .testTarget(name: "\(pkgname)Tests", dependencies: ["\(pkgname)Macros"]),
                         ]
                     """
                 } else {
