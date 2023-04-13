@@ -792,26 +792,6 @@ def get_swiftpm_flags(args):
             "-Xlinker", "@executable_path/../lib/swift/pm/llbuild",
         ])
 
-    # Add a relative rpath to find Swift libraries in toolchains.
-    # On non-Darwin platforms, a relative rpath is necessary because Swift
-    # libraries are not part of the OS.
-    # On Darwin platforms, a relative rpath is necessary for experimental
-    # toolchains that include libraries not part of the OS (e.g. PythonKit or
-    # TensorFlow).
-    if '-macosx' in args.build_target:
-        # rpaths for compatibility libraries
-        for lib_path in get_swift_backdeploy_library_paths(args):
-            build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", lib_path])
-
-        build_flags.extend(
-           [
-               "-Xlinker",
-               "-rpath",
-               "-Xlinker",
-               "@executable_path/../" + args.platform_path.group(1),
-           ]
-        )
-
     if '-openbsd' in args.build_target:
         build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
         build_flags.extend(["-Xcc", "-I/usr/local/include"])
