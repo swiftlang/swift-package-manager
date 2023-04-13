@@ -50,6 +50,11 @@ public enum DestinationError: Swift.Error {
     /// A destination with this artifact ID is already installed. Can't install a new bundle with this artifact,
     /// installed artifact IDs are expected to be unique.
     case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
+
+    #if os(macOS)
+    /// Quarantine bit could not be removed by `xattr` command from an installed bundle.
+    case failedToRemoveQuarantineBit(bundlePath: AbsolutePath, xattrExitStatus: ProcessResult.ExitStatus)
+    #endif
 }
 
 extension DestinationError: CustomStringConvertible {
@@ -91,6 +96,26 @@ extension DestinationError: CustomStringConvertible {
             `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
             are expected to be unique across all installed Swift SDK bundles.
             """
+        #if os(macOS)
+        case .failedToRemoveQuarantineBit(let bundlePath, let xattrExitStatus):
+            let exitStatusDescription: String
+
+            switch xattrExitStatus {
+            case .signalled(let signal):
+                exitStatusDescription = "the command received a signal with code \(signal)"
+            case .terminated(let code):
+                exitStatusDescription = "the command terminated with exit code \(code)"
+            #if os(Windows)
+            case .abnormal(let exception):
+                exitStatusDescription = "the command terminated abnormally with exception code \(exception)"
+            #endif
+            }
+
+            return """
+            Failed to remove quarantine bit with `xattr` command from a bundle installed at path `\(bundlePath)`, \
+            \(exitStatusDescription).
+            """
+        #endif
         }
     }
 }
