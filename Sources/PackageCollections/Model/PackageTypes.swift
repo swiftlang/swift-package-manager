@@ -143,6 +143,9 @@ extension PackageCollectionsModel.Package {
         
         /// The package version's author
         public let author: PackageCollectionsModel.Package.Author?
+        
+        /// The package version's signer
+        public let signer: PackageCollectionsModel.Signer?
 
         /// When the package version was created
         public let createdAt: Date?
@@ -221,6 +224,38 @@ extension PackageCollectionsModel.Package {
             /// The service name
             public let name: String
         }
+    }
+}
+
+extension PackageCollectionsModel {
+    public struct Signer: Equatable, Codable {
+        /// The signer type.
+        public let type: SignerType
+        
+        /// The common name of the signing certificate's subject.
+        public let commonName: String
+        
+        /// The organizational unit name of the signing certificate's subject.
+        public let organizationalUnitName: String
+        
+        /// The organization name of the signing certificate's subject.
+        public let organizationName: String
+
+        public init(
+            type: SignerType,
+            commonName: String,
+            organizationalUnitName: String,
+            organizationName: String
+        ) {
+            self.type = type
+            self.commonName = commonName
+            self.organizationalUnitName = organizationalUnitName
+            self.organizationName = organizationName
+        }
+    }
+    
+    public enum SignerType: String, Codable {
+        case adp // Apple Developer Program
     }
 }
 

@@ -251,6 +251,18 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     }
                     let license = version.license.flatMap { Model.License(from: $0) }
 
+                    let signer: Model.Signer?
+                    if let versionSigner = version.signer, let signerType = Model.SignerType(rawValue: versionSigner.type.lowercased()) {
+                        signer = .init(
+                            type: signerType,
+                            commonName: versionSigner.commonName,
+                            organizationalUnitName: versionSigner.organizationalUnitName,
+                            organizationName: versionSigner.organizationName
+                        )
+                    } else {
+                        signer = nil
+                    }
+
                     return .init(version: parsedVersion,
                                  title: nil,
                                  summary: version.summary,
@@ -258,7 +270,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  defaultToolsVersion: defaultToolsVersion,
                                  verifiedCompatibility: verifiedCompatibility,
                                  license: license,
-                                 author: nil,
+                                 author: version.author.map { .init(username: $0.name, url: nil, service: nil) },
+                                 signer: signer,
                                  createdAt: version.createdAt)
                 }
                 if versions.count != package.versions.count {

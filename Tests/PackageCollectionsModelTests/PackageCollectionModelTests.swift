@@ -42,6 +42,13 @@ class PackageCollectionModelTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: "https://package-collection-tests.com/repos/foobar/LICENSE"),
+                        author: .init(name: "J. Appleseed"),
+                        signer: .init(
+                            type: "ADP",
+                            commonName: "J. Appleseed",
+                            organizationalUnitName: "A1",
+                            organizationName: "Appleseed Inc."
+                        ),
                         createdAt: Date()
                     ),
                 ],
@@ -88,6 +95,13 @@ class PackageCollectionModelTests: XCTestCase {
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: "https://package-collection-tests.com/repos/foobar/LICENSE"),
+                        author: .init(name: "J. Appleseed"),
+                        signer: .init(
+                            type: "ADP",
+                            commonName: "J. Appleseed",
+                            organizationalUnitName: "A1",
+                            organizationName: "Appleseed Inc."
+                        ),
                         createdAt: Date()
                     ),
                 ],
