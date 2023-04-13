@@ -107,8 +107,9 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     public var customCompileDestination: AbsolutePath?
 
-    @Option(name: .customLong("experimental-destinations-path"), help: .hidden, completion: .directory)
-    public var crossCompilationDestinationsDirectory: AbsolutePath?
+    /// Path to the directory containing installed Swift SDKs.
+    @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
+    public var swiftSDKsDirectory: AbsolutePath?
 
     @Option(
         name: .customLong("pkg-config-path"),
@@ -398,9 +399,9 @@ public struct BuildOptions: ParsableArguments {
     )
     public var architectures: [String] = []
 
-    /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("experimental-destination-selector"), help: .hidden)
-    public var crossCompilationDestinationSelector: String?
+    /// Filter for selecting a specific Swift SDK to build with.
+    @Option(name: .customLong("experimental-swift-sdk"), help: .hidden)
+    public var swiftSDKSelector: String?
 
     /// Which compile-time sanitizers should be enabled.
     @Option(

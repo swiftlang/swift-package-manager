@@ -3844,9 +3844,9 @@ extension Workspace.Location {
         )
 
         try location.validate(
-            keyPath: \.sharedCrossCompilationDestinationsDirectory,
+            keyPath: \.sharedSwiftSDKsDirectory,
             fileSystem: fileSystem,
-            getOrCreateHandler: fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory,
+            getOrCreateHandler: fileSystem.getOrCreateSwiftPMSwiftSDKsDirectory,
             warningHandler: warningHandler
         )
 

@@ -6,18 +6,18 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(CrossCompilationDestinationsTool STATIC
-  Configuration/ConfigurationCommand.swift
-  Configuration/ConfigureDestination.swift
+add_library(SwiftSDKTool
+  Configuration/ConfigurationSubcommand.swift
+  Configuration/ConfigureSwiftSDK.swift
   Configuration/ResetConfiguration.swift
   Configuration/SetConfiguration.swift
   Configuration/ShowConfiguration.swift
-  DestinationCommand.swift
-  InstallDestination.swift
-  ListDestinations.swift
-  RemoveDestination.swift
-  SwiftDestinationTool.swift)
-target_link_libraries(CrossCompilationDestinationsTool PUBLIC
+  SwiftSDKSubcommand.swift
+  InstallSwiftSDK.swift
+  ListSwiftSDKs.swift
+  RemoveSwiftSDK.swift
+  SwiftSDKTool.swift)
+target_link_libraries(SwiftSDKTool PUBLIC
   ArgumentParser
   Basics
   CoreCommands

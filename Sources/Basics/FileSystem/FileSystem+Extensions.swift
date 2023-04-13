@@ -224,65 +224,63 @@ extension FileSystem {
     }
 }
 
-// MARK: - cross-compilation destinations
+// MARK: - Swift SDKs
 
-private let crossCompilationDestinationsDirectoryName = "destinations"
+private let swiftSDKsDirectoryName = "swift-sdks"
 
 extension FileSystem {
-    /// SwiftPM cross-compilation destinations directory (if exists)
-    public var swiftPMCrossCompilationDestinationsDirectory: AbsolutePath {
+    /// Path to Swift SDKs directory (if exists)
+    public var swiftSDKsDirectory: AbsolutePath {
         get throws {
             if let path = try idiomaticSwiftPMDirectory {
-                return path.appending(component: crossCompilationDestinationsDirectoryName)
+                return path.appending(component: swiftSDKsDirectoryName)
             } else {
-                return try dotSwiftPMCrossCompilationDestinationsDirectory
+                return try dotSwiftPMSwiftSDKsDirectory
             }
         }
     }
 
-    fileprivate var dotSwiftPMCrossCompilationDestinationsDirectory: AbsolutePath {
+    fileprivate var dotSwiftPMSwiftSDKsDirectory: AbsolutePath {
         get throws {
-            return try dotSwiftPM.appending(component: crossCompilationDestinationsDirectoryName)
+            return try dotSwiftPM.appending(component: swiftSDKsDirectoryName)
         }
     }
 
-    public func getSharedCrossCompilationDestinationsDirectory(
-        explicitDirectory: AbsolutePath?
-    ) throws -> AbsolutePath? {
-        if let explicitDestinationsDirectory = explicitDirectory {
+    public func getSharedSwiftSDKsDirectory(explicitDirectory: AbsolutePath?) throws -> AbsolutePath? {
+        if let explicitDirectory {
             // Create the explicit SDKs path if necessary
-            if !exists(explicitDestinationsDirectory) {
-                try createDirectory(explicitDestinationsDirectory, recursive: true)
+            if !exists(explicitDirectory) {
+                try createDirectory(explicitDirectory, recursive: true)
             }
-            return explicitDestinationsDirectory
+            return explicitDirectory
         } else {
-            return try swiftPMCrossCompilationDestinationsDirectory
+            return try swiftSDKsDirectory
         }
     }
 
-    public func getOrCreateSwiftPMCrossCompilationDestinationsDirectory() throws -> AbsolutePath {
-        let idiomaticDestinationsDirectory = try swiftPMCrossCompilationDestinationsDirectory
+    public func getOrCreateSwiftPMSwiftSDKsDirectory() throws -> AbsolutePath {
+        let idiomaticSwiftSDKDirectory = try swiftSDKsDirectory
 
         // Create idiomatic if necessary
-        if !exists(idiomaticDestinationsDirectory) {
-            try createDirectory(idiomaticDestinationsDirectory, recursive: true)
+        if !exists(idiomaticSwiftSDKDirectory) {
+            try createDirectory(idiomaticSwiftSDKDirectory, recursive: true)
         }
         // Create ~/.swiftpm if necessary
         if !exists(try dotSwiftPM) {
             try createDirectory(dotSwiftPM, recursive: true)
         }
-        // Create ~/.swiftpm/destinations symlink if necessary
+        // Create ~/.swiftpm/swift-sdks symlink if necessary
         // locking ~/.swiftpm to protect from concurrent access
         try withLock(on: dotSwiftPM, type: .exclusive) {
-            if !exists(try dotSwiftPMCrossCompilationDestinationsDirectory, followSymlink: false) {
+            if !exists(try dotSwiftPMSwiftSDKsDirectory, followSymlink: false) {
                 try createSymbolicLink(
-                    dotSwiftPMCrossCompilationDestinationsDirectory,
-                    pointingAt: idiomaticDestinationsDirectory,
+                    dotSwiftPMSwiftSDKsDirectory,
+                    pointingAt: idiomaticSwiftSDKDirectory,
                     relative: false
                 )
             }
         }
-        return idiomaticDestinationsDirectory
+        return idiomaticSwiftSDKDirectory
     }
 }
 
