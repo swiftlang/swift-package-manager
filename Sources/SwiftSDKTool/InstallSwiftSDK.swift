@@ -21,11 +21,11 @@ import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 import func TSCBasic.tsc_await
 
-public struct InstallDestination: DestinationCommand {
+public struct InstallSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
-        Installs a given destination artifact bundle to a location discoverable by SwiftPM. If the artifact bundle \
+        Installs a given Swift SDK bundle to a location discoverable by SwiftPM. If the artifact bundle \
         is at a remote location, it's downloaded to local filesystem first.
         """
     )
@@ -33,7 +33,7 @@ public struct InstallDestination: DestinationCommand {
     @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
 
-    @Argument(help: "A local filesystem path or a URL of an artifact bundle to install.")
+    @Argument(help: "A local filesystem path or a URL of a Swift SDK bundle to install.")
     var bundlePathOrURL: String
 
     public init() {}
@@ -45,7 +45,7 @@ public struct InstallDestination: DestinationCommand {
     ) throws {
         let cancellator = Cancellator(observabilityScope: observabilityScope)
         cancellator.installSignalHandlers()
-        try DestinationBundle.install(
+        try SwiftSDKBundle.install(
             bundlePathOrURL: bundlePathOrURL,
             destinationsDirectory: destinationsDirectory,
             self.fileSystem,

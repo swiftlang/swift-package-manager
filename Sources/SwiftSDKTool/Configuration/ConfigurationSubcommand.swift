@@ -16,7 +16,7 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-protocol ConfigurationCommand: DestinationCommand {
+protocol ConfigurationSubcommand: SwiftSDKSubcommand {
     /// An identifier of an already installed destination.
     var destinationID: String { get }
 
@@ -37,19 +37,19 @@ protocol ConfigurationCommand: DestinationCommand {
         buildTimeTriple: Triple,
         runTimeTriple: Triple,
         _ destination: Destination,
-        _ configurationStore: DestinationConfigurationStore,
+        _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws
 }
 
-extension ConfigurationCommand {
+extension ConfigurationSubcommand {
     func run(
         buildTimeTriple: Triple,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let configurationStore = try DestinationConfigurationStore(
+        let configurationStore = try SwiftSDKConfigurationStore(
             buildTimeTriple: buildTimeTriple,
             destinationsDirectoryPath: destinationsDirectory,
             fileSystem: fileSystem,

@@ -409,8 +409,8 @@ let package = Package(
         ),
 
         .target(
-            /** Interacts with cross-compilation destinations */
-            name: "CrossCompilationDestinationsTool",
+            /** Interacts with Swift SDKs used for cross-compilation */
+            name: "SwiftSDKTool",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
@@ -480,9 +480,9 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
-            /** Interacts with cross-compilation destinations */
-            name: "swift-experimental-destination",
-            dependencies: ["Commands", "CrossCompilationDestinationsTool"],
+            /** Interacts with Swift SDKs used for cross-compilation */
+            name: "swift-experimental-sdk",
+            dependencies: ["Commands", "SwiftSDKTool"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -508,7 +508,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "Commands",
-                "CrossCompilationDestinationsTool",
+                "SwiftSDKTool",
                 "PackageCollectionsTool",
                 "PackageRegistryTool"
             ],

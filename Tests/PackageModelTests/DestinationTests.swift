@@ -355,7 +355,7 @@ final class DestinationTests: XCTestCase {
 
     func testSelectDestination() throws {
         let bundles = [
-            DestinationBundle(
+            SwiftSDKBundle(
                 path: try AbsolutePath(validating: "/destination.artifactsbundle"),
                 artifacts: [
                     "id1": [
@@ -364,7 +364,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id1",
                                 supportedTriples: [hostTriple]
                             ),
-                            destinations: [parsedDestinationV2GNU]
+                            swiftSDKs: [parsedDestinationV2GNU]
                         ),
                     ],
                     "id2": [
@@ -373,7 +373,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id2",
                                 supportedTriples: []
                             ),
-                            destinations: [parsedDestinationV2GNU]
+                            swiftSDKs: [parsedDestinationV2GNU]
                         ),
                     ],
                     "id3": [
@@ -382,7 +382,7 @@ final class DestinationTests: XCTestCase {
                                 path: "id3",
                                 supportedTriples: [hostTriple]
                             ),
-                            destinations: [parsedDestinationV2Musl]
+                            swiftSDKs: [parsedDestinationV2Musl]
                         ),
                     ],
                 ]
