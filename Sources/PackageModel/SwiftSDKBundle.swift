@@ -296,7 +296,7 @@ public struct SwiftSDKBundle {
         try fileSystem.copy(from: unpackedBundlePath, to: installedBundlePath)
 
         #if os(macOS)
-        // Remove the quarantine bit from bundles downloaded manually.
+        // Remove the quarantine attribute from bundles downloaded manually in the browser.
         let result = try Process.popen(
             arguments: ["xattr", "-d", "-r", "-s", "com.apple.quarantine", installedBundlePath.pathString]
         )
