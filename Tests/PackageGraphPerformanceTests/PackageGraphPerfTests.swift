@@ -112,7 +112,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
 
         let root = Manifest.createRootManifest(
             displayName: "PackageA",
-            path: .init(path: "/PackageA"),
+            path: "/PackageA",
             toolsVersion: .v5_7,
             dependencies: try packageNumberSequence.map({ .fileSystem(path: try .init(validating: "/Package\($0)")) }),
             targets: [try .init(name: "TargetA", dependencies: ["Target1"]) ]
