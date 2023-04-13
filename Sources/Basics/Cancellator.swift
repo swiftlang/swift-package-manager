@@ -73,7 +73,7 @@ public final class Cancellator: Cancellable {
                 // Terminate all processes on receiving an interrupt signal.
                 try? self?.cancel(deadline: .now() + .seconds(30))
                 
-#if os(macOS) || targetEnvironment(macCatalyst) || os(OpenBSD)
+#if canImport(Darwin) || os(OpenBSD)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
