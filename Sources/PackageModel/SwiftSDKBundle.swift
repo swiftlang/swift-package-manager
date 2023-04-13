@@ -330,17 +330,16 @@ extension ArtifactsArchiveMetadata {
         var result = SwiftSDKBundle(path: bundlePath)
 
         for (artifactID, artifactMetadata) in artifacts {
-            guard artifactMetadata.type != .crossCompilationDestination else {
+            if artifactMetadata.type == .crossCompilationDestination {
                 observabilityScope.emit(
                     warning: """
                     `crossCompilationDestination` bundle metadata value used for `\(artifactID)` is deprecated, \
                     use `swiftSDK` instead.
                     """
                 )
-                continue
+            } else {
+                guard artifactMetadata.type == .swiftSDK else { continue }
             }
-
-            guard artifactMetadata.type == .swiftSDK else { continue }
 
             var variants = [SwiftSDKBundle.Variant]()
 
