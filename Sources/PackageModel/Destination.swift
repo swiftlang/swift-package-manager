@@ -52,7 +52,7 @@ public enum DestinationError: Swift.Error {
     case destinationArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
 
     #if os(macOS)
-    /// Quarantine bit could not be removed by `xattr` command from an installed bundle.
+    /// Quarantine attribute could not be removed by `xattr` command from an installed bundle.
     case failedToRemoveQuarantineBit(bundlePath: AbsolutePath, xattrExitStatus: ProcessResult.ExitStatus)
     #endif
 }
@@ -105,15 +105,11 @@ extension DestinationError: CustomStringConvertible {
                 exitStatusDescription = "the command received a signal with code \(signal)"
             case .terminated(let code):
                 exitStatusDescription = "the command terminated with exit code \(code)"
-            #if os(Windows)
-            case .abnormal(let exception):
-                exitStatusDescription = "the command terminated abnormally with exception code \(exception)"
-            #endif
             }
 
             return """
-            Failed to remove quarantine bit with `xattr` command from a bundle installed at path `\(bundlePath)`, \
-            \(exitStatusDescription).
+            Failed to remove quarantine attribute with `xattr` command from a bundle installed at path \
+            `\(bundlePath)`, \(exitStatusDescription).
             """
         #endif
         }
