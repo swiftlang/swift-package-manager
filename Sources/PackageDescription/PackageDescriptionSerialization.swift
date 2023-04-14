@@ -201,7 +201,7 @@ enum Serialization {
 
     struct Target: Codable {
         let name: String
-        let group: TargetGroup?
+        let group: TargetGroup
         let path: String?
         let url: String?
         let sources: [String]?
