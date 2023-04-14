@@ -743,7 +743,7 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
 
     if args.bootstrap:
-        libs_joined = ":".join([
+        libs = [
             os.path.join(args.bootstrap_dir,                       "lib"),
             os.path.join(args.build_dirs["tsc"],                   "lib"),
             os.path.join(args.build_dirs["llbuild"],               "lib"),
@@ -755,12 +755,13 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
             os.path.join(args.build_dirs["swift-asn1"],            "lib"),
             os.path.join(args.build_dirs["swift-certificates"],    "lib"),
-        ])
+        ]
 
         if platform.system() == 'Darwin':
-            env_cmd.append("DYLD_LIBRARY_PATH=%s" % libs_joined)
+            env_cmd.append("DYLD_LIBRARY_PATH=%s" % ":".join(libs))
         else:
-            env_cmd.append("LD_LIBRARY_PATH=%s" % libs_joined + args.target_info["paths"]["runtimeLibraryPaths"])
+            libs_joined = ":".join(libs + args.target_info["paths"]["runtimeLibraryPaths"])
+            env_cmd.append("LD_LIBRARY_PATH=%s" % libs_joined)
 
     return env_cmd
 
