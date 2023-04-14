@@ -8,10 +8,6 @@
 # (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
 # (S).
  
-# N: Ankit Aggarwal
-# E: ankit_aggarwal@apple.com
-# D: Package Manager
-
 # N: Anders Bertelrud
 # E: anders@apple.com
 # D: Package Manager
@@ -20,20 +16,16 @@
 # E: bbuegling@apple.com
 # D: Package Manager
 
-# N: Daniel Dunbar
-# E: daniel_dunbar@apple.com
-# D: Package Manager
-
-# N: Ellie Shin
-# E: ellie_shin@apple.com
-# D: Package Manager
-
 # N: Tomer Doron
 # E: tomer@apple.com
+# D: Package Manager
+
+# N: Max Desiatov
+# E: m_desiatov@apple.com
 # D: Package Manager
 
 ###
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-* @abertelrud @neonichu @tomerd
+* @abertelrud @neonichu @tomerd @MaxDesiatov
