@@ -359,16 +359,16 @@ extension ArtifactsArchiveMetadata {
             var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let destinationJSONPath = bundlePath
+                let variantConfigurationPath = bundlePath
                     .appending(variantMetadata.path)
-                    .appending("destination.json")
+                    .appending("swift-sdk.json")
 
-                guard fileSystem.exists(destinationJSONPath) else {
+                guard fileSystem.exists(variantConfigurationPath) else {
                     observabilityScope.emit(
                         .warning(
                             """
-                            Destination metadata file not found at \(
-                                destinationJSONPath
+                            Swift SDK metadata file not found at \(
+                                variantConfigurationPath
                             ) for a variant of artifact \(artifactID)
                             """
                         )
@@ -379,14 +379,14 @@ extension ArtifactsArchiveMetadata {
 
                 do {
                     let destinations = try Destination.decode(
-                        fromFile: destinationJSONPath, fileSystem: fileSystem, observabilityScope: observabilityScope
+                        fromFile: variantConfigurationPath, fileSystem: fileSystem, observabilityScope: observabilityScope
                     )
 
                     variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
                 } catch {
                     observabilityScope.emit(
                         .warning(
-                            "Couldn't parse destination metadata at \(destinationJSONPath): \(error)"
+                            "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath): \(error)"
                         )
                     )
                 }
