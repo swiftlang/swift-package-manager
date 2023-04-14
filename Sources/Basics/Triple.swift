@@ -48,6 +48,7 @@ public struct Triple: Encodable, Equatable, Sendable {
         case aarch64
         case amd64
         case armv7
+        case armv7em
         case armv6
         case armv5
         case arm
@@ -73,6 +74,8 @@ public struct Triple: Encodable, Equatable, Sendable {
         case windows
         case wasi
         case openbsd
+        // 'OS' suffix purely to avoid name clash with Optional.none
+        case noneOS = "none"
     }
 
     public enum ABI: Encodable, Equatable, RawRepresentable, Sendable {
@@ -259,6 +262,8 @@ extension Triple {
             return ".dll"
         case .wasi:
             return ".wasm"
+        case .noneOS:
+            fatalError("Cannot create dynamic libraries for os \"none\".")
         }
     }
 
@@ -272,6 +277,8 @@ extension Triple {
             return ".wasm"
         case .windows:
             return ".exe"
+        case .noneOS:
+            return ""
         }
     }
 
