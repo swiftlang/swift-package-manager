@@ -17,7 +17,7 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-struct SetConfiguration: ConfigurationCommand {
+struct SetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
         abstract: """
@@ -78,7 +78,7 @@ struct SetConfiguration: ConfigurationCommand {
         buildTimeTriple: Triple,
         runTimeTriple: Triple,
         _ destination: Destination,
-        _ configurationStore: DestinationConfigurationStore,
+        _ configurationStore: SwiftSDKConfigurationStore,
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {

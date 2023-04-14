@@ -13,8 +13,6 @@ add_library(PackageModel
   BuildFlags.swift
   BuildSettings.swift
   Destination.swift
-  DestinationConfigurationStore.swift
-  DestinationBundle.swift
   Diagnostics.swift
   IdentityResolver.swift
   Manifest/Manifest.swift
@@ -44,6 +42,8 @@ add_library(PackageModel
   Sources.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
+  SwiftSDKConfigurationStore.swift
+  SwiftSDKBundle.swift
   Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift

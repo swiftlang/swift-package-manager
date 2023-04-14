@@ -63,33 +63,33 @@ extension DestinationError: CustomStringConvertible {
             return problem
         case .invalidBundleName(let name):
             return """
-            invalid bundle name `\(name)`, unpacked destination bundles are expected to have `.artifactbundle` extension
+            invalid bundle name `\(name)`, unpacked Swift SDK bundles are expected to have `.artifactbundle` extension
             """
         case .noDestinationsDecoded(let path):
-            return "no valid destinations were decoded from a destination file at path `\(path)`"
+            return "no valid Swift SDKs were decoded from a destination file at path `\(path)`"
         case .pathIsNotDirectory(let path):
             return "path expected to be a directory is not a directory or doesn't exist: `\(path)`"
         case .unserializableDestination:
             return """
-            destination couldn't be serialized with the latest serialization schema, potentially because it \
-            was deserialized from an earlier incompatible schema version or initialized manually with missing \
+            Swift SDK configuration couldn't be serialized with the latest serialization schema, potentially because \
+            it was deserialized from an earlier incompatible schema version or initialized manually with missing \
             properties required for initialization
             """
         case .destinationNotFound(let artifactID, let buildTimeTriple, let runTimeTriple):
             return """
-            destination with ID `\(artifactID)`, build-time triple \(buildTimeTriple), and run-time triple \
+            Swift SDK with ID `\(artifactID)`, build-time triple \(buildTimeTriple), and run-time triple \
             \(runTimeTriple) is not currently installed.
             """
         case .destinationBundleAlreadyInstalled(let bundleName):
             return """
-            destination artifact bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
+            Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
             with the same name.
             """
         case .destinationArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
             return """
-            A destination with artifact ID `\(artifactID)` is already included in an installed bundle with name \
+            A Swift SDK with artifact ID `\(artifactID)` is already included in an installed bundle with name \
             `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
-            are expected to be unique across all installed bundles.
+            are expected to be unique across all installed Swift SDK bundles.
             """
         }
     }

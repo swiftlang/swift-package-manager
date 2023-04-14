@@ -22,7 +22,7 @@ import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
 /// A protocol for functions and properties common to all destination subcommands.
-protocol DestinationCommand: ParsableCommand {
+protocol SwiftSDKSubcommand: ParsableCommand {
     /// Common locations options provided by ArgumentParser.
     var locations: LocationOptions { get }
 
@@ -38,7 +38,7 @@ protocol DestinationCommand: ParsableCommand {
     ) throws
 }
 
-extension DestinationCommand {
+extension SwiftSDKSubcommand {
     /// The file system used by default by this command.
     var fileSystem: FileSystem { localFileSystem }
 
@@ -46,17 +46,17 @@ extension DestinationCommand {
     /// on the file system. A new directory at this path is created if one doesn't exist already.
     /// - Returns: existing or a newly created directory at the computed location.
     func getOrCreateDestinationsDirectory() throws -> AbsolutePath {
-        guard var destinationsDirectory = try fileSystem.getSharedCrossCompilationDestinationsDirectory(
-            explicitDirectory: locations.crossCompilationDestinationsDirectory
+        guard var destinationsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
+            explicitDirectory: locations.swiftSDKsDirectory
         ) else {
-            let expectedPath = try fileSystem.swiftPMCrossCompilationDestinationsDirectory
+            let expectedPath = try fileSystem.swiftSDKsDirectory
             throw StringError(
                 "Couldn't find or create a directory where cross-compilation destinations are stored: `\(expectedPath)`"
             )
         }
 
         if !self.fileSystem.exists(destinationsDirectory) {
-            destinationsDirectory = try self.fileSystem.getOrCreateSwiftPMCrossCompilationDestinationsDirectory()
+            destinationsDirectory = try self.fileSystem.getOrCreateSwiftPMSwiftSDKsDirectory()
         }
 
         return destinationsDirectory

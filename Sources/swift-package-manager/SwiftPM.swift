@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Commands
-import CrossCompilationDestinationsTool
+import SwiftSDKTool
 import PackageCollectionsTool
 import PackageRegistryTool
 import TSCBasic
@@ -28,8 +28,8 @@ struct SwiftPM {
             SwiftPackageTool.main()
         case "swift-build":
             SwiftBuildTool.main()
-        case "swift-experimental-destination":
-            SwiftDestinationTool.main()
+        case "swift-experimental-sdk":
+            SwiftSDKTool.main()
         case "swift-test":
             SwiftTestTool.main()
         case "swift-run":

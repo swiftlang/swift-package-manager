@@ -17,19 +17,19 @@ import PackageModel
 
 import struct TSCBasic.AbsolutePath
 
-public struct RemoveDestination: DestinationCommand {
+public struct RemoveSwiftSDK: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
         commandName: "remove",
         abstract: """
-        Removes a previously installed destination artifact bundle from the filesystem.
+        Removes a previously installed Swift SDK bundle from the filesystem.
         """
     )
 
     @OptionGroup(visibility: .hidden)
     var locations: LocationOptions
 
-    @Argument(help: "Name of the destination artifact bundle or ID of the destination to remove from the filesystem.")
-    var destinationIDOrBundleName: String
+    @Argument(help: "Name of the Swift SDK bundle or ID of the Swift SDK to remove from the filesystem.")
+    var sdkIDOrBundleName: String
 
     public init() {}
 
@@ -39,7 +39,7 @@ public struct RemoveDestination: DestinationCommand {
         _ observabilityScope: ObservabilityScope
     ) throws {
         let destinationsDirectory = try self.getOrCreateDestinationsDirectory()
-        let artifactBundleDirectory = destinationsDirectory.appending(component: self.destinationIDOrBundleName)
+        let artifactBundleDirectory = destinationsDirectory.appending(component: self.sdkIDOrBundleName)
 
         let removedBundleDirectory: AbsolutePath
         if fileSystem.exists(artifactBundleDirectory) {
@@ -47,22 +47,22 @@ public struct RemoveDestination: DestinationCommand {
 
             removedBundleDirectory = artifactBundleDirectory
         } else {
-            let bundles = try DestinationBundle.getAllValidBundles(
-                destinationsDirectory: destinationsDirectory,
+            let bundles = try SwiftSDKBundle.getAllValidBundles(
+                swiftSDKsDirectory: destinationsDirectory,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
 
             let matchingBundles = bundles.compactMap { bundle in
-                bundle.artifacts[destinationIDOrBundleName] != nil ? bundle : nil
+                bundle.artifacts[sdkIDOrBundleName] != nil ? bundle : nil
             }
 
             guard !matchingBundles.isEmpty else {
                 throw StringError(
                     """
-                    Neither a destination artifact bundle with name `\(self.destinationIDOrBundleName)` nor an \
+                    Neither a Swift SDK bundle with name `\(self.sdkIDOrBundleName)` nor an \
                     artifact with such ID are currently installed. Use `list` subcommand to see all available \
-                    destinations.
+                    Swift SDKs.
                     """
                 )
             }
@@ -72,8 +72,8 @@ public struct RemoveDestination: DestinationCommand {
 
                 throw StringError(
                     """
-                    Multiple bundles contain destinations with ID \(self.destinationIDOrBundleName). Names of these \
-                    bundles are: \(namesOfBundles). This will lead to issues when specifying such destination for \
+                    Multiple bundles contain Swift SDKs with ID \(self.sdkIDOrBundleName). Names of these \
+                    bundles are: \(namesOfBundles). This will lead to issues when specifying such ID for \
                     building. Delete one of the bundles first by their full name to disambiguate.
                     """
                 )
@@ -85,18 +85,18 @@ public struct RemoveDestination: DestinationCommand {
             // matching.
             if matchingBundle.artifacts.count > 1 {
                 let otherArtifactIDs = matchingBundle.artifacts.keys
-                    .filter { $0 == self.destinationIDOrBundleName }
+                    .filter { $0 == self.sdkIDOrBundleName }
                     .map { "`\($0)`" }
                     .joined(separator: ", ")
 
                 print(
                     """
-                    WARNING: the destination bundle containing artifact with ID \(self.destinationIDOrBundleName) \
+                    WARNING: the Swift SDK bundle containing artifact with ID \(self.sdkIDOrBundleName) \
                     also contains other artifacts: \(otherArtifactIDs).
                     """
                 )
 
-                print("Would you like to remove the whole bundle with all of its destinations? (Yes/No): ")
+                print("Would you like to remove the whole bundle with all of its Swift SDKs? (Yes/No): ")
                 guard readLine(strippingNewline: true)?.lowercased() == "yes" else {
                     print("Bundle not removed. Exiting...")
                     return
@@ -107,11 +107,6 @@ public struct RemoveDestination: DestinationCommand {
             removedBundleDirectory = matchingBundle.path
         }
 
-        print(
-            """
-            Destination artifact bundle at path `\(removedBundleDirectory)` was successfully removed from the \
-            file system.
-            """
-        )
+        print("Swift SDK bundle at path `\(removedBundleDirectory)` was successfully removed from the file system.")
     }
 }
