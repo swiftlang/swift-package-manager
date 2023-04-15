@@ -770,10 +770,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     case.unknown:
                         throw InternalError("unknown binary target '\(target.name)' type")
                     }
-                case .macro:
-                    if product.type == .macro {
-                        staticTargets.append(target)
-                    }
                 case .plugin:
                     continue
                 }

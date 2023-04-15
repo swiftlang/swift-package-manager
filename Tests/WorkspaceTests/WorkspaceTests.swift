@@ -4948,8 +4948,6 @@ final class WorkspaceTests: XCTestCase {
 
     // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() throws {
-        throw XCTSkip("This test fails to find XCTAssertEqual; rdar://101868275")
-
         try testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
             let packagePath = path.appending("MyPkg")
@@ -4963,7 +4961,10 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(forRootPackage: packagePath)
+            let workspace = try Workspace(
+                forRootPackage: packagePath,
+                customHostToolchain: UserToolchain.default
+            )
 
             // From here the API should be simple and straightforward:
             let manifest = try tsc_await {
