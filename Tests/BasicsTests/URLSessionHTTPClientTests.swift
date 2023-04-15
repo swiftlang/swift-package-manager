@@ -712,7 +712,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let destination = temporaryDirectory.appending("download")
             let request = HTTPClient.Request.download(
                 url: url,
-                fileSystem: AsyncFileSystem { localFileSystem },
+                fileSystem: localFileSystem,
                 destination: destination
             )
 
@@ -769,7 +769,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
-                fileSystem: AsyncFileSystem { localFileSystem },
+                fileSystem: localFileSystem,
                 destination: destination
             )
 
@@ -828,7 +828,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
-                fileSystem: AsyncFileSystem { localFileSystem },
+                fileSystem: localFileSystem,
                 destination: destination
             )
 
@@ -878,7 +878,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let url = URL("https://async-downloader-tests.com/testClientError.zip")
             let request = HTTPClient.Request.download(
                 url: url,
-                fileSystem: AsyncFileSystem { localFileSystem },
+                fileSystem: localFileSystem,
                 destination: temporaryDirectory.appending("download")
             )
 
@@ -927,7 +927,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
-                fileSystem: AsyncFileSystem { localFileSystem },
+                fileSystem: localFileSystem,
                 destination: temporaryDirectory.appending("download")
             )
 

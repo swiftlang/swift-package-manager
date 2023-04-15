@@ -25,7 +25,6 @@ add_library(Basics
   DispatchTimeInterval+Extensions.swift
   EnvironmentVariables.swift
   Errors.swift
-  FileSystem/AsyncFileSystem.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/Path+Extensions.swift
   FileSystem/TemporaryFile.swift
