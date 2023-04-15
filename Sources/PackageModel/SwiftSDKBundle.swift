@@ -20,11 +20,11 @@ import struct Foundation.URL
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.RegEx
 
-/// Represents an `.artifactbundle` on the filesystem that contains cross-compilation destinations.
-public struct DestinationBundle {
+/// Represents an `.artifactbundle` on the filesystem that contains a Swift SDK.
+public struct SwiftSDKBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
-        let destinations: [Destination]
+        let swiftSDKs: [Destination]
     }
 
     // Path to the bundle root directory.
@@ -38,20 +38,20 @@ public struct DestinationBundle {
 
     /// Lists all valid cross-compilation destination bundles in a given directory.
     /// - Parameters:
-    ///   - destinationsDirectory: the directory to scan for destination bundles.
+    ///   - swiftSDKsDirectory: the directory to scan for destination bundles.
     ///   - fileSystem: the filesystem the directory is located on.
     ///   - observabilityScope: observability scope to report bundle validation errors.
     /// - Returns: an array of valid destination bundles.
     public static func getAllValidBundles(
-        destinationsDirectory: AbsolutePath,
+        swiftSDKsDirectory: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> [Self] {
         // Get absolute paths to available destination bundles.
-        try fileSystem.getDirectoryContents(destinationsDirectory).filter {
+        try fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
             $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
         }.map {
-            destinationsDirectory.appending(components: [$0])
+            swiftSDKsDirectory.appending(components: [$0])
         }.compactMap {
             do {
                 // Enumerate available bundles and parse manifests for each of them, then validate supplied
@@ -80,7 +80,7 @@ public struct DestinationBundle {
     ///   - hostTriple: triple of the host building with these destinations.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: `Destination` value matching `query` either by artifact ID or target triple, `nil` if none found.
-    public static func selectDestination(
+    public static func selectBundle(
         fromBundlesAt destinationsDirectory: AbsolutePath?,
         fileSystem: FileSystem,
         matching selector: String,
@@ -96,8 +96,8 @@ public struct DestinationBundle {
             )
         }
 
-        let validBundles = try DestinationBundle.getAllValidBundles(
-            destinationsDirectory: destinationsDirectory,
+        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+            swiftSDKsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -276,7 +276,7 @@ public struct DestinationBundle {
         let newArtifactIDs = validatedBundle.artifacts.keys
 
         let installedBundles = try Self.getAllValidBundles(
-            destinationsDirectory: destinationsDirectory,
+            swiftSDKsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
@@ -327,25 +327,34 @@ extension ArtifactsArchiveMetadata {
         bundlePath: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> DestinationBundle {
-        var result = DestinationBundle(path: bundlePath)
+    ) throws -> SwiftSDKBundle {
+        var result = SwiftSDKBundle(path: bundlePath)
 
-        for (artifactID, artifactMetadata) in artifacts
-            where artifactMetadata.type == .crossCompilationDestination
-        {
-            var variants = [DestinationBundle.Variant]()
+        for (artifactID, artifactMetadata) in artifacts {
+            if artifactMetadata.type == .crossCompilationDestination {
+                observabilityScope.emit(
+                    warning: """
+                    `crossCompilationDestination` bundle metadata value used for `\(artifactID)` is deprecated, \
+                    use `swiftSDK` instead.
+                    """
+                )
+            } else {
+                guard artifactMetadata.type == .swiftSDK else { continue }
+            }
+
+            var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let destinationJSONPath = bundlePath
+                let variantConfigurationPath = bundlePath
                     .appending(variantMetadata.path)
-                    .appending("destination.json")
+                    .appending("swift-sdk.json")
 
-                guard fileSystem.exists(destinationJSONPath) else {
+                guard fileSystem.exists(variantConfigurationPath) else {
                     observabilityScope.emit(
                         .warning(
                             """
-                            Destination metadata file not found at \(
-                                destinationJSONPath
+                            Swift SDK metadata file not found at \(
+                                variantConfigurationPath
                             ) for a variant of artifact \(artifactID)
                             """
                         )
@@ -356,14 +365,14 @@ extension ArtifactsArchiveMetadata {
 
                 do {
                     let destinations = try Destination.decode(
-                        fromFile: destinationJSONPath, fileSystem: fileSystem, observabilityScope: observabilityScope
+                        fromFile: variantConfigurationPath, fileSystem: fileSystem, observabilityScope: observabilityScope
                     )
 
-                    variants.append(.init(metadata: variantMetadata, destinations: destinations))
+                    variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
                 } catch {
                     observabilityScope.emit(
                         .warning(
-                            "Couldn't parse destination metadata at \(destinationJSONPath): \(error)"
+                            "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath): \(error)"
                         )
                     )
                 }
@@ -376,7 +385,7 @@ extension ArtifactsArchiveMetadata {
     }
 }
 
-extension Array where Element == DestinationBundle {
+extension Array where Element == SwiftSDKBundle {
     /// Select a destination with a given artifact ID from a `self` array of available destinations.
     /// - Parameters:
     ///   - id: artifact ID of the destination to look up.
@@ -395,7 +404,7 @@ extension Array where Element == DestinationBundle {
                         continue
                     }
 
-                    return variant.destinations.first { $0.targetTriple == targetTriple }
+                    return variant.swiftSDKs.first { $0.targetTriple == targetTriple }
                 }
             }
         }
@@ -414,8 +423,8 @@ extension Array where Element == DestinationBundle {
         hostTriple: Triple,
         observabilityScope: ObservabilityScope
     ) -> Destination? {
-        var matchedByID: (path: AbsolutePath, variant: DestinationBundle.Variant, destination: Destination)?
-        var matchedByTriple: (path: AbsolutePath, variant: DestinationBundle.Variant, destination: Destination)?
+        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
+        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, destination: Destination)?
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
@@ -424,7 +433,7 @@ extension Array where Element == DestinationBundle {
                         continue
                     }
 
-                    for destination in variant.destinations {
+                    for destination in variant.swiftSDKs {
                         if artifactID == selector {
                             if let matchedByID {
                                 observabilityScope.emit(

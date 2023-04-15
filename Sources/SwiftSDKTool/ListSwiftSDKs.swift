@@ -18,7 +18,7 @@ import SPMBuildCore
 
 import struct TSCBasic.AbsolutePath
 
-public struct ListDestinations: DestinationCommand {
+public struct ListSwiftSDKs: SwiftSDKSubcommand {
     public static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
@@ -37,8 +37,8 @@ public struct ListDestinations: DestinationCommand {
         _ destinationsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
-        let validBundles = try DestinationBundle.getAllValidBundles(
-            destinationsDirectory: destinationsDirectory,
+        let validBundles = try SwiftSDKBundle.getAllValidBundles(
+            swiftSDKsDirectory: destinationsDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

@@ -16,29 +16,29 @@ import TSCBasic
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 
-/// Storage for configuration properties of cross-compilation destinations.
-public final class DestinationConfigurationStore {
+/// Storage for configuration properties of Swift SDKs.
+public final class SwiftSDKConfigurationStore {
     /// Triple of the machine on which SwiftPM is running.
     private let buildTimeTriple: Triple
 
-    /// Path to the directory in which destinations and their configuration are stored. Usually
-    /// `~/.swiftpm/destinations` or a directory to which `~/.swiftpm/destinations` symlinks to.
-    private let destinationsDirectoryPath: AbsolutePath
+    /// Path to the directory in which Swift SDKs and their configuration are stored. Usually
+    /// `~/.swiftpm/swift-sdks` or a directory to which `~/.swiftpm/swift-sdks` symlinks to.
+    private let swiftSDKsDirectoryPath: AbsolutePath
 
     /// Path to the directory in which destination configuration files are stored.
     private let configurationDirectoryPath: AbsolutePath
 
     /// File system that stores destination configuration and contains
-    /// ``DestinationConfigurationStore//configurationDirectoryPath``.
+    /// ``SwiftSDKConfigurationStore//configurationDirectoryPath``.
     private let fileSystem: FileSystem
 
     // An observability scope on which warnings can be reported if any appear.
     private let observabilityScope: ObservabilityScope
 
-    /// Encoder used for encoding updated configuration to be written to ``DestinationConfigurationStore//fileSystem``.
+    /// Encoder used for encoding updated configuration to be written to ``SwiftSDKConfigurationStore//fileSystem``.
     private let encoder: JSONEncoder
 
-    /// Encoder used for reading existing configuration from  ``DestinationConfigurationStore//fileSystem``.
+    /// Encoder used for reading existing configuration from  ``SwiftSDKConfigurationStore//fileSystem``.
     private let decoder: JSONDecoder
 
     /// Initializes a store for configuring destinations.
@@ -66,7 +66,7 @@ public final class DestinationConfigurationStore {
         }
 
         self.buildTimeTriple = buildTimeTriple
-        self.destinationsDirectoryPath = destinationsDirectoryPath
+        self.swiftSDKsDirectoryPath = destinationsDirectoryPath
         self.configurationDirectoryPath = configurationDirectoryPath
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -95,8 +95,8 @@ public final class DestinationConfigurationStore {
             component: "\(destinationID)_\(triple.tripleString).json"
         )
 
-        let destinationBundles = try DestinationBundle.getAllValidBundles(
-            destinationsDirectory: destinationsDirectoryPath,
+        let destinationBundles = try SwiftSDKBundle.getAllValidBundles(
+            swiftSDKsDirectory: swiftSDKsDirectoryPath,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )

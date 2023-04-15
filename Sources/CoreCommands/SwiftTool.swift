@@ -209,7 +209,7 @@ public final class SwiftTool {
     public let sharedConfigurationDirectory: AbsolutePath?
 
     /// Path to the cross-compilation destinations directory.
-    public let sharedCrossCompilationDestinationsDirectory: AbsolutePath?
+    public let sharedSwiftSDKsDirectory: AbsolutePath?
 
     /// Cancellator to handle cancellation of outstanding work when handling SIGINT
     public let cancellator: Cancellator
@@ -336,10 +336,9 @@ public final class SwiftTool {
             fileSystem: fileSystem
         )
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: options, fileSystem: fileSystem)
-        self.sharedCrossCompilationDestinationsDirectory = try fileSystem
-            .getSharedCrossCompilationDestinationsDirectory(
-                explicitDirectory: options.locations.crossCompilationDestinationsDirectory
-            )
+        self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
+            explicitDirectory: options.locations.swiftSDKsDirectory
+        )
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -744,11 +743,11 @@ public final class SwiftTool {
                       let targetDestination = Destination.defaultDestination(for: triple, host: hostDestination)
             {
                 destination = targetDestination
-            } else if let destinationSelector = options.build.crossCompilationDestinationSelector {
-                destination = try DestinationBundle.selectDestination(
-                    fromBundlesAt: sharedCrossCompilationDestinationsDirectory,
+            } else if let swiftSDKSelector = options.build.swiftSDKSelector {
+                destination = try SwiftSDKBundle.selectBundle(
+                    fromBundlesAt: sharedSwiftSDKsDirectory,
                     fileSystem: fileSystem,
-                    matching: destinationSelector,
+                    matching: swiftSDKSelector,
                     hostTriple: hostTriple,
                     observabilityScope: observabilityScope
                 )

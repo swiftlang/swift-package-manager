@@ -48,8 +48,8 @@ extension Workspace {
         /// Path to the shared cache directory.
         public var sharedCacheDirectory: AbsolutePath?
 
-        /// Path to the shared cross-compilation destinations directory.
-        public var sharedCrossCompilationDestinationsDirectory: AbsolutePath?
+        /// Path to the shared Swift SDKs directory.
+        public var sharedSwiftSDKsDirectory: AbsolutePath?
 
         /// Whether or not to emit a warning about the existence of deprecated configuration files.
         public var emitDeprecatedConfigurationWarning: Bool

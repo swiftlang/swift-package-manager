@@ -25,7 +25,7 @@ private let infoJSON = ByteString(stringLiteral: """
 {
   "artifacts" : {
     "\(testArtifactID)" : {
-      "type" : "crossCompilationDestination",
+      "type" : "swiftSDK",
       "version" : "0.0.1",
       "variants" : [
         {
@@ -41,8 +41,8 @@ private let infoJSON = ByteString(stringLiteral: """
 }
 """)
 
-final class DestinationBundleTests: XCTestCase {
-    func testInstallDestination() async throws {
+final class SwiftSDKBundleTests: XCTestCase {
+    func testInstall() async throws {
         let system = ObservabilitySystem.makeForTesting()
 
         let bundleName1 = "test1.artifactbundle"
@@ -59,7 +59,7 @@ final class DestinationBundleTests: XCTestCase {
 
         let archiver = MockArchiver()
 
-        try DestinationBundle.install(
+        try SwiftSDKBundle.install(
             bundlePathOrURL: bundlePath1,
             destinationsDirectory: destinationsDirectory,
             fileSystem,
@@ -69,7 +69,7 @@ final class DestinationBundleTests: XCTestCase {
 
         let invalidPath = "foobar"
         do {
-            try DestinationBundle.install(
+            try SwiftSDKBundle.install(
                 bundlePathOrURL: "foobar",
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
@@ -94,7 +94,7 @@ final class DestinationBundleTests: XCTestCase {
         }
 
         do {
-            try DestinationBundle.install(
+            try SwiftSDKBundle.install(
                 bundlePathOrURL: bundlePath1,
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
@@ -118,7 +118,7 @@ final class DestinationBundleTests: XCTestCase {
         }
 
         do {
-            try DestinationBundle.install(
+            try SwiftSDKBundle.install(
                 bundlePathOrURL: bundlePath2,
                 destinationsDirectory: destinationsDirectory,
                 fileSystem,
