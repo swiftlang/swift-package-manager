@@ -37,6 +37,7 @@ public struct Package {
         public let type: String
         public let checksum: String?
         public let signing: Signing?
+        public let signingEntity: RegistryReleaseMetadata.SigningEntity?
     }
 
     public struct Signing: Sendable {
@@ -421,13 +422,25 @@ extension Package.Signing {
     }
 }
 
+extension RegistryReleaseMetadata.SigningEntity {
+    fileprivate init(_ entity: SigningEntity) {
+        switch entity {
+        case .recognized(let type, let name, let organizationalUnit, let organization):
+            self = .recognized(type: type.rawValue, commonName: name, organization: organization, identity: organizationalUnit)
+        case .unrecognized(let name, _, let organization):
+            self = .unrecognized(commonName: name, organization: organization)
+        }
+    }
+}
+
 extension Package.Resource {
     fileprivate init(_ resource: RegistryClient.PackageVersionMetadata.Resource) {
         self.init(
             name: resource.name,
             type: resource.type,
             checksum: resource.checksum,
-            signing: resource.signing.map { .init($0) }
+            signing: resource.signing.map { .init($0) },
+            signingEntity: resource.signingEntity.map { .init($0) }
         )
     }
 }
