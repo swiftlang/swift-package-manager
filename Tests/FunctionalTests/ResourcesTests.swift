@@ -13,7 +13,9 @@
 import XCTest
 import SPMTestSupport
 
-import TSCBasic
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
+import func TSCBasic.withTemporaryDirectory
 
 class ResourcesTests: XCTestCase {
     func testSimpleResources() throws {

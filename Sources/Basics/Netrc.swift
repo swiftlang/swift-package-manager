@@ -14,7 +14,6 @@ import Foundation
 import TSCBasic
 
 /// Representation of Netrc configuration
-@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 public struct Netrc {
     /// Representation of `machine` connection settings & `default` connection settings.
     /// If `default` connection settings present, they will be last element.
@@ -140,7 +139,6 @@ public enum NetrcError: Error, Equatable {
     case invalidDefaultMachinePosition
 }
 
-@available (macOS 10.13, iOS 11, tvOS 11, watchOS 4, *)
 fileprivate enum RegexUtil {
     @frozen fileprivate enum Token: String, CaseIterable {
         case machine, login, password, account, macdef, `default`

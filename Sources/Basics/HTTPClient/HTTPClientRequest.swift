@@ -52,7 +52,7 @@ public struct HTTPClientRequest: Sendable {
         url: URL,
         headers: HTTPClientHeaders = .init(),
         options: Options = .init(),
-        fileSystem: AsyncFileSystem,
+        fileSystem: FileSystem,
         destination: AbsolutePath
     ) -> Self {
         self.init(
@@ -75,7 +75,7 @@ public struct HTTPClientRequest: Sendable {
 
     public enum Kind: Sendable {
         case generic(HTTPMethod)
-        case download(fileSystem: AsyncFileSystem, destination: AbsolutePath)
+        case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
     public struct Options: Sendable {

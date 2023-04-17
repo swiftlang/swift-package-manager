@@ -107,8 +107,8 @@ packageCollectionsSigningTargets.append(
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS("10.15.4"),
-        .iOS("13.4")
+        .macOS("12.0"),
+        .iOS("15.0")
     ],
     products:
         autoProducts.flatMap {
@@ -688,18 +688,6 @@ package.targets.append(contentsOf: [
         ]
     ),
 
-    // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
-    /*.testTarget(
-        name: "FunctionalTests",
-        dependencies: [
-            "swift-build",
-            "swift-package",
-            "swift-test",
-            "PackageModel",
-            "SPMTestSupport"
-        ]
-    ),*/
-
     .testTarget(
         name: "FunctionalPerformanceTests",
         dependencies: [
@@ -710,6 +698,22 @@ package.targets.append(contentsOf: [
         ]
     ),
 ])
+
+// rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out disable them all until we know what is going on
+if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {
+    package.targets.append(contentsOf: [
+        .testTarget(
+            name: "FunctionalTests",
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "PackageModel",
+                "SPMTestSupport"
+            ]
+        ),
+    ])
+}
 #endif
 
 // Add package dependency on llbuild when not bootstrapping.
@@ -747,7 +751,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
         .package(url: "https://github.com/apple/swift-driver.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "2.4.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "2.4.0"),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "0.1.0")),
