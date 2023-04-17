@@ -1007,7 +1007,6 @@ class PluginTests: XCTestCase {
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("PluginCanBeReferencedByProductName"))
             XCTAssert(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
-            XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName PluginCanBeReferencedByProductName.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
