@@ -36,7 +36,7 @@ struct MockToolchain: PackageModel.Toolchain {
     let extraFlags = BuildFlags(cxxCompilerFlags: ["-lstdc++"])
     #endif
     func getClangCompiler() throws -> AbsolutePath {
-        return AbsolutePath(path: "/fake/path/to/clang")
+        return "/fake/path/to/clang"
     }
 
     func _isClangCompilerVendorApple() throws -> Bool? {

@@ -38,7 +38,7 @@ final class LLBuildManifestTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
 
-        let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
+        let contents: String = try fs.readFileContents("/manifest.yaml")
 
         // FIXME(#5475) - use the platform's preferred separator for directory
         // indicators
@@ -89,12 +89,12 @@ final class LLBuildManifestTests: XCTestCase {
             allowMissingInputs: true
         )
 
-        manifest.addNode(.file(AbsolutePath(path: "/file.out")), toTarget: "main")
+        manifest.addNode(.file("/file.out"), toTarget: "main")
 
         let fs = InMemoryFileSystem()
         try ManifestWriter(fileSystem: fs).write(manifest, at: "/manifest.yaml")
 
-        let contents: String = try fs.readFileContents(AbsolutePath(path: "/manifest.yaml"))
+        let contents: String = try fs.readFileContents("/manifest.yaml")
 
         XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
             client:

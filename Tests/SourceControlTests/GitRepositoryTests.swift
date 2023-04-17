@@ -45,9 +45,9 @@ class GitRepositoryTests: XCTestCase {
         }
 
         do {
-            let s1 = RepositorySpecifier(path: .init(path: "/a"))
-            let s2 = RepositorySpecifier(path: .init(path: "/a"))
-            let s3 = RepositorySpecifier(path: .init(path: "/b"))
+            let s1 = RepositorySpecifier(path: "/A")
+            let s2 = RepositorySpecifier(path: "/A")
+            let s3 = RepositorySpecifier(path: "/B")
 
             XCTAssertEqual(s1, s1)
             XCTAssertEqual(s1, s2)
@@ -128,7 +128,7 @@ class GitRepositoryTests: XCTestCase {
 #endif
         try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
+            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
 #if os(Windows)
             try systemQuietly(["tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
 #else
@@ -241,21 +241,21 @@ class GitRepositoryTests: XCTestCase {
             let view = try repository.openFileView(revision: repository.resolveRevision(tag: "test-tag"))
 
             // Check basic predicates.
-            XCTAssert(view.isDirectory(AbsolutePath(path: "/")))
-            XCTAssert(view.isDirectory(AbsolutePath(path: "/subdir")))
-            XCTAssert(!view.isDirectory(AbsolutePath(path: "/does-not-exist")))
-            XCTAssert(view.exists(AbsolutePath(path: "/test-file-1.txt")))
-            XCTAssert(!view.exists(AbsolutePath(path: "/does-not-exist")))
-            XCTAssert(view.isFile(AbsolutePath(path: "/test-file-1.txt")))
-            XCTAssert(!view.isSymlink(AbsolutePath(path: "/test-file-1.txt")))
-            XCTAssert(!view.isExecutableFile(AbsolutePath(path: "/does-not-exist")))
+            XCTAssert(view.isDirectory("/"))
+            XCTAssert(view.isDirectory("/subdir"))
+            XCTAssert(!view.isDirectory("/does-not-exist"))
+            XCTAssert(view.exists("/test-file-1.txt"))
+            XCTAssert(!view.exists("/does-not-exist"))
+            XCTAssert(view.isFile("/test-file-1.txt"))
+            XCTAssert(!view.isSymlink("/test-file-1.txt"))
+            XCTAssert(!view.isExecutableFile("/does-not-exist"))
 #if !os(Windows)
-            XCTAssert(view.isExecutableFile(AbsolutePath(path: "/test-file-3.sh")))
+            XCTAssert(view.isExecutableFile("/test-file-3.sh"))
 #endif
 
             // Check read of a directory.
             let subdirPath = AbsolutePath("/subdir")
-            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath(path: "/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
+            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
             XCTAssertEqual(try view.getDirectoryContents(subdirPath).sorted(), ["test-file-2.txt"])
             XCTAssertThrows(FileSystemError(.isDirectory, subdirPath)) {
                 _ = try view.readFileContents(subdirPath)
@@ -287,8 +287,8 @@ class GitRepositoryTests: XCTestCase {
             }
 
             // Check read of a file.
-            XCTAssertEqual(try view.readFileContents(AbsolutePath(path: "/test-file-1.txt")), test1FileContents)
-            XCTAssertEqual(try view.readFileContents(AbsolutePath(path: "/subdir/test-file-2.txt")), test2FileContents)
+            XCTAssertEqual(try view.readFileContents("/test-file-1.txt"), test1FileContents)
+            XCTAssertEqual(try view.readFileContents("/subdir/test-file-2.txt"), test2FileContents)
         }
     }
 

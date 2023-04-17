@@ -547,7 +547,7 @@ public extension PluginTarget {
             }
             // For an executable target we create a `builtTool`.
             else if executableOrBinaryTarget.type == .executable {
-                return [.builtTool(name: builtToolName, path: RelativePath(executableOrBinaryTarget.name))]
+                return try [.builtTool(name: builtToolName, path: RelativePath(validating: executableOrBinaryTarget.name))]
             }
             else {
                 return []

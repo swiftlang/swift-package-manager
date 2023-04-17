@@ -20,7 +20,7 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverSuccess() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs", "archive.zip")
+            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.zip")
             try archiver.extract(from: inputArchivePath, to: tmpdir)
             let content = tmpdir.appending("file")
             XCTAssert(localFileSystem.exists(content))
@@ -58,7 +58,7 @@ class ZipArchiverTests: XCTestCase {
     func testZipArchiverInvalidArchive() throws {
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let inputArchivePath = AbsolutePath(path: #file).parentDirectory
+            let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertThrowsError(try archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
 #if os(Windows)
@@ -74,14 +74,14 @@ class ZipArchiverTests: XCTestCase {
         // valid
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "archive.zip")
             XCTAssertTrue(try archiver.validate(path: path))
         }
         // invalid
         try testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
-            let path = AbsolutePath(path: #file).parentDirectory
+            let path = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             XCTAssertFalse(try archiver.validate(path: path))
         }

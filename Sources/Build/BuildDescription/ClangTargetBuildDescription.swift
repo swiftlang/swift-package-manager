@@ -325,7 +325,7 @@ public final class ClangTargetBuildDescription {
         }
         """
 
-        let implFileSubpath = RelativePath("resource_bundle_accessor.m")
+        let implFileSubpath = try RelativePath(validating: "resource_bundle_accessor.m")
 
         // Add the file to the derived sources.
         derivedSources.relativePaths.append(implFileSubpath)

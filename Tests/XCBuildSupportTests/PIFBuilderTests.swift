@@ -22,7 +22,7 @@ import TSCBasic
 import XCTest
 
 class PIFBuilderTests: XCTestCase {
-    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     func testOrdering() throws {
         #if !os(macOS)
@@ -44,7 +44,7 @@ class PIFBuilderTests: XCTestCase {
                 manifests: [
                     Manifest.createLocalSourceControlManifest(
                         displayName: "B",
-                        path: .init(path: "/B"),
+                        path: "/B",
                         toolsVersion: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
@@ -56,10 +56,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     Manifest.createRootManifest(
                         displayName: "A",
-                        path: .init(path: "/A"),
+                        path: "/A",
                         toolsVersion: .v5_2,
                         dependencies: [
-                            .localSourceControl(path: .init(path: "/B"), requirement: .branch("master")),
+                            .localSourceControl(path: "/B", requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -115,12 +115,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
-                    packageKind: .root(.init(path: "/Foo")),
+                    path: "/Foo",
+                    packageKind: .root("/Foo"),
                     defaultLocalization: "fr",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
@@ -128,7 +128,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
@@ -398,11 +398,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -420,7 +420,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -732,11 +732,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -754,7 +754,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -980,11 +980,11 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -999,7 +999,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -1182,12 +1182,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),
@@ -1198,7 +1198,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1480,9 +1480,9 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "App",
-                    path: .init(path: "/App"),
+                    path: "/App",
                     dependencies: [
-                        .localSourceControl(path: .init(path: "/Bar"), requirement: .branch("main")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "App", dependencies: ["Logging", "Utils"], type: .executable),
@@ -1493,7 +1493,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     products: [
                         .init(name: "BarLib", type: .library(.dynamic), targets: ["Lib"]),
                     ],
@@ -1703,7 +1703,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
+                    path: "/Bar",
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1756,8 +1756,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     displayName: "Bar",
-                    path: .init(path: "/Bar"),
-                    packageKind: .root(.init(path: "/Bar")),
+                    path: "/Bar",
+                    packageKind: .root("/Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1814,7 +1814,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -1933,7 +1933,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2007,7 +2007,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2223,7 +2223,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     toolsVersion: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2437,8 +2437,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
-                    packageKind: .root(.init(path: "/Foo")),
+                    path: "/Foo",
+                    packageKind: .root("/Foo"),
                     toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2506,7 +2506,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "Foo",
-                    path: .init(path: "/Foo"),
+                    path: "/Foo",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
                     ],
@@ -2556,7 +2556,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createRootManifest(
                     displayName: "MyLib",
-                    path: .init(path: "/MyLib"),
+                    path: "/MyLib",
                     toolsVersion: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),

@@ -142,9 +142,9 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// The subpath to the PackageDescription runtime library.
     public var runtimeSubpath: RelativePath {
         if self < .v4_2 {
-            return RelativePath("4")
+            return try! RelativePath(validating: "4") // try! safe
         }
-        return RelativePath("4_2")
+        return try! RelativePath(validating: "4_2") // try! safe
     }
 
     /// The swift language version based on this tools version.

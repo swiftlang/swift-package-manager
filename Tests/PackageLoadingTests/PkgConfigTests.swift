@@ -28,7 +28,7 @@ extension SystemLibraryTarget {
 }
 
 class PkgConfigTests: XCTestCase {
-    let inputsDir = AbsolutePath(path: #file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
     let observability = ObservabilitySystem.makeForTesting()
     let fs = localFileSystem
 

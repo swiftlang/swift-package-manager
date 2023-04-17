@@ -422,7 +422,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             ) { name, path in
                 try buildOperationForPluginDependencies.build(subset: .product(name))
                 if let builtTool = try buildOperationForPluginDependencies.buildPlan.buildProducts.first(where: { $0.product.name == name}) {
-                    return builtTool.binaryPath
+                    return try builtTool.binaryPath
                 } else {
                     return nil
                 }

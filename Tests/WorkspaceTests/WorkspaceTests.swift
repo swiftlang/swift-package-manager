@@ -468,7 +468,7 @@ final class WorkspaceTests: XCTestCase {
             roots: ["foo-package", "bar-package"],
             dependencies: [
                 .localSourceControl(
-                    path: .init(path: "/tmp/ws/pkgs/bar-package"),
+                    path: "/tmp/ws/pkgs/bar-package",
                     requirement: .upToNextMajor(from: "1.0.0")
                 ),
             ]
@@ -2023,7 +2023,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Get some revision identifier of Bar.
-        let bar = RepositorySpecifier(path: .init(path: "/tmp/ws/pkgs/Bar"))
+        let bar = RepositorySpecifier(path: "/tmp/ws/pkgs/Bar")
         let barRevision = workspace.repositoryProvider.specifierMap[bar]!.revisions[0]
 
         // We request Bar via revision.
@@ -13565,7 +13565,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryMetadata() throws {
-        let sandbox = AbsolutePath(path: "/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
         let registryURL = URL("https://packages.example.com")

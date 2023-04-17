@@ -84,7 +84,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
-                path: ".swiftpm/configuration/registries.json",
+                ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
             )
 
@@ -190,7 +190,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
-                path: ".swiftpm/configuration/registries.json",
+                ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
             )
 
@@ -210,7 +210,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
-                path: ".swiftpm/configuration/registries.json",
+                ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
             )
 
@@ -230,7 +230,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
-                path: ".swiftpm/configuration/registries.json",
+                ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
             )
 
@@ -253,7 +253,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
-                path: ".swiftpm/configuration/registries.json",
+                ".swiftpm/configuration/registries.json",
                 relativeTo: packageRoot
             )
 

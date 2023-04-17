@@ -102,7 +102,7 @@ extension Toolset {
                     toolPath = absolutePath
                 } else {
                     let rootPath = rootPaths.first ?? toolsetPath.parentDirectory
-                    toolPath = rootPath.appending(RelativePath(path))
+                    toolPath = rootPath.appending(path)
                 }
             } else {
                 toolPath = nil

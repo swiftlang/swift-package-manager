@@ -1545,7 +1545,7 @@ extension Workspace {
 
         // Save the new state.
         self.state.dependencies.add(
-            try dependency.edited(subpath: RelativePath(packageName), unmanagedPath: path)
+            try dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
         )
         try self.state.save()
     }
@@ -2744,7 +2744,7 @@ extension Workspace {
                 return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
             } else if let customContainer = container as? CustomPackageContainer {
                 let path = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
-                let dependency = ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(""))
+                let dependency = try ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(validating: ""))
                 self.state.dependencies.add(dependency)
                 try self.state.save()
                 return path

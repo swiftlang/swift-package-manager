@@ -174,10 +174,10 @@ public struct TargetSourcesBuilder {
         let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }
         let others = pathToRule.filter { $0.value == .none }.map { $0.key }
 
-        diagnoseConflictingResources(in: resources)
+        try diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
-        diagnoseInfoPlistConflicts(in: resources)
+        try diagnoseInfoPlistConflicts(in: resources)
         diagnoseInvalidResource(in: target.resources)
 
         // It's an error to contain mixed language source files.
@@ -309,10 +309,10 @@ public struct TargetSourcesBuilder {
         return Self.resource(for: path, with: rule, defaultLocalization: defaultLocalization, targetName: target.name, targetPath: targetPath, observabilityScope: observabilityScope)
     }
 
-    private func diagnoseConflictingResources(in resources: [Resource]) {
-        let duplicateResources = resources.spm_findDuplicateElements(by: \.destination)
+    private func diagnoseConflictingResources(in resources: [Resource]) throws {
+        let duplicateResources = resources.spm_findDuplicateElements(by: \.destinationForGrouping)
         for resources in duplicateResources {
-            self.observabilityScope.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
+            try self.observabilityScope.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
 
             for resource in resources {
                 let relativePath = resource.path.relative(to: targetPath)
@@ -346,9 +346,9 @@ public struct TargetSourcesBuilder {
         }
     }
 
-    private func diagnoseInfoPlistConflicts(in resources: [Resource]) {
+    private func diagnoseInfoPlistConflicts(in resources: [Resource]) throws {
         for resource in resources {
-            if resource.destination == RelativePath("Info.plist") {
+            if try resource.destination == RelativePath(validating: "Info.plist") {
                 self.observabilityScope.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))
@@ -767,6 +767,16 @@ extension PackageReference.Kind {
             return false
         default:
             return true
+        }
+    }
+}
+
+extension PackageModel.Resource {
+    fileprivate var destinationForGrouping: RelativePath? {
+        do {
+            return try self.destination
+        } catch {
+            return .none
         }
     }
 }

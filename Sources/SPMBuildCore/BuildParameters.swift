@@ -387,34 +387,34 @@ public struct BuildParameters: Encodable {
     }
 
     /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) -> AbsolutePath {
-        return buildPath.appending(binaryRelativePath(for: product))
+    public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
+        return try buildPath.appending(binaryRelativePath(for: product))
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
-    public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
-        let potentialExecutablePath = RelativePath("\(product.name)\(triple.executableExtension)")
-        let potentialLibraryPath = RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+    public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
+        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(triple.executableExtension)")
+        let potentialLibraryPath = try RelativePath(validating: "\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
 
         switch product.type {
         case .executable, .snippet:
             return potentialExecutablePath
         case .library(.static):
-            return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
             return potentialLibraryPath
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
             guard !triple.isWASI() else {
-                return RelativePath("\(product.name).wasm")
+                return try RelativePath(validating: "\(product.name).wasm")
             }
 
             let base = "\(product.name).xctest"
             if triple.isDarwin() {
-                return RelativePath("\(base)/Contents/MacOS/\(product.name)")
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
             } else {
-                return RelativePath(base)
+                return try RelativePath(validating: base)
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS

@@ -546,11 +546,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestA = Manifest.createRootManifest(
             displayName: "PackageA",
-            path: .init(path: "/PackageA"),
+            path: "/PackageA",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageB")),
-                .fileSystem(path: .init(path: "/PackageC")),
+                .fileSystem(path: "/PackageB"),
+                .fileSystem(path: "/PackageC"),
             ],
             products: [
                 try .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -562,11 +562,11 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestB = Manifest.createFileSystemManifest(
             displayName: "PackageB",
-            path: .init(path: "/PackageB"),
+            path: "/PackageB",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageC")),
-                .fileSystem(path: .init(path: "/PackageD")),
+                .fileSystem(path: "/PackageC"),
+                .fileSystem(path: "/PackageD"),
             ],
             products: [
                 try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -578,10 +578,10 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestC = Manifest.createFileSystemManifest(
             displayName: "PackageC",
-            path: .init(path: "/PackageC"),
+            path: "/PackageC",
             toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: .init(path: "/PackageD")),
+                .fileSystem(path: "/PackageD"),
             ],
             products: [
                 try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -593,7 +593,7 @@ final class PackageToolTests: CommandsTestCase {
 
         let manifestD = Manifest.createFileSystemManifest(
             displayName: "PackageD",
-            path: .init(path: "/PackageD"),
+            path: "/PackageD",
             toolsVersion: .v5_3,
             products: [
                 try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])

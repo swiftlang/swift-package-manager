@@ -62,13 +62,13 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath(path: "/Bar.swift"),
-            AbsolutePath(path: "/Foo.swift"),
-            AbsolutePath(path: "/Hello.something/hello.txt"),
-            AbsolutePath(path: "/file"),
-            AbsolutePath(path: "/path/to/somefile.txt"),
-            AbsolutePath(path: "/some/path.swift"),
-            AbsolutePath(path: "/some/path/toBeCopied"),
+            "/Bar.swift",
+            "/Foo.swift",
+            "/Hello.something/hello.txt",
+            "/file",
+            "/path/to/somefile.txt",
+            "/some/path.swift",
+            "/some/path/toBeCopied",
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -106,8 +106,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath(path: "/some.thing"),
-            AbsolutePath(path: "/some/hello.swift"),
+            "/some.thing",
+            "/some/hello.swift",
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -145,8 +145,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().sorted()
 
         XCTAssertEqual(contents, [
-            AbsolutePath(path: "/some.thing/hello.txt"),
-            AbsolutePath(path: "/some/hello.swift"),
+            "/some.thing/hello.txt",
+            "/some/hello.swift",
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -243,14 +243,14 @@ class TargetSourcesBuilderTests: XCTestCase {
             type: .regular
         )
 
-        let files = [
-            AbsolutePath(path: "/Foo.swift").pathString,
-            AbsolutePath(path: "/Bar.swift").pathString,
-            AbsolutePath(path: "/Baz.something").pathString,
+        let files: [AbsolutePath] = [
+            "/Foo.swift",
+            "/Bar.swift",
+            "/Baz.something",
         ]
 
         let fs = InMemoryFileSystem()
-        fs.createEmptyFiles(at: .root, files: files)
+        fs.createEmptyFiles(at: .root, files: files.map(\.pathString))
 
         let somethingRule = FileRuleDescription(
             rule: .compile,
@@ -261,7 +261,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5_5, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssertEqual(
-                sources.paths.map(\.pathString).sorted(),
+                sources.paths.sorted(),
                 files.sorted()
             )
         }
@@ -687,8 +687,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .root(.init(path: "/test")),
-                packagePath: .init(path: "/test"),
+                packageKind: .root("/test"),
+                packagePath: "/test",
                 target: target,
                 path: .root,
                 toolsVersion: .v5,
@@ -699,8 +699,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             testDiagnostics(observability.diagnostics) { result in
                 var diagnosticsFound = [Basics.Diagnostic?]()
-                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath(path: "/fileOutsideRoot.py"))': File not found.", severity: .warning))
-                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath(path: "/fakeDir"))': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath("/fileOutsideRoot.py"))': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '\(AbsolutePath("/fakeDir"))': File not found.", severity: .warning))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
@@ -718,7 +718,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
                 packageKind: .remoteSourceControl(URL("https://some.where/foo/bar")),
-                packagePath: .init(path: "/test"),
+                packagePath: "/test",
                 target: target,
                 path: .root,
                 toolsVersion: .v5,
@@ -822,7 +822,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
-            packageKind: .root(.init(path: "/test")),
+            packageKind: .root("/test"),
             packagePath: .root,
             target: target,
             path: .root,
@@ -833,9 +833,9 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             var diagnosticsFound = [Basics.Diagnostic?]()
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/InvalidPackage.swift"))': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/DoesNotExist.swift"))': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath(path: "/Tests/InvalidPackageTests/InvalidPackageTests.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/InvalidPackage.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/DoesNotExist.swift"))': File not found.", severity: .warning))
+            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Source '\(AbsolutePath("/Tests/InvalidPackageTests/InvalidPackageTests.swift"))': File not found.", severity: .warning))
 
             for diagnostic in diagnosticsFound {
                 XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
@@ -866,7 +866,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
-            packageKind: .root(.init(path: "/test")),
+            packageKind: .root( "/test"),
             packagePath: .root,
             target: target,
             path: .root,
@@ -875,10 +875,10 @@ class TargetSourcesBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let outputs = try builder.run()
-        XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
         XCTAssertEqual(outputs.resources, [])
         XCTAssertEqual(outputs.ignored, [])
-        XCTAssertEqual(outputs.others, [AbsolutePath(path: "/Foo.xcdatamodel")])
+        XCTAssertEqual(outputs.others, ["/Foo.xcdatamodel"])
 
         XCTAssertFalse(observability.hasWarningDiagnostics)
         XCTAssertFalse(observability.hasErrorDiagnostics)
@@ -906,7 +906,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
             let builder = TargetSourcesBuilder(
                 packageIdentity: .plain("test"),
-                packageKind: .root(.init(path: "/test")),
+                packageKind: .root("/test"),
                 packagePath: .root,
                 target: target,
                 path: .root,
@@ -915,10 +915,10 @@ class TargetSourcesBuilderTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
             let outputs = try builder.run()
-            XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
+            XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
             XCTAssertEqual(outputs.resources, [])
             XCTAssertEqual(outputs.ignored, [])
-            XCTAssertEqual(outputs.others, [AbsolutePath(path: "/foo.bar")])
+            XCTAssertEqual(outputs.others, ["/foo.bar"])
 
             XCTAssertFalse(observability.hasWarningDiagnostics)
             XCTAssertFalse(observability.hasErrorDiagnostics)
@@ -977,9 +977,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let outputs = try builder.run()
-        XCTAssertEqual(outputs.sources.paths, [AbsolutePath(path: "/File.swift")])
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
         XCTAssertEqual(outputs.resources, [])
-        XCTAssertEqual(outputs.ignored, [AbsolutePath(path: "/Foo.docc")])
+        XCTAssertEqual(outputs.ignored, ["/Foo.docc"])
         XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
