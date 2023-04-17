@@ -171,18 +171,18 @@ extension LLBuildManifestBuilder {
     /// Returns the virtual node that will build the entire bundle.
     private func createResourcesBundle(
         for target: TargetBuildDescription
-    ) -> Node? {
+    ) throws -> Node? {
         guard let bundlePath = target.bundlePath else { return nil }
 
         var outputs: [Node] = []
 
-        let infoPlistDestination = try! RelativePath(validating: "Info.plist") // try! safe
+        let infoPlistDestination = try RelativePath(validating: "Info.plist")
 
         // Create a copy command for each resource file.
         for resource in target.resources {
             switch resource.rule {
             case .copy, .process:
-                let destination = bundlePath.appending(resource.destination)
+                let destination = try bundlePath.appending(resource.destination)
                 let (_, output) = addCopyCommand(from: resource.path, to: destination)
                 outputs.append(output)
             case .embedInCode:
@@ -604,7 +604,7 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .swift(target)) {
+        if let resourcesNode = try createResourcesBundle(for: .swift(target)) {
             inputs.append(resourcesNode)
         }
 
@@ -798,7 +798,7 @@ extension LLBuildManifestBuilder {
         // don't need to block building of a module until its resources are assembled but
         // we don't currently have a good way to express that resources should be built
         // whenever a module is being built.
-        if let resourcesNode = createResourcesBundle(for: .clang(target)) {
+        if let resourcesNode = try createResourcesBundle(for: .clang(target)) {
             inputs.append(resourcesNode)
         }
 

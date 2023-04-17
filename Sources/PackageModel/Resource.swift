@@ -24,11 +24,13 @@ public struct Resource: Codable, Equatable {
 
     /// The relative location of the resource in the resource bundle.
     public var destination: RelativePath {
-        switch self.rule {
-        case .process(.some(let localization)):
-            return try! RelativePath(validating: "\(localization).\(Self.localizationDirectoryExtension)/\(path.basename)") // try! safe
-        default:
-            return try! RelativePath(validating: path.basename) // try! safe
+        get throws {
+            switch self.rule {
+            case .process(.some(let localization)):
+                return try RelativePath(validating: "\(localization).\(Self.localizationDirectoryExtension)/\(path.basename)")
+            default:
+                return try RelativePath(validating: path.basename)
+            }
         }
     }
 
