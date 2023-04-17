@@ -78,8 +78,6 @@ class DependencyResolutionTests: XCTestCase {
     }
 
     func testMirrors() throws {
-        try XCTSkipIf(true, "test is broken and needs investigation rdar://107970938")
-
         try fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
             let prefix = try resolveSymlinks(fixturePath)
             let appPath = prefix.appending("App")
