@@ -148,7 +148,7 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
     /// `data` should be in the PKCS #1 format
     init(data: Data) throws {
         let bytes = data.copyBytes()
-        let key = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> UnsafeMutablePointer<EVP_PKEY> in
+        let key = try bytes.withUnsafeBufferPointer { ptr in
             var pointer = ptr.baseAddress
             guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &pointer, numericCast(data.count)) else {
                 throw BoringSSLKeyError.failedToLoadKeyFromBytes
