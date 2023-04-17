@@ -184,7 +184,7 @@ final class BoringSSLCertificate {
         return try self.keyType(of: key)
     }
 
-    private func keyType(of key: UnsafeMutablePointer<EVP_PKEY>) throws -> KeyType {
+    private func keyType(of key: OpaquePointer) throws -> KeyType {
         let algorithm = CCryptoBoringSSL_EVP_PKEY_id(key)
 
         switch algorithm {
