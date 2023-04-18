@@ -422,7 +422,7 @@ public final class InitPackage {
 
                 extension \(typeName): XcodeBuildToolPlugin {
                     // Entry point for creating build commands for targets in Xcode projects.
-                    func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) async throws -> [Command] {
+                    func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
                         // Find the code generator tool to run (replace this with the actual one).
                         let generatorTool = try context.tool(named: "my-code-generator")
 
@@ -469,9 +469,9 @@ public final class InitPackage {
                 #if canImport(XcodeProjectPlugin)
                 import XcodeProjectPlugin
 
-                extension MyCommandPlugin: CommandPlugin {
+                extension MyCommandPlugin: XcodeCommandPlugin {
                     // Entry point for command plugins applied to Xcode projects.
-                    func performCommand(context: XcodePluginContext, arguments: [String]) async throws {
+                    func performCommand(context: XcodePluginContext, arguments: [String]) throws {
                         print("Hello, World!")
                     }
                 }
