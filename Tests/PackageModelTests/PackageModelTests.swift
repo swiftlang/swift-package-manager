@@ -124,7 +124,7 @@ class PackageModelTests: XCTestCase {
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
                         triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
-                        extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link\(suffix)"]
+                        extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link"]
                     ),
                     not
                 )
