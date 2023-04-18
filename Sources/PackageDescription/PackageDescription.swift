@@ -380,6 +380,7 @@ public enum SystemPackageProvider {
     /// Packages installable by the yum package manager.
     @available(_PackageDescription, introduced: 5.3)
     case yumItem([String])
+    /// Packages installable by the NuGet package manager.
     @available(_PackageDescription, introduced: 999.0)
     case nugetItem([String])
 
@@ -416,7 +417,7 @@ public enum SystemPackageProvider {
     }
 
     /// Creates a system package provider with a list of installable packages
-    /// for users of the nuget package manager on Linux or Windows.
+    /// for users of the NuGet package manager on Linux or Windows.
     ///
     /// - Parameter packages: The list of package names.
     ///

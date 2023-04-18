@@ -47,7 +47,7 @@ public struct Resource {
 
     /// The rule for the resource.
     let rule: String
-
+	
     /// The path of the resource.
     let path: String
 
@@ -97,6 +97,10 @@ public struct Resource {
     }
 
     /// Applies the embed rule to a resource at the given path.
+    ///
+    /// You can use the embed rule to embed the contents of the resource into the executable code.
+    /// - Parameter path: The path for a resource.
+    /// - Returns: A `Resource` instance.
     @available(_PackageDescription, introduced: 5.9)
     public static func embedInCode(_ path: String) -> Resource {
         return Resource(rule: "embedInCode", path: path, localization: nil)
