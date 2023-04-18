@@ -41,10 +41,13 @@ public final class Target {
         case `macro`
     }
 
-    /// A group a target belongs to that allows customizing access boundaries. A target is treated as
-    /// a client outside of the package if `excluded`, inside the package boundary if `package`.
+    /// A group a target belongs to that allows customizing access boundaries. By default, the target belongs
+    /// to the `package` group, and has access to the symbols inside the package. If the target's group is
+    ///  `excluded`, it is essentially a client of the package.
     public enum TargetGroup {
+        /// Treat this target as inside the package boundary.
         case package
+        /// Treat this target as outside the package boundary.
         case excluded
     }
     /// The different types of a target's dependency on another entity.
@@ -561,7 +564,7 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
+    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside. The default value is `package`.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
     ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
@@ -733,7 +736,7 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
+    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside. The default value is `package`.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
     ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
@@ -980,7 +983,7 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
+    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside. The default value is `package`.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
     ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
@@ -1217,7 +1220,7 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the plugin target.
-    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside (package by default).
+    ///   - group: The group this target belongs to, where access to the target's group-specific APIs is not allowed from outside. The default value is `package`.
     ///   - capability: The type of capability the plugin target provides.
     ///   - dependencies: The plugin target's dependencies.
     ///   - path: The path of the plugin target, relative to the package root.
@@ -1412,7 +1415,7 @@ public struct TargetDependencyCondition {
 
 extension Target.PluginCapability {
     
-    /// Specifies that the plugin provides a build tool capability.
+    /// The plugin is a build tool.
     ///
     /// The plugin will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
@@ -1496,7 +1499,7 @@ public enum PluginPermission {
     case writeToPackageDirectory(reason: String)
 }
 
-/// The scope of a network permission. This can be none, local connections only or all connections.
+/// The scope of a network permission. This can be none, local connections only, or all connections.
 @available(_PackageDescription, introduced: 5.9)
 public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
@@ -1510,7 +1513,7 @@ public enum PluginNetworkPermissionScope {
     /// Allow connections to any unix domain socket.
     case unixDomainSocket
 
-    /// Allow local and outgoing network connections,  limited to a range of allowed ports.
+    /// Allow local and outgoing network connections, limited to a range of allowed ports.
     public static func all(ports: Range<UInt8>) -> PluginNetworkPermissionScope {
         return .all(ports: Array(ports))
     }

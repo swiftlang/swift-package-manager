@@ -12,6 +12,7 @@
 
 /// The build configuration such as debug or release.
 public struct BuildConfiguration {
+    /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
 
     private init(_ config: String) {
@@ -54,7 +55,9 @@ public struct BuildConfiguration {
 /// ),
 /// ```
 public struct BuildSettingCondition {
+    /// The applicable platforms for this build setting condition.
     let platforms: [Platform]?
+    /// The applicable build configuration for this build setting condition.
     let config: BuildConfiguration?
 
     private init(platforms: [Platform]?, config: BuildConfiguration?) {
@@ -113,6 +116,7 @@ struct BuildSettingData {
 
 /// A C-language build setting.
 public struct CSetting {
+    /// The abstract build setting data.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
@@ -182,6 +186,7 @@ public struct CSetting {
 
 /// A CXX-language build setting.
 public struct CXXSetting {
+    /// The abstract build setting data.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
@@ -250,6 +255,7 @@ public struct CXXSetting {
 
 /// A Swift language build setting.
 public struct SwiftSetting {
+    /// The abstract build setting data.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
@@ -306,13 +312,13 @@ public struct SwiftSetting {
 
     /// Enable an upcoming feature with the given name.
     ///
-    /// An upcoming feature is one that has been accepted into Swift as of a
+    /// An upcoming feature is one that is available in Swift as of a
     /// certain language version, but is not available by default in prior
     /// language modes because it has some impact on source compatibility.
     ///
-    /// Multiple upcoming features can be added to a given target, and can
-    /// be used in a target without affecting its dependencies. An unknown
-    /// upcoming feature will be ignored by the implementation.
+    /// You can add multiple upcoming features to a given target, and can
+    /// use in a target without affecting its dependencies. Targets will ignore any unknown
+    /// upcoming features.
     ///
     /// - Since: First available in PackageDescription 5.8.
     ///
@@ -332,11 +338,11 @@ public struct SwiftSetting {
     /// Enable an experimental feature with the given name.
     ///
     /// An experimental feature is one that is in development, but
-    /// has not been accepted into Swift as a language feature.
+    /// is not yet available in Swift as a language feature.
     ///
-    /// Multiple experimental features can be added to a given target, and can
-    /// be used in a target without affecting its dependencies. An unknown
-    /// experimental feature will be ignored by the implementation.
+    /// You can add multiple experimental features to a given target, and can
+    /// use in a target without affecting its dependencies. Targets will ignore any  unknown
+    /// experimental features.
     ///
     /// - Since: First available in PackageDescription 5.8.
     ///
@@ -391,6 +397,7 @@ public struct SwiftSetting {
 
 /// A linker build setting.
 public struct LinkerSetting {
+    /// The abstract build setting data.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
