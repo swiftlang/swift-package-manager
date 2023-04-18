@@ -81,7 +81,7 @@ struct SwiftBootstrapBuildTool: ParsableCommand {
                 visibility: .hidden))
     public var xcbuildFlags: [String] = []
 
-    @Option(name: .customLong("Xmanifest", withSingleDash: true),
+    @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp("Pass flag to the manifest build invocation",
                                visibility: .hidden))
