@@ -179,6 +179,7 @@ class InitTests: XCTestCase {
             XCTAssertMatch(sourceContents, .contains("struct MyCommandPlugin: CommandPlugin"))
             XCTAssertMatch(sourceContents, .contains("performCommand(context: PluginContext"))
             XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
+            XCTAssertMatch(sourceContents, .contains("extension MyCommandPlugin: XcodeCommandPlugin"))
             XCTAssertMatch(sourceContents, .contains("performCommand(context: XcodePluginContext"))
         }
     }
@@ -212,6 +213,7 @@ class InitTests: XCTestCase {
             XCTAssertMatch(sourceContents, .contains("struct MyBuildToolPlugin: BuildToolPlugin"))
             XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: PluginContext"))
             XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
+            XCTAssertMatch(sourceContents, .contains("extension MyBuildToolPlugin: XcodeBuildToolPlugin"))
             XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: XcodePluginContext"))
         }
     }
