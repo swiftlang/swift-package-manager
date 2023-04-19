@@ -4445,7 +4445,6 @@ final class BuildPlanTests: XCTestCase {
         try llbuild.generateManifest(at: yaml)
 
         let yamlContents: String = try fs.readFileContents(yaml)
-        print(yamlContents)
         XCTAssertMatch(yamlContents, .contains("""
             inputs: ["/Pkg/Snippets/ASnippet.swift","/Pkg/.build/debug/Lib.swiftmodule"
         """))
