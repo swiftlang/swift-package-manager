@@ -130,6 +130,15 @@ struct _OCSPVerifierPolicy: VerifierPolicy {
 
     let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = []
 
+    /// Initializes an `_OCSPVerifierPolicy` that caches its results.
+    ///
+    /// - Parameters:
+    ///     - failureMode: `OCSPFailureMode` that defines policy failure in event of failure.
+    ///                 Possible values are `hard` (OCSP request failure and unknown status
+    ///                 not allowed) or `soft` (OCSP request failure and unknown status allowed).
+    ///     - httpClient: `HTTPClient` that backs`_OCSPRequester` for making OCSP requests.
+    ///     - validationTime: The time used to decide if the OCSP request is relatively recent. It is
+    ///                   considered a failure if the request is too old.
     init(failureMode: OCSPFailureMode, httpClient: HTTPClient, validationTime: Date) {
         self.underlying = OCSPVerifierPolicy(
             failureMode: failureMode,
