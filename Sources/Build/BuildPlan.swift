@@ -30,18 +30,6 @@ extension String {
     }
 }
 
-extension AbsolutePath {
-    internal func nativePathString(escaped: Bool) -> String {
-        return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
-            let repr = String(cString: $0!)
-            if escaped {
-                return repr.replacingOccurrences(of: "\\", with: "\\\\")
-            }
-            return repr
-        }
-    }
-}
-
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {

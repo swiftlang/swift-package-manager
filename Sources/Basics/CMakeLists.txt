@@ -42,6 +42,7 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  NativePathExtensions.swift
   Netrc.swift
   Observability.swift
   SQLite.swift
