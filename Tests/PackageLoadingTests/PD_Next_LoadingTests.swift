@@ -39,4 +39,21 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testMacroTargets() throws {
+        let content = """
+            import CompilerPluginSupport
+            import PackageDescription
+
+            let package = Package(name: "MyPackage",
+                targets: [
+                    .macro(name: "MyMacro", swiftSettings: [.define("BEST")], linkerSettings: [.linkedLibrary("best")]),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, diagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
+    }
 }
