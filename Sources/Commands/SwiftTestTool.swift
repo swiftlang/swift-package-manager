@@ -845,7 +845,7 @@ final class ParallelTestRunner {
                     var output = ""
                     let outputLock = NSLock()
                     let start = DispatchTime.now()
-                    let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
+                    let success = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output.appending("\n") }})
                     let duration = start.distance(to: .now())
                     if !success {
                         self.ranSuccessfully = false
@@ -1063,9 +1063,17 @@ final class XUnitGenerator {
 
             """
 
+        /// Captured groups
+        /// $1 = file:line
+        /// $2 = reason
+        let testErrorRegex = try RegEx(pattern: #".*\/(.*\d+)\:\serror:.*\s\:\s(.*)"#)
+
+        // Captured groups
+        // $1 = file:line
+        // $2 = reason
+        let fatalErrorRegex = try RegEx(pattern: #".*\/(.*\d+)\:\s(Fatal error:.*)"#)
+
         // Generate a testcase entry for each result.
-        //
-        // FIXME: This is very minimal right now. We should allow including test output etc.
         for result in results {
             let test = result.unitTest
             let duration = result.duration.timeInterval() ?? 0.0
@@ -1075,7 +1083,13 @@ final class XUnitGenerator {
                 """
 
             if !result.success {
-                stream <<< "<failure message=\"failed\"></failure>\n"
+                let message = [testErrorRegex, fatalErrorRegex].map { $0.matchGroups(in: result.output) }
+                    .first(where: { !$0.isEmpty })?
+                    .first?
+                    .joined(separator: " ")
+                    .xmlEscaped ?? "failed"
+
+                stream <<< "<failure message=\"\(message)\"></failure>\n"
             }
 
             stream <<< "</testcase>\n"
@@ -1143,5 +1157,15 @@ extension BuildParameters {
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
+    }
+}
+
+private extension String {
+    var xmlEscaped: String {
+        self.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "<", with: "&lt;")
     }
 }
