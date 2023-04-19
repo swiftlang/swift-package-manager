@@ -161,7 +161,7 @@ class ToolsVersionParserTests: XCTestCase {
 
         XCTAssertThrowsError(
             try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs),
-            "empty manifest '/lorem/ipsum/dolor/Package.swift'") { error in
+            "empty manifest '\(manifestPath.pathString)'") { error in
                 guard let error = error as? ManifestParseError, case .emptyManifest(let errorPath) = error else {
                     XCTFail("'ManifestParseError.emptyManifest' should've been thrown, but a different error is thrown")
                     return
@@ -172,7 +172,7 @@ class ToolsVersionParserTests: XCTestCase {
                     return
                 }
 
-                XCTAssertEqual(error.description, "'/lorem/ipsum/dolor/Package.swift' is empty")
+                XCTAssertEqual(error.description, "'\(manifestPath._nativePathString(escaped: false))' is empty")
             }
     }
 
