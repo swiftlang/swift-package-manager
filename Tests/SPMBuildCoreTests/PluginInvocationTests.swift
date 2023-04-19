@@ -229,6 +229,8 @@ class PluginInvocationTests: XCTestCase {
     }
     
     func testCompilationDiagnostics() throws {
+        throw XCTSkip("disabled on release/5.8 due to CI toolchain mismatch")
+
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
