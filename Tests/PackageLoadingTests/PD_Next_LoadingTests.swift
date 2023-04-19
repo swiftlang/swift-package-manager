@@ -47,7 +47,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
 
             let package = Package(name: "MyPackage",
                 targets: [
-                    .macro(name: "MyMacro"),
+                    .macro(name: "MyMacro", swiftSettings: [.define("BEST")], linkerSettings: [.linkedLibrary("best")]),
                 ]
             )
             """
