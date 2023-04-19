@@ -53,7 +53,8 @@ struct DumpSymbolGraph: SwiftCommand {
         // Configure the symbol graph extractor.
         let symbolGraphExtractor = try SymbolGraphExtract(
             fileSystem: swiftTool.fileSystem,
-            tool: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            swiftSymbolGraphExtract: swiftTool.getDestinationToolchain().getSymbolGraphExtract(),
+            clangCompiler: swiftTool.getDestinationToolchain().getClangCompiler(),
             observabilityScope: swiftTool.observabilityScope,
             skipSynthesizedMembers: skipSynthesizedMembers,
             minimumAccessLevel: minimumAccessLevel,

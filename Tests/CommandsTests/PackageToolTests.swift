@@ -516,6 +516,32 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertGreaterThan(prettyJSONText.components(separatedBy: .newlines).count, 1)
         }
     }
+    
+    func testDumpClangSymbolGraph() throws {
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        
+        try fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
+            try executeSwiftPackage(fixturePath, extraArgs: ["dump-symbol-graph"])
+            
+            let symbolGraphPath = fixturePath.appending(
+                components: ".build", try UserToolchain.default.triple.platformBuildPathComponent(), "symbolgraph", "clang"
+            )
+            
+            let symbolGraphDirectoryContents = try localFileSystem.getDirectoryContents(symbolGraphPath)
+            
+            XCTAssertEqual(
+                Set(symbolGraphDirectoryContents),
+                [
+                    "FlatInclude.symbols.json",
+                    "NonModuleDirectoryInclude.symbols.json",
+                    "UmbrellaDirectoryInclude.symbols.json",
+                    "UmbrellaHeader.symbols.json",
+                    "UmbrellaHeaderFlat.symbols.json",
+                ],
+                "Failed to find the expected clang symbol graph files."
+            )
+        }
+    }
 
     func testShowDependencies() throws {
         try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
@@ -2171,6 +2197,9 @@ final class PackageToolTests: CommandsTestCase {
                         .target(
                             name: "MyLibrary"
                         ),
+                        .target(
+                            name: "ClangTarget"
+                        ),
                         .executableTarget(
                             name: "MyCommand",
                             dependencies: ["MyLibrary"]
@@ -2194,6 +2223,20 @@ final class PackageToolTests: CommandsTestCase {
                 $0 <<< """
                 import MyLibrary
                 print("\\(GetGreeting()), World!")
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "ClangTarget", "include", "ClangTarget.h")) {
+                $0 <<< """
+                int foo();
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "ClangTarget", "ClangTarget.c")) {
+                $0 <<< """
+                #include "ClangTarget.h"
+
+                int foo() {
+                    return 5;
+                }
                 """
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
@@ -2230,6 +2273,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
                 XCTAssertMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                XCTAssertMatch(output, .and(.contains("ClangTarget:"), .contains("mypackage/ClangTarget")))
 
             }
 
@@ -2240,6 +2284,7 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
                 XCTAssertNoMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                XCTAssertNoMatch(output, .and(.contains("ClangTarget:"), .contains("mypackage/ClangTarget")))
             }
         }
     }
