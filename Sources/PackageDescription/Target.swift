@@ -41,15 +41,6 @@ public final class Target {
         case `macro`
     }
 
-    /// A group a target belongs to that allows customizing access boundaries. By default, the target belongs
-    /// to the `package` group, and has access to the symbols inside the package. If the target's group is
-    ///  `excluded`, it is essentially a client of the package.
-    public enum TargetGroup {
-        /// Treat this target as inside the package boundary.
-        case package
-        /// Treat this target as outside the package boundary.
-        case excluded
-    }
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         /// A dependency on a target.
@@ -143,9 +134,8 @@ public final class Target {
     /// The type of the target.
     public let type: TargetType
 
-    /// The group this target belongs to, where access to the target's group-specific
-    /// APIs is not allowed from outside.
-    public let group: TargetGroup
+    /// If true, access to package declarations from other targets in the package is allowed.
+    public let packageAccess: Bool
 
     /// The name of the package configuration file, without extension, for the system library target.
     ///
@@ -244,7 +234,6 @@ public final class Target {
     @_spi(PackageDescriptionInternal)
     public init(
         name: String,
-        group: TargetGroup,
         dependencies: [Dependency],
         path: String?,
         url: String? = nil,
@@ -253,6 +242,7 @@ public final class Target {
         resources: [Resource]? = nil,
         publicHeadersPath: String?,
         type: TargetType,
+        packageAccess: Bool = false,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -264,7 +254,7 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
-        self.group = group
+        self.packageAccess = packageAccess
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -381,7 +371,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -428,7 +417,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -481,7 +469,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -537,7 +524,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -573,6 +559,7 @@ public final class Target {
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
@@ -581,13 +568,13 @@ public final class Target {
     @available(_PackageDescription, introduced: 999.0)
     public static func target(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -596,7 +583,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -604,6 +590,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -652,7 +639,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -709,7 +695,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -745,6 +730,7 @@ public final class Target {
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
@@ -753,13 +739,13 @@ public final class Target {
     @available(_PackageDescription, introduced: 999.0)
     public static func executableTarget(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
         publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -768,7 +754,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -776,6 +761,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -810,7 +796,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -854,7 +839,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -904,7 +888,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -957,7 +940,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -991,6 +973,7 @@ public final class Target {
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
@@ -999,12 +982,12 @@ public final class Target {
     @available(_PackageDescription, introduced: 999.0)
     public static func testTarget(
         name: String,
-        group: TargetGroup = .package,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
+        packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -1013,7 +996,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -1021,6 +1003,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: packageAccess,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -1053,7 +1036,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // access to only public APIs is allowed for system libs
             dependencies: [],
             path: path,
             exclude: [],
@@ -1082,7 +1064,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: nil,
             url: url,
@@ -1109,7 +1090,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: [],
             path: path,
             exclude: [],
@@ -1171,7 +1151,6 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            group: .excluded, // .excluded since group is no-op in this toolsVersion
             dependencies: dependencies,
             path: path,
             exclude: exclude,
@@ -1223,26 +1202,27 @@ public final class Target {
     ///   - path: The path of the plugin target, relative to the package root.
     ///   - exclude: The paths to source and resource files you want to exclude from the plugin target.
     ///   - sources: The source files in the plugin target.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 999.0)
     public static func plugin(
         name: String,
-        group: TargetGroup = .package,
         capability: PluginCapability,
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil
+        sources: [String]? = nil,
+        packageAccess: Bool = true
     ) -> Target {
         return Target(
             name: name,
-            group: group,
             dependencies: dependencies,
             path: path,
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
             type: .plugin,
+            packageAccess: packageAccess,
             pluginCapability: capability)
     }
 }

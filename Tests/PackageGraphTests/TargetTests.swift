@@ -21,11 +21,11 @@ private extension ResolvedTarget {
         self.init(
             target: SwiftTarget(
                 name: name,
-                group: .excluded, // .excluded since group is a no-op for existing tests
                 type: .library,
                 path: .root,
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
+                packageAccess: true,
                 swiftVersion: .v4,
                 usesUnsafeFlags: false
             ),

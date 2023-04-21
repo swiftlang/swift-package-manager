@@ -19,7 +19,7 @@ public struct MockTarget {
     }
 
     public let name: String
-    public let group: Target.Group
+    public let packageAccess: Bool
     public let dependencies: [TargetDescription.Dependency]
     public let path: String?
     public let url: String?
@@ -29,7 +29,7 @@ public struct MockTarget {
 
     public init(
         name: String,
-        group: Target.Group = .package,
+        packageAccess: Bool = true,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
         path: String? = nil,
@@ -38,7 +38,7 @@ public struct MockTarget {
         checksum: String? = nil
     ) throws {
         self.name = name
-        self.group = group
+        self.packageAccess = packageAccess
         self.dependencies = dependencies
         self.type = type
         self.path = path
@@ -52,7 +52,6 @@ public struct MockTarget {
         case .regular:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
@@ -64,7 +63,6 @@ public struct MockTarget {
         case .test:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
@@ -76,7 +74,6 @@ public struct MockTarget {
         case .binary:
             return try TargetDescription(
                 name: self.name,
-                group: .init(self.group),
                 dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 url: self.url,
