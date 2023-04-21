@@ -230,8 +230,6 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }
 
         self.name = name

@@ -344,10 +344,7 @@ public final class Target {
                 providers == nil &&
                 pluginCapability == nil &&
                 cSettings == nil &&
-                cxxSettings == nil &&
-                swiftSettings == nil &&
-                linkerSettings == nil &&
-                plugins == nil
+                cxxSettings == nil
             )
         }
     }

@@ -20,7 +20,10 @@ public extension Target {
         dependencies: [Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
-        sources: [String]? = nil
+        sources: [String]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
     ) -> Target {
         return Target(name: name,
                       group: group,
@@ -29,6 +32,9 @@ public extension Target {
                       exclude: exclude,
                       sources: sources,
                       publicHeadersPath: nil,
-                      type: .macro)
+                      type: .macro,
+                      swiftSettings: swiftSettings,
+                      linkerSettings: linkerSettings,
+                      plugins: plugins)
     }
 }
