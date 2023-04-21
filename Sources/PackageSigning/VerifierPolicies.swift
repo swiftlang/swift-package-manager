@@ -16,106 +16,31 @@ import struct Foundation.Date
 import struct Foundation.URL
 
 import Basics
-@_implementationOnly import SwiftASN1
-@_implementationOnly @_spi(DisableValidityCheck) import X509
+@_implementationOnly import X509
 
 extension SignatureProviderProtocol {
     func buildPolicySet(configuration: VerifierConfiguration, httpClient: HTTPClient) -> PolicySet {
-        var policies: [VerifierPolicy] = [
-            _CodeSigningPolicy(),
-            _ADPCertificatePolicy(),
-        ]
+        var policies = [VerifierPolicy]()
 
-        let now = Date()
-        switch (configuration.certificateExpiration, configuration.certificateRevocation) {
-        case (.enabled(let expiryValidationTime), .strict(let revocationValidationTime)):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
+        if case .enabled(let validationTime) = configuration.certificateExpiration {
+            policies.append(RFC5280Policy(validationTime: validationTime ?? Date()))
+        }
+
+        switch configuration.certificateRevocation {
+        case .strict(let validationTime):
+            policies.append(_OCSPVerifierPolicy(httpClient: httpClient, mode: .strict, validationTime: validationTime))
+        case .allowSoftFail(let validationTime):
             policies
                 .append(_OCSPVerifierPolicy(
-                    failureMode: .hard,
                     httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
+                    mode: .allowSoftFail,
+                    validationTime: validationTime
                 ))
-        case (.enabled(let expiryValidationTime), .allowSoftFail(let revocationValidationTime)):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .soft,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
-        case (.enabled(let expiryValidationTime), .disabled):
-            policies.append(RFC5280Policy(validationTime: expiryValidationTime ?? now))
-        case (.disabled, .strict(let revocationValidationTime)):
-            // Always do expiry check (and before) if revocation check is enabled
-            policies.append(RFC5280Policy(validationTime: revocationValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .hard,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
-        case (.disabled, .allowSoftFail(let revocationValidationTime)):
-            // Always do expiry check (and before) if revocation check is enabled
-            policies.append(RFC5280Policy(validationTime: revocationValidationTime ?? now))
-            policies
-                .append(_OCSPVerifierPolicy(
-                    failureMode: .soft,
-                    httpClient: httpClient,
-                    validationTime: revocationValidationTime ?? now
-                ))
-        case (.disabled, .disabled):
-            // We should still do basic certificate validations even if expiry check is disabled
-            policies.append(RFC5280Policy.withValidityCheckDisabled())
+        case .disabled:
+            ()
         }
 
         return PolicySet(policies: policies)
-    }
-}
-
-/// Policy for code signing certificates.
-struct _CodeSigningPolicy: VerifierPolicy {
-    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = [
-        ASN1ObjectIdentifier.X509ExtensionID.keyUsage,
-        ASN1ObjectIdentifier.X509ExtensionID.extendedKeyUsage,
-    ]
-
-    func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
-        let isCodeSigning = (
-            try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)
-        ) ??
-            false
-        guard isCodeSigning else {
-            return .failsToMeetPolicy(reason: "Certificate \(chain.leaf) does not have code signing extended key usage")
-        }
-        return .meetsPolicy
-    }
-}
-
-/// Policy for ADP certificates.
-struct _ADPCertificatePolicy: VerifierPolicy {
-    /// Include custom marker extensions (which can be critical) so they would not
-    /// be considered unhandled and cause certificate chain validation to fail.
-    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = Self.swiftPackageMarkers
-        + Self.developmentMarkers
-
-    // Marker extensions for Swift Package certificate
-    private static let swiftPackageMarkers: [ASN1ObjectIdentifier] = [
-        // This is not a critical extension but including it just in case
-        ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker,
-    ]
-
-    // Marker extensions for Development certificate (included for testing)
-    private static let developmentMarkers: [ASN1ObjectIdentifier] = [
-        [1, 2, 840, 113_635, 100, 6, 1, 2],
-        [1, 2, 840, 113_635, 100, 6, 1, 12],
-    ]
-
-    func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
-        // Not policing anything here. This policy is mainly for
-        // listing marker extensions to prevent chain validation
-        // from failing prematurely.
-        .meetsPolicy
     }
 }
 
@@ -126,28 +51,31 @@ struct _OCSPVerifierPolicy: VerifierPolicy {
         (result: PolicyEvaluationResult, expires: DispatchTime)
     >()
 
-    private var underlying: OCSPVerifierPolicy<_OCSPRequester>
+    private let underlying: OCSPVerifierPolicy<_OCSPRequester>
+    private let mode: Mode
+    private let validationTime: Date
 
-    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = []
-
-    /// Initializes an `_OCSPVerifierPolicy` that caches its results.
-    ///
-    /// - Parameters:
-    ///     - failureMode: `OCSPFailureMode` that defines policy failure in event of failure.
-    ///                 Possible values are `hard` (OCSP request failure and unknown status
-    ///                 not allowed) or `soft` (OCSP request failure and unknown status allowed).
-    ///     - httpClient: `HTTPClient` that backs`_OCSPRequester` for making OCSP requests.
-    ///     - validationTime: The time used to decide if the OCSP request is relatively recent. It is
-    ///                   considered a failure if the request is too old.
-    init(failureMode: OCSPFailureMode, httpClient: HTTPClient, validationTime: Date) {
-        self.underlying = OCSPVerifierPolicy(
-            failureMode: failureMode,
-            requester: _OCSPRequester(httpClient: httpClient),
-            validationTime: validationTime
-        )
+    init(httpClient: HTTPClient, mode: Mode, validationTime: Date?) {
+        self.underlying = OCSPVerifierPolicy(requester: _OCSPRequester(httpClient: httpClient))
+        self.mode = mode
+        self.validationTime = validationTime ?? Date()
     }
 
-    mutating func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
+    func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
+        // Check for expiration of the leaf before revocation
+        let leaf = chain.leaf
+        if leaf.notValidBefore > leaf.notValidAfter {
+            return .failsToMeetPolicy(
+                reason: "OCSPVerifierPolicy: leaf certificate \(leaf) has invalid expiry, notValidAfter is earlier than notValidBefore"
+            )
+        }
+        if self.validationTime < leaf.notValidBefore {
+            return .failsToMeetPolicy(reason: "OCSPVerifierPolicy: leaf certificate \(leaf) is not yet valid")
+        }
+        if self.validationTime > leaf.notValidAfter {
+            return .failsToMeetPolicy(reason: "OCSPVerifierPolicy: leaf certificate \(leaf) has expired")
+        }
+
         // Look for cached result
         if let cached = self.cache[chain], cached.expires < .now() {
             return cached.result
@@ -155,10 +83,32 @@ struct _OCSPVerifierPolicy: VerifierPolicy {
 
         // This makes HTTP requests
         let result = await self.underlying.chainMeetsPolicyRequirements(chain: chain)
+        let actualResult: PolicyEvaluationResult
+        switch result {
+        case .meetsPolicy:
+            actualResult = result
+        case .failsToMeetPolicy(let reason):
+            switch self.mode {
+            case .strict:
+                actualResult = result
+            case .allowSoftFail:
+                // Allow 'unknown' status and failed OCSP request in this mode
+                if reason.lowercased().contains("revoked through ocsp") {
+                    actualResult = result
+                } else {
+                    actualResult = .meetsPolicy
+                }
+            }
+        }
 
         // Save result to cache
-        self.cache[chain] = (result: result, expires: .now() + Self.cacheTTL)
-        return result
+        self.cache[chain] = (result: actualResult, expires: .now() + Self.cacheTTL)
+        return actualResult
+    }
+
+    enum Mode {
+        case strict
+        case allowSoftFail
     }
 }
 

@@ -30,9 +30,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (EC) leaf", subject.commonName)
-            XCTAssertEqual("Test (EC) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (EC) org", subject.organizationName)
+            XCTAssertEqual("Test (EC)", subject.commonName)
+            XCTAssertEqual("Test (EC)", subject.organizationalUnitName)
+            XCTAssertEqual("Test (EC)", subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,
@@ -63,9 +63,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (RSA) leaf", subject.commonName)
-            XCTAssertEqual("Test (RSA) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (RSA) org", subject.organizationName)
+            XCTAssertEqual("Test (RSA)", subject.commonName)
+            XCTAssertEqual("Test (RSA)", subject.organizationalUnitName)
+            XCTAssertEqual("Test (RSA)", subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,

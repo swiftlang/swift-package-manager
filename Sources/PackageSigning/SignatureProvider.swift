@@ -64,7 +64,6 @@ public enum SignatureProvider {
         let provider = format.provider
         return try await provider.extractSigningEntity(
             signature: signature,
-            format: format,
             verifierConfiguration: verifierConfiguration
         )
     }
@@ -120,9 +119,6 @@ public enum SigningError: Error {
     case keyDoesNotSupportSignatureAlgorithm
     case signingIdentityNotSupported
     case unableToValidateSignature(String)
-    case invalidSignature(String)
-    case certificateInvalid(String)
-    case certificateNotTrusted(SigningEntity)
 }
 
 // MARK: - Signature formats and providers
@@ -181,7 +177,6 @@ protocol SignatureProviderProtocol {
 
     func extractSigningEntity(
         signature: [UInt8],
-        format: SignatureFormat,
         verifierConfiguration: VerifierConfiguration
     ) async throws -> SigningEntity
 }
@@ -254,6 +249,13 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         }
     }
 
+    func extractSigningEntity(
+        signature: [UInt8],
+        verifierConfiguration: VerifierConfiguration
+    ) async throws -> SigningEntity {
+        throw StringError("not implemented")
+    }
+
     func status(
         signature: [UInt8],
         content: [UInt8],
@@ -306,66 +308,6 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             }
         } catch {
             throw SigningError.unableToValidateSignature("\(error)")
-        }
-    }
-
-    func extractSigningEntity(
-        signature: [UInt8],
-        format: SignatureFormat,
-        verifierConfiguration: VerifierConfiguration
-    ) async throws -> SigningEntity {
-        switch format {
-        case .cms_1_0_0:
-            do {
-                let cmsSignature = try CMSSignature(derEncoded: signature)
-                let signers = try cmsSignature.signers
-                guard signers.count == 1, let signer = signers.first else {
-                    throw SigningError.invalidSignature("expected 1 signer but got \(signers.count)")
-                }
-
-                let signingCertificate = signer.certificate
-
-                var trustRoots: [Certificate] = []
-                if verifierConfiguration.includeDefaultTrustStore {
-                    trustRoots.append(contentsOf: CertificateStores.defaultTrustRoots)
-                }
-                trustRoots.append(contentsOf: try verifierConfiguration.trustedRoots.map { try Certificate($0) })
-
-                // Verifier uses these to build cert chain for validation
-                // (see also notes in `status` method)
-                var untrustedIntermediates: [Certificate] = []
-                // WWDR intermediates are not required when signing with ADP certs,
-                // (i.e., these intermediates may not be in the signature), hence
-                // we include them here to ensure Verifier can build cert chain.
-                untrustedIntermediates.append(contentsOf: Certificates.wwdrIntermediates)
-                // For self-signed certificate, the signature should include intermediate(s).
-                untrustedIntermediates.append(contentsOf: cmsSignature.certificates)
-
-                let policySet = self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
-
-                var verifier = Verifier(rootCertificates: CertificateStore(trustRoots), policy: policySet)
-                let result = await verifier.validate(
-                    leafCertificate: signingCertificate,
-                    intermediates: CertificateStore(untrustedIntermediates)
-                )
-
-                switch result {
-                case .validCertificate:
-                    return SigningEntity.from(certificate: signingCertificate)
-                case .couldNotValidate(let validationFailures):
-                    if validationFailures.isEmpty {
-                        let signingEntity = SigningEntity.from(certificate: signingCertificate)
-                        throw SigningError.certificateNotTrusted(signingEntity)
-                    } else {
-                        throw SigningError
-                            .certificateInvalid("failures: \(validationFailures.map(\.policyFailureReason))")
-                    }
-                }
-            } catch let error as SigningError {
-                throw error
-            } catch {
-                throw SigningError.invalidSignature("\(error)")
-            }
         }
     }
 }
