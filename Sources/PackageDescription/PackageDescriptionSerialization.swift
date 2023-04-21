@@ -196,7 +196,6 @@ enum Serialization {
 
     struct Target: Codable {
         let name: String
-        let packageAccess: Bool
         let path: String?
         let url: String?
         let sources: [String]?
@@ -205,6 +204,7 @@ enum Serialization {
         let dependencies: [TargetDependency]
         let publicHeadersPath: String?
         let type: TargetType
+        let packageAccess: Bool
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
         let pluginCapability: PluginCapability?

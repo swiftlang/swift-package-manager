@@ -597,7 +597,7 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, packageAccess: target.packageAccess, path: path, type: target.type)
+            return PotentialModule(name: target.name, path: path, type: target.type, packageAccess: target.packageAccess)
         }
 
         let targets = try createModules(potentialTargets)
@@ -922,11 +922,11 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
-                packageAccess: potentialModule.packageAccess,
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
-                dependencies: dependencies
+                dependencies: dependencies,
+                packageAccess: potentialModule.packageAccess
             )
         }
 
@@ -1564,9 +1564,6 @@ private struct PotentialModule: Hashable {
     /// Name of the target.
     let name: String
 
-    /// If true, access to package declarations from other modules is allowed.
-    let packageAccess: Bool
-
     /// The path of the target.
     let path: AbsolutePath
 
@@ -1577,6 +1574,9 @@ private struct PotentialModule: Hashable {
 
     /// The target type.
     let type: TargetDescription.TargetType
+
+    /// If true, access to package declarations from other modules is allowed.
+    let packageAccess: Bool
 }
 
 extension Manifest {

@@ -25,7 +25,7 @@ private extension ResolvedTarget {
                 path: .root,
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
-                packageAccess: true,
+                packageAccess: false,
                 swiftVersion: .v4,
                 usesUnsafeFlags: false
             ),

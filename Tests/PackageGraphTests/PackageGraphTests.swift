@@ -285,7 +285,7 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "ExampleApp", dependencies: ["MainLib"], type: .executable, packageAccess: false),
                         TargetDescription(name: "MainLib", dependencies: ["Core"], packageAccess: true),
                         TargetDescription(name: "Core"),
-                        TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test, packageAccess: false),
+                        TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test, packageAccess: true),
                     ]),
             ],
             observabilityScope: observability.topScope

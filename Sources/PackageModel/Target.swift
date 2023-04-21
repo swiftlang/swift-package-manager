@@ -273,7 +273,7 @@ public class Target: PolymorphicCodableProtocol {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, potentialBundleName, packageAccess, defaultLocalization, platforms, type, path, sources, resources, ignored, others, buildSettings, pluginUsages, usesUnsafeFlags
+        case name, potentialBundleName, defaultLocalization, platforms, type, path, sources, resources, ignored, others, packageAccess, buildSettings, pluginUsages, usesUnsafeFlags
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -283,13 +283,13 @@ public class Target: PolymorphicCodableProtocol {
         // the actual target dependency object.
         try container.encode(name, forKey: .name)
         try container.encode(potentialBundleName, forKey: .potentialBundleName)
-        try container.encode(packageAccess, forKey: .packageAccess)
         try container.encode(type, forKey: .type)
         try container.encode(path, forKey: .path)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
         try container.encode(ignored, forKey: .ignored)
         try container.encode(others, forKey: .others)
+        try container.encode(packageAccess, forKey: .packageAccess)
         try container.encode(buildSettings, forKey: .buildSettings)
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
@@ -300,7 +300,6 @@ public class Target: PolymorphicCodableProtocol {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
         self.potentialBundleName = try container.decodeIfPresent(String.self, forKey: .potentialBundleName)
-        self.packageAccess = try container.decode(Bool.self, forKey: .packageAccess)
         self.type = try container.decode(Kind.self, forKey: .type)
         self.path = try container.decode(AbsolutePath.self, forKey: .path)
         self.sources = try container.decode(Sources.self, forKey: .sources)
@@ -311,6 +310,7 @@ public class Target: PolymorphicCodableProtocol {
         // the actual target dependency object.
         self.dependencies = []
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
+        self.packageAccess = try container.decode(Bool.self, forKey: .packageAccess)
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
@@ -742,11 +742,11 @@ public final class PluginTarget: Target {
 
     public init(
         name: String,
-        packageAccess: Bool,
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
-        dependencies: [Target.Dependency] = []
+        dependencies: [Target.Dependency] = [],
+        packageAccess: Bool
     ) {
         self.capability = pluginCapability
         self.apiVersion = apiVersion

@@ -316,7 +316,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     name: testProduct.name,
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
-                    packageAccess: true, // lib target is allowed access to package decls
+                    packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(

@@ -254,7 +254,6 @@ public final class Target {
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
-        self.packageAccess = packageAccess
         self.dependencies = dependencies
         self.path = path
         self.url = url
@@ -263,6 +262,7 @@ public final class Target {
         self.resources = resources
         self.exclude = exclude
         self.type = type
+        self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.pluginCapability = pluginCapability

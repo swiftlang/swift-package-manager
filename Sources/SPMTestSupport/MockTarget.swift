@@ -19,30 +19,30 @@ public struct MockTarget {
     }
 
     public let name: String
-    public let packageAccess: Bool
     public let dependencies: [TargetDescription.Dependency]
     public let path: String?
     public let url: String?
     public let checksum: String?
+    public let packageAccess: Bool
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
 
     public init(
         name: String,
-        packageAccess: Bool = true,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
         path: String? = nil,
         url: String? = nil,
+        packageAccess: Bool = true,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
     ) throws {
         self.name = name
-        self.packageAccess = packageAccess
         self.dependencies = dependencies
         self.type = type
         self.path = path
         self.url = url
+        self.packageAccess = packageAccess
         self.settings = settings
         self.checksum = checksum
     }
