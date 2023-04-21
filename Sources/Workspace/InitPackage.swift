@@ -231,7 +231,8 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                         .executable(
                             name: "\(pkgname)Client",
                             targets: ["\(pkgname)Client"]
@@ -279,7 +280,8 @@ public final class InitPackage {
                                 name: "\(pkgname)",
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                                ]),
+                                ]
+                            ),
                         ]
                     """
                 } else if packageType == .buildToolPlugin {
@@ -303,11 +305,11 @@ public final class InitPackage {
                     """
                 } else if packageType == .macro {
                     param += """
-                            // Macro implementation, only built for the host and never part of a client program.
+                            // Macro implementation that performs the source transformation of a macro.
                             .macro(name: "\(pkgname)Macros",
                                    dependencies: [
-                                     .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                     .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                                       .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                       .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                                    ]
                             ),
 
@@ -624,7 +626,7 @@ public final class InitPackage {
                 import XCTest
                 import \##(moduleName)Macros
 
-                var testMacros: [String: Macro.Type] = [
+                let testMacros: [String: Macro.Type] = [
                     "stringify" : StringifyMacro.self,
                 ]
 
