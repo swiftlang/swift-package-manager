@@ -558,9 +558,9 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testTargetGroupToPackageNameFlag() throws {
+    func testTargetsWithPackageAccess() throws {
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
-        try fixture(name: "Miscellaneous/TargetGrouping") { fixturePath in
+        try fixture(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
             if isFlagSupportedInDriver {
                 let moduleFlag1 = stdout.range(of: "-module-name DataModel")

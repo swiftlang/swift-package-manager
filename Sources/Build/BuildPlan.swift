@@ -282,8 +282,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let discoveryTarget = SwiftTarget(
                     name: discoveryTargetName,
-                    group: .package, // test target is allowed access to package decls by default
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                    packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
                 )
                 let discoveryResolvedTarget = ResolvedTarget(
@@ -314,9 +314,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 let entryPointTarget = SwiftTarget(
                     name: testProduct.name,
-                    group: .package, // test target is allowed access to package decls by default
                     type: .library,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) } + [.target(discoveryTarget, conditions: [])],
+                    packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources
                 )
                 let entryPointResolvedTarget = ResolvedTarget(
@@ -344,8 +344,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         // Allow using the explicitly-specified test entry point target, but still perform test discovery and thus declare a dependency on the discovery targets.
                         let entryPointTarget = SwiftTarget(
                             name: entryPointResolvedTarget.underlyingTarget.name,
-                            group: entryPointResolvedTarget.group,
                             dependencies: entryPointResolvedTarget.underlyingTarget.dependencies + [.target(discoveryTargets.target, conditions: [])],
+                            packageAccess: entryPointResolvedTarget.packageAccess,
                             testEntryPointSources: entryPointResolvedTarget.underlyingTarget.sources
                         )
                         let entryPointResolvedTarget = ResolvedTarget(
@@ -1003,18 +1003,18 @@ private extension PackageModel.SwiftTarget {
     /// Initialize a SwiftTarget representing a test entry point.
     convenience init(
         name: String,
-        group: Group,
         type: PackageModel.Target.Kind? = nil,
         dependencies: [PackageModel.Target.Dependency],
+        packageAccess: Bool,
         testEntryPointSources sources: Sources
     ) {
         self.init(
             name: name,
-            group: group,
             type: type ?? .executable,
             path: .root,
             sources: sources,
             dependencies: dependencies,
+            packageAccess: packageAccess,
             swiftVersion: .v5,
             usesUnsafeFlags: false
         )
