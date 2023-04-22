@@ -4070,7 +4070,6 @@ extension Workspace {
                     modifiedTargets.append(
                         try TargetDescription(
                             name: target.name,
-                            group: target.group,
                             dependencies: modifiedDependencies,
                             path: target.path,
                             url: target.url,
@@ -4079,6 +4078,7 @@ extension Workspace {
                             resources: target.resources,
                             publicHeadersPath: target.publicHeadersPath,
                             type: target.type,
+                            packageAccess: target.packageAccess,
                             pkgConfig: target.pkgConfig,
                             providers: target.providers,
                             pluginCapability: target.pluginCapability,

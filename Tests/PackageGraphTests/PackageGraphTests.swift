@@ -261,7 +261,7 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testTargetGroup() throws {
+    func testTargetPackageAccessParam() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/libPkg/Sources/ExampleApp/main.swift",
             "/libPkg/Sources/MainLib/file.swift",
@@ -282,10 +282,10 @@ class PackageGraphTests: XCTestCase {
                         ProductDescription(name: "Lib", type: .library(.automatic), targets: ["MainLib"])
                     ],
                     targets: [
-                        TargetDescription(name: "ExampleApp", group: .excluded, dependencies: ["MainLib"], type: .executable),
-                        TargetDescription(name: "MainLib", group: .package, dependencies: ["Core"]),
+                        TargetDescription(name: "ExampleApp", dependencies: ["MainLib"], type: .executable, packageAccess: false),
+                        TargetDescription(name: "MainLib", dependencies: ["Core"], packageAccess: true),
                         TargetDescription(name: "Core"),
-                        TargetDescription(name: "MainLibTests", group: .package, dependencies: ["MainLib"], type: .test),
+                        TargetDescription(name: "MainLibTests", dependencies: ["MainLib"], type: .test, packageAccess: true),
                     ]),
             ],
             observabilityScope: observability.topScope
