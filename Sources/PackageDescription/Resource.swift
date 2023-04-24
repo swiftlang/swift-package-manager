@@ -38,7 +38,7 @@ public struct Resource {
     /// Defines the explicit type of localization for resources.
     public enum Localization: String {
 
-        /// A constant that represents default internationalization.
+        /// A constant that represents default localization.
         case `default`
 
         /// A constant that represents base internationalization.

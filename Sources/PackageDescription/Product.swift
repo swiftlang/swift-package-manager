@@ -105,9 +105,9 @@ public class Product {
         }
     }
 
-    /// The plugin product of a Swift package.
+    /// The plug-in product of a Swift package.
     public final class Plugin: Product {
-        /// The name of the plugin target to vend as a product.
+        /// The name of the plug-in target to vend as a product.
         public let targets: [String]
 
         init(name: String, targets: [String]) {

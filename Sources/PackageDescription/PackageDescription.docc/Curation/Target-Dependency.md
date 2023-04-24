@@ -18,7 +18,7 @@
 - ``init(extendedGraphemeClusterLiteral:)``
 - ``init(unicodeScalarLiteral:)``
 
-### Identifying Related Types
+### Identifying related types
 
 - ``ExtendedGraphemeClusterLiteralType``
 - ``StringLiteralType``
