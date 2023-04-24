@@ -58,6 +58,7 @@ public struct MockTarget {
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .regular,
+                packageAccess: packageAccess,
                 settings: self.settings
             )
         case .test:
@@ -69,6 +70,7 @@ public struct MockTarget {
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .test,
+                packageAccess: packageAccess,
                 settings: self.settings
             )
         case .binary:
@@ -81,6 +83,7 @@ public struct MockTarget {
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .binary,
+                packageAccess: packageAccess,
                 settings: [],
                 checksum: self.checksum
             )

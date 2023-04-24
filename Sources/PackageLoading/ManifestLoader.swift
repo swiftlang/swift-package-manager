@@ -264,6 +264,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         name: parsedManifest.name,
                         path: "",
                         type: .system,
+                        packageAccess: false,
                         pkgConfig: parsedManifest.pkgConfig,
                         providers: parsedManifest.providers
                     ))
