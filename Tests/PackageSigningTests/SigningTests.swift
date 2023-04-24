@@ -648,6 +648,69 @@ final class SigningTests: XCTestCase {
         }
     }
 
+    func testCMSEndToEndWithECKeyADPCertificate() async throws {
+        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        let keyAndCertChain = try tsc_await { ecADPKeyAndCertChain(callback: $0) }
+        let signingIdentity = SwiftSigningIdentity(
+            certificate: try Certificate(keyAndCertChain.leafCertificate),
+            privateKey: try Certificate
+                .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
+        )
+        let content = Array("per aspera ad astra".utf8)
+
+        let cmsProvider = CMSSignatureProvider(signatureAlgorithm: .ecdsaP256)
+        let signature = try cmsProvider.sign(
+            content: content,
+            identity: signingIdentity,
+            intermediateCertificates: keyAndCertChain.intermediateCertificates,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let verifierConfiguration = VerifierConfiguration(
+            trustedRoots: [keyAndCertChain.rootCertificate],
+            includeDefaultTrustStore: true,
+            certificateExpiration: .enabled(validationTime: nil),
+            certificateRevocation: .strict(validationTime: nil)
+        )
+
+        let status = try await cmsProvider.status(
+            signature: signature,
+            content: content,
+            verifierConfiguration: verifierConfiguration,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        guard case .valid = status else {
+            return XCTFail("Expected signature status to be .valid but got \(status)")
+        }
+
+        func ecADPKeyAndCertChain(callback: (Result<KeyAndCertChain, Error>) -> Void) {
+            do {
+                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                    let privateKey = try readFileContents(
+                        in: fixturePath,
+                        pathComponents: "Certificates", "swift_package_key.p8"
+                    )
+                    let certificate = try readFileContents(
+                        in: fixturePath,
+                        pathComponents: "Certificates", "swift_package.cer"
+                    )
+
+                    callback(.success(KeyAndCertChain(
+                        privateKey: privateKey,
+                        certificateChain: [certificate]
+                    )))
+                }
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
     #if os(macOS)
     func testCMS1_0_0EndToEndWithADPSigningIdentityFromKeychain() async throws {
         #if ENABLE_REAL_SIGNING_IDENTITY_TEST
