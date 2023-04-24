@@ -30,7 +30,20 @@ extension CheckoutState: CustomStringConvertible {
         case .version(let version, _):
             return version.description
         case .branch(let branch, let revision):
-            return "\(branch)#\(revision.identifier)"
+            return "\(branch) (\(revision.identifier.prefix(7)))"
+        }
+    }
+}
+
+extension CheckoutState: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        switch self {
+        case .revision(let revision):
+            return revision.identifier
+        case .version(let version, let revision):
+            return "\(version.description) (\(revision.identifier))"
+        case .branch(let branch, let revision):
+            return "\(branch) (\(revision.identifier))"
         }
     }
 }
