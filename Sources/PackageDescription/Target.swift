@@ -1462,7 +1462,7 @@ public extension PluginCommandIntent {
         return documentationGeneration
     }
 
-    /// The plug-in format's source code.
+    /// The plug-in formats source code.
     ///
     /// The intent of the command is to modify the source code in the package based
     /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
