@@ -29,8 +29,8 @@ extension CheckoutState: CustomStringConvertible {
             return revision.identifier
         case .version(let version, _):
             return version.description
-        case .branch(let branch, _):
-            return branch
+        case .branch(let branch, let revision):
+            return "\(branch)#\(revision.identifier)"
         }
     }
 }
