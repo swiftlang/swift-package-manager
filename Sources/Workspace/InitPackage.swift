@@ -342,8 +342,7 @@ public final class InitPackage {
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
-        let version = packageType == .macro ? ToolsVersion.vNext
-            : InitPackage.newPackageToolsVersion.zeroedPatch
+        let version = InitPackage.newPackageToolsVersion.zeroedPatch
 
         // Write the current tools version.
         try ToolsVersionSpecificationWriter.rewriteSpecification(
