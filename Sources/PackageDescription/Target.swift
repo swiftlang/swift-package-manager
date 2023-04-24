@@ -1198,7 +1198,7 @@ public final class Target {
     ///   - path: The path of the plug-in target relative to the package root.
     ///   - exclude: The paths to source and resource files that you want to exclude from the plug-in target.
     ///   - sources: The source files in the plug-in target.
-    ///   - packageAccess: Allows access to package symbols from other targets in the package
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 999.0)
     public static func plugin(
@@ -1534,3 +1534,4 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
+
