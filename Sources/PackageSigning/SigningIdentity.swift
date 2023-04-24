@@ -52,15 +52,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         do {
             switch privateKeyType {
             case .p256:
-                #if canImport(Security)
-                if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
-                    self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
-                } else {
-                    throw StringError("Unsupported platform")
-                }
-                #else
                 self.privateKey = try Certificate.PrivateKey(P256.Signing.PrivateKey(derRepresentation: privateKey))
-                #endif
             }
         } catch let error as StringError {
             throw error
@@ -104,7 +96,7 @@ public struct SigningIdentityStore {
         return certificates.compactMap { secCertificate in
             var identity: SecIdentity?
             let status = SecIdentityCreateWithCertificate(nil, secCertificate, &identity)
-            guard status == errSecSuccess, let identity = identity else {
+            guard status == errSecSuccess, let identity else {
                 self.observabilityScope
                     .emit(
                         warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]: status \(status)"
