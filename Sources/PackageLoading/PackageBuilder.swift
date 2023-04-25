@@ -1666,7 +1666,8 @@ extension PackageBuilder {
                             },
                         path: sourceFile.parentDirectory.pathString,
                         sources: [sourceFile.pathString],
-                        type: .executable
+                        type: .executable,
+                        packageAccess: false
                     )
                     buildSettings = try self.buildSettings(
                         for: targetDescription,

@@ -242,7 +242,7 @@ public final class Target {
         resources: [Resource]? = nil,
         publicHeadersPath: String?,
         type: TargetType,
-        packageAccess: Bool = false,
+        packageAccess: Bool,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -376,7 +376,8 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: publicHeadersPath,
-            type: .regular
+            type: .regular,
+            packageAccess: false
         )
     }
 
@@ -423,6 +424,7 @@ public final class Target {
             sources: sources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -476,6 +478,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -531,6 +534,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .regular,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -646,6 +650,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -702,6 +707,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: publicHeadersPath,
             type: .executable,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -801,7 +807,8 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             publicHeadersPath: nil,
-            type: .test
+            type: .test,
+            packageAccess: false
         )
     }
 
@@ -845,6 +852,7 @@ public final class Target {
             sources: sources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -895,6 +903,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -947,6 +956,7 @@ public final class Target {
             resources: resources,
             publicHeadersPath: nil,
             type: .test,
+            packageAccess: false,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -1042,6 +1052,7 @@ public final class Target {
             sources: nil,
             publicHeadersPath: nil,
             type: .system,
+            packageAccess: false,
             pkgConfig: pkgConfig,
             providers: providers)
     }
@@ -1071,6 +1082,7 @@ public final class Target {
             sources: nil,
             publicHeadersPath: nil,
             type: .binary,
+            packageAccess: false,
             checksum: checksum)
     }
 
@@ -1095,7 +1107,8 @@ public final class Target {
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
-            type: .binary)
+            type: .binary,
+            packageAccess: false)
     }
     
     /// Defines a new package plugin target.
@@ -1157,6 +1170,7 @@ public final class Target {
             sources: sources,
             publicHeadersPath: nil,
             type: .plugin,
+            packageAccess: false,
             pluginCapability: capability)
     }
 

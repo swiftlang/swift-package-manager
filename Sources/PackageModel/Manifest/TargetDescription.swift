@@ -170,7 +170,7 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         resources: [Resource] = [],
         publicHeadersPath: String? = nil,
         type: TargetType = .regular,
-        packageAccess: Bool = false,
+        packageAccess: Bool = true,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
