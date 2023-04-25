@@ -3329,6 +3329,7 @@ extension Workspace {
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
         delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, duration: duration)
+        observabilityScope.emit(debug: "`\(repository.location.description)` checked out at \(checkoutState.debugDescription)")
 
         return checkoutPath
     }
