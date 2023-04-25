@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,27 +16,25 @@ import PackageModel
 import SPMTestSupport
 import XCTest
 
-class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
+class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .vNext
+        .v5_9
     }
 
-    func testImplicitFoundationImportFails() throws {
+    func testMacroTargets() throws {
         let content = """
+            import CompilerPluginSupport
             import PackageDescription
 
-            _ = FileManager.default
-
-            let package = Package(name: "MyPackage")
+            let package = Package(name: "MyPackage",
+                targets: [
+                    .macro(name: "MyMacro", swiftSettings: [.define("BEST")], linkerSettings: [.linkedLibrary("best")]),
+                ]
+            )
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") {
-            if case ManifestParseError.invalidManifestFormat(let error, _, _) = $0 {
-                XCTAssertMatch(error, .contains("cannot find 'FileManager' in scope"))
-            } else {
-                XCTFail("unexpected error: \($0)")
-            }
-        }
+        let (_, diagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
     }
 }
