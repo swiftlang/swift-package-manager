@@ -13,7 +13,7 @@
 @_spi(PackageDescriptionInternal) import PackageDescription
 
 public extension Target {
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.9)
     static func macro(
         name: String,
         group: TargetGroup = .package,
