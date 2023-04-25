@@ -162,12 +162,23 @@ public struct Triple: Encodable, Equatable, Sendable {
         return nil
     }
 
+    public func isApple() -> Bool {
+        vendor == .apple
+    }
+
     public func isAndroid() -> Bool {
         os == .linux && abi == .android
     }
 
     public func isDarwin() -> Bool {
-        vendor == .apple || os == .macOS || os == .darwin
+        switch (vendor, os) {
+        case (.apple, .noneOS):
+            return false
+        case (.apple, _), (_, .macOS), (_, .darwin):
+            return true
+        default:
+            return false
+        }
     }
 
     public func isLinux() -> Bool {

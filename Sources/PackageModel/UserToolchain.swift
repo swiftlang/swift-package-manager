@@ -135,9 +135,9 @@ public final class UserToolchain: Toolchain {
     ) throws
         -> AbsolutePath
     {
-        let variable: String = triple.isDarwin() ? "LIBTOOL" : "AR"
+        let variable: String = triple.isApple() ? "LIBTOOL" : "AR"
         let tool: String = {
-            if triple.isDarwin() { return "libtool" }
+            if triple.isApple() { return "libtool" }
             if triple.isWindows() {
                 if let librarian: AbsolutePath =
                     UserToolchain.lookup(
