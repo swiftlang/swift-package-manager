@@ -84,7 +84,6 @@ extension ArtifactsArchiveMetadata {
                     "invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)"
                 )
             }
-
         } catch {
             throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
         }
