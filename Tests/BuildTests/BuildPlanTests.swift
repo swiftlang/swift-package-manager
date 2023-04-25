@@ -537,6 +537,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testPackageNameFlag() throws {
+        try XCTSkipIf(!SwiftVersion.current.isDevelopment, "test needs tools-version 999.0")
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/PackageNameFlag") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("appPkg"), extraArgs: ["-v"])
@@ -559,6 +560,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testTargetGroupToPackageNameFlag() throws {
+        try XCTSkipIf(!SwiftVersion.current.isDevelopment, "test needs tools-version 999.0")
         let isFlagSupportedInDriver = try driverSupport.checkToolchainDriverFlags(flags: ["package-name"], toolchain: UserToolchain.default, fileSystem: localFileSystem)
         try fixture(name: "Miscellaneous/TargetGrouping") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending("libPkg"), extraArgs: ["-v"])
