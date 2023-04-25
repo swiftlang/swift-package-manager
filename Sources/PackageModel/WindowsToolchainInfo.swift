@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 import TSCBasic
 
@@ -53,9 +54,9 @@ extension WindowsSDKSettings: Decodable {
 }
 
 extension WindowsSDKSettings {
-    public init?(reading path: AbsolutePath, diagnostics: DiagnosticsEngine?, filesystem: FileSystem) {
+    public init?(reading path: AbsolutePath, observabilityScope: ObservabilityScope?, filesystem: FileSystem) {
         guard filesystem.exists(path) else {
-            diagnostics?.emit(error: "missing SDKSettings.plist at '\(path)'")
+            observabilityScope?.emit(error: "missing SDKSettings.plist at '\(path)'")
             return nil
         }
 
@@ -63,7 +64,10 @@ extension WindowsSDKSettings {
             let data: Data = try filesystem.readFileContents(path)
             self = try PropertyListDecoder().decode(WindowsSDKSettings.self, from: data)
         } catch {
-            diagnostics?.emit(error: "failed to load SDKSettings.plist at '\(path)': \(error)")
+            observabilityScope?.emit(
+                error: "failed to load SDKSettings.plist at '\(path)'",
+                underlyingError: error
+            )
             return nil
         }
     }
@@ -97,9 +101,9 @@ extension WindowsPlatformInfo: Decodable {
 }
 
 extension WindowsPlatformInfo {
-    public init?(reading path: AbsolutePath, diagnostics: DiagnosticsEngine?, filesystem: FileSystem) {
+    public init?(reading path: AbsolutePath, observabilityScope: ObservabilityScope?, filesystem: FileSystem) {
         guard filesystem.exists(path) else {
-            diagnostics?.emit(error: "missing Info.plist at '\(path)'")
+            observabilityScope?.emit(error: "missing Info.plist at '\(path)'")
             return nil
         }
 
@@ -107,7 +111,10 @@ extension WindowsPlatformInfo {
             let data: Data = try filesystem.readFileContents(path)
             self = try PropertyListDecoder().decode(WindowsPlatformInfo.self, from: data)
         } catch {
-            diagnostics?.emit(error: "failed to load Info.plist at '\(path)': \(error)")
+            observabilityScope?.emit(
+                error: "failed to load Info.plist at '\(path)'",
+                underlyingError: error
+            )
             return nil
         }
     }

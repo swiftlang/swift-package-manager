@@ -209,7 +209,7 @@ public struct Triple: Encodable, Equatable, Sendable {
             #if os(macOS)
             return .macOS
             #else
-            throw InternalError("Failed to get target info (\(error))")
+            throw InternalError("Failed to get target info (\(error.interpolationDescription))")
             #endif
         }
         // Parse the compiler's JSON output.
@@ -217,20 +217,26 @@ public struct Triple: Encodable, Equatable, Sendable {
         do {
             parsedTargetInfo = try JSON(string: compilerOutput)
         } catch {
-            throw InternalError("Failed to parse target info (\(error)).\nRaw compiler output: \(compilerOutput)")
+            throw InternalError(
+                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+            )
         }
         // Get the triple string from the parsed JSON.
         let tripleString: String
         do {
             tripleString = try parsedTargetInfo.get("target").get("triple")
         } catch {
-            throw InternalError("Target info does not contain a triple string (\(error)).\nTarget info: \(parsedTargetInfo)")
+            throw InternalError(
+                "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(parsedTargetInfo)"
+            )
         }
         // Parse the triple string.
         do {
             return try Triple(tripleString)
         } catch {
-            throw InternalError("Failed to parse triple string (\(error)).\nTriple string: \(tripleString)")
+            throw InternalError(
+                "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
+            )
         }
     }
 

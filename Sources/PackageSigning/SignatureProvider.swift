@@ -228,7 +228,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                     certificate: try Certificate(secIdentity: secIdentity)
                 )
             } catch {
-                throw SigningError.signingFailed("\(error)")
+                throw SigningError.signingFailed("\(error.interpolationDescription)")
             }
         }
         #endif
@@ -250,7 +250,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         } catch let error as CertificateError where error.code == .unsupportedSignatureAlgorithm {
             throw SigningError.keyDoesNotSupportSignatureAlgorithm
         } catch {
-            throw SigningError.signingFailed("\(error)")
+            throw SigningError.signingFailed("\(error.interpolationDescription)")
         }
     }
 
@@ -302,10 +302,10 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             case .failure(CMS.VerificationError.invalidCMSBlock(let error)):
                 return .invalid(error.reason)
             case .failure(let error):
-                return .invalid("\(error)")
+                return .invalid("\(error.interpolationDescription)")
             }
         } catch {
-            throw SigningError.unableToValidateSignature("\(error)")
+            throw SigningError.unableToValidateSignature("\(error.interpolationDescription)")
         }
     }
 
@@ -364,7 +364,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             } catch let error as SigningError {
                 throw error
             } catch {
-                throw SigningError.invalidSignature("\(error)")
+                throw SigningError.invalidSignature("\(error.interpolationDescription)")
             }
         }
     }
@@ -393,7 +393,7 @@ extension SecKey {
             &error
         ) as Data? else {
             if let error = error?.takeRetainedValue() as Error? {
-                throw SigningError.signingFailed("\(error)")
+                throw SigningError.signingFailed("\(error.interpolationDescription)")
             }
             throw SigningError.signingFailed("Failed to sign with SecKey")
         }

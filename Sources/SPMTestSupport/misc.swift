@@ -144,7 +144,7 @@ public func initGitRepo(
         }
         try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
     } catch {
-        XCTFail("\(error)", file: file, line: line)
+        XCTFail("\(error.interpolationDescription)", file: file, line: line)
     }
 }
 

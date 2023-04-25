@@ -57,7 +57,7 @@ public final class WorkspaceState {
             self.dependencies = Workspace.ManagedDependencies()
             self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
-            initializationWarningHandler("unable to restore workspace state: \(error)")
+            initializationWarningHandler("unable to restore workspace state: \(error.interpolationDescription)")
         }
     }
 

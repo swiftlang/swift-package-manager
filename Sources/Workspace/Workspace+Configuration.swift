@@ -383,7 +383,10 @@ extension Workspace.Configuration {
             do {
                 return try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
             } catch {
-                observabilityScope.emit(warning: "Failed to load netrc file at \(path). Error: \(error)")
+                observabilityScope.emit(
+                    warning: "Failed to load netrc file at \(path)",
+                    underlyingError: error
+                )
                 return .none
             }
         }
@@ -688,7 +691,7 @@ extension Workspace.Configuration {
                 let decoder = JSONDecoder.makeWithDefaults()
                 return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
             } catch {
-                throw StringError("Failed loading registries configuration from '\(self.path)': \(error)")
+                throw StringError("Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)")
             }
         }
 

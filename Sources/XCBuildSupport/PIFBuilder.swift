@@ -712,7 +712,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         ) {
             if let error = result.error {
                 self.observabilityScope.emit(
-                    warning: "\(error)",
+                    warning: "\(error.interpolationDescription)",
                     metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                 )
             } else {

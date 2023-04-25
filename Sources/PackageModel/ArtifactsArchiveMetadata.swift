@@ -85,7 +85,7 @@ extension ArtifactsArchiveMetadata {
                 )
             }
         } catch {
-            throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
+            throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error.interpolationDescription)")
         }
     }
 }

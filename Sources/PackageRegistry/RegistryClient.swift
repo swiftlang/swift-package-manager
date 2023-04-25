@@ -1135,7 +1135,7 @@ public final class RegistryClient: Cancellable {
                                                                         )
                                                                     }.mapError { error in
                                                                         StringError(
-                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)"
+                                                                            "failed extracting '\(downloadPath)' to '\(destinationPath)': \(error.interpolationDescription)"
                                                                         )
                                                                     })
                                                                 }
@@ -1730,7 +1730,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .unsupportedHashAlgorithm(let algorithm):
             return "unsupported hash algorithm '\(algorithm)'"
         case .failedToComputeChecksum(let error):
-            return "failed computing registry source archive checksum: \(error)"
+            return "failed computing registry source archive checksum: \(error.interpolationDescription)"
         case .checksumChanged(let latest, let previous):
             return "the latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
         case .invalidChecksum(let expected, let actual):
