@@ -32,7 +32,7 @@ extension Error {
         switch self {
         // special case because `LocalizedError` conversion will hide the underlying error
         case let _error as DecodingError:
-            return "\(self)"
+            return "\(_error)"
         case let _error as LocalizedError:
             var description = _error.errorDescription ?? _error.localizedDescription
             if let recoverySuggestion = _error.recoverySuggestion {
