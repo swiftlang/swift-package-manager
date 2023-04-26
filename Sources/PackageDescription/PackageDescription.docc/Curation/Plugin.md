@@ -2,6 +2,6 @@
 
 ## Topics
 
-### Describing a Plugin Product
+### Describing a plug-in product
 
 - ``targets``

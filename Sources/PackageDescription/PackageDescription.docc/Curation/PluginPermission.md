@@ -2,7 +2,7 @@
 
 ## Topics
 
-### Create a Permission
+### Create a permission
 
 - ``allowNetworkConnections(scope:reason:)``
 - ``writeToPackageDirectory(reason:)``
