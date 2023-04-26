@@ -17,7 +17,7 @@ extension Package {
     /// A package dependency consists of a Git URL to the source of the package,
     /// and a requirement for the version of the package.
     ///
-    /// Swift Package Manager performs a process called _dependency resolution_ to figure out
+    /// Swift Package Manager performs a process called _dependency resolution_ to determine
     /// the exact version of the package dependencies that an app or other Swift
     /// package can use. The `Package.resolved` file records the results of the
     /// dependency resolution and lives in the top-level directory of a Swift
@@ -25,7 +25,7 @@ extension Package {
     /// for an Apple platform, you can find the `Package.resolved` file inside
     /// your `.xcodeproj` or `.xcworkspace`.
     public class Dependency {
-        /// The kind of dependency.
+        /// The type of dependency.
         @available(_PackageDescription, introduced: 5.6)
         public enum Kind {
             /// A dependency located at the given path.
@@ -482,11 +482,11 @@ extension Package.Dependency {
     /// Adds a package dependency that uses the exact version requirement.
     ///
     /// Specifying exact version requirements are not recommended as
-    /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
+    /// they can cause conflicts in your dependency graph when other packages depend on this package.
     /// As Swift packages follow the semantic versioning convention,
     /// think about specifying a version range instead.
     ///
-    /// The following example instruct the Swift Package Manager to use version `1.2.3`.
+    /// The following example instructs the Swift Package Manager to use version `1.2.3`.
     ///
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
@@ -587,10 +587,10 @@ extension Package.Dependency {
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
-    /// As Swift packages follow the semantic versioning convention,
+    /// Because Swift packages follow the semantic versioning convention,
     /// think about specifying a version range instead.
     ///
-    /// The following example instruct the Swift Package Manager to use version `1.2.3`.
+    /// The following example instructs the Swift Package Manager to use version `1.2.3`.
     ///
     /// ```swift
     /// .package(id: "scope.name", exact: "1.2.3"),

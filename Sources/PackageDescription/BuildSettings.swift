@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The build configuration such as debug or release.
+/// The build configuration, such as debug or release.
 public struct BuildConfiguration {
     /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
@@ -114,7 +114,7 @@ struct BuildSettingData {
     let condition: BuildSettingCondition?
 }
 
-/// A C-language build setting.
+/// A C language build setting.
 public struct CSetting {
     /// The abstract build setting data.
     let data: BuildSettingData
@@ -135,7 +135,7 @@ public struct CSetting {
     ///
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
-    ///   - condition: A condition that restricts the application of the build setting.
+    ///   - condition: A condition that restricts the use of the build setting.
     @available(_PackageDescription, introduced: 5.0)
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
@@ -150,7 +150,7 @@ public struct CSetting {
     /// - Parameters:
     ///   - name: The name of the macro.
     ///   - value: The value of the macro.
-    ///   - condition: A condition that restricts the application of the build
+    ///   - condition: A condition that restricts the use of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
@@ -186,7 +186,7 @@ public struct CSetting {
 
 /// A CXX-language build setting.
 public struct CXXSetting {
-    /// The abstract build setting data.
+    /// The data store for the CXX build setting.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
@@ -205,6 +205,7 @@ public struct CXXSetting {
     ///
     /// - Parameters:
     ///   - path: The path of the directory that contains the headers. The path is
+    ///   relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 5.0)
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
@@ -255,7 +256,7 @@ public struct CXXSetting {
 
 /// A Swift language build setting.
 public struct SwiftSetting {
-    /// The abstract build setting data.
+    /// The data store for the Swift build setting.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {
@@ -313,17 +314,17 @@ public struct SwiftSetting {
     /// Enable an upcoming feature with the given name.
     ///
     /// An upcoming feature is one that is available in Swift as of a
-    /// certain language version, but is not available by default in prior
+    /// certain language version, but isn't available by default in prior
     /// language modes because it has some impact on source compatibility.
     ///
-    /// You can add multiple upcoming features to a given target, and can
-    /// use in a target without affecting its dependencies. Targets will ignore any unknown
+    /// You can add and use multiple upcoming features in a given target
+    /// without affecting its dependencies. Targets will ignore any unknown
     /// upcoming features.
     ///
     /// - Since: First available in PackageDescription 5.8.
     ///
     /// - Parameters:
-    ///   - name: The name of the upcoming feature, e.g., ConciseMagicFile.
+    ///   - name: The name of the upcoming feature; for example, `ConciseMagicFile`.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.8)
@@ -337,17 +338,17 @@ public struct SwiftSetting {
 
     /// Enable an experimental feature with the given name.
     ///
-    /// An experimental feature is one that is in development, but
+    /// An experimental feature is one that's in development, but
     /// is not yet available in Swift as a language feature.
     ///
-    /// You can add multiple experimental features to a given target, and can
-    /// use in a target without affecting its dependencies. Targets will ignore any  unknown
+    /// You can add and use multiple experimental features in a given target
+    /// without affecting its dependencies. Targets will ignore any  unknown
     /// experimental features.
     ///
     /// - Since: First available in PackageDescription 5.8.
     ///
     /// - Parameters:
-    ///   - name: The name of the experimental feature, e.g., VariadicGenerics.
+    ///   - name: The name of the experimental feature; for example, `VariadicGenerics`.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.8)
@@ -366,18 +367,18 @@ public struct SwiftSetting {
 
     /// Enable Swift interoperability with a given language.
     ///
-    /// This is useful for enabling Swift/C++ interoperability for a given
+    /// This is useful for enabling interoperability with Swift and C++ for a given
     /// target.
     ///
     /// Enabling C++ interoperability mode might alter the way some existing
-    /// C/Objective-C APIs are imported.
+    /// C and Objective-C APIs are imported.
     ///
     /// - Since: First available in PackageDescription 5.9.
     ///
     /// - Parameters:
-    ///   - mode: The language mode, either C or Cxx.
-    ///   - version: If Cxx language mode is used, the version of Swift/C++
-    /// interoperability, otherwise `nil`.
+    ///   - mode: The language mode, either C or CXX.
+    ///   - version: When using the CXX language mode, pass the version of Swift and C++
+    /// interoperability; otherwise, `nil`.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
@@ -397,7 +398,7 @@ public struct SwiftSetting {
 
 /// A linker build setting.
 public struct LinkerSetting {
-    /// The abstract build setting data.
+    /// The data store for the Linker setting.
     let data: BuildSettingData
 
     private init(name: String, value: [String], condition: BuildSettingCondition?) {

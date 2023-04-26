@@ -17,6 +17,6 @@
 - ``Product/plugin(name:targets:)``
 - ``Plugin``
 
-### Naming the Product
+### Naming the product
 
 - ``name``
