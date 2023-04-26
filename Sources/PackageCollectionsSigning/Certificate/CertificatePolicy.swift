@@ -558,7 +558,10 @@ extension CertificatePolicy {
                 do {
                     certs.append(try Certificate(derEncoded: Data(contentsOf: fileURL)))
                 } catch {
-                    observabilityScope.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
+                    observabilityScope.emit(
+                        warning: "The certificate \(fileURL) is invalid",
+                        underlyingError: error
+                    )
                 }
             }
         }

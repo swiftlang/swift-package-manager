@@ -326,7 +326,7 @@ public final class UserToolchain: Toolchain {
 
                     if let settings = WindowsSDKSettings(
                         reading: sdkroot.appending("SDKSettings.plist"),
-                        diagnostics: nil,
+                        observabilityScope: nil,
                         filesystem: localFileSystem
                     ) {
                         switch settings.defaults.runtime {
@@ -351,7 +351,7 @@ public final class UserToolchain: Toolchain {
 
                     if let info = WindowsPlatformInfo(
                         reading: platform.appending("Info.plist"),
-                        diagnostics: nil,
+                        observabilityScope: nil,
                         filesystem: localFileSystem
                     ) {
                         let installation: AbsolutePath =
@@ -495,7 +495,7 @@ public final class UserToolchain: Toolchain {
             if let SDKROOT = environment["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                 if let settings = WindowsSDKSettings(
                     reading: root.appending("SDKSettings.plist"),
-                    diagnostics: nil,
+                    observabilityScope: nil,
                     filesystem: localFileSystem
                 ) {
                     switch settings.defaults.runtime {
@@ -660,7 +660,7 @@ public final class UserToolchain: Toolchain {
 
             if let info = WindowsPlatformInfo(
                 reading: platform.appending("Info.plist"),
-                diagnostics: nil,
+                observabilityScope: nil,
                 filesystem: localFileSystem
             ) {
                 let xctest: AbsolutePath =

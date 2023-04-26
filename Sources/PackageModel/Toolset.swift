@@ -75,7 +75,7 @@ extension Toolset {
             decoded = try decoder.decode(path: toolsetPath, fileSystem: fileSystem, as: DecodedToolset.self)
         } catch {
             // Throw a more detailed warning that includes the location of the toolset file we couldn't parse.
-            throw StringError("Couldn't parse toolset configuration at `\(toolsetPath)`: \(error)")
+            throw StringError("Couldn't parse toolset configuration at `\(toolsetPath)`: \(error.interpolationDescription)")
         }
 
         guard decoded.schemaVersion == Version(1, 0, 0) else {

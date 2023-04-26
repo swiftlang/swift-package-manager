@@ -122,7 +122,7 @@ public func pkgConfigArgs(
             )
         } else if let error = result.error {
             observabilityScope.emit(
-                warning: "\(error)",
+                warning: error.interpolationDescription,
                 metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
             )
         }

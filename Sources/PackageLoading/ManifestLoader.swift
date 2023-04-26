@@ -369,7 +369,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             do {
                 try cache?.close()
             } catch {
-                observabilityScope.emit(warning: "failed closing cache: \(error)")
+                observabilityScope.emit(
+                    warning: "failed closing cache",
+                    underlyingError: error
+                )
             }
 
             callbackQueue.async {
@@ -407,7 +410,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return closingCompletion(.success(parsedManifest))
             }
         } catch {
-            observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
+            observabilityScope.emit(
+                warning: "failed loading cached manifest for '\(key.packageIdentity)'",
+                underlyingError: error
+            )
         }
 
         // shells out and compiles the manifest, finally output a JSON
@@ -440,7 +446,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // FIXME: (diagnostics) pass in observability scope when we have one
                         try cache?.put(key: key.sha256Checksum, value: evaluationResult)
                     } catch {
-                        observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+                        observabilityScope.emit(
+                            warning: "failed storing manifest for '\(key.packageIdentity)' in cache",
+                            underlyingError: error
+                        )
                     }
 
                     return closingCompletion(.success(parseManifest))
@@ -864,7 +873,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         } catch {
-            observabilityScope.emit(error: "Error purging manifests cache at '\(manifestCacheDBPath)': \(error))")
+            observabilityScope.emit(
+                error: "Error purging manifests cache at '\(manifestCacheDBPath)'",
+                underlyingError: error
+            )
         }
     }
 }

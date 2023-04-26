@@ -222,7 +222,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
 
@@ -237,7 +237,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
 
@@ -253,7 +253,7 @@ extension PluginTarget {
                             }
                         }
                         catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
                 }

@@ -78,7 +78,10 @@ struct PackageSigningEntityTOFU {
                     }
                 }
             case .failure(let error):
-                observabilityScope.emit(error: "Failed to get signing entity for \(package) from storage: \(error)")
+                observabilityScope.emit(
+                    error: "Failed to get signing entity for \(package) from storage",
+                    underlyingError: error
+                )
                 completion(.failure(error))
             }
         }

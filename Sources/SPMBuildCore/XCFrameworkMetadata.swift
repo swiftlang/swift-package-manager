@@ -58,7 +58,7 @@ extension XCFrameworkMetadata {
             let decoder = PropertyListDecoder()
             return try decoder.decode(XCFrameworkMetadata.self, from: data)
         } catch {
-            throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error)")
+            throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error.interpolationDescription)")
         }
     }
 }

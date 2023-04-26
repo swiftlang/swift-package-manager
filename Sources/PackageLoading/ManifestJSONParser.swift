@@ -63,7 +63,7 @@ enum ManifestJSONParser {
             versionedInput = try decoder.decode(VersionedInput.self, from: jsonString)
         } catch {
             // If we cannot even decode the version, assume that a pre-5.9 PD library is being used which emits an incompatible JSON format.
-            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error)")
+            throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error.interpolationDescription)")
         }
         guard versionedInput.version == 2 else {
             throw ManifestParseError.unsupportedVersion(version: versionedInput.version)

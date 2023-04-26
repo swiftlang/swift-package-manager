@@ -212,7 +212,7 @@ public extension LLBuildKey {
             } else {
                 stringValue = String(describing: data)
             }
-            throw InternalError("LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
+            throw InternalError("LLBuildKey: ###\(error.interpolationDescription)### ----- ###\(stringValue)###")
         }
     }
 

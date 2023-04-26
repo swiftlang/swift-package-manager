@@ -256,7 +256,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         }
         catch {
             // We couldn't compute the hash. We warn about it but proceed with the compilation (a cache miss).
-            observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs (\(error))")
+            observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs", underlyingError: error)
             compilerInputHash = .none
         }
         
@@ -310,7 +310,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
             catch {
                 // We couldn't read the compilation state file even though it existed. We warn about it but proceed with recompiling.
-                observabilityScope.emit(debug: "Couldn't read previous compilation state (\(error))")
+                observabilityScope.emit(debug: "Couldn't read previous compilation state", underlyingError: error)
             }
         }
         
@@ -340,7 +340,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             try fileSystem.removeFileTree(stateFilePath)
         }
         catch {
-            observabilityScope.emit(debug: "Couldn't clean up before invoking compiler (\(error))")
+            observabilityScope.emit(debug: "Couldn't clean up before invoking compiler", underlyingError: error)
         }
         
         // Now invoke the compiler asynchronously.
@@ -366,7 +366,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 }
                 catch {
                     // We couldn't write out the `.state` file. We warn about it but proceed.
-                    observabilityScope.emit(debug: "Couldn't save plugin compilation state (\(error))")
+                    observabilityScope.emit(debug: "Couldn't save plugin compilation state", underlyingError: error)
                 }
 
                 // Construct a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
@@ -490,19 +490,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                                             try outputHandle.writePluginMessage(data)
                                         }
                                         catch {
-                                            print("error while trying to send message to plugin: \(error)")
+                                            print("error while trying to send message to plugin: \(error.interpolationDescription)")
                                         }
                                     }
                                 })
                             }
                             catch {
-                                print("error while trying to handle message from plugin: \(error)")
+                                print("error while trying to handle message from plugin: \(error.interpolationDescription)")
                             }
                         }
                     }
                 }
                 catch {
-                    print("error while trying to read message from plugin: \(error)")
+                    print("error while trying to read message from plugin: \(error.interpolationDescription)")
                 }
             }
         }
@@ -622,11 +622,11 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
         case .pluginUnavailable(let reason):
             return "plugin is unavailable: \(reason)"
         case .compilationPreparationFailed(let error):
-            return "plugin compilation preparation failed: \(error)"
+            return "plugin compilation preparation failed: \(error.interpolationDescription)"
         case .compilationFailed(let result):
             return "plugin compilation failed: \(result)"
         case .invocationFailed(let error, let command):
-            return "plugin invocation failed: \(error) \(makeContextString(command, ""))"
+            return "plugin invocation failed: \(error.interpolationDescription) \(makeContextString(command, ""))"
         case .invocationEndedBySignal(let signal, let command, let output):
             return "plugin process ended by an uncaught signal: \(signal) \(makeContextString(command, output))"
         case .invocationEndedWithNonZeroExitCode(let exitCode, let command, let output):

@@ -136,7 +136,7 @@ struct APIDiff: SwiftCommand {
                         results.append(comparisonResult)
                     }
                 } catch {
-                    swiftTool.observabilityScope.emit(error: "failed to compare API to baseline: \(error)")
+                    swiftTool.observabilityScope.emit(error: "failed to compare API to baseline", underlyingError: error)
                 }
                 semaphore.signal()
             }
