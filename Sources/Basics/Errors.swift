@@ -34,7 +34,7 @@ extension Error {
         case let _error as DecodingError:
             return "\(self)"
         case let _error as LocalizedError:
-            var description = _error.localizedDescription
+            var description = _error.errorDescription ?? _error.localizedDescription
             if let recoverySuggestion = _error.recoverySuggestion {
                 description += ". \(recoverySuggestion)"
             }
