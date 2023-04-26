@@ -221,7 +221,8 @@ struct PackageVersionChecksumTOFU {
             case .failure(let error):
                 observabilityScope
                     .emit(
-                        error: "failed to get registry fingerprint for \(contentType) of \(package) \(version) from storage: \(error)"
+                        error: "failed to get registry fingerprint for \(contentType) of \(package) \(version) from storage",
+                        underlyingError: error
                     )
                 completion(.failure(error))
             }

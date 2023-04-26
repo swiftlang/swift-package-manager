@@ -62,9 +62,8 @@ public struct SwiftSDKBundle {
                 )
             } catch {
                 observabilityScope.emit(
-                    .warning(
-                        "Couldn't parse `info.json` manifest of a destination bundle at \($0): \(error)"
-                    )
+                    warning: "Couldn't parse `info.json` manifest of a destination bundle at \($0)",
+                    underlyingError: error
                 )
                 return nil
             }
@@ -370,9 +369,8 @@ extension ArtifactsArchiveMetadata {
                     variants.append(.init(metadata: variantMetadata, swiftSDKs: destinations))
                 } catch {
                     observabilityScope.emit(
-                        .warning(
-                            "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath): \(error)"
-                        )
+                        warning: "Couldn't parse Swift SDK artifact metadata at \(variantConfigurationPath)",
+                        underlyingError: error
                     )
                 }
             }

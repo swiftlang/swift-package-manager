@@ -121,7 +121,7 @@ public func XCTAssertThrowsCommandExecutionError<T>(
         guard case SwiftPMProductError.executionFailure(let processError, let stdout, let stderr) = error,
               case ProcessResult.Error.nonZeroExit(let processResult) = processError,
               processResult.exitStatus != .terminated(code: 0) else {
-            return XCTFail("Unexpected error type: \(error)", file: file, line: line)
+            return XCTFail("Unexpected error type: \(error.interpolationDescription)", file: file, line: line)
         }
         errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
     }

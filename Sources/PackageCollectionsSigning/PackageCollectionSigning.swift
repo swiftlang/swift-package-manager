@@ -107,7 +107,10 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
             do {
                 return try Certificate(derEncoded: data)
             } catch {
-                observabilityScope.emit(error: "The certificate \($0) is not in valid DER format: \(error)")
+                observabilityScope.emit(
+                    error: "The certificate \($0) is not in valid DER format",
+                    underlyingError: error
+                )
                 return nil
             }
         } }
@@ -257,7 +260,10 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
             certPolicy.validate(certChain: certChain) { result in
                 switch result {
                 case .failure(let error):
-                    observabilityScope.emit(error: "\(certPolicyKey): The certificate chain is invalid: \(error)")
+                    observabilityScope.emit(
+                        error: "\(certPolicyKey): The certificate chain is invalid",
+                        underlyingError: error
+                    )
                     if CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError {
                         callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
                     } else {
@@ -268,7 +274,10 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 }
             }
         } catch {
-            observabilityScope.emit(error: "An error has occurred while validating certificate chain: \(error)")
+            observabilityScope.emit(
+                error: "An error has occurred while validating certificate chain",
+                underlyingError: error
+            )
             callback(.failure(PackageCollectionSigningError.invalidCertChain))
         }
     }

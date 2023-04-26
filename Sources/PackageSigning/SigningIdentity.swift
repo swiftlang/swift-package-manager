@@ -46,7 +46,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         do {
             self.certificate = try Certificate(certificate)
         } catch {
-            throw StringError("Invalid certificate: \(error)")
+            throw StringError("Invalid certificate: \(error.interpolationDescription)")
         }
 
         do {
@@ -65,7 +65,7 @@ public struct SwiftSigningIdentity: SigningIdentity {
         } catch let error as StringError {
             throw error
         } catch {
-            throw StringError("Invalid key: \(error)")
+            throw StringError("Invalid key: \(error.interpolationDescription)")
         }
     }
 }

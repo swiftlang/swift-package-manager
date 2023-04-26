@@ -343,7 +343,10 @@ public class RepositoryManager: Cancellable {
                 } else {
                     cacheUsed = false
                     // Fetch without populating the cache in the case of an error.
-                    observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
+                    observabilityScope.emit(
+                        warning: "skipping cache due to an error",
+                        underlyingError: error
+                    )
                     // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                     try? self.fileSystem.removeFileTree(repositoryPath)
                     try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
@@ -407,7 +410,10 @@ public class RepositoryManager: Cancellable {
         do {
             try self.fileSystem.removeFileTree(self.path)
         } catch {
-            observabilityScope.emit(error: "Error reseting repository manager at '\(self.path)': \(error)")
+            observabilityScope.emit(
+                error: "Error reseting repository manager at '\(self.path)'",
+                underlyingError: error
+            )
         }
     }
 
@@ -437,12 +443,18 @@ public class RepositoryManager: Cancellable {
                     do {
                         try self.fileSystem.removeFileTree(pathToDelete)
                     } catch {
-                        observabilityScope.emit(error: "Error removing cached repository at '\(pathToDelete)': \(error)")
+                        observabilityScope.emit(
+                            error: "Error removing cached repository at '\(pathToDelete)'",
+                            underlyingError: error
+                        )
                     }
                 }
             }
         } catch {
-            observabilityScope.emit(error: "Error purging repository cache at '\(cachePath)': \(error)")
+            observabilityScope.emit(
+                error: "Error purging repository cache at '\(cachePath)'",
+                underlyingError: error
+            )
         }
     }
 }

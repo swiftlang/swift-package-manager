@@ -172,7 +172,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                     return callback(.failure(InternalError("Expected at least one package collection signature validation failure but got none")))
                                 }
 
-                                self.observabilityScope.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                                self.observabilityScope.emit(
+                                    warning: "The signature of package collection [\(source)] is invalid",
+                                    underlyingError: error
+                                )
                                 if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
                                     callback(.failure(PackageCollectionError.cannotVerifySignature))
                                 } else {
