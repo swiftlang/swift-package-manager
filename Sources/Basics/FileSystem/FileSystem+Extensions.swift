@@ -304,7 +304,7 @@ extension FileSystem {
     }
 
     public func writeFileContents(_ path: AbsolutePath, provider: () -> String) throws {
-        return try self.writeFileContents(path, body: { stream in stream <<< provider() })
+        return try self.writeFileContents(path, body: { stream in stream.send(provider()) })
     }
 }
 

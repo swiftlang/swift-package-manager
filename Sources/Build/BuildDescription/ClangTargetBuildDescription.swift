@@ -310,20 +310,22 @@ public final class ClangTargetBuildDescription {
         let bundleBasename = bundlePath.basename
 
         let implFileStream = BufferedOutputByteStream()
-        implFileStream <<< """
-        #import <Foundation/Foundation.h>
+        implFileStream.send(
+            """
+            #import <Foundation/Foundation.h>
 
-        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
-            NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+                NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
 
-            NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
-            if (preferredBundle == nil) {
-              return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+                NSBundle *preferredBundle = [NSBundle bundleWithURL:bundleURL];
+                if (preferredBundle == nil) {
+                  return [NSBundle bundleWithPath:@"\(bundlePath.pathString)"];
+                }
+
+                return preferredBundle;
             }
-
-            return preferredBundle;
-        }
-        """
+            """
+        )
 
         let implFileSubpath = try RelativePath(validating: "resource_bundle_accessor.m")
 
@@ -338,21 +340,23 @@ public final class ClangTargetBuildDescription {
         )
 
         let headerFileStream = BufferedOutputByteStream()
-        headerFileStream <<< """
-        #import <Foundation/Foundation.h>
+        headerFileStream.send(
+            """
+            #import <Foundation/Foundation.h>
 
-        #if __cplusplus
-        extern "C" {
-        #endif
+            #if __cplusplus
+            extern "C" {
+            #endif
 
-        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
 
-        #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+            #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
 
-        #if __cplusplus
-        }
-        #endif
-        """
+            #if __cplusplus
+            }
+            #endif
+            """
+        )
         let headerFile = derivedSources.root.appending("resource_bundle_accessor.h")
         self.resourceAccessorHeaderFile = headerFile
 

@@ -24,19 +24,21 @@ public struct ManifestWriter {
         at path: AbsolutePath
     ) throws {
         let stream = BufferedOutputByteStream()
-        stream <<< """
+        stream.send(
+            """
             client:
               name: basic
             tools: {}
-            targets:\n
+            targets:
+
             """
+        )
 
         for (_, target) in manifest.targets.sorted(by: { $0.key < $1.key }) {
-            stream <<< "  " <<< Format.asJSON(target.name)
-            stream <<< ": " <<< Format.asJSON(target.nodes.map{ $0.name }.sorted()) <<< "\n"
+            stream.send("  \(Format.asJSON(target.name)): \(Format.asJSON(target.nodes.map(\.name).sorted()))\n")
         }
 
-        stream <<< "default: " <<< Format.asJSON(manifest.defaultTarget) <<< "\n"
+        stream.send("default: \(Format.asJSON(manifest.defaultTarget))\n")
 
         // We need to explicitly configure  the directory structure nodes.
         let directoryStructureNodes = Set(manifest.commands
@@ -46,18 +48,23 @@ public struct ManifestWriter {
         )
 
         if !directoryStructureNodes.isEmpty {
-            stream <<< "nodes:\n"
+            stream.send("nodes:")
         }
         let namesToExclude = [".git", ".build"]
         for node in directoryStructureNodes.sorted(by: { $0.name < $1.name }) {
-            stream <<< "  " <<< Format.asJSON(node) <<< ":\n"
-            stream <<< "    is-directory-structure: true\n"
-            stream <<< "    content-exclusion-patterns: " <<< Format.asJSON(namesToExclude) <<< "\n"
+            stream.send(
+                """
+                  \(Format.asJSON(node)):
+                    is-directory-structure: true
+                    content-exclusion-patterns: \(Format.asJSON(namesToExclude))
+
+                """
+            )
         }
 
-        stream <<< "commands:\n"
+        stream.send("commands:\n")
         for (_,  command) in manifest.commands.sorted(by: { $0.key < $1.key }) {
-            stream <<< "  " <<< Format.asJSON(command.name) <<< ":\n"
+            stream.send("  \(Format.asJSON(command.name)):\n")
 
             let tool = command.tool
 
@@ -68,7 +75,7 @@ public struct ManifestWriter {
 
             tool.write(to: manifestToolWriter)
 
-            stream <<< "\n"
+            stream.send("\n")
         }
 
         try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
@@ -85,65 +92,65 @@ public final class ManifestToolStream {
     public subscript(key: String) -> Int {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue))\n")
         }
     }
 
     public subscript(key: String) -> String {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue))\n")
         }
     }
 
     public subscript(key: String) -> ToolProtocol {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< type(of: newValue).name <<< "\n"
+            stream.send("    \(key): \(type(of: newValue).name)\n")
         }
     }
 
     public subscript(key: String) -> AbsolutePath {
          get { fatalError() }
          set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue.pathString) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue.pathString))\n")
          }
      }
 
     public subscript(key: String) -> [AbsolutePath] {
          get { fatalError() }
          set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue.map{$0.pathString}) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue.map(\.pathString)))\n")
          }
      }
 
     public subscript(key: String) -> [Node] {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue))\n")
         }
     }
 
     public subscript(key: String) -> Bool {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue))\n")
         }
     }
 
     public subscript(key: String) -> [String] {
         get { fatalError() }
         set {
-            stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
+            stream.send("    \(key): \(Format.asJSON(newValue))\n")
         }
     }
 
     public subscript(key: String) -> [String: String] {
         get { fatalError() }
         set {
-            stream <<< "    \(key):\n"
+            stream.send("    \(key):\n")
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
-                stream <<< "      " <<< Format.asJSON(key) <<< ": " <<< Format.asJSON(value) <<< "\n"
+                stream.send("      \(Format.asJSON(key)): \(Format.asJSON(value))\n")
             }
         }
     }

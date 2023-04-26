@@ -331,7 +331,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         let stream = BufferedOutputByteStream()
 
         for object in self.objects {
-            stream <<< object.pathString.spm_shellEscaped() <<< "\n"
+            stream.send("\(object.pathString.spm_shellEscaped())\n")
         }
 
         try fs.createDirectory(self.linkFileListPath.parentDirectory, recursive: true)
