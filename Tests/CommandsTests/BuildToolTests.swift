@@ -71,16 +71,18 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testImportOfMissedDepWarning() throws {
+        try XCTSkipIf(true, "tested functionality doesn't work due to 'libSwiftScan dependency scan query failed' (rdar://108512158)")
+
         // Verify the warning flow
         try fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = try resolveSymlinks(path)
             XCTAssertThrowsError(try build(["--explicit-target-dependency-import-check=warn"], packagePath: fullPath)) { error in
-                guard case SwiftPMProductError.executionFailure(_, _, let stderr) = error else {
+                guard case SwiftPMProductError.executionFailure(_, let stdout, let stderr) = error else {
                     XCTFail()
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertTrue(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
 
@@ -93,7 +95,7 @@ final class BuildToolTests: CommandsTestCase {
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertTrue(stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
 
@@ -105,7 +107,7 @@ final class BuildToolTests: CommandsTestCase {
                     XCTFail()
                     return
                 }
-                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."))
+                XCTAssertFalse(stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."), "got stdout: \(stdout), stderr: \(stderr)")
             }
         }
     }
