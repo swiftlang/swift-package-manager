@@ -173,6 +173,7 @@ enum HostToPluginMessage: Codable {
                         case executable
                         case snippet
                         case test
+                        case macro
                     }
 
                     enum BinaryArtifactKind: Codable {
