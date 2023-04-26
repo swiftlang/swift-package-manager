@@ -262,6 +262,8 @@ extension DiagnosticsEmitterProtocol {
         }
     }
 
+    /// If `underlyingError` is not `nil`, its human-readable description is interpolated with `message`,
+    /// otherwise `message` itself is returned.
     private func makeMessage(from message: String, underlyingError: Error?) -> String {
         if let underlyingError {
             return "\(message): \(underlyingError.interpolationDescription)"
