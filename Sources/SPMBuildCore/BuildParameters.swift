@@ -380,7 +380,7 @@ public struct BuildParameters: Encodable {
             return nil
         }
 
-        if triple.isDarwin() {
+        if triple.isApple() {
             return .swiftAST
         }
         return .modulewrap
