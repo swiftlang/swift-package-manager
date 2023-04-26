@@ -253,7 +253,7 @@ public final class InitPackage {
                 pkgParams.append("""
                     dependencies: [
                         // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-10-a"),
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-25-b"),
                     ]
                 """)
             }
@@ -306,22 +306,28 @@ public final class InitPackage {
                 } else if packageType == .macro {
                     param += """
                             // Macro implementation that performs the source transformation of a macro.
-                            .macro(name: "\(pkgname)Macros",
-                                   dependencies: [
-                                       .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                       .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                                   ]
+                            .macro(
+                                name: "\(pkgname)Macros",
+                                dependencies: [
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+                                ]
                             ),
 
                             // Library that exposes a macro as part of its API, which is used in client programs.
                             .target(name: "\(pkgname)", dependencies: ["\(pkgname)Macros"]),
 
-                            // A client of the library, which is able to use the macro in its
-                            // own code.
+                            // A client of the library, which is able to use the macro in its own code.
                             .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
 
                             // A test target used to develop the macro implementation.
-                            .testTarget(name: "\(pkgname)Tests", dependencies: ["\(pkgname)Macros"]),
+                            .testTarget(
+                                name: "\(pkgname)Tests",
+                                dependencies: [
+                                    "\(pkgname)Macros",
+                                    .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                ]
+                            ),
                         ]
                     """
                 } else {
@@ -619,43 +625,37 @@ public final class InitPackage {
     private func writeMacroTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
             stream <<< ##"""
-                import SwiftSyntax
-                import SwiftSyntaxBuilder
                 import SwiftSyntaxMacros
+                import SwiftSyntaxMacrosTestSupport
                 import XCTest
                 import \##(moduleName)Macros
 
                 let testMacros: [String: Macro.Type] = [
-                    "stringify" : StringifyMacro.self,
+                    "stringify": StringifyMacro.self,
                 ]
 
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() {
-                        // XCTest Documentation
-                        // https://developer.apple.com/documentation/xctest
-
-                        // Test input is a source file containing uses of the macro.
-                        let sf: SourceFileSyntax =
-                            #"""
-                            let a = #stringify(x + y)
-                            let b = #stringify("Hello, \(name)")
-                            """#
-
-                        let context = BasicMacroExpansionContext(
-                            sourceFiles: [sf: .init(moduleName: "MyModule", fullFilePath: "test.swift")]
+                        assertMacroExpansion(
+                            """
+                            #stringify(a + b)
+                            """,
+                            expandedSource: """
+                            (a + b, "a + b")
+                            """,
+                            macros: testMacros
                         )
+                    }
 
-                        // Expand the macro to produce a new source file with the
-                        // result of the expansion, and ensure that it has the
-                        // expected source code.
-                        let transformedSF = sf.expand(macros: testMacros, in: context)
-
-                        XCTAssertEqual(
-                            transformedSF.description,
+                    func testMacroWithStringLiteral() {
+                        assertMacroExpansion(
                             #"""
-                            let a = (x + y, "x + y")
-                            let b = ("Hello, \(name)", #""Hello, \(name)""#)
-                            """#
+                            #stringify("Hello, \(name)")
+                            """#,
+                            expandedSource: #"""
+                            ("Hello, \(name)", #""Hello, \(name)""#)
+                            """#,
+                            macros: testMacros
                         )
                     }
                 }
