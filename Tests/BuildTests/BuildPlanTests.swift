@@ -34,10 +34,10 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testDuplicateProductNamesWithNonDefaultLibsThrowError() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-                                        "/thisPkg/Sources/exe/main.swift",
-                                    "/fooPkg/Sources/FooLogging/file.swift",
-                                    "/barPkg/Sources/BarLogging/file.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/thisPkg/Sources/exe/main.swift",
+            "/fooPkg/Sources/FooLogging/file.swift",
+            "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadPackageGraph(
@@ -718,19 +718,27 @@ final class BuildPlanTests: XCTestCase {
             let bSwift = bPath.appending("B.swift")
             let cSwift = cPath.appending("C.swift")
             try localFileSystem.writeFileContents(main) {
-              $0 <<< "baz();"
+                $0.send("baz();")
             }
             try localFileSystem.writeFileContents(aSwift) {
-                $0 <<< "import B;"
-                $0 <<< "import C;"
-                $0 <<< "public func baz() { bar() }"
+                $0.send(
+                    """
+                    import B;\
+                    import C;\
+                    public func baz() { bar() }
+                    """
+                )
             }
             try localFileSystem.writeFileContents(bSwift) {
-                $0 <<< "import C;"
-                $0 <<< "public func bar() { foo() }"
+                $0.send(
+                    """
+                    import C;
+                    public func bar() { foo() }
+                    """
+                )
             }
             try localFileSystem.writeFileContents(cSwift) {
-                $0 <<< "public func foo() {}"
+                $0.send("public func foo() {}")
             }
 
             // Plan package build with explicit module build
