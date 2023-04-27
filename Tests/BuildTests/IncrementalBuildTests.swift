@@ -54,7 +54,7 @@ final class IncrementalBuildTests: XCTestCase {
             // for the granularity of the file system to represent as distinct values).
             let sourceFile = fixturePath.appending(components: "Sources", "Foo.c")
             let sourceStream = BufferedOutputByteStream()
-            sourceStream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
+            sourceStream.send("\(try localFileSystem.readFileContents(sourceFile))\n")
             try localFileSystem.writeFileContents(sourceFile, bytes: sourceStream.bytes)
 
             // Read the first llbuild manifest.
@@ -83,7 +83,7 @@ final class IncrementalBuildTests: XCTestCase {
             // for the granularity of the file system to represent as distinct values).
             let headerFile = fixturePath.appending(components: "Sources", "include", "Foo.h")
             let headerStream = BufferedOutputByteStream()
-            headerStream <<< (try localFileSystem.readFileContents(headerFile)) <<< "\n"
+            headerStream.send("\(try localFileSystem.readFileContents(headerFile))\n")
             try localFileSystem.writeFileContents(headerFile, bytes: headerStream.bytes)
 
             // Now build again.  This should be an incremental build.

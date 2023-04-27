@@ -66,7 +66,7 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                $0 <<< "public let foo = 42"
+                $0.send("public let foo = 42")
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertFalse(error.stdout.isEmpty)
@@ -80,7 +80,7 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                $0 <<< "public let foo = 42"
+                $0.send("public let foo = 42")
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
@@ -94,10 +94,10 @@ final class APIDiffTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
-                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+                $0.send(#"public func baz() -> String { "hello, world!" }"#)
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
@@ -114,14 +114,14 @@ final class APIDiffTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
-                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+                $0.send(#"public func baz() -> String { "hello, world!" }"#)
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             let customAllowlistPath = packageRoot.appending(components: "foo", "allowlist.txt")
             try localFileSystem.writeFileContents(customAllowlistPath) {
-                $0 <<< "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
+                $0.send("API breakage: class Qux has generic signature change from <T> to <T, U>\n")
             }
             XCTAssertThrowsCommandExecutionError(
                 try execute(["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
@@ -142,16 +142,16 @@ final class APIDiffTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
-                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+                $0.send(#"public func baz() -> String { "hello, world!" }"#)
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
-                $0 <<< "public enum Baz {case a, b, c }"
+                $0.send("public enum Baz {case a, b, c }")
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
@@ -175,16 +175,16 @@ final class APIDiffTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
-                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+                $0.send(#"public func baz() -> String { "hello, world!" }"#)
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
-                $0 <<< "public enum Baz {case a, b, c }"
+                $0.send("public enum Baz {case a, b, c }")
             }
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
-                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+                $0.send("public class Qux<T, U> { private let x = 1 }")
             }
             XCTAssertThrowsCommandExecutionError(
                 try execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"], packagePath: packageRoot)
@@ -237,14 +237,16 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("CTargetDep")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
-                $0 <<< """
-                import Foo
+                $0.send(
+                    """
+                    import Foo
 
-                public func bar() -> String {
-                    foo()
-                    return "hello, world!"
-                }
-                """
+                    public func bar() -> String {
+                        foo()
+                        return "hello, world!"
+                    }
+                    """
+                )
             }
             XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
                 XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
@@ -264,7 +266,7 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Bar")
             // Introduce an API-compatible change
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
-                $0 <<< "public func bar() -> Int { 100 }"
+                $0.send("public func bar() -> Int { 100 }")
             }
             let (output, _) = try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)
             XCTAssertMatch(output, .contains("No breaking changes detected in Baz"))
@@ -278,26 +280,28 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
-                $0 <<< "public let foo = \"All new module!\""
+                $0.send(#"public let foo = "All new module!""#)
             }
             try localFileSystem.writeFileContents(packageRoot.appending("Package.swift")) {
-                $0 <<< """
-                // swift-tools-version:4.2
-                import PackageDescription
+                $0.send(
+                    """
+                    // swift-tools-version:4.2
+                    import PackageDescription
 
-                let package = Package(
-                    name: "Bar",
-                    products: [
-                        .library(name: "Baz", targets: ["Baz"]),
-                        .library(name: "Qux", targets: ["Qux", "Foo"]),
-                    ],
-                    targets: [
-                        .target(name: "Baz"),
-                        .target(name: "Qux"),
-                        .target(name: "Foo")
-                    ]
+                    let package = Package(
+                        name: "Bar",
+                        products: [
+                            .library(name: "Baz", targets: ["Baz"]),
+                            .library(name: "Qux", targets: ["Qux", "Foo"]),
+                        ],
+                        targets: [
+                            .target(name: "Baz"),
+                            .target(name: "Qux"),
+                            .target(name: "Foo")
+                        ]
+                    )
+                    """
                 )
-                """
             }
             let (output, _) = try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)
             XCTAssertMatch(output, .contains("No breaking changes detected in Baz"))
@@ -325,7 +329,7 @@ final class APIDiffTests: CommandsTestCase {
                 try repo.checkout(newBranch: "feature")
                 // Overwrite the existing decl.
                 try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                    $0 <<< "public let foo = 42"
+                    $0.send("public let foo = 42")
                 }
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
@@ -341,7 +345,7 @@ final class APIDiffTests: CommandsTestCase {
                 // Update `main` and ensure the baseline is regenerated.
                 try repo.checkout(revision: .init(identifier: "main"))
                 try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                    $0 <<< "public let foo = 42"
+                    $0.send("public let foo = 42")
                 }
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
@@ -359,7 +363,7 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                $0 <<< "public let foo = 42"
+                $0.send("public let foo = 42")
             }
 
             let baselineDir = fixturePath.appending("Baselines")
@@ -382,7 +386,7 @@ final class APIDiffTests: CommandsTestCase {
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(packageRoot.appending("Foo.swift")) {
-                $0 <<< "public let foo = 42"
+                $0.send("public let foo = 42")
             }
 
             let repo = GitRepository(path: packageRoot)
@@ -393,7 +397,7 @@ final class APIDiffTests: CommandsTestCase {
 
             try localFileSystem.createDirectory(fooBaselinePath.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(fooBaselinePath) {
-                $0 <<< "Old Baseline"
+                $0.send("Old Baseline")
             }
 
             XCTAssertThrowsCommandExecutionError(

@@ -177,7 +177,7 @@ extension SwiftPackageTool.Config {
             if let mirror = config.mirrors.mirror(for: original) {
                 print(mirror)
             } else {
-                stderrStream <<< "not found\n"
+                stderrStream.send("not found\n")
                 stderrStream.flush()
                 throw ExitCode.failure
             }

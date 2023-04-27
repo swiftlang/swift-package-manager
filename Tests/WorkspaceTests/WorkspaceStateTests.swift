@@ -23,8 +23,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 4,
                 "object": {
@@ -82,7 +83,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
@@ -97,8 +98,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 4,
                 "object": {
@@ -156,7 +158,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
@@ -171,8 +173,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 5,
                 "object": {
@@ -230,7 +233,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
@@ -245,8 +248,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 5,
                 "object": {
@@ -290,7 +294,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         try state.save()
@@ -310,8 +314,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 5,
                 "object": {
@@ -366,7 +371,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
@@ -382,8 +387,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 5,
                 "object": {
@@ -427,7 +433,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         // empty since we have dups so we warn and fail the loading
@@ -443,8 +449,9 @@ final class WorkspaceStateTests: XCTestCase {
         try fs.createDirectory(buildDir, recursive: true)
 
         let statePath = buildDir.appending("workspace-state.json")
-        try fs.writeFileContents(statePath) {
-            """
+        try fs.writeFileContents(
+            statePath,
+            string: """
             {
                 "version": 5,
                 "object": {
@@ -484,7 +491,7 @@ final class WorkspaceStateTests: XCTestCase {
                 }
             }
             """
-        }
+        )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         // empty since we have dups so we warn and fail the loading

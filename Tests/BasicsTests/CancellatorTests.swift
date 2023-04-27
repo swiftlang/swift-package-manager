@@ -47,15 +47,16 @@ final class CancellatorTests: XCTestCase {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(scriptPath) {
-                """
+            try localFileSystem.writeFileContents(
+                scriptPath,
+                string: """
                 set -e
 
                 echo "process started"
                 sleep 10
                 echo "exit normally"
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let cancellator = Cancellator(observabilityScope: observability.topScope)
@@ -105,8 +106,9 @@ final class CancellatorTests: XCTestCase {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(scriptPath) {
-                """
+            try localFileSystem.writeFileContents(
+                scriptPath,
+                string: """
                 set -e
 
                 trap_handler() {
@@ -122,7 +124,7 @@ final class CancellatorTests: XCTestCase {
                 sleep 10
                 echo "exit normally"
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let cancellator = Cancellator(observabilityScope: observability.topScope)
@@ -171,8 +173,9 @@ final class CancellatorTests: XCTestCase {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(scriptPath) {
-                """
+            try localFileSystem.writeFileContents(
+                scriptPath,
+                string: """
                 set -e
 
                 echo "process started"
@@ -180,7 +183,7 @@ final class CancellatorTests: XCTestCase {
                 sleep 10
                 echo "exit normally"
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let cancellator = Cancellator(observabilityScope: observability.topScope)
@@ -233,8 +236,9 @@ final class CancellatorTests: XCTestCase {
 #if os(macOS)
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(scriptPath) {
-                """
+            try localFileSystem.writeFileContents(
+                scriptPath,
+                string: """
                 set -e
 
                 trap_handler() {
@@ -250,7 +254,7 @@ final class CancellatorTests: XCTestCase {
                 sleep 10
                 echo "exit normally"
                 """
-            }
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let cancellator = Cancellator(observabilityScope: observability.topScope)

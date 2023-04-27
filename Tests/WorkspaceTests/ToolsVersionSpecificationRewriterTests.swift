@@ -27,7 +27,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
     func testNonVersionSpecificManifests() throws {
         // Empty file.
         var stream = BufferedOutputByteStream()
-        stream <<< ""
+        stream.send("")
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
@@ -35,7 +35,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // File with just a new line.
         stream = BufferedOutputByteStream()
-        stream <<< "\n"
+        stream.send("\n")
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
@@ -43,7 +43,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // File with some contents.
         stream = BufferedOutputByteStream()
-        stream <<< "let package = ... \n"
+        stream.send("let package = ... \n")
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
@@ -51,8 +51,11 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // File already having a valid version specifier.
         stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:3.1.2\n"
-        stream <<< "..."
+        stream.send("""
+            // swift-tools-version:3.1.2
+            ...
+            """
+        )
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
@@ -60,8 +63,11 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // Write a version with zero in patch number.
         stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:3.1.2\n"
-        stream <<< "..."
+        stream.send("""
+            // swift-tools-version:3.1.2
+            ...
+            """
+        )
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream, version: ToolsVersion(version: "2.1.0")) { result in
             XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
@@ -69,8 +75,11 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // Contents with invalid tools version specification (ignoring the validity of the version specifier).
         stream = BufferedOutputByteStream()
-        stream <<< "// swift-tool-version:3.1.2\n"
-        stream <<< "..."
+        stream.send("""
+            // swift-tool-version:3.1.2
+            ...
+            """
+        )
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
@@ -78,8 +87,11 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // Contents with invalid version specifier.
         stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:-3.1.2\n"
-        stream <<< "..."
+        stream.send("""
+            // swift-tools-version:3.1.2
+            ...
+            """
+        )
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
@@ -87,8 +99,11 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
 
         // Contents with invalid version specifier and some meta data.
         stream = BufferedOutputByteStream()
-        stream <<< "// swift-tools-version:-3.1.2;hello\n"
-        stream <<< "..."
+        stream.send("""
+            // swift-tools-version:3.1.2
+            ...
+            """
+        )
 
         rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
@@ -99,8 +114,8 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         let toolsVersion = ToolsVersion(version: "4.1.2-alpha.beta+sha.1234")
         
         stream = BufferedOutputByteStream()
-        stream <<< "let package = ... \n"
-        
+        stream.send("let package = ... \n")
+
         rewriteToolsVersionSpecificationToDefaultManifest(
             stream: stream,
             version: toolsVersion

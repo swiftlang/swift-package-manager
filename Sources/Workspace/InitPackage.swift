@@ -133,25 +133,31 @@ public final class InitPackage {
         }
 
         try writePackageFile(manifest) { stream in
-            stream <<< """
+            stream.send(
+                """
                 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
                 import PackageDescription
 
                 """
+            )
 
             if packageType == .macro {
-                stream <<< """
+                stream.send(
+                  """
                   import CompilerPluginSupport
 
                   """
+                )
             }
 
-            stream <<< """
+            stream.send(
+                """
 
                 let package = Package(
 
                 """
+            )
 
             var pkgParams = [String]()
             pkgParams.append("""
@@ -344,7 +350,7 @@ public final class InitPackage {
                 pkgParams.append(param)
             }
 
-            stream <<< pkgParams.joined(separator: ",\n") <<< "\n)\n"
+            stream.send("\(pkgParams.joined(separator: ",\n"))\n)\n")
         }
 
         // Create a tools version with current version but with patch set to zero.
@@ -370,7 +376,8 @@ public final class InitPackage {
         }
 
         try writePackageFile(gitignore) { stream in
-            stream <<< """
+            stream.send(
+                """
                 .DS_Store
                 /.build
                 /Packages
@@ -381,6 +388,7 @@ public final class InitPackage {
                 .netrc
 
                 """
+            )
         }
     }
 
@@ -604,7 +612,8 @@ public final class InitPackage {
 
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
-            stream <<< """
+            stream.send(
+                """
                 import XCTest
                 @testable import \(moduleName)
 
@@ -619,12 +628,15 @@ public final class InitPackage {
                 }
 
                 """
+            )
         }
     }
 
     private func writeMacroTestsFile(_ path: AbsolutePath) throws {
         try writePackageFile(path) { stream in
-            stream <<< ##"""
+            stream.send(##"""
+                import SwiftSyntax
+                import SwiftSyntaxBuilder
                 import SwiftSyntaxMacros
                 import SwiftSyntaxMacrosTestSupport
                 import XCTest
@@ -661,6 +673,7 @@ public final class InitPackage {
                 }
 
                 """##
+            )
         }
     }
 
@@ -668,7 +681,8 @@ public final class InitPackage {
         try makeDirectories(path)
 
         try writePackageFile(path.appending("\(moduleName)Macro.swift")) { stream in
-            stream <<< ##"""
+            stream.send(
+                ##"""
                 import SwiftCompilerPlugin
                 import SwiftSyntax
                 import SwiftSyntaxBuilder
@@ -704,6 +718,7 @@ public final class InitPackage {
                 }
 
                 """##
+            )
         }
     }
 
@@ -711,7 +726,8 @@ public final class InitPackage {
         try makeDirectories(path)
 
         try writePackageFile(path.appending("main.swift")) { stream in
-            stream <<< ##"""
+            stream.send(
+                ##"""
                 import \##(moduleName)
 
                 let a = 17
@@ -722,6 +738,7 @@ public final class InitPackage {
                 print("The value \(result) was produced by the code \"\(code)\"")
 
                 """##
+            )
         }
     }
 

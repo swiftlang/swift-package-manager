@@ -1,9 +1,9 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift open source project.
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors.
-// Licensed under Apache License v2.0 with Runtime Library Exception.
+// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
@@ -198,7 +198,12 @@ extension Serialization.TargetDependency {
         case .targetItem(let name, let condition):
             self = .target(name: name, condition: condition.map { .init($0) })
         case .productItem(let name, let package, let moduleAliases, let condition):
-            self = .product(name: name, package: package, moduleAliases: moduleAliases, condition: condition.map { .init($0) })
+            self = .product(
+                name: name,
+                package: package,
+                moduleAliases: moduleAliases,
+                condition: condition.map { .init($0) }
+            )
         case .byNameItem(let name, let condition):
             self = .byName(name: name, condition: condition.map { .init($0) })
         }
@@ -223,7 +228,10 @@ extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
         case .buildTool: self = .buildTool
-        case .command(let intent, let permissions): self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
+        case .command(let intent, let permissions): self = .command(
+                intent: .init(intent),
+                permissions: permissions.map { .init($0) }
+            )
         }
     }
 }
@@ -241,7 +249,10 @@ extension Serialization.PluginCommandIntent {
 extension Serialization.PluginPermission {
     init(_ permission: PackageDescription.PluginPermission) {
         switch permission {
-        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(scope: .init(scope), reason: reason)
+        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(
+                scope: .init(scope),
+                reason: reason
+            )
         case .writeToPackageDirectory(let reason): self = .writeToPackageDirectory(reason: reason)
         }
     }

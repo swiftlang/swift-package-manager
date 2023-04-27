@@ -34,10 +34,10 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testDuplicateProductNamesWithNonDefaultLibsThrowError() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-                                        "/thisPkg/Sources/exe/main.swift",
-                                    "/fooPkg/Sources/FooLogging/file.swift",
-                                    "/barPkg/Sources/BarLogging/file.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/thisPkg/Sources/exe/main.swift",
+            "/fooPkg/Sources/FooLogging/file.swift",
+            "/barPkg/Sources/BarLogging/file.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
         XCTAssertThrowsError(try loadPackageGraph(
@@ -718,19 +718,27 @@ final class BuildPlanTests: XCTestCase {
             let bSwift = bPath.appending("B.swift")
             let cSwift = cPath.appending("C.swift")
             try localFileSystem.writeFileContents(main) {
-              $0 <<< "baz();"
+                $0.send("baz();")
             }
             try localFileSystem.writeFileContents(aSwift) {
-                $0 <<< "import B;"
-                $0 <<< "import C;"
-                $0 <<< "public func baz() { bar() }"
+                $0.send(
+                    """
+                    import B;\
+                    import C;\
+                    public func baz() { bar() }
+                    """
+                )
             }
             try localFileSystem.writeFileContents(bSwift) {
-                $0 <<< "import C;"
-                $0 <<< "public func bar() { foo() }"
+                $0.send(
+                    """
+                    import C;
+                    public func bar() { foo() }
+                    """
+                )
             }
             try localFileSystem.writeFileContents(cSwift) {
-                $0 <<< "public func foo() {}"
+                $0.send("public func foo() {}")
             }
 
             // Plan package build with explicit module build
@@ -1825,8 +1833,9 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Snippets/AtMainSnippet.swift"
         )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe3/foo.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe3/foo.swift",
+            string: """
             @main
             struct Runner {
               static func main() {
@@ -1834,10 +1843,11 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe4/main.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe4/main.swift",
+            string: """
             @main
             struct Runner {
               static func main() {
@@ -1845,33 +1855,37 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe5/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe5/comments.swift",
+            string: """
             // @main in comment
             print("hello world")
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe6/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe6/comments.swift",
+            string: """
             /* @main in comment */
             print("hello world")
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe7/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe7/comments.swift",
+            string: """
             /*
             @main in comment
             */
             print("hello world")
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe8/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe8/comments.swift",
+            string: """
             /*
             @main
             struct Runner {
@@ -1882,10 +1896,11 @@ final class BuildPlanTests: XCTestCase {
             */
             print("hello world")
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe9/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe9/comments.swift",
+            string: """
             /*@main
             struct Runner {
               static func main() {
@@ -1893,10 +1908,11 @@ final class BuildPlanTests: XCTestCase {
               }
             }*/
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe10/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe10/comments.swift",
+            string: """
             // @main in comment
             @main
             struct Runner {
@@ -1905,10 +1921,11 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe11/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe11/comments.swift",
+            string: """
             /* @main in comment */
             @main
             struct Runner {
@@ -1917,10 +1934,11 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
-        try fs.writeFileContents(AbsolutePath("/Pkg/Sources/exe12/comments.swift")) {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Sources/exe12/comments.swift",
+            string: """
             /*
             @main
             struct Runner {
@@ -1935,10 +1953,11 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
-        try fs.writeFileContents("/Pkg/Snippets/TopLevelCodeSnippet.swift") {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Snippets/TopLevelCodeSnippet.swift",
+            string: """
             struct Foo {
               init() {}
               func foo() {}
@@ -1946,10 +1965,11 @@ final class BuildPlanTests: XCTestCase {
             let foo = Foo()
             foo.foo()
             """
-        }
+        )
 
-        try fs.writeFileContents("/Pkg/Snippets/AtMainSnippet.swift") {
-            """
+        try fs.writeFileContents(
+            "/Pkg/Snippets/AtMainSnippet.swift",
+            string: """
             @main
             struct Runner {
               static func main() {
@@ -1957,7 +1977,7 @@ final class BuildPlanTests: XCTestCase {
               }
             }
             """
-        }
+        )
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(

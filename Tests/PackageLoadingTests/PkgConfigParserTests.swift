@@ -173,19 +173,18 @@ final class PkgConfigParserTests: XCTestCase {
 #endif
             try localFileSystem.createDirectory(fakePkgConfig.parentDirectory)
 
-            let stream = BufferedOutputByteStream()
 #if os(Windows)
-            stream <<< """
+            let script = """
             @echo off
             echo /Volumes/BestDrive/pkgconfig
             """
 #else
-            stream <<< """
+            let script = """
             #!/bin/sh
             echo "/Volumes/BestDrive/pkgconfig"
             """
 #endif
-            try localFileSystem.writeFileContents(fakePkgConfig, bytes: stream.bytes)
+            try localFileSystem.writeFileContents(fakePkgConfig, string: script)
             try localFileSystem.chmod(.executable, path: fakePkgConfig, options: [])
 
 #if os(Windows)

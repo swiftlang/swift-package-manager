@@ -23,19 +23,21 @@ final class MirrorsConfigurationTests: XCTestCase {
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
-        try fs.writeFileContents(configFile) {
-            $0 <<< """
+        try fs.createDirectory(configFile.parentDirectory)
+        try fs.writeFileContents(
+            configFile,
+            string: """
+            {
+              "object": [
                 {
-                  "object": [
-                    {
-                      "mirror": "\(mirrorURL)",
-                      "original": "\(originalURL)"
-                    }
-                  ],
-                  "version": 1
+                  "mirror": "\(mirrorURL)",
+                  "original": "\(originalURL)"
                 }
-                """
-        }
+              ],
+              "version": 1
+            }
+            """
+        )
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()

@@ -348,10 +348,9 @@ public struct PlainTextEncoder {
             let codingPath: [CodingKey]
             
             private mutating func emit(_ key: CodingKey, _ value: String?) {
-                outputStream <<< String(repeating: "    ", count: codingPath.count)
-                outputStream <<< displayName(for: key) <<< ":"
-                if let value { outputStream <<< " " <<< value }
-                outputStream <<< "\n"
+                outputStream.send("\(String(repeating: "    ", count: codingPath.count))\(displayName(for: key)):")
+                if let value { outputStream.send(" \(value)") }
+                outputStream.send("\n")
             }
             mutating func encodeNil(forKey key: Key) throws { emit(key, "nil") }
             mutating func encode(_ value: Bool, forKey key: Key) throws { emit(key, "\(value)") }
@@ -402,9 +401,7 @@ public struct PlainTextEncoder {
             private(set) var count: Int = 0
             
             private mutating func emit(_ value: String) {
-                outputStream <<< String(repeating: "    ", count: codingPath.count)
-                outputStream <<< value
-                outputStream <<< "\n"
+                outputStream.send("\(String(repeating: "    ", count: codingPath.count))\(value)\n")
                 count += 1
             }
             mutating func encodeNil() throws { emit("nil") }
@@ -423,16 +420,26 @@ public struct PlainTextEncoder {
             mutating func encode(_ value: UInt32) throws { emit("\(value)") }
             mutating func encode(_ value: UInt64) throws { emit("\(value)") }
             mutating func encode<T: Encodable>(_ value: T) throws {
-                let textEncoder = _PlainTextEncoder(outputStream: outputStream, formattingOptions: formattingOptions, userInfo: userInfo, codingPath: codingPath)
+                let textEncoder = _PlainTextEncoder(
+                    outputStream: outputStream,
+                    formattingOptions: formattingOptions,
+                    userInfo: userInfo,
+                    codingPath: codingPath
+                )
                 try value.encode(to: textEncoder)
                 count += 1
                 // FIXME: This is a bit arbitrary and should be controllable.  We may also want an option to only emit
                 // newlines between entries, not after each one.
-                if codingPath.count < 2 { outputStream <<< "\n" }
+                if codingPath.count < 2 { outputStream.send("\n") }
             }
             
             mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey> {
-                return KeyedEncodingContainer(PlainTextKeyedEncodingContainer<NestedKey>(outputStream: outputStream, formattingOptions: formattingOptions, userInfo: userInfo, codingPath: codingPath))
+                KeyedEncodingContainer(PlainTextKeyedEncodingContainer<NestedKey>(
+                    outputStream: outputStream,
+                    formattingOptions: formattingOptions,
+                    userInfo: userInfo,
+                    codingPath: codingPath
+                ))
             }
             
             mutating func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {
@@ -452,9 +459,7 @@ public struct PlainTextEncoder {
             let codingPath: [CodingKey]
             
             private mutating func emit(_ value: String) {
-                outputStream <<< String(repeating: "    ", count: codingPath.count)
-                outputStream <<< value
-                outputStream <<< "\n"
+                outputStream.send("\(String(repeating: "    ", count: codingPath.count))\(value)\n")
             }
             mutating func encodeNil() throws { emit("nil") }
             mutating func encode(_ value: Bool) throws { emit("\(value)") }

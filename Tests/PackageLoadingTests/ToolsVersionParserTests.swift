@@ -117,20 +117,32 @@ class ToolsVersionParserTests: XCTestCase {
 
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< "// swift-tools-version:3.1.0\n\n\n\n\n"
-            stream <<< "let package = .."
-            try self.parse(stream.bytes.validDescription!) { toolsVersion in
+            try self.parse(
+                """
+                // swift-tools-version:3.1.0
+
+
+
+                let package = ..
+                """
+            ) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< "// swift-tools-version:3.1.0\n"
-            stream <<< "// swift-tools-version:4.1.0\n\n\n\n"
-            stream <<< "let package = .."
-            try self.parse(stream.bytes.validDescription!) { toolsVersion in
+            try self.parse(
+                """
+                // swift-tools-version:3.1.0
+
+                // swift-tools-version:4.1.0
+
+
+
+
+                let package = ..
+                """
+            ) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
         }

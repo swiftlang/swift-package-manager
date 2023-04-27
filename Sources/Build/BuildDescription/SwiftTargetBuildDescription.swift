@@ -309,10 +309,12 @@ public final class SwiftTargetBuildDescription {
         guard needsResourceEmbedding else { return }
 
         let stream = BufferedOutputByteStream()
-        stream <<< """
-        struct PackageResources {
+        stream.send(
+            """
+            struct PackageResources {
 
-        """
+            """
+        )
 
         try resources.forEach {
             guard $0.rule == .embedInCode else { return }
@@ -320,12 +322,10 @@ public final class SwiftTargetBuildDescription {
             let variableName = $0.path.basename.spm_mangledToC99ExtendedIdentifier()
             let fileContent = try Data(contentsOf: URL(fileURLWithPath: $0.path.pathString)).map { String($0) }.joined(separator: ",")
 
-            stream <<< "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+            stream.send("static let \(variableName): [UInt8] = [\(fileContent)]\n")
         }
 
-        stream <<< """
-        }
-        """
+        stream.send("}")
 
         let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
@@ -355,24 +355,26 @@ public final class SwiftTargetBuildDescription {
         }
 
         let stream = BufferedOutputByteStream()
-        stream <<< """
-        \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
+        stream.send(
+            """
+            \(self.toolsVersion < .vNext ? "import" : "@_implementationOnly import") class Foundation.Bundle
 
-        extension Foundation.Bundle {
-            static let module: Bundle = {
-                let mainPath = \(mainPathSubstitution)
-                let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
+            extension Foundation.Bundle {
+                static let module: Bundle = {
+                    let mainPath = \(mainPathSubstitution)
+                    let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
-                let preferredBundle = Bundle(path: mainPath)
+                    let preferredBundle = Bundle(path: mainPath)
 
-                guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
-                    fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
-                }
+                    guard let bundle = preferredBundle ?? Bundle(path: buildPath) else {
+                        fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
+                    }
 
-                return bundle
-            }()
-        }
-        """
+                    return bundle
+                }()
+            }
+            """
+        )
 
         let subpath = try RelativePath(validating: "resource_bundle_accessor.swift")
 
@@ -671,21 +673,41 @@ public final class SwiftTargetBuildDescription {
         let path = self.tempsPath.appending("output-file-map.json")
         let stream = BufferedOutputByteStream()
 
-        stream <<< "{\n"
-
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
-        stream <<< "  \"\": {\n"
+        stream.send(
+            #"""
+            {
+              "": {
+
+            """#
+        )
         if self.buildParameters.useWholeModuleOptimization {
             let moduleName = self.target.c99name
-            stream <<< "    \"dependencies\": \"" <<< self.tempsPath.appending(component: moduleName + ".d")
-                .nativePathString(escaped: true) <<< "\",\n"
-            // FIXME: Need to record this deps file for processing it later.
-            stream <<< "    \"object\": \"" <<< self.tempsPath.appending(component: moduleName + ".o")
-                .nativePathString(escaped: true) <<< "\",\n"
-        }
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.nativePathString(escaped: true) <<< "\"\n"
+            stream.send(
+                #"""
+                    "dependencies": "\#(
+                    self.tempsPath.appending(component: moduleName + ".d").nativePathString(escaped: true)
+                )",
 
-        stream <<< "  },\n"
+                """#
+            )
+            // FIXME: Need to record this deps file for processing it later.
+            stream.send(
+                #"""
+                    "object": "\#(
+                    self.tempsPath.appending(component: moduleName + ".o").nativePathString(escaped: true)
+                )",
+
+                """#
+            )
+        }
+        stream.send(
+            #"""
+                "swift-dependencies": "\#(masterDepsPath.nativePathString(escaped: true))"
+              },
+
+            """#
+        )
 
         // Write out the entries for each source file.
         let sources = self.target.sources.paths + self.derivedSources.paths + self.pluginDerivedSources.paths
@@ -697,23 +719,39 @@ public final class SwiftTargetBuildDescription {
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
-            stream <<< "  \"" <<< source.nativePathString(escaped: true) <<< "\": {\n"
+            stream.send(
+                #"""
+                  "\#(source.nativePathString(escaped: true))": {
+
+                """#
+            )
 
             if !self.buildParameters.useWholeModuleOptimization {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
-                stream <<< "    \"dependencies\": \"" <<< depsPath.nativePathString(escaped: true) <<< "\",\n"
+                stream.send(
+                    #"""
+                        "dependencies": "\#(depsPath.nativePathString(escaped: true))",
+
+                    """#
+                )
                 // FIXME: Need to record this deps file for processing it later.
             }
 
-            stream <<< "    \"object\": \"" <<< object.nativePathString(escaped: true) <<< "\",\n"
 
             let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.nativePathString(escaped: true) <<< "\",\n"
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.nativePathString(escaped: true) <<< "\"\n"
-            stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
+
+            stream.send(
+                #"""
+                    "object": "\#(object.nativePathString(escaped: true))",
+                    "swiftmodule": "\#(partialModulePath.nativePathString(escaped: true))",
+                    "swift-dependencies": "\#(swiftDepsPath.nativePathString(escaped: true))"
+                  }\#((idx + 1) < sources.count ? "," : "")
+
+                """#
+            )
         }
 
-        stream <<< "}\n"
+        stream.send("}\n")
 
         try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
         try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
@@ -724,19 +762,23 @@ public final class SwiftTargetBuildDescription {
     private func generateModuleMap() throws -> AbsolutePath {
         let path = self.tempsPath.appending(component: moduleMapFilename)
 
-        let stream = BufferedOutputByteStream()
-        stream <<< "module \(self.target.c99name) {\n"
-        stream <<< "    header \"" <<< self.objCompatibilityHeaderPath.pathString <<< "\"\n"
-        stream <<< "    requires objc\n"
-        stream <<< "}\n"
+        let bytes = ByteString(
+            #"""
+            module \#(self.target.c99name) {
+                header "\#(self.objCompatibilityHeaderPath.pathString)"
+                requires objc
+            }
+
+            """#.utf8
+        )
 
         // Return early if the contents are identical.
-        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == stream.bytes {
+        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == bytes {
             return path
         }
 
         try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, bytes: bytes)
 
         return path
     }

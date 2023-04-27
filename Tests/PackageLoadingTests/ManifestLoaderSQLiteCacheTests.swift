@@ -48,8 +48,10 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
     for index in 0 ..< count {
         let manifestPath = rootPath.appending(components: "\(index)", "Package.swift")
 
-        try fileSystem.writeFileContents(manifestPath) { stream in
-            stream <<< """
+        try fileSystem.createDirectory(manifestPath.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(
+            manifestPath,
+            string: """
             import PackageDescription
             let package = Package(
             name: "Trivial-\(index)",
@@ -60,7 +62,7 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
 
             )
             """
-        }
+        )
         let key = try ManifestLoader.CacheKey(packageIdentity: PackageIdentity(path: manifestPath),
                                               manifestPath: manifestPath,
                                               toolsVersion: ToolsVersion.current,
